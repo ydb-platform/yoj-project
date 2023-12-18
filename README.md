@@ -1,16 +1,17 @@
 🦔 YDB ORM for Java (YOJ)
 =========================
 
-YDB ORM for Java (YOJ) is a lightweight ORM for immutable entities.
+**YDB ORM for Java (YOJ)** is a lightweight ORM for immutable entities.
 
-YOJ integrates well with YDB, and we also have an in-memory repository implementation with YDB-like semantics for 
+YOJ integrates well with YDB, and it also has an in-memory repository implementation with YDB-like semantics for 
 lightning-fast persistence tests.
 
+YOJ is licensed under [Apache License, Version 2.0](LICENSE).
 If you wish to contribute to YOJ, see the [Notice to external contributors](CONTRIBUTING.md).
 
 ----
 
-**🦔 YOJ has the following modules:**
+**🦔 YOJ consists of the following modules:**
 - `databind`: Core data-binding logic used to convert between Java objects and database rows (or anything representable
 by a Java `Map`, really).
 - `repository`: Core abstractions and APIs for entities, repositories, transactions etc. Entity API is designed to be
