@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <groupId>tech.ydb.yoj</groupId>
+    <artifactId>yoj-repository-inmemory</artifactId>
+    <packaging>jar</packaging>
+
+    <parent>
+        <groupId>tech.ydb.yoj</groupId>
+        <artifactId>yoj-parent</artifactId>
+        <version>1.0-SNAPSHOT</version>
+        <relativePath>..</relativePath>
+    </parent>
+
+    <name>YOJ - In-Memory Repository</name>
+    <description>
+        YOJ (YDB ORM for Java) In-Memory Repository API implementation, currently using Eclipse Collections.
+        Has YDB-like semantics for data modification, to easily and quickly test your business logic without spinning
+        YDB container or accessing a real YDB installation.
+    </description>
+
+    <dependencies>
+        <dependency>
+            <groupId>tech.ydb.yoj</groupId>
+            <artifactId>yoj-repository</artifactId>
+            <version>1.0-SNAPSHOT</version>
+        </dependency>
+        <dependency>
+            <groupId>tech.ydb.yoj</groupId>
+            <artifactId>yoj-databind</artifactId>
+            <version>1.0-SNAPSHOT</version>
+        </dependency>
+        <dependency>
+            <groupId>tech.ydb.yoj</groupId>
+            <artifactId>yoj-util</artifactId>
+            <version>1.0-SNAPSHOT</version>
+        </dependency>
+
+        <dependency>
+            <groupId>org.eclipse.collections</groupId>
+            <artifactId>eclipse-collections</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>tech.ydb.yoj</groupId>
+            <artifactId>yoj-repository-test</artifactId>
+            <version>1.0-SNAPSHOT</version>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-jar-plugin</artifactId>
+            </plugin>
+        </plugins>
+    </build>
+</project>

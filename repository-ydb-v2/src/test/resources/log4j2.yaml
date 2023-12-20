@@ -1,0 +1,25 @@
+Configuration:
+  appenders:
+    Console:
+      name: stdout
+      PatternLayout:
+        Pattern: "%d %-5level %-6X{tx} [%t] %c{1.}: %msg%n%throwable"
+
+  Loggers:
+    Root:
+      level: debug
+      AppenderRef:
+        ref: stdout
+    Logger:
+    - name: io.grpc
+      level: error
+    - name: com.xebialabs
+      level: error
+    - name: org.glassfish.grizzly
+      level: error
+    - name: io.netty
+      level: error
+    - name: tech.ydb.yoj.repository.db
+      level: debug
+    - name: tech.ydb
+      level: info
