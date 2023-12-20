@@ -214,18 +214,6 @@
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-jar-plugin</artifactId>
                     <version>${maven-jar-plugin.version}</version>
-                    <executions>
-                        <execution>
-                            <id>Jar Tests Package</id>
-                            <phase>package</phase>
-                            <goals>
-                                <goal>test-jar</goal>
-                            </goals>
-                            <configuration>
-                                <skipIfEmpty>true</skipIfEmpty>
-                            </configuration>
-                        </execution>
-                    </executions>
                 </plugin>
                 <plugin>
                     <groupId>org.apache.maven.plugins</groupId>
