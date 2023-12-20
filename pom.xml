@@ -6,7 +6,7 @@
 
     <groupId>tech.ydb.yoj</groupId>
     <artifactId>yoj-parent</artifactId>
-    <version>1.0-SNAPSHOT</version>
+    <version>1.0.0-SNAPSHOT</version>
     <packaging>pom</packaging>
 
     <name>YDB ORM for Java (YOJ)</name>
@@ -16,6 +16,7 @@
     <url>https://github.com/ydb-platform/yoj-project</url>
 
     <modules>
+        <module>bom</module>
         <module>databind</module>
         <module>repository</module>
         <module>repository-test</module>
@@ -333,6 +334,14 @@
 
     <dependencyManagement>
         <dependencies>
+            <dependency>
+                <groupId>tech.ydb.yoj</groupId>
+                <artifactId>yoj-bom</artifactId>
+                <version>${project.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+
             <dependency>
                 <groupId>org.codehaus.mojo</groupId>
                 <artifactId>extra-enforcer-rules</artifactId>
