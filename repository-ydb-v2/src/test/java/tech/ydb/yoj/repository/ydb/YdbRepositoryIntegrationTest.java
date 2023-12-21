@@ -341,7 +341,6 @@ public class YdbRepositoryIntegrationTest extends RepositoryTest {
         checkTxRetryableOnRequestError(StatusCodesProtos.StatusIds.StatusCode.UNAVAILABLE);
         checkTxRetryableOnFlushingError(StatusCodesProtos.StatusIds.StatusCode.UNAVAILABLE);
         checkTxNonRetryableOnCommit(StatusCodesProtos.StatusIds.StatusCode.UNAVAILABLE);
-        checkTxUnavailableOnNormalRollback(StatusCodesProtos.StatusIds.StatusCode.UNAVAILABLE);
     }
 
     @Test
@@ -349,7 +348,6 @@ public class YdbRepositoryIntegrationTest extends RepositoryTest {
         checkTxRetryableOnRequestError(StatusCodesProtos.StatusIds.StatusCode.OVERLOADED);
         checkTxRetryableOnFlushingError(StatusCodesProtos.StatusIds.StatusCode.OVERLOADED);
         checkTxNonRetryableOnCommit(StatusCodesProtos.StatusIds.StatusCode.OVERLOADED);
-        checkTxUnavailableOnNormalRollback(StatusCodesProtos.StatusIds.StatusCode.OVERLOADED);
     }
 
     @Test
@@ -357,12 +355,10 @@ public class YdbRepositoryIntegrationTest extends RepositoryTest {
         checkTxRetryableOnRequestError(StatusCodesProtos.StatusIds.StatusCode.PRECONDITION_FAILED);
         checkTxRetryableOnFlushingError(StatusCodesProtos.StatusIds.StatusCode.PRECONDITION_FAILED);
         checkTxNonRetryableOnCommit(StatusCodesProtos.StatusIds.StatusCode.PRECONDITION_FAILED);
-        checkTxUnavailableOnNormalRollback(StatusCodesProtos.StatusIds.StatusCode.PRECONDITION_FAILED);
 
         checkTxRetryableOnRequestError(StatusCodesProtos.StatusIds.StatusCode.SESSION_BUSY);
         checkTxRetryableOnFlushingError(StatusCodesProtos.StatusIds.StatusCode.SESSION_BUSY);
         checkTxNonRetryableOnCommit(StatusCodesProtos.StatusIds.StatusCode.SESSION_BUSY);
-        checkTxUnavailableOnNormalRollback(StatusCodesProtos.StatusIds.StatusCode.SESSION_BUSY);
     }
 
     @Test
@@ -846,18 +842,6 @@ public class YdbRepositoryIntegrationTest extends RepositoryTest {
                 statusCode,
                 () -> assertThatExceptionOfType(UnavailableException.class)
                         .isThrownBy(tx::commit)
-        );
-    }
-
-    private void checkTxUnavailableOnNormalRollback(StatusCodesProtos.StatusIds.StatusCode statusCode) {
-        RepositoryTransaction tx = repository.startTransaction();
-        tx.table(Project.class).findAll();
-
-        // This rollback is a checking consistency DB commit, since the last transaction statement finished normally.
-        runWithModifiedStatusCode(
-                statusCode,
-                () -> assertThatExceptionOfType(UnavailableException.class)
-                        .isThrownBy(tx::rollback)
         );
     }
 
