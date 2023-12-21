@@ -1,4 +1,4 @@
-package tech.ydb.yoj.repository.db;
+package tech.ydb.yoj.repository.test.inmemory.legacy;
 
 import java.util.function.Supplier;
 

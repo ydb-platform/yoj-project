@@ -6,7 +6,6 @@ import com.google.common.collect.Iterables;
 import lombok.Getter;
 import tech.ydb.yoj.repository.BaseDb;
 import tech.ydb.yoj.repository.db.Entity;
-import tech.ydb.yoj.repository.db.NormalExecutionWatcher;
 import tech.ydb.yoj.repository.db.RepositoryTransaction;
 import tech.ydb.yoj.repository.db.Table;
 import tech.ydb.yoj.repository.db.TxOptions;

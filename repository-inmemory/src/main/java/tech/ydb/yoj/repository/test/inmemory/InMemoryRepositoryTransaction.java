@@ -5,7 +5,6 @@ import com.google.common.collect.Iterables;
 import lombok.Getter;
 import tech.ydb.yoj.repository.BaseDb;
 import tech.ydb.yoj.repository.db.Entity;
-import tech.ydb.yoj.repository.db.NormalExecutionWatcher;
 import tech.ydb.yoj.repository.db.RepositoryTransaction;
 import tech.ydb.yoj.repository.db.Table;
 import tech.ydb.yoj.repository.db.TxOptions;
@@ -25,7 +24,6 @@ public class InMemoryRepositoryTransaction implements BaseDb, RepositoryTransact
 
     private final long txId = txIdGenerator.incrementAndGet();
     private final Stopwatch txStopwatch = Stopwatch.createStarted();
-    private final NormalExecutionWatcher normalExecutionWatcher = new NormalExecutionWatcher();
     private final List<Runnable> pendingWrites = new ArrayList<>();
 
     @Getter
@@ -73,10 +71,6 @@ public class InMemoryRepositoryTransaction implements BaseDb, RepositoryTransact
 
             for (Runnable pendingWrite : pendingWrites) {
                 pendingWrite.run();
-            }
-
-            if (normalExecutionWatcher.hasLastStatementCompletedExceptionally()) {
-                throw new IllegalStateException("Transaction should not be committed if the last statement finished exceptionally");
             }
 
             storage.commit(txId, getVersion(), watcher);
@@ -133,10 +127,8 @@ public class InMemoryRepositoryTransaction implements BaseDb, RepositoryTransact
             consumer.accept(shard);
         });
         if (options.isImmediateWrites()) {
-            normalExecutionWatcher.execute(() -> {
-                query.run();
-                transactionLocal.projectionCache().applyProjectionChanges(this);
-            });
+            query.run();
+            transactionLocal.projectionCache().applyProjectionChanges(this);
         } else {
             pendingWrites.add(query);
         }
@@ -145,10 +137,10 @@ public class InMemoryRepositoryTransaction implements BaseDb, RepositoryTransact
     final <T extends Entity<T>, R> R doInTransaction(
             String action, Class<T> type, Function<ReadOnlyTxDataShard<T>, R> func
     ) {
-        return normalExecutionWatcher.execute(() -> logTransaction(action, () -> {
+        return logTransaction(action, () -> {
             ReadOnlyTxDataShard<T> shard = storage.getReadOnlyTxDataShard(type, txId, getVersion());
             return func.apply(shard);
-        }));
+        });
     }
 
     private void logTransaction(String action, Runnable runnable) {

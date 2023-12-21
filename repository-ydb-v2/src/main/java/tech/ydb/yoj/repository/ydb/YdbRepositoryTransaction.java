@@ -28,7 +28,6 @@ import tech.ydb.table.values.TupleValue;
 import tech.ydb.table.values.Value;
 import tech.ydb.yoj.repository.BaseDb;
 import tech.ydb.yoj.repository.db.Entity;
-import tech.ydb.yoj.repository.db.NormalExecutionWatcher;
 import tech.ydb.yoj.repository.db.RepositoryTransaction;
 import tech.ydb.yoj.repository.db.Table;
 import tech.ydb.yoj.repository.db.TxOptions;
@@ -76,7 +75,6 @@ public class YdbRepositoryTransaction<REPO extends YdbRepository>
     private static final Logger log = LoggerFactory.getLogger(YdbRepositoryTransaction.class);
 
     private final List<YdbRepository.Query<?>> pendingWrites = new ArrayList<>();
-    private final NormalExecutionWatcher exceptionWatcher = new NormalExecutionWatcher();
     private final List<Stream<?>> openedStreams = new ArrayList<>();
 
     @Getter
@@ -113,13 +111,10 @@ public class YdbRepositoryTransaction<REPO extends YdbRepository>
 
     @Override
     public void commit() {
-        if (exceptionWatcher.hasLastStatementCompletedExceptionally()) {
-            log.error("Commit operation is not expected after the last statement threw an exception");
-        }
         try {
             flushPendingWrites();
         } catch (Throwable t) {
-            performRollbackAsCleanup();
+            rollback();
             throw t;
         }
         endTransaction("commit", this::doCommit);
@@ -127,11 +122,16 @@ public class YdbRepositoryTransaction<REPO extends YdbRepository>
 
     @Override
     public void rollback() {
-        if (exceptionWatcher.hasLastStatementCompletedExceptionally() || options.isImmediateWrites()) {
-            performRollbackAsCleanup();
-        } else {
-            endTransaction("commit (for consistency check only)", this::doCommit);
-        }
+        Interrupts.runInCleanupMode(() -> {
+            try {
+                endTransaction("rollback", () -> {
+                    Status status = YdbOperations.safeJoin(session.rollbackTransaction(txId, new RollbackTxSettings()));
+                    validate("rollback", status.getCode(), status.toString());
+                });
+            } catch (Throwable t) {
+                log.info("Failed to rollback the transaction", t);
+            }
+        });
     }
 
     private void doCommit() {
@@ -206,19 +206,15 @@ public class YdbRepositoryTransaction<REPO extends YdbRepository>
     }
 
     private TxControl<?> getTxControl() {
-        switch (options.getIsolationLevel()) {
-            case SERIALIZABLE_READ_WRITE:
+        return switch (options.getIsolationLevel()) {
+            case SERIALIZABLE_READ_WRITE -> {
                 TxControl<?> txControl = (txId != null ? TxControl.id(txId) : TxControl.serializableRw());
-                return txControl.setCommitTx(false);
-            case ONLINE_CONSISTENT_READ_ONLY:
-                return TxControl.onlineRo().setAllowInconsistentReads(false);
-            case ONLINE_INCONSISTENT_READ_ONLY:
-                return TxControl.onlineRo().setAllowInconsistentReads(true);
-            case STALE_CONSISTENT_READ_ONLY:
-                return TxControl.staleRo();
-            default:
-                return null;
-        }
+                yield txControl.setCommitTx(false);
+            }
+            case ONLINE_CONSISTENT_READ_ONLY -> TxControl.onlineRo().setAllowInconsistentReads(false);
+            case ONLINE_INCONSISTENT_READ_ONLY -> TxControl.onlineRo().setAllowInconsistentReads(true);
+            case STALE_CONSISTENT_READ_ONLY -> TxControl.staleRo();
+        };
     }
 
     private String getYql(Statement<?, ?> statement) {
@@ -237,19 +233,6 @@ public class YdbRepositoryTransaction<REPO extends YdbRepository>
                 .forEach(this::execute);
     }
 
-    private void performRollbackAsCleanup() {
-        Interrupts.runInCleanupMode(() -> {
-            try {
-                endTransaction("rollback", () -> {
-                    Status status = YdbOperations.safeJoin(session.rollbackTransaction(txId, new RollbackTxSettings()));
-                    validate("rollback", status.getCode(), status.toString());
-                });
-            } catch (Throwable t) {
-                log.info("Failed to rollback the transaction", t);
-            }
-        });
-    }
-
     @Override
     public <PARAMS, RESULT> List<RESULT> execute(Statement<PARAMS, RESULT> statement, PARAMS params) {
         List<RESULT> result = statement.readFromCache(params, cache);
@@ -260,22 +243,21 @@ public class YdbRepositoryTransaction<REPO extends YdbRepository>
             return result;
         }
 
-        result = exceptionWatcher.execute(() -> {
-            List<RESULT> callResult = doCall(statement.toDebugString(params), () -> {
-                if (options.isScan()) {
-                    if (options.getScanOptions().isUseNewSpliterator()) {
-                        return doExecuteScanQueryList(statement, params);
-                    } else {
-                        return doExecuteScanQueryLegacy(statement, params);
-                    }
+        result = doCall(statement.toDebugString(params), () -> {
+            if (options.isScan()) {
+                if (options.getScanOptions().isUseNewSpliterator()) {
+                    return doExecuteScanQueryList(statement, params);
                 } else {
-                    return doExecuteDataQuery(statement, params);
+                    return doExecuteScanQueryLegacy(statement, params);
                 }
-            });
-            trace(statement, callResult);
-            return callResult;
+            } else {
+                return doExecuteDataQuery(statement, params);
+            }
         });
+
+        trace(statement, result);
         statement.storeToCache(params, result, cache);
+
         return result;
     }
 
@@ -398,10 +380,8 @@ public class YdbRepositoryTransaction<REPO extends YdbRepository>
         }
         YdbRepository.Query<PARAMS> query = new YdbRepository.Query<>(statement, value);
         if (options.isImmediateWrites()) {
-            exceptionWatcher.execute(() -> {
-                execute(query);
-                transactionLocal.projectionCache().applyProjectionChanges(this);
-            });
+            execute(query);
+            transactionLocal.projectionCache().applyProjectionChanges(this);
         } else {
             pendingWrites.add(query);
         }

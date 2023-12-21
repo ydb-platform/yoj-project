@@ -340,7 +340,6 @@ public class YdbRepositoryIntegrationTest extends RepositoryTest {
         checkTxRetryableOnRequestError(StatusCode.UNAVAILABLE);
         checkTxRetryableOnFlushingError(StatusCode.UNAVAILABLE);
         checkTxNonRetryableOnCommit(StatusCode.UNAVAILABLE);
-        checkTxUnavailableOnNormalRollback(StatusCode.UNAVAILABLE);
     }
 
     @Test
@@ -348,7 +347,6 @@ public class YdbRepositoryIntegrationTest extends RepositoryTest {
         checkTxRetryableOnRequestError(StatusCode.OVERLOADED);
         checkTxRetryableOnFlushingError(StatusCode.OVERLOADED);
         checkTxNonRetryableOnCommit(StatusCode.OVERLOADED);
-        checkTxUnavailableOnNormalRollback(StatusCode.OVERLOADED);
     }
 
     @Test
@@ -356,12 +354,10 @@ public class YdbRepositoryIntegrationTest extends RepositoryTest {
         checkTxRetryableOnRequestError(StatusCode.PRECONDITION_FAILED);
         checkTxRetryableOnFlushingError(StatusCode.PRECONDITION_FAILED);
         checkTxNonRetryableOnCommit(StatusCode.PRECONDITION_FAILED);
-        checkTxUnavailableOnNormalRollback(StatusCode.PRECONDITION_FAILED);
 
         checkTxRetryableOnRequestError(StatusCode.SESSION_BUSY);
         checkTxRetryableOnFlushingError(StatusCode.SESSION_BUSY);
         checkTxNonRetryableOnCommit(StatusCode.SESSION_BUSY);
-        checkTxUnavailableOnNormalRollback(StatusCode.SESSION_BUSY);
     }
 
     @Test
@@ -845,18 +841,6 @@ public class YdbRepositoryIntegrationTest extends RepositoryTest {
                 statusCode,
                 () -> assertThatExceptionOfType(UnavailableException.class)
                         .isThrownBy(tx::commit)
-        );
-    }
-
-    private void checkTxUnavailableOnNormalRollback(StatusCode statusCode) {
-        RepositoryTransaction tx = repository.startTransaction();
-        tx.table(Project.class).findAll();
-
-        // This rollback is a checking consistency DB commit, since the last transaction statement finished normally.
-        runWithModifiedStatusCode(
-                statusCode,
-                () -> assertThatExceptionOfType(UnavailableException.class)
-                        .isThrownBy(tx::rollback)
         );
     }
 
