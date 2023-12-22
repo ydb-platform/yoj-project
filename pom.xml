@@ -96,12 +96,14 @@
         <maven-source-plugin.version>3.3.0</maven-source-plugin.version>
         <maven-enforcer-plugin.version>3.3.0</maven-enforcer-plugin.version>
         <maven-javadoc-plugin.version>3.6.3</maven-javadoc-plugin.version>
+        <maven-gpg-plugin.version>3.1.0</maven-gpg-plugin.version>
         <protobuf-maven-plugin.version>0.6.1</protobuf-maven-plugin.version>
         <jacoco.version>0.8.11</jacoco.version>
         <maven-checkstyle-plugin.version>3.3.0</maven-checkstyle-plugin.version>
         <maven-dependency-plugin.version>3.6.1</maven-dependency-plugin.version>
         <versions-maven-plugin.version>2.16.1</versions-maven-plugin.version>
         <extra-enforcer-rules.version>1.7.0</extra-enforcer-rules.version>
+        <nexus-staging-maven-plugin.version>1.6.13</nexus-staging-maven-plugin.version>
 
         <!-- YDB SDK 1.x -->
         <ydb-sdk-v1.version>1.14.14</ydb-sdk-v1.version>
@@ -180,6 +182,48 @@
                     **/*IntegrationSuite.class,
                 </test-classes>
             </properties>
+        </profile>
+        <profile>
+            <id>ossrh-s01</id>
+            <activation>
+                <activeByDefault>false</activeByDefault>
+            </activation>
+
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-gpg-plugin</artifactId>
+                        <version>${maven-gpg-plugin.version}</version>
+                        <executions>
+                            <execution>
+                                <id>sign-artifacts</id>
+                                <phase>verify</phase>
+                                <goals>
+                                    <goal>sign</goal>
+                                </goals>
+                            </execution>
+                        </executions>
+                        <configuration>
+                            <gpgArguments>
+                                <arg>--pinentry-mode</arg>
+                                <arg>loopback</arg>
+                            </gpgArguments>
+                        </configuration>
+                    </plugin>
+                    <plugin>
+                        <groupId>org.sonatype.plugins</groupId>
+                        <artifactId>nexus-staging-maven-plugin</artifactId>
+                        <version>${nexus-staging-maven-plugin.version}</version>
+                        <extensions>true</extensions>
+                        <configuration>
+                            <serverId>ossrh-s01</serverId>
+                            <nexusUrl>https://s01.oss.sonatype.org/</nexusUrl>
+                            <autoReleaseAfterClose>false</autoReleaseAfterClose>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
         </profile>
     </profiles>
 
