@@ -59,6 +59,8 @@ import tech.ydb.yoj.repository.ydb.client.YdbSessionManager;
 import tech.ydb.yoj.repository.ydb.compatibility.YdbSchemaCompatibilityChecker;
 import tech.ydb.yoj.repository.ydb.exception.ResultTruncatedException;
 import tech.ydb.yoj.repository.ydb.exception.YdbRepositoryException;
+import tech.ydb.yoj.repository.ydb.model.EntityChangeTtl;
+import tech.ydb.yoj.repository.ydb.model.EntityDropTtl;
 import tech.ydb.yoj.repository.ydb.model.IndexedEntityChangeIndex;
 import tech.ydb.yoj.repository.ydb.model.IndexedEntityCreateIndex;
 import tech.ydb.yoj.repository.ydb.model.IndexedEntityDropIndex;
@@ -750,6 +752,26 @@ public class YdbRepositoryIntegrationTest extends RepositoryTest {
         var ts = getRealYdbConfig().getTablespace();
         Assertions.assertThat(checker.getShouldExecuteMessages()).containsExactly(
                 String.format("ALTER TABLE `%stable_with_indexes` ADD INDEX `key2_index` GLOBAL ON (`key_id`,`valueId2`);", ts)
+        );
+    }
+
+    @Test
+    public void testCompatibilityDropTtl() {
+        var checker = new YdbSchemaCompatibilityChecker(List.of(EntityDropTtl.class), (YdbRepository) repository);
+        Assertions.assertThatThrownBy(checker::run);
+        var ts = getRealYdbConfig().getTablespace();
+        Assertions.assertThat(checker.getShouldExecuteMessages()).containsExactly(
+                String.format("ALTER TABLE `%sTtlEntity` RESET (TTL);", ts)
+        );
+    }
+
+    @Test
+    public void testCompatibilityChangeOrCreateTtl() {
+        var checker = new YdbSchemaCompatibilityChecker(List.of(EntityChangeTtl.class), (YdbRepository) repository);
+        Assertions.assertThatThrownBy(checker::run);
+        var ts = getRealYdbConfig().getTablespace();
+        Assertions.assertThat(checker.getShouldExecuteMessages()).containsExactly(
+                String.format("ALTER TABLE `%sTtlEntity` SET (TTL = Interval(\"PT2H\") ON createdAt);", ts)
         );
     }
 

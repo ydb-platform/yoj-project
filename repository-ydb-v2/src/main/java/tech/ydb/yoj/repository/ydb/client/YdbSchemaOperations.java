@@ -18,6 +18,7 @@ import tech.ydb.scheme.description.ListDirectoryResult;
 import tech.ydb.table.Session;
 import tech.ydb.table.description.TableDescription;
 import tech.ydb.table.description.TableIndex;
+import tech.ydb.table.description.TableTtl;
 import tech.ydb.table.settings.AlterTableSettings;
 import tech.ydb.table.settings.Changefeed;
 import tech.ydb.table.settings.CreateTableSettings;
@@ -147,8 +148,10 @@ public class YdbSchemaOperations {
     }
 
     public Table describeTable(String name, List<EntitySchema.JavaField> columns, List<EntitySchema.JavaField> primaryKeys,
-                               List<EntitySchema.Index> indexes) {
-        Set<String> primaryKeysNames = primaryKeys.stream().map(Schema.JavaField::getName).collect(toSet());
+                               List<EntitySchema.Index> indexes, EntitySchema.TtlModifier ttlModifier) {
+        Set<String> primaryKeysNames = primaryKeys.stream()
+                .map(Schema.JavaField::getName)
+                .collect(toSet());
         List<Column> ydbColumns = columns.stream()
                 .map(c -> {
                     String columnName = c.getName();
@@ -156,11 +159,13 @@ public class YdbSchemaOperations {
                     boolean isPrimaryKey = primaryKeysNames.contains(columnName);
                     return new Column(columnName, simpleType, isPrimaryKey);
                 })
-                .collect(toList());
+                .toList();
         List<Index> ydbIndexes = indexes.stream()
                 .map(i -> new Index(i.getIndexName(), i.getFieldNames()))
-                .collect(toList());
-        return new Table(tablespace + name, ydbColumns, ydbIndexes);
+                .toList();
+        TtlModifier tableTtl = ttlModifier == null ? null :
+                new TtlModifier(ttlModifier.getFieldName(), ttlModifier.getInterval());
+        return new Table(tablespace + name, ydbColumns, ydbIndexes, tableTtl);
     }
 
     public boolean hasTable(String name) {
@@ -272,11 +277,13 @@ public class YdbSchemaOperations {
                             boolean isPrimaryKey = table.getPrimaryKeys().contains(columnName);
                             return new Column(columnName, simpleType, isPrimaryKey);
                         })
-                        .collect(toList()),
+                        .toList(),
                 table.getIndexes().stream()
                         .filter(i -> i.getType() == TableIndex.Type.GLOBAL)
                         .map(i -> new Index(i.getName(), i.getColumns()))
-                        .collect(toList())
+                        .toList(),
+                table.getTableTtl() == null || table.getTableTtl().getTtlMode() == TableTtl.TtlMode.NOT_SET ? null :
+                        new TtlModifier(table.getTableTtl().getDateTimeColumn(), table.getTableTtl().getExpireAfterSeconds())
         );
     }
 
@@ -353,16 +360,12 @@ public class YdbSchemaOperations {
 
         List<String> errors = new ArrayList<>();
         List<DirectoryEntity> tables = result.getChildren().stream()
-                .filter(entry -> {
-                    switch (entry.getType()) {
-                        case DIRECTORY:
-                        case TABLE:
-                            return true;
-                        case COLUMN_STORE:
-                            return false;
-                        default:
-                            errors.add(String.format("Unexpected entry type (%s:%s) in directory %s", entry.getType(), entry.getName(), directory));
-                            return false;
+                .filter(entry -> switch (entry.getType()) {
+                    case DIRECTORY, TABLE -> true;
+                    case COLUMN_STORE -> false;
+                    default -> {
+                        errors.add(String.format("Unexpected entry type (%s:%s) in directory %s", entry.getType(), entry.getName(), directory));
+                        yield false;
                     }
                 })
                 .map(tEntry -> new DirectoryEntity(tEntry.getType(), tEntry.getName()))
@@ -398,12 +401,14 @@ public class YdbSchemaOperations {
         String name;
         List<Column> columns;
         List<Index> indexes;
+        TtlModifier ttlModifier;
 
-        @java.beans.ConstructorProperties({"name", "columns", "indexes"})
-        private Table(String name, List<Column> columns, List<Index> indexes) {
+        @java.beans.ConstructorProperties({"name", "columns", "indexes", "ttlModifier"})
+        private Table(String name, List<Column> columns, List<Index> indexes, TtlModifier ttlModifier) {
             this.name = name;
             this.columns = columns;
             this.indexes = indexes;
+            this.ttlModifier = ttlModifier;
         }
     }
 
@@ -420,5 +425,12 @@ public class YdbSchemaOperations {
     public static class Index {
         String name;
         List<String> columns;
+    }
+
+    @Value
+    @RequiredArgsConstructor(access = PRIVATE)
+    public static class TtlModifier {
+        String dateTimeColumnName;
+        Integer expireAfterSeconds;
     }
 }
