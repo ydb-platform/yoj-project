@@ -163,8 +163,9 @@ public class YdbSchemaOperations {
         List<Index> ydbIndexes = indexes.stream()
                 .map(i -> new Index(i.getIndexName(), i.getFieldNames()))
                 .toList();
-        TtlModifier tableTtl = ttlModifier == null ? null :
-                new TtlModifier(ttlModifier.getFieldName(), ttlModifier.getInterval());
+        TtlModifier tableTtl = ttlModifier == null
+                ? null
+                : new TtlModifier(ttlModifier.getFieldName(), ttlModifier.getInterval());
         return new Table(tablespace + name, ydbColumns, ydbIndexes, tableTtl);
     }
 
@@ -282,8 +283,9 @@ public class YdbSchemaOperations {
                         .filter(i -> i.getType() == TableIndex.Type.GLOBAL)
                         .map(i -> new Index(i.getName(), i.getColumns()))
                         .toList(),
-                table.getTableTtl() == null || table.getTableTtl().getTtlMode() == TableTtl.TtlMode.NOT_SET ? null :
-                        new TtlModifier(table.getTableTtl().getDateTimeColumn(), table.getTableTtl().getExpireAfterSeconds())
+                table.getTableTtl() == null || table.getTableTtl().getTtlMode() == TableTtl.TtlMode.NOT_SET
+                        ? null
+                        : new TtlModifier(table.getTableTtl().getDateTimeColumn(), table.getTableTtl().getExpireAfterSeconds())
         );
     }
 
