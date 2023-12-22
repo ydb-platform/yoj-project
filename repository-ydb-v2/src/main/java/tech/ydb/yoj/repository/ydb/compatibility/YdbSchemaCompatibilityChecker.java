@@ -19,6 +19,7 @@ import tech.ydb.yoj.repository.ydb.YdbRepository;
 import tech.ydb.yoj.repository.ydb.client.YdbPaths;
 import tech.ydb.yoj.repository.ydb.client.YdbSchemaOperations;
 
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -140,7 +141,7 @@ public final class YdbSchemaCompatibilityChecker {
         EntitySchema<?> schema = EntitySchema.of(c);
         return repository.getSchemaOperations()
                 .describeTable(schema.getName(), schema.flattenFields(), schema.flattenId(),
-                        schema.getGlobalIndexes());
+                        schema.getGlobalIndexes(), schema.getTtlModifier());
     }
 
     private void checkCompatibility(Map<String, YdbSchemaOperations.Table> tablesFromSource,
@@ -187,6 +188,18 @@ public final class YdbSchemaCompatibilityChecker {
                 })
                 .collect(toMap(t -> actualTableMap.get(t.getName()), Function.identity()));
         changedTableIndexes.forEach(this::makeMigrationTableIndexInstructions);
+
+        Map<YdbSchemaOperations.Table, YdbSchemaOperations.Table> changedTableTtlModifiers = tablesFromSource.values()
+                .stream()
+                .filter(table -> actualTableMap.containsKey(table.getName()))
+                .filter(table -> {
+                    YdbSchemaOperations.Table actualTable = actualTableMap.get(table.getName());
+                    YdbSchemaOperations.TtlModifier actualTtlModifier = actualTable.getTtlModifier();
+                    YdbSchemaOperations.TtlModifier reqiredTtlModifier = table.getTtlModifier();
+                    return !Objects.equals(actualTtlModifier, reqiredTtlModifier);
+                })
+                .collect(toMap(t -> actualTableMap.get(t.getName()), Function.identity()));
+        changedTableTtlModifiers.forEach(this::makeMigrationTtlInstructions);
     }
 
     // FIXME: Style: Use Escaper from Guava here
@@ -397,6 +410,22 @@ public final class YdbSchemaCompatibilityChecker {
                 .forEach(shouldExecuteMessages::add);
     }
 
+    private void makeMigrationTtlInstructions(YdbSchemaOperations.Table from, YdbSchemaOperations.Table to) {
+        YdbSchemaOperations.TtlModifier toTtlModifier = to.getTtlModifier();
+
+        if (toTtlModifier == null) {
+            String dropOldTtl = "ALTER TABLE `%s` RESET (TTL);".formatted(from.getName());
+            shouldExecuteMessages.add(dropOldTtl);
+        }
+
+        if (toTtlModifier != null) {
+            String alterAddTtlTemplate = "ALTER TABLE `%s` SET (TTL = Interval(\"%s\") ON %s);";
+            String ttlColumn = toTtlModifier.getDateTimeColumnName();
+            Duration ttlDuration = Duration.ofSeconds(toTtlModifier.getExpireAfterSeconds());
+            shouldExecuteMessages.add(alterAddTtlTemplate.formatted(to.getName(), ttlDuration, ttlColumn));
+        }
+    }
+
     private String columnDiff(YdbSchemaOperations.Column column, YdbSchemaOperations.Column newColumn) {
         if (column.isPrimary() != newColumn.isPrimary()) {
             return "primary_key changed: " + column.isPrimary() + " --> " + newColumn.isPrimary();
@@ -413,8 +442,7 @@ public final class YdbSchemaCompatibilityChecker {
         Preconditions.checkState(globalName.startsWith(tablespace), "valid global name must start with repository tablespace");
         String realName = globalName.substring(tablespace.length());
         return prefixes.stream()
-                .filter(t -> realName.startsWith(t))
-                .count() > 0;
+                .anyMatch(realName::startsWith);
     }
 
     @Value
