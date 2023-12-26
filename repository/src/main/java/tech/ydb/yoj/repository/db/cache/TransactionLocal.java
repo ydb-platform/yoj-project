@@ -11,9 +11,8 @@ import java.util.IdentityHashMap;
 import java.util.Map;
 import java.util.function.Supplier;
 
-@SuppressWarnings({"rawtypes", "unchecked"})
 public class TransactionLocal {
-    private final Map<Supplier, Object> singletons = new IdentityHashMap<>();
+    private final Map<Supplier<?>, Object> singletons = new IdentityHashMap<>();
 
     private final Supplier<FirstLevelCache> firstLevelCacheSupplier;
     private final Supplier<ProjectionCache> projectionCacheSupplier;
@@ -29,6 +28,7 @@ public class TransactionLocal {
         return BaseDb.current(Holder.class).getTransactionLocal();
     }
 
+    @SuppressWarnings("unchecked")
     public <X> X instance(@NonNull Supplier<X> supplier) {
         return (X) singletons.computeIfAbsent(supplier, Supplier::get);
     }
