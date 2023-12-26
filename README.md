@@ -1,5 +1,6 @@
 🦔 YDB ORM for Java (YOJ)
 =========================
+[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://github.com/ydb-platform/yoj-project/blob/main/LICENSE)
 
 **YDB ORM for Java (YOJ)** is a lightweight ORM for immutable entities.
 
