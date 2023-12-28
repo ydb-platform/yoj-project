@@ -104,6 +104,7 @@
         <versions-maven-plugin.version>2.16.1</versions-maven-plugin.version>
         <extra-enforcer-rules.version>1.7.0</extra-enforcer-rules.version>
         <nexus-staging-maven-plugin.version>1.6.13</nexus-staging-maven-plugin.version>
+        <os-maven-plugin.version>1.7.1</os-maven-plugin.version>
 
         <!-- YDB SDK 1.x -->
         <ydb-sdk-v1.version>1.14.14</ydb-sdk-v1.version>
@@ -288,6 +289,54 @@
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-enforcer-plugin</artifactId>
                     <version>${maven-enforcer-plugin.version}</version>
+                    <executions>
+                        <execution>
+                            <id>enforce</id>
+                            <phase>verify</phase>
+                            <goals>
+                                <goal>enforce</goal>
+                            </goals>
+                            <configuration>
+                                <rules>
+                                    <!-- https://maven.apache.org/enforcer/enforcer-rules/index.html -->
+                                    <banDistributionManagement/>
+                                    <banDuplicatePomDependencyVersions/>
+                                    <bannedDependencies/>
+                                    <dependencyConvergence/>
+                                    <requireJavaVersion>
+                                        <version>${java.version}</version>
+                                    </requireJavaVersion>
+                                    <requireReleaseDeps>
+                                        <failWhenParentIsSnapshot>false</failWhenParentIsSnapshot>
+                                        <excludes>
+                                            <exclude>tech.ydb:*</exclude>
+                                            <exclude>tech.ydb.yoj*:*</exclude>
+                                        </excludes>
+                                    </requireReleaseDeps>
+                                    <!-- http://www.mojohaus.org/extra-enforcer-rules/ -->
+                                    <banDuplicateClasses>
+                                        <findAllDuplicates>true</findAllDuplicates>
+                                        <ignoreClasses/>
+                                    </banDuplicateClasses>
+                                    <enforceBytecodeVersion>
+                                        <maxJdkVersion>${java.version}</maxJdkVersion>
+                                        <excludes>
+                                            <exclude>org.projectlombok:lombok</exclude>
+                                        </excludes>
+                                    </enforceBytecodeVersion>
+                                    <banCircularDependencies/>
+                                </rules>
+                                <fail>true</fail>
+                            </configuration>
+                        </execution>
+                    </executions>
+                    <dependencies>
+                        <dependency>
+                            <groupId>org.codehaus.mojo</groupId>
+                            <artifactId>extra-enforcer-rules</artifactId>
+                            <version>${extra-enforcer-rules.version}</version>
+                        </dependency>
+                    </dependencies>
                 </plugin>
                 <plugin>
                     <groupId>org.apache.maven.plugins</groupId>
@@ -390,6 +439,11 @@
                         </goals>
                     </execution>
                 </executions>
+            </plugin>
+            <plugin>
+                <groupId>kr.motd.maven</groupId>
+                <artifactId>os-maven-plugin</artifactId>
+                <version>${os-maven-plugin.version}</version>
             </plugin>
         </plugins>
     </build>
