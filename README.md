@@ -10,9 +10,21 @@ YOJ integrates well with YDB, and it also has an in-memory repository implementa
 lightning-fast persistence tests.
 
 YOJ is licensed under [Apache License, Version 2.0](LICENSE).
-If you wish to contribute to YOJ, see the [Notice to external contributors](CONTRIBUTING.md).
+
+If you wish to contribute to YOJ, see the [Notice to external contributors](CONTRIBUTING.md), and follow the [guidelines](GUIDELINES.md).
 
 ----
+**To use YOJ in your project**, just add YOJ BOM (Bill of Materials) to your Maven `<dependencies>`:
+```xml
+<dependency>
+    <groupId>tech.ydb.yoj</groupId>
+    <artifactId>yoj-bom</artifactId>
+    <version>1.0.0</version>
+    <type>pom</type>
+    <scope>import</scope>
+</dependency>
+```
+Then depend on just the modules you need, specifying only `groupId`=`tech.ydb.yoj` and `artifactId`=`yoj-<module>` (see `<module>` names below).
 
 **🦔 YOJ consists of the following modules:**
 - `databind`: Core data-binding logic used to convert between Java objects and database rows (or anything representable
