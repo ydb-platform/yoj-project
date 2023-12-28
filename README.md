@@ -1,6 +1,8 @@
 🦔 YDB ORM for Java (YOJ)
 =========================
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://github.com/ydb-platform/yoj-project/blob/main/LICENSE)
+[![Maven metadata URL](https://img.shields.io/maven-metadata/v?metadataUrl=https%3A%2F%2Frepo1.maven.org%2Fmaven2%2Ftech%2Fydb%2Fyoj%2Fyoj-parent%2Fmaven-metadata.xml)](https://mvnrepository.com/artifact/tech.ydb.yoj/yoj-parent)
+[![Build](https://img.shields.io/github/actions/workflow/status/ydb-platform/yoj-project/build.yaml?branch=main)](https://github.com/ydb-platform/yoj-project/actions/workflows/build.yaml)
 
 **YDB ORM for Java (YOJ)** is a lightweight ORM for immutable entities.
 
