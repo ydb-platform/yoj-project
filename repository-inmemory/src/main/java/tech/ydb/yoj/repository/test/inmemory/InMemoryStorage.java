@@ -65,22 +65,24 @@ final class InMemoryStorage {
             Class<T> type, long txId, long version
     ) {
         uncommited.computeIfAbsent(txId, __ -> new HashSet<>()).add(type);
-        return getTxDataShard(type, txId, version);
+        return getTxDataShard(type, txId, version, InMemoryTxLockWatcher.NO_LOCKS);
     }
 
     public synchronized <T extends Entity<T>> ReadOnlyTxDataShard<T> getReadOnlyTxDataShard(
-            Class<T> type, long txId, long version
+            Class<T> type, long txId, long version, InMemoryTxLockWatcher watcher
     ) {
-        return getTxDataShard(type, txId, version);
+        return getTxDataShard(type, txId, version, watcher);
     }
 
-    private <T extends Entity<T>> TxDataShardImpl<T> getTxDataShard(Class<T> type, long txId, long version) {
+    private <T extends Entity<T>> TxDataShardImpl<T> getTxDataShard(
+            Class<T> type, long txId, long version, InMemoryTxLockWatcher watcher
+    ) {
         @SuppressWarnings("unchecked")
         InMemoryDataShard<T> shard = (InMemoryDataShard<T>) shards.get(type);
         if (shard == null) {
             throw new InMemoryRepositoryException("Table is not created: " + type.getSimpleName());
         }
-        return new TxDataShardImpl<>(shard, txId, version);
+        return new TxDataShardImpl<>(shard, txId, version, watcher);
     }
 
     public synchronized void dropDb() {

@@ -33,15 +33,12 @@ import tech.ydb.table.TableClient;
 import tech.ydb.yoj.databind.schema.Column;
 import tech.ydb.yoj.databind.schema.ObjectSchema;
 import tech.ydb.yoj.repository.db.EntitySchema;
-import tech.ydb.yoj.repository.db.IsolationLevel;
 import tech.ydb.yoj.repository.db.Repository;
 import tech.ydb.yoj.repository.db.RepositoryTransaction;
 import tech.ydb.yoj.repository.db.Tx;
-import tech.ydb.yoj.repository.db.TxOptions;
 import tech.ydb.yoj.repository.db.bulk.BulkParams;
 import tech.ydb.yoj.repository.db.exception.ConversionException;
 import tech.ydb.yoj.repository.db.exception.DeadlineExceededException;
-import tech.ydb.yoj.repository.db.exception.OptimisticLockException;
 import tech.ydb.yoj.repository.db.exception.RetryableException;
 import tech.ydb.yoj.repository.db.exception.UnavailableException;
 import tech.ydb.yoj.repository.db.list.ListRequest;
@@ -865,32 +862,6 @@ public class YdbRepositoryIntegrationTest extends RepositoryTest {
         repository.schema(HintUniform.class).create();
         repository.schema(HintTablePreset.class).create();
         repository.schema(HintAutoPartitioningByLoad.class).create();
-    }
-
-    @Test
-    public void doNotCommitAfterTLI() {
-        Project.Id id1 = new Project.Id("id1");
-        Project.Id id2 = new Project.Id("id2");
-
-        RepositoryTransaction tx = repository.startTransaction(
-                TxOptions.create(IsolationLevel.SERIALIZABLE_READ_WRITE)
-                        .withImmediateWrites(true)
-                        .withFirstLevelCache(false)
-        );
-
-        tx.table(Project.class).find(id2);
-
-        db.tx(() -> db.projects().save(new Project(id2, "name2")));
-
-        tx.table(Project.class).save(new Project(id1, "name1")); // make tx available for TLI
-
-        assertThatExceptionOfType(OptimisticLockException.class)
-                .isThrownBy(() -> tx.table(Project.class).find(id2));
-
-        assertThatExceptionOfType(IllegalStateException.class)
-                .isThrownBy(tx::commit);
-
-        tx.rollback(); // YOJ-tx rollback is possible. session.rollbackCommit() won't execute
     }
 
     @AllArgsConstructor
