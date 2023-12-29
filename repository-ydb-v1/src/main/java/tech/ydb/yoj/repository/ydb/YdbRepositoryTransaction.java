@@ -114,6 +114,9 @@ public class YdbRepositoryTransaction<REPO extends YdbRepository>
 
     @Override
     public void commit() {
+        if (isBadSession) {
+            throw new IllegalStateException("Transaction was invalidated. Commit isn't possible");
+        }
         try {
             flushPendingWrites();
         } catch (Throwable t) {

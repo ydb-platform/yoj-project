@@ -886,7 +886,10 @@ public class YdbRepositoryIntegrationTest extends RepositoryTest {
         assertThatExceptionOfType(OptimisticLockException.class)
                 .isThrownBy(() -> tx.table(Project.class).find(id2));
 
-        tx.commit(); // Commit shouldn't throw an BadSession or other exceptions
+        assertThatExceptionOfType(IllegalStateException.class)
+                .isThrownBy(tx::commit);
+
+        tx.rollback(); // YOJ-tx rollback is possible. session.rollbackCommit() won't execute
     }
 
     @AllArgsConstructor
