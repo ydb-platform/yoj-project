@@ -11,6 +11,7 @@ import tech.ydb.yoj.repository.db.TxOptions;
 import tech.ydb.yoj.repository.db.cache.TransactionLocal;
 import tech.ydb.yoj.repository.db.exception.IllegalTransactionIsolationLevelException;
 import tech.ydb.yoj.repository.db.exception.IllegalTransactionScanException;
+import tech.ydb.yoj.repository.db.exception.OptimisticLockException;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -34,8 +35,10 @@ public class InMemoryRepositoryTransaction implements BaseDb, RepositoryTransact
     private final InMemoryTxLockWatcher watcher;
     private final InMemoryStorage storage;
 
+    private boolean hasWrites = false;
     private Long version = null;
     private String closeAction = null; // used to detect of usage transaction after commit()/rollback()
+    private boolean isBadSession = false;
 
     public InMemoryRepositoryTransaction(TxOptions options, InMemoryRepository repository) {
         this.storage = repository.getStorage();
@@ -62,6 +65,9 @@ public class InMemoryRepositoryTransaction implements BaseDb, RepositoryTransact
 
     @Override
     public void commit() {
+        if (isBadSession) {
+            throw new IllegalStateException("Transaction was invalidated. Commit isn't possible");
+        }
         endTransaction("commit()", this::commitImpl);
     }
 
@@ -125,6 +131,8 @@ public class InMemoryRepositoryTransaction implements BaseDb, RepositoryTransact
         Runnable query = () -> logTransaction(log, () -> {
             WriteTxDataShard<T> shard = storage.getWriteTxDataShard(type, txId, getVersion());
             consumer.accept(shard);
+
+            hasWrites = true;
         });
         if (options.isImmediateWrites()) {
             query.run();
@@ -138,8 +146,14 @@ public class InMemoryRepositoryTransaction implements BaseDb, RepositoryTransact
             String action, Class<T> type, Function<ReadOnlyTxDataShard<T>, R> func
     ) {
         return logTransaction(action, () -> {
-            ReadOnlyTxDataShard<T> shard = storage.getReadOnlyTxDataShard(type, txId, getVersion());
-            return func.apply(shard);
+            InMemoryTxLockWatcher findWatcher = hasWrites ? watcher : InMemoryTxLockWatcher.NO_LOCKS;
+            ReadOnlyTxDataShard<T> shard = storage.getReadOnlyTxDataShard(type, txId, getVersion(), findWatcher);
+            try {
+                return func.apply(shard);
+            } catch (OptimisticLockException e) {
+                isBadSession = true;
+                throw e;
+            }
         });
     }
 

@@ -496,6 +496,88 @@ public abstract class RepositoryTest extends RepositoryTestSupport {
     }
 
     @Test
+    public void doNotCommitAfterTLI() {
+        Project.Id id1 = new Project.Id("id1");
+        Project.Id id2 = new Project.Id("id2");
+
+        RepositoryTransaction tx = repository.startTransaction(
+                TxOptions.create(IsolationLevel.SERIALIZABLE_READ_WRITE)
+                        .withImmediateWrites(true)
+                        .withFirstLevelCache(false)
+        );
+
+        tx.table(Project.class).find(id2);
+
+        db.tx(() -> db.projects().save(new Project(id2, "name2")));
+
+        tx.table(Project.class).save(new Project(id1, "name1")); // make tx available for TLI
+
+        assertThatExceptionOfType(OptimisticLockException.class)
+                .isThrownBy(() -> tx.table(Project.class).find(id2));
+
+        assertThatExceptionOfType(IllegalStateException.class)
+                .isThrownBy(tx::commit);
+
+        tx.rollback(); // YOJ-tx rollback is possible. session.rollbackCommit() won't execute
+    }
+
+    @Test
+    public void writeDontProduceTLI() {
+        Project.Id id = new Project.Id("id");
+
+        db.tx(() -> db.projects().save(new Project(id, "name")));
+
+        RepositoryTransaction tx = repository.startTransaction(
+                TxOptions.create(IsolationLevel.SERIALIZABLE_READ_WRITE)
+                        .withImmediateWrites(true)
+                        .withFirstLevelCache(false)
+        );
+
+        tx.table(Project.class).find(id);
+
+        db.tx(() -> {
+            db.projects().find(id);
+            db.projects().save(new Project(id, "name2"));
+        });
+
+        // write don't produce TLI
+        tx.table(Project.class).save(new Project(id, "name3"));
+
+        assertThatExceptionOfType(OptimisticLockException.class)
+                .isThrownBy(tx::commit);
+    }
+
+    @Test
+    public void consistencyCheckAllColumnsOnFind() {
+        Project.Id id1 = new Project.Id("id1");
+        Project.Id id2 = new Project.Id("id2");
+
+        db.tx(() -> {
+            db.projects().save(new Project(id1, "name"));
+            db.projects().save(new Project(id2, "name"));
+        });
+
+        RepositoryTransaction tx = repository.startTransaction(
+                TxOptions.create(IsolationLevel.SERIALIZABLE_READ_WRITE)
+                        .withImmediateWrites(true)
+                        .withFirstLevelCache(false)
+        );
+
+        tx.table(Project.class).save(new Project(new Project.Id("id3"), "name")); // make tx available for TLI
+
+        tx.table(Project.class).find(id1);
+        tx.table(Project.class).find(id2);
+
+        db.tx(() -> {
+            db.projects().find(id2);
+            db.projects().save(new Project(id2, "name2"));
+        });
+
+        assertThatExceptionOfType(OptimisticLockException.class)
+                .isThrownBy(() -> tx.table(Project.class).find(id1));
+    }
+
+    @Test
     public void streamAllWithPartitioning() {
         db.tx(() -> {
             db.complexes().insert(new Complex(new Complex.Id(0, 0L, "0", Complex.Status.OK)));

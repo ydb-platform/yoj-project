@@ -1,5 +1,7 @@
 package tech.ydb.yoj.repository.test.inmemory;
 
+import lombok.AccessLevel;
+import lombok.RequiredArgsConstructor;
 import tech.ydb.yoj.repository.db.Entity;
 import tech.ydb.yoj.repository.db.EntitySchema;
 import tech.ydb.yoj.repository.db.Range;
@@ -11,9 +13,16 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+@RequiredArgsConstructor(access = AccessLevel.PRIVATE)
 public final class InMemoryTxLockWatcher {
-    private final Map<Class<?>, Set<Entity.Id<?>>> readRows = new HashMap<>();
-    private final Map<Class<?>, List<Range<?>>> readRanges = new HashMap<>();
+    public static final InMemoryTxLockWatcher NO_LOCKS = new InMemoryTxLockWatcher(Map.of(), Map.of());
+
+    private final Map<Class<?>, Set<Entity.Id<?>>> readRows;
+    private final Map<Class<?>, List<Range<?>>> readRanges;
+
+    public InMemoryTxLockWatcher() {
+        this(new HashMap<>(), new HashMap<>());
+    }
 
     public <T extends Entity<T>> void markRowRead(Class<T> type, Entity.Id<T> id) {
         readRows.computeIfAbsent(type, __ -> new HashSet<>()).add(id);

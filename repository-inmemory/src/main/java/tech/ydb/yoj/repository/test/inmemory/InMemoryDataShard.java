@@ -95,7 +95,9 @@ final class InMemoryDataShard<T extends Entity<T>> {
     }
 
     @Nullable
-    public synchronized T find(long txId, long version, Entity.Id<T> id) {
+    public synchronized T find(long txId, long version, Entity.Id<T> id, InMemoryTxLockWatcher watcher) {
+        checkLocks(version, watcher);
+
         InMemoryEntityLine entityLine = entityLines.get(id);
         if (entityLine == null) {
             return null;
@@ -105,7 +107,11 @@ final class InMemoryDataShard<T extends Entity<T>> {
     }
 
     @Nullable
-    public synchronized <V extends Table.View> V find(long txId, long version, Entity.Id<T> id, Class<V> viewType) {
+    public synchronized <V extends Table.View> V find(
+            long txId, long version, Entity.Id<T> id, Class<V> viewType, InMemoryTxLockWatcher watcher
+    ) {
+        checkLocks(version, watcher);
+
         InMemoryEntityLine entityLine = entityLines.get(id);
         if (entityLine == null) {
             return null;
@@ -114,7 +120,9 @@ final class InMemoryDataShard<T extends Entity<T>> {
         return columns != null ? columns.toSchema(ViewSchema.of(viewType)) : null;
     }
 
-    public synchronized List<T> findAll(long txId, long version) {
+    public synchronized List<T> findAll(long txId, long version, InMemoryTxLockWatcher watcher) {
+        checkLocks(version, watcher);
+
         List<T> entities = new ArrayList<>();
         for (InMemoryEntityLine entityLine : entityLines.values()) {
             Columns columns = entityLine.get(txId, version);

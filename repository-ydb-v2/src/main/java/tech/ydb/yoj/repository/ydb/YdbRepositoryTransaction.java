@@ -10,6 +10,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import tech.ydb.core.Result;
 import tech.ydb.core.Status;
+import tech.ydb.core.StatusCode;
 import tech.ydb.proto.ValueProtos;
 import tech.ydb.table.Session;
 import tech.ydb.table.query.DataQueryResult;
@@ -37,12 +38,15 @@ import tech.ydb.yoj.repository.db.cache.RepositoryCacheImpl;
 import tech.ydb.yoj.repository.db.cache.TransactionLocal;
 import tech.ydb.yoj.repository.db.exception.IllegalTransactionIsolationLevelException;
 import tech.ydb.yoj.repository.db.exception.IllegalTransactionScanException;
+import tech.ydb.yoj.repository.db.exception.OptimisticLockException;
 import tech.ydb.yoj.repository.db.exception.RepositoryException;
 import tech.ydb.yoj.repository.db.exception.UnavailableException;
 import tech.ydb.yoj.repository.db.readtable.ReadTableParams;
 import tech.ydb.yoj.repository.ydb.bulk.BulkMapper;
 import tech.ydb.yoj.repository.ydb.client.ResultSetConverter;
 import tech.ydb.yoj.repository.ydb.client.YdbConverter;
+import tech.ydb.yoj.repository.ydb.client.YdbValidator;
+import tech.ydb.yoj.repository.ydb.exception.BadSessionException;
 import tech.ydb.yoj.repository.ydb.exception.ResultTruncatedException;
 import tech.ydb.yoj.repository.ydb.exception.UnexpectedException;
 import tech.ydb.yoj.repository.ydb.exception.YdbComponentUnavailableException;
@@ -66,7 +70,6 @@ import java.util.stream.Stream;
 import static com.google.common.base.Strings.emptyToNull;
 import static java.lang.String.format;
 import static java.util.stream.Collectors.toList;
-import static tech.ydb.yoj.repository.ydb.client.YdbValidator.validate;
 import static tech.ydb.yoj.repository.ydb.client.YdbValidator.validatePkConstraint;
 import static tech.ydb.yoj.repository.ydb.client.YdbValidator.validateTruncatedResults;
 
@@ -90,6 +93,7 @@ public class YdbRepositoryTransaction<REPO extends YdbRepository>
     protected String txId = null;
     private String firstNonNullTxId = null; // used for logs
     private String closeAction = null; // used to detect of usage transaction after commit()/rollback()
+    private boolean isBadSession = false;
 
     public YdbRepositoryTransaction(REPO repo, @NonNull TxOptions options) {
         this.repo = repo;
@@ -111,6 +115,9 @@ public class YdbRepositoryTransaction<REPO extends YdbRepository>
 
     @Override
     public void commit() {
+        if (isBadSession) {
+            throw new IllegalStateException("Transaction was invalidated. Commit isn't possible");
+        }
         try {
             flushPendingWrites();
         } catch (Throwable t) {
@@ -163,8 +170,18 @@ public class YdbRepositoryTransaction<REPO extends YdbRepository>
         }
     }
 
+    private void validate(String request, StatusCode statusCode, String response) {
+        try {
+            YdbValidator.validate(request, statusCode, response);
+        } catch (BadSessionException | OptimisticLockException e) {
+            transactionLocal.log().info("Request got %s: DB tx was invalidated", e.getClass().getSimpleName());
+            isBadSession = true;
+            throw e;
+        }
+    }
+
     private boolean isFinalActionNeeded(String actionName) {
-        if (session == null) {
+        if (session == null || isBadSession) {
             transactionLocal.log().info("No-op %s: no active DB session", actionName);
             return false;
         }
@@ -429,7 +446,7 @@ public class YdbRepositoryTransaction<REPO extends YdbRepository>
             } catch (RepositoryException e) {
                 throw e;
             } catch (Exception e) {
-                throw new UnexpectedException("Could not bulk insert into table " + tableName);
+                throw new UnexpectedException("Could not bulk insert into table " + tableName, e);
             }
         });
     }
@@ -488,7 +505,7 @@ public class YdbRepositoryTransaction<REPO extends YdbRepository>
         } catch (RepositoryException e) {
             throw e;
         } catch (Exception e) {
-            throw new UnexpectedException("Could not read table " + tableName);
+            throw new UnexpectedException("Could not read table " + tableName, e);
         }
     }
 
