@@ -23,7 +23,16 @@ jobs:
         with:
           java-version: 17
           distribution: 'temurin'
-          cache: 'maven'
+
+      - name: Restore Maven cache
+        uses: skjolber/maven-cache-github-action@v1
+        with:
+          step: restore
 
       - name: Build with Maven
         run: mvn $MAVEN_ARGS verify
+
+      - name: Save Maven cache
+        uses: skjolber/maven-cache-github-action@v1
+        with:
+          step: save
