@@ -6,7 +6,7 @@
 
     <groupId>tech.ydb.yoj</groupId>
     <artifactId>yoj-parent</artifactId>
-    <version>1.0.2-SNAPSHOT</version>
+    <version>1.1.0-SNAPSHOT</version>
     <packaging>pom</packaging>
 
     <name>YDB ORM for Java (YOJ)</name>
@@ -130,6 +130,9 @@
         <prometheus.version>0.6.0</prometheus.version>
         <error-prone-annotations.version>2.14.0</error-prone-annotations.version>
         <gson-version>2.10.1</gson-version>
+
+        <!-- optional dependencies (Kotlin support) -->
+        <kotlin.version>1.9.22</kotlin.version>
 
         <!-- test dependencies -->
         <junit.version>4.13.2</junit.version>
@@ -369,6 +372,11 @@
                         <!-- FIXME(entropia@): fix malformed HTML and re-enable doclint -->
                         <doclint>none</doclint>
                     </configuration>
+                </plugin>
+                <plugin>
+                    <groupId>org.jetbrains.kotlin</groupId>
+                    <artifactId>kotlin-maven-plugin</artifactId>
+                    <version>${kotlin.version}</version>
                 </plugin>
             </plugins>
         </pluginManagement>
@@ -641,6 +649,18 @@
                 <groupId>com.google.code.gson</groupId>
                 <artifactId>gson</artifactId>
                 <version>${gson-version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.jetbrains.kotlin</groupId>
+                <artifactId>kotlin-reflect</artifactId>
+                <version>${kotlin.version}</version>
+                <optional>true</optional>
+            </dependency>
+            <dependency>
+                <groupId>org.jetbrains.kotlin</groupId>
+                <artifactId>kotlin-stdlib</artifactId>
+                <version>${kotlin.version}</version>
+                <optional>true</optional>
             </dependency>
         </dependencies>
     </dependencyManagement>
