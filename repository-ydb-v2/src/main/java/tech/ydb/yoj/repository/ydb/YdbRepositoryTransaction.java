@@ -461,7 +461,9 @@ public class YdbRepositoryTransaction<REPO extends YdbRepository>
                 .orderedRead(params.isOrdered())
                 .withRequestTimeout(params.getTimeout())
                 .rowLimit(params.getRowLimit())
-                .columns(mapper.getColumns());
+                .columns(mapper.getColumns())
+                .batchLimitBytes(params.getBatchLimitBytes())
+                .batchLimitRows(params.getBatchLimitRows());
         if (params.getFromKey() != null) {
             List<Value<?>> values = mapper.mapKey(params.getFromKey()).stream()
                     .map(typedValue -> YdbConverter.toSDK(typedValue.getType(), typedValue.getValue()))
