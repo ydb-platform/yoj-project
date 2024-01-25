@@ -91,17 +91,6 @@
             <scope>test</scope>
         </dependency>
         <dependency>
-            <groupId>com.xebialabs.restito</groupId>
-            <artifactId>restito</artifactId>
-            <scope>test</scope>
-            <exclusions>
-                <exclusion>
-                    <artifactId>json-smart</artifactId>
-                    <groupId>net.minidev</groupId>
-                </exclusion>
-            </exclusions>
-        </dependency>
-        <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-databind</artifactId>
             <scope>test</scope>
