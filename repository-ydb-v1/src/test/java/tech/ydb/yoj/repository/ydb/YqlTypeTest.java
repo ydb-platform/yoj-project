@@ -13,8 +13,9 @@ import tech.ydb.yoj.databind.schema.GlobalIndex;
 import tech.ydb.yoj.databind.schema.ObjectSchema;
 import tech.ydb.yoj.databind.schema.Schema;
 import tech.ydb.yoj.repository.db.Entity;
+import tech.ydb.yoj.repository.db.common.CommonConverters;
 import tech.ydb.yoj.repository.db.exception.ConversionException;
-import tech.ydb.yoj.repository.test.sample.TestJsonConverter;
+import tech.ydb.yoj.repository.db.json.JacksonJsonConverter;
 import tech.ydb.yoj.repository.test.sample.model.NonDeserializableObject;
 import tech.ydb.yoj.repository.ydb.yql.YqlPrimitiveType;
 import tech.ydb.yoj.repository.ydb.yql.YqlType;
@@ -30,7 +31,7 @@ import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 public class YqlTypeTest {
     static {
         FieldValueType.registerStringValueType(UUID.class);
-        TestJsonConverter.register();
+        CommonConverters.defineJsonConverter(JacksonJsonConverter.getDefault());
     }
 
     @Test

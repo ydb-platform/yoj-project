@@ -14,7 +14,8 @@ import tech.ydb.yoj.databind.FieldValueType;
 import tech.ydb.yoj.databind.schema.Column;
 import tech.ydb.yoj.databind.schema.Schema;
 import tech.ydb.yoj.repository.DbTypeQualifier;
-import tech.ydb.yoj.repository.test.sample.TestJsonConverter;
+import tech.ydb.yoj.repository.db.common.CommonConverters;
+import tech.ydb.yoj.repository.db.json.JacksonJsonConverter;
 import tech.ydb.yoj.repository.ydb.DbType;
 
 import java.lang.reflect.Type;
@@ -32,7 +33,7 @@ import static org.junit.Assume.assumeTrue;
 public class YqlTypeAllTypesTest {
     static {
         FieldValueType.registerStringValueType(UUID.class);
-        TestJsonConverter.register();
+        CommonConverters.defineJsonConverter(JacksonJsonConverter.getDefault());
     }
 
     private static final Map<String, Object> OBJECT_VALUE = Map.of("string", "Unnamed", "number", 11, "boolean", true);
