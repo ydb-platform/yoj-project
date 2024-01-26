@@ -7,12 +7,13 @@ import tech.ydb.yoj.repository.db.RepositoryTransaction;
 import tech.ydb.yoj.repository.db.Table;
 import tech.ydb.yoj.repository.db.TableQueryBuilder;
 import tech.ydb.yoj.repository.db.TxOptions;
+import tech.ydb.yoj.repository.db.common.CommonConverters;
+import tech.ydb.yoj.repository.db.json.JacksonJsonConverter;
 import tech.ydb.yoj.repository.db.statement.Changeset;
 import tech.ydb.yoj.repository.test.sample.TestEntityOperations;
 import tech.ydb.yoj.repository.test.sample.TestEntityOperations.BubbleTable;
 import tech.ydb.yoj.repository.test.sample.TestEntityOperations.ComplexTable;
 import tech.ydb.yoj.repository.test.sample.TestEntityOperations.IndexedTable;
-import tech.ydb.yoj.repository.test.sample.TestJsonConverter;
 import tech.ydb.yoj.repository.test.sample.model.Bubble;
 import tech.ydb.yoj.repository.test.sample.model.Complex;
 import tech.ydb.yoj.repository.test.sample.model.EntityWithValidation;
@@ -34,7 +35,7 @@ import static tech.ydb.yoj.repository.ydb.yql.YqlPredicate.where;
 
 public class TestYdbRepository extends YdbRepository {
     static {
-        TestJsonConverter.register();
+        CommonConverters.defineJsonConverter(JacksonJsonConverter.getDefault());
     }
 
     @Override
