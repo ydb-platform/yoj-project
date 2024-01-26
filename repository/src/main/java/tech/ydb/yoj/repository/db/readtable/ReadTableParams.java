@@ -19,12 +19,14 @@ public class ReadTableParams<ID> {
 
     boolean useNewSpliterator;
 
+    int batchLimitBytes;
+    int batchLimitRows;
+
     public static <ID> ReadTableParams<ID> getDefault() {
         return ReadTableParams.<ID>builder().build();
     }
 
     public static class ReadTableParamsBuilder<ID> {
-
         public ReadTableParams.ReadTableParamsBuilder<ID> ordered() {
             this.ordered = true;
             return this;

@@ -13,10 +13,6 @@ Configuration:
     Logger:
     - name: io.grpc
       level: error
-    - name: com.xebialabs
-      level: error
-    - name: org.glassfish.grizzly
-      level: error
     - name: io.netty
       level: error
     - name: tech.ydb.yoj.repository.db
