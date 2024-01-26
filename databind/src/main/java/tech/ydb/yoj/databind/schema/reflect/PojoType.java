@@ -63,7 +63,7 @@ public final class PojoType<T> implements ReflectType<T> {
                     .toList();
         } else {
             this.fields = Stream.of(type.getDeclaredFields())
-                    .filter(tech.ydb.yoj.databind.schema.reflect.PojoType::isEntityField)
+                    .filter(PojoType::isEntityField)
                     .<ReflectField>map(f -> new PojoField(reflector, f))
                     .toList();
         }
@@ -94,7 +94,7 @@ public final class PojoType<T> implements ReflectType<T> {
     // FIXME: this is NOT the best way to find all-args ctor
     private static <T> Constructor<T> findAllArgsCtor(Class<T> type) {
         long instanceFieldCount = Stream.of(type.getDeclaredFields())
-                .filter(tech.ydb.yoj.databind.schema.reflect.PojoType::isEntityField)
+                .filter(PojoType::isEntityField)
                 .count();
 
         @SuppressWarnings("unchecked") Constructor<T> ctor = (Constructor<T>) Stream.of(type.getDeclaredConstructors())

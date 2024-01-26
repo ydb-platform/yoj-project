@@ -11,8 +11,8 @@ import java.util.List;
 import static java.util.Comparator.comparing;
 
 /**
- * Standard {@link Reflector} implementation, suitable for most usages. By default, reflecting record classes, POJOs and
- * simple types such as {@code int} is supported.
+ * Standard {@link Reflector} implementation, suitable for most usages. By default, reflecting record classes, Kotlin
+ * data classes, POJOs and simple types such as {@code int} is supported.
  * <p>
  * You can override default {@link Reflector} by creating a custom {@link SchemaRegistry} with your own instance of
  * {@code StdReflector} with a different set of {@link TypeFactory type factories}, or a wholly different implementation
@@ -26,6 +26,7 @@ import static java.util.Comparator.comparing;
 public final class StdReflector implements Reflector {
     public static final Reflector instance = new StdReflector(List.of(
             RecordType.FACTORY,
+            KotlinDataClassTypeFactory.instance,
             PojoType.FACTORY,
             SimpleType.FACTORY
     ));
