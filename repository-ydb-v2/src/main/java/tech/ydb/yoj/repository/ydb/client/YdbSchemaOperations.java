@@ -17,7 +17,6 @@ import tech.ydb.scheme.SchemeClient;
 import tech.ydb.scheme.description.ListDirectoryResult;
 import tech.ydb.table.Session;
 import tech.ydb.table.description.TableDescription;
-import tech.ydb.table.description.TableIndex;
 import tech.ydb.table.description.TableTtl;
 import tech.ydb.table.settings.AlterTableSettings;
 import tech.ydb.table.settings.Changefeed;
@@ -280,7 +279,6 @@ public class YdbSchemaOperations {
                         })
                         .toList(),
                 table.getIndexes().stream()
-                        .filter(i -> i.getType() == TableIndex.Type.GLOBAL)
                         .map(i -> new Index(i.getName(), i.getColumns()))
                         .toList(),
                 table.getTableTtl() == null || table.getTableTtl().getTtlMode() == TableTtl.TtlMode.NOT_SET
