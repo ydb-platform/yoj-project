@@ -2,6 +2,7 @@ package tech.ydb.yoj.databind.schema.reflect;
 
 import kotlin.jvm.JvmClassMappingKt;
 import kotlin.reflect.KCallable;
+import kotlin.reflect.jvm.KCallablesJvm;
 import kotlin.reflect.jvm.ReflectJvmMapping;
 import tech.ydb.yoj.databind.FieldValueType;
 import tech.ydb.yoj.databind.schema.Column;
@@ -26,6 +27,7 @@ public final class KotlinDataClassComponent implements ReflectField {
 
     public KotlinDataClassComponent(Reflector reflector, String name, KCallable<?> callable) {
         this.callable = callable;
+        KCallablesJvm.setAccessible(this.callable, true);
 
         this.name = name;
 

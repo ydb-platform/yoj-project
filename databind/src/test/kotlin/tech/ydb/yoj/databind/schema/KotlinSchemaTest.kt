@@ -3,6 +3,7 @@ package tech.ydb.yoj.databind.schema
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.BeforeClass
 import org.junit.Test
+import java.util.Map.entry
 
 class KotlinSchemaTest {
     @Test
@@ -69,13 +70,21 @@ class KotlinSchemaTest {
         assertThat(schema!!.getField("notFlatEntity").isFlat).isFalse()
     }
 
+    @Test
+    fun testPrivateProp() {
+        val ue = UberEntity(null, null, null, null, PrivatePropEntity(42))
+        assertThat(schema!!.flatten(ue)).containsOnly(entry("privatePropEntity_privateProp", 42))
+        assertThat(schema!!.newInstance(mapOf("privatePropEntity_privateProp" to 42))).isEqualTo(ue)
+    }
+
     private class TestSchema<T>(entityType: Class<T>) : Schema<T>(entityType)
 
     private data class UberEntity(
-        val entity1: Entity1,
-        val flatEntity: FlatEntity,
-        val twoFieldEntity: TwoFieldEntity,
-        val notFlatEntity: NotFlatEntity,
+        val entity1: Entity1?,
+        val flatEntity: FlatEntity?,
+        val twoFieldEntity: TwoFieldEntity?,
+        val notFlatEntity: NotFlatEntity?,
+        val privatePropEntity: PrivatePropEntity
     )
 
     private data class Entity1(val entity2: Entity2)
@@ -94,6 +103,10 @@ class KotlinSchemaTest {
     private data class NotFlatEntity(
         val twoFieldEntity: TwoFieldEntity,
         val otherTwoFieldEntity: TwoFieldEntity,
+    )
+
+    private data class PrivatePropEntity(
+        private val privateProp: Int
     )
 
     companion object {
