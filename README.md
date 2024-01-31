@@ -39,4 +39,5 @@ spinning containers or accessing a real YDB installation. **Highly recommended.*
   projects.
 - `repository-ydb-common`: Common Logic for all YDB Repository implementations, regardless of the YDB SDK version used.
 - `repository-test`: Basic tests which all Repository implementations must pass.
+- `json-jackson-v2`: Support for JSON serialization and deserialization of entity fields, using Jackson 2.x.
 - `util`: Utility classes used in YOJ implementation.
