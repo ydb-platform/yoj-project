@@ -481,6 +481,8 @@ public class YdbTable<T extends Entity<T>> implements Table<T> {
     public interface QueryExecutor {
         <PARAMS, RESULT> List<RESULT> execute(Statement<PARAMS, RESULT> statement, PARAMS params);
 
+        <PARAMS, RESULT> Stream<RESULT> executeScanQuery(Statement<PARAMS, RESULT> statement, PARAMS params);
+
         <PARAMS> void pendingExecute(Statement<PARAMS, ?> statement, PARAMS value);
 
         default <IN> void bulkUpsert(BulkMapper<IN> mapper, List<IN> input, BulkParams params) {
@@ -509,6 +511,11 @@ public class YdbTable<T extends Entity<T>> implements Table<T> {
         public <PARAMS, RESULT> List<RESULT> execute(Statement<PARAMS, RESULT> statement, PARAMS params) {
             check();
             return delegate.execute(statement, params);
+        }
+
+        @Override
+        public <PARAMS, RESULT> Stream<RESULT> executeScanQuery(Statement<PARAMS, RESULT> statement, PARAMS params) {
+            return delegate.executeScanQuery(statement, params);
         }
 
         @Override

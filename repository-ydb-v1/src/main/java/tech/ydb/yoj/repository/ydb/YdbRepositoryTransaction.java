@@ -353,7 +353,7 @@ public class YdbRepositoryTransaction<REPO extends YdbRepository>
 
     private <PARAMS, RESULT> List<RESULT> doExecuteScanQueryList(Statement<PARAMS, RESULT> statement, PARAMS params) {
         List<RESULT> result = new ArrayList<>();
-        try (Stream<RESULT> stream = doExecuteScanQuery(statement, params)) {
+        try (Stream<RESULT> stream = executeScanQuery(statement, params)) {
             stream.forEach(r -> {
                 if (result.size() >= options.getScanOptions().getMaxSize()) {
                     throw new ResultTruncatedException(
@@ -367,7 +367,12 @@ public class YdbRepositoryTransaction<REPO extends YdbRepository>
         return result;
     }
 
-    private <PARAMS, RESULT> Stream<RESULT> doExecuteScanQuery(Statement<PARAMS, RESULT> statement, PARAMS params) {
+    @Override
+    public <PARAMS, RESULT> Stream<RESULT> executeScanQuery(Statement<PARAMS, RESULT> statement, PARAMS params) {
+        if (!options.isScan()) {
+            throw new IllegalStateException("Scan query can be used only from scan tx");
+        }
+        
         ExecuteScanQuerySettings settings = ExecuteScanQuerySettings.newBuilder()
                 .timeout(options.getScanOptions().getTimeout())
                 .mode(com.yandex.ydb.table.YdbTable.ExecuteScanQueryRequest.Mode.MODE_EXEC)
