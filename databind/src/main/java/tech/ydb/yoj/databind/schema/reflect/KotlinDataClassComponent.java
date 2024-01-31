@@ -1,7 +1,9 @@
 package tech.ydb.yoj.databind.schema.reflect;
 
+import com.google.common.reflect.TypeToken;
 import kotlin.jvm.JvmClassMappingKt;
 import kotlin.reflect.KCallable;
+import kotlin.reflect.KClass;
 import kotlin.reflect.jvm.KCallablesJvm;
 import kotlin.reflect.jvm.ReflectJvmMapping;
 import tech.ydb.yoj.databind.FieldValueType;
@@ -22,7 +24,7 @@ public final class KotlinDataClassComponent implements ReflectField {
     private final Class<?> type;
     private final FieldValueType valueType;
     private final Column column;
-    
+
     private final ReflectType<?> reflectType;
 
     public KotlinDataClassComponent(Reflector reflector, String name, KCallable<?> callable) {
@@ -33,7 +35,15 @@ public final class KotlinDataClassComponent implements ReflectField {
 
         var kReturnType = callable.getReturnType();
         this.genericType = ReflectJvmMapping.getJavaType(kReturnType);
-        this.type = JvmClassMappingKt.getJavaClass(kReturnType);
+
+        var kClassifier = kReturnType.getClassifier();
+        if (kClassifier instanceof KClass<?> kClass) {
+            this.type = JvmClassMappingKt.getJavaClass(kClass);
+        } else {
+            // fallback to Guava's TypeToken if kotlin-reflect returns unpredictable results ;-)
+            this.type = TypeToken.of(genericType).getRawType();
+        }
+
         this.column = type.getAnnotation(Column.class);
         this.valueType = FieldValueType.forJavaType(genericType, column);
         this.reflectType = reflector.reflectFieldType(genericType, valueType);
