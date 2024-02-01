@@ -1,13 +1,12 @@
 package tech.ydb.yoj.repository.hybrid
 
 import tech.ydb.yoj.repository.db.Entity
+import java.time.Instant
 
 data class Account(
     private val id: Id,
     private val version: Long,
-    private val chronology: Chronology,
     val login: String,
-    val description: String? = null,
 ) : Entity<Account> {
     override fun getId() = id
 
@@ -15,8 +14,8 @@ data class Account(
 
     data class Snapshot(
         private val id: Id,
-        private val entity: Account?,
-        val meta: ChangeMetadata,
+        private val account: Account?,
+        val meta: AccountSnapshotMetadata
     ) : Entity<Snapshot> {
         override fun getId() = id
 

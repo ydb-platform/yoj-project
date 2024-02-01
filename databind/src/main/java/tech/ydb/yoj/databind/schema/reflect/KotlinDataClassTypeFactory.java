@@ -24,6 +24,10 @@ public final class KotlinDataClassTypeFactory implements TypeFactory {
 
     @Override
     public boolean matches(Class<?> rawType, FieldValueType fvt) {
+        if (!fvt.isComposite()) {
+            return false;
+        }
+
         return KotlinReflectionDetector.kotlinAvailable
                 && stream(rawType.getDeclaredAnnotations()).anyMatch(this::isKotlinClassMetadata)
                 && stream(rawType.getDeclaredMethods()).anyMatch(this::isComponentGetter);
