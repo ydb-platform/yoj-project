@@ -5,6 +5,7 @@ import kotlin.jvm.JvmClassMappingKt;
 import kotlin.reflect.KCallable;
 import kotlin.reflect.KMutableProperty;
 import kotlin.reflect.KParameter;
+import kotlin.reflect.KProperty1;
 import kotlin.reflect.full.KClasses;
 import kotlin.reflect.jvm.ReflectJvmMapping;
 
@@ -53,22 +54,23 @@ public final class KotlinDataClassType<T> implements ReflectType<T> {
         var mutableProperties = KClasses.getDeclaredMemberProperties(kClass).stream()
                 .filter(p -> p instanceof KMutableProperty)
                 .collect(toMap(KCallable::getName, m -> m));
+        var immutableProperties = KClasses.getDeclaredMemberProperties(kClass).stream()
+                .filter(p -> !(p instanceof KMutableProperty))
+                .collect(toMap(KCallable::getName, m -> (KProperty1<T, ?>) m));
 
         List<ReflectField> fields = new ArrayList<>();
-        int n = 1;
         for (KParameter param : primaryKtConstructor.getParameters()) {
             var paramName = param.getName();
-
             Preconditions.checkArgument(!mutableProperties.containsKey(paramName),
                     "Mutable constructor arguments are not allowed in '%s', but got: '%s'",
                     kClassName, paramName);
 
-            var callable = functions.get("component" + n);
-            Preconditions.checkState(callable != null,
-                    "Could not find component%s() in '%s'",
-                    n, kClassName);
-            fields.add(new KotlinDataClassComponent(reflector, paramName, callable));
-            n++;
+            var property = immutableProperties.get(paramName);
+            Preconditions.checkArgument(property != null,
+                    "Could not find immutable property in '%s' corresponding to constructor argument '%s'",
+                    kClassName, paramName);
+
+            fields.add(new KotlinDataClassComponent(reflector, paramName, property));
         }
         this.fields = List.copyOf(fields);
     }

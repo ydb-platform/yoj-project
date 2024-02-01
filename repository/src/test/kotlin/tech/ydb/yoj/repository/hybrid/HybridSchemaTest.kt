@@ -15,14 +15,12 @@ class HybridSchemaTest {
         val account = Account(
             id = Account.Id("hahaha"),
             version = 1L,
-            chronology = Chronology(now, now),
-            login = "logIn",
-            description = null
+            login = "logIn"
         )
         val accountSnapshot = Account.Snapshot(
             id = Account.Snapshot.Id(account.id, 1L),
-            entity = account,
-            meta = ChangeMetadata(ChangeMetadata.ChangeKind.CREATE, now, 1L)
+            account = account,
+            meta = AccountSnapshotMetadata(now, "Created account '${account.login}'")
         )
 
         val schema = EntitySchema.of(Account.Snapshot::class.java)
@@ -31,15 +29,29 @@ class HybridSchemaTest {
         assertThat(flattened).isEqualTo(mapOf(
             "id_id" to "hahaha",
             "id_version" to 1L,
-            "entity_id" to "hahaha",
-            "entity_version" to 1L,
-            "entity_chronology_createdAt" to now,
-            "entity_chronology_updatedAt" to now,
-            "entity_login" to "logIn",
-            "meta_kind" to ChangeMetadata.ChangeKind.CREATE,
-            "meta_time" to now,
-            "meta_version" to 1L
+            "account_id" to "hahaha",
+            "account_version" to 1L,
+            "account_login" to "logIn",
+            "meta_at" to now,
+            "meta_description" to "Created account 'logIn'"
         ))
         assertThat(schema.newInstance(flattened)).isEqualTo(accountSnapshot)
+    }
+
+    @Test
+    fun json() {
+        val op = Job(
+            id = Job.Id("smth"),
+            args = JobArgs("abc")
+        )
+
+        val schema = EntitySchema.of(Job::class.java)
+
+        val flattened = schema.flatten(op)
+        assertThat(flattened).isEqualTo(mapOf(
+            "id" to "smth",
+            "args" to JobArgs("abc")
+        ))
+        assertThat(schema.newInstance(flattened)).isEqualTo(op)
     }
 }

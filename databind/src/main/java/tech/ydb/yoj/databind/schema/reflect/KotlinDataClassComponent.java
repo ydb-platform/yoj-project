@@ -1,9 +1,10 @@
 package tech.ydb.yoj.databind.schema.reflect;
 
+import com.google.common.base.Preconditions;
 import com.google.common.reflect.TypeToken;
 import kotlin.jvm.JvmClassMappingKt;
-import kotlin.reflect.KCallable;
 import kotlin.reflect.KClass;
+import kotlin.reflect.KProperty1;
 import kotlin.reflect.jvm.KCallablesJvm;
 import kotlin.reflect.jvm.ReflectJvmMapping;
 import tech.ydb.yoj.databind.FieldValueType;
@@ -17,7 +18,7 @@ import java.lang.reflect.Type;
  * Represents a Kotlin data class component for the purposes of YOJ data-binding.
  */
 public final class KotlinDataClassComponent implements ReflectField {
-    private final KCallable<?> callable;
+    private final KProperty1.Getter<?, ?> getter;
 
     private final String name;
     private final Type genericType;
@@ -27,16 +28,17 @@ public final class KotlinDataClassComponent implements ReflectField {
 
     private final ReflectType<?> reflectType;
 
-    public KotlinDataClassComponent(Reflector reflector, String name, KCallable<?> callable) {
-        this.callable = callable;
-        KCallablesJvm.setAccessible(this.callable, true);
+    public KotlinDataClassComponent(Reflector reflector, String name,
+                                    KProperty1<?, ?> property) {
+        this.getter = property.getGetter();
+        KCallablesJvm.setAccessible(this.getter, true);
 
         this.name = name;
 
-        var kReturnType = callable.getReturnType();
-        this.genericType = ReflectJvmMapping.getJavaType(kReturnType);
+        var kPropertyType = property.getReturnType();
+        this.genericType = ReflectJvmMapping.getJavaType(kPropertyType);
 
-        var kClassifier = kReturnType.getClassifier();
+        var kClassifier = kPropertyType.getClassifier();
         if (kClassifier instanceof KClass<?> kClass) {
             this.type = JvmClassMappingKt.getJavaClass(kClass);
         } else {
@@ -44,7 +46,11 @@ public final class KotlinDataClassComponent implements ReflectField {
             this.type = TypeToken.of(genericType).getRawType();
         }
 
-        this.column = type.getAnnotation(Column.class);
+        var field = ReflectJvmMapping.getJavaField(property);
+        Preconditions.checkArgument(field != null, "Could not get Java field for property '%s' of '%s'",
+                property.getName(), kPropertyType);
+
+        this.column = field.getAnnotation(Column.class);
         this.valueType = FieldValueType.forJavaType(genericType, column);
         this.reflectType = reflector.reflectFieldType(genericType, valueType);
     }
@@ -53,7 +59,7 @@ public final class KotlinDataClassComponent implements ReflectField {
     @Override
     public Object getValue(Object containingObject) {
         try {
-            return callable.call(containingObject);
+            return getter.call(containingObject);
         } catch (Exception e) {
             throw new FieldValueException(e, getName(), containingObject);
         }
