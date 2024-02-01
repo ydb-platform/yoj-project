@@ -56,6 +56,12 @@ public abstract class IllegalExpressionException extends IllegalArgumentExceptio
             }
         }
 
+        static final class ByteArrayFieldExpected extends FieldTypeError {
+            ByteArrayFieldExpected(String field) {
+                super(field, "Type mismatch: cannot compare field \"%s\" with a ByteArray value"::formatted);
+            }
+        }
+
         static final class DateTimeFieldExpected extends FieldTypeError {
             DateTimeFieldExpected(String field) {
                 super(field, "Type mismatch: cannot compare field \"%s\" with a date-time value"::formatted);

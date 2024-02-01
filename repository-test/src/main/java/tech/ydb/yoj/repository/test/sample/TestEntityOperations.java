@@ -7,6 +7,7 @@ import tech.ydb.yoj.repository.db.Table;
 import tech.ydb.yoj.repository.db.TableQueryBuilder;
 import tech.ydb.yoj.repository.db.bulk.BulkParams;
 import tech.ydb.yoj.repository.test.sample.model.Bubble;
+import tech.ydb.yoj.repository.test.sample.model.BytePkEntity;
 import tech.ydb.yoj.repository.test.sample.model.Complex;
 import tech.ydb.yoj.repository.test.sample.model.EntityWithValidation;
 import tech.ydb.yoj.repository.test.sample.model.IndexedEntity;
@@ -33,6 +34,10 @@ public interface TestEntityOperations extends BaseDb {
     BubbleTable bubbles();
 
     ComplexTable complexes();
+
+    default Table<BytePkEntity> bytePkEntities() {
+        return table(BytePkEntity.class);
+    }
 
     TypeFreakTable typeFreaks();
 

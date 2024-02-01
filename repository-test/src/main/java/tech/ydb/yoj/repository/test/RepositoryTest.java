@@ -34,6 +34,7 @@ import tech.ydb.yoj.repository.test.sample.TestDbImpl;
 import tech.ydb.yoj.repository.test.sample.TestEntityOperations;
 import tech.ydb.yoj.repository.test.sample.model.Book;
 import tech.ydb.yoj.repository.test.sample.model.Bubble;
+import tech.ydb.yoj.repository.test.sample.model.BytePkEntity;
 import tech.ydb.yoj.repository.test.sample.model.Complex;
 import tech.ydb.yoj.repository.test.sample.model.Complex.Id;
 import tech.ydb.yoj.repository.test.sample.model.EntityWithValidation;
@@ -2230,6 +2231,36 @@ public abstract class RepositoryTest extends RepositoryTestSupport {
                         .orderBy(ob -> ob.orderBy("id").descending())
                         .find())
         ).containsExactly(c2, c1);
+    }
+
+    @Test
+    public void byteIdLessThan() {
+        BytePkEntity e0 = BytePkEntity.valueOf();
+        BytePkEntity e1 = BytePkEntity.valueOf(1, 2, 3);
+        BytePkEntity e2 = BytePkEntity.valueOf(1, 2, 4);
+        BytePkEntity e3 = BytePkEntity.valueOf(1, 3, 255);
+        db.tx(() -> db.bytePkEntities().insert(e0, e1, e2, e3));
+
+        assertThat(db.tx(() -> db.bytePkEntities().query()
+                .where("id").lt(e3.getId())
+                .orderBy(ob -> ob.orderBy("id").descending())
+                .find()
+        )).containsExactly(e2, e1, e0);
+    }
+
+    @Test
+    public void byteIdGreaterThan() {
+        BytePkEntity e0 = BytePkEntity.valueOf();
+        BytePkEntity e1 = BytePkEntity.valueOf(1, 2, 3);
+        BytePkEntity e2 = BytePkEntity.valueOf(1, 2, 4);
+        BytePkEntity e3 = BytePkEntity.valueOf(1, 3, 255);
+        db.tx(() -> db.bytePkEntities().insert(e0, e1, e2, e3));
+
+        assertThat(db.tx(() -> db.bytePkEntities().query()
+                .where("id").gt(e1.getId())
+                .orderBy(ob -> ob.orderBy("id").ascending())
+                .find()
+        )).containsExactly(e2, e3);
     }
 
     @Test

@@ -6,6 +6,7 @@ import lombok.EqualsAndHashCode;
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
 import lombok.Value;
+import tech.ydb.yoj.databind.ByteArray;
 import tech.ydb.yoj.databind.FieldValueType;
 import tech.ydb.yoj.databind.schema.ObjectSchema;
 import tech.ydb.yoj.databind.schema.Schema.JavaField;
@@ -34,35 +35,41 @@ public class FieldValue {
     Boolean bool;
     Instant timestamp;
     Tuple tuple;
+    ByteArray byteArray;
 
     @NonNull
     public static FieldValue ofStr(@NonNull String str) {
-        return new FieldValue(str, null, null, null, null, null);
+        return new FieldValue(str, null, null, null, null, null, null);
     }
 
     @NonNull
     public static FieldValue ofNum(long num) {
-        return new FieldValue(null, num, null, null, null, null);
+        return new FieldValue(null, num, null, null, null, null, null);
     }
 
     @NonNull
     public static FieldValue ofReal(double real) {
-        return new FieldValue(null, null, real, null, null, null);
+        return new FieldValue(null, null, real, null, null, null, null);
     }
 
     @NonNull
     public static FieldValue ofBool(boolean bool) {
-        return new FieldValue(null, null, null, bool, null, null);
+        return new FieldValue(null, null, null, bool, null, null, null);
     }
 
     @NonNull
     public static FieldValue ofTimestamp(@NonNull Instant timestamp) {
-        return new FieldValue(null, null, null, null, timestamp, null);
+        return new FieldValue(null, null, null, null, timestamp, null, null);
     }
 
     @NonNull
     public static FieldValue ofTuple(@NonNull Tuple tuple) {
-        return new FieldValue(null, null, null, null, null, tuple);
+        return new FieldValue(null, null, null, null, null, tuple, null);
+    }
+
+    @NonNull
+    public static FieldValue ofByteArray(@NonNull ByteArray byteArray) {
+        return new FieldValue(null, null, null, null, null, null, byteArray);
     }
 
     @NonNull
@@ -83,6 +90,9 @@ public class FieldValue {
             }
             case BOOLEAN -> {
                 return ofBool((Boolean) obj);
+            }
+            case BYTE_ARRAY -> {
+                return ofByteArray((ByteArray) obj);
             }
             case TIMESTAMP -> {
                 return ofTimestamp((Instant) obj);
@@ -131,6 +141,10 @@ public class FieldValue {
 
     public boolean isTuple() {
         return tuple != null;
+    }
+
+    public boolean isByteArray() {
+        return byteArray != null;
     }
 
     @Nullable
@@ -200,6 +214,10 @@ public class FieldValue {
             case BOOLEAN -> {
                 Preconditions.checkState(isBool(), "Value is not a boolean: %s", this);
                 return bool;
+            }
+            case BYTE_ARRAY -> {
+                Preconditions.checkState(isByteArray(), "Value is not a ByteArray: %s", this);
+                return byteArray;
             }
             case COMPOSITE -> {
                 Preconditions.checkState(isTuple(), "Value is not a tuple: %s", this);

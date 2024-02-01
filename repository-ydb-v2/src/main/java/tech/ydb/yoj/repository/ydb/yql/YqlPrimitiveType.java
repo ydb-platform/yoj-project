@@ -12,6 +12,7 @@ import tech.ydb.proto.ValueProtos;
 import tech.ydb.proto.ValueProtos.Type.PrimitiveTypeId;
 import tech.ydb.proto.ValueProtos.Value.ValueCase;
 import tech.ydb.table.values.proto.ProtoValue;
+import tech.ydb.yoj.databind.ByteArray;
 import tech.ydb.yoj.databind.FieldValueType;
 import tech.ydb.yoj.databind.schema.Column;
 import tech.ydb.yoj.databind.schema.Schema.JavaField;
@@ -78,6 +79,7 @@ public class YqlPrimitiveType implements YqlType {
     private static final Setter STRING_SETTER = (b, v) -> b.setBytesValue(ByteString.copyFromUtf8((String) v));
     private static final Setter TEXT_SETTER = (b, v) -> b.setTextValue((String) v);
     private static final Setter BYTES_SETTER = (b, v) -> b.setBytesValue(UnsafeByteOperations.unsafeWrap((byte[]) v));
+    private static final Setter BYTE_ARRAY_SETTER = (b, v) -> b.setBytesValue(UnsafeByteOperations.unsafeWrap(((ByteArray) v).getArray()));
 
     private static final Setter INSTANT_SETTER = (b, v) -> b.setInt64Value(((Instant) v).toEpochMilli());
     private static final Setter INSTANT_UINT_SETTER = (b, v) -> b.setUint64Value(((Instant) v).toEpochMilli());
@@ -115,6 +117,7 @@ public class YqlPrimitiveType implements YqlType {
     private static final Getter STRING_GETTER = v -> v.getBytesValue().toStringUtf8();
     private static final Getter TEXT_GETTER = ValueProtos.Value::getTextValue;
     private static final Getter BYTES_GETTER = v -> v.getBytesValue().toByteArray();
+    private static final Getter BYTE_ARRAY_GETTER = v -> ByteArray.wrap(v.getBytesValue().toByteArray());
 
     private static final Getter INSTANT_GETTER = v -> Instant.ofEpochMilli(v.getInt64Value());
     private static final Getter INSTANT_UINT_GETTER = v -> Instant.ofEpochMilli(v.getUint64Value());
@@ -160,6 +163,7 @@ public class YqlPrimitiveType implements YqlType {
         registerYqlType(Float.class, PrimitiveTypeId.FLOAT, null, true, FLOAT_SETTER, FLOAT_GETTER);
         registerYqlType(Double.class, PrimitiveTypeId.DOUBLE, null, true, DOUBLE_SETTER, DOUBLE_GETTER);
         registerYqlType(byte[].class, PrimitiveTypeId.STRING, null, true, BYTES_SETTER, BYTES_GETTER);
+        registerYqlType(ByteArray.class, PrimitiveTypeId.STRING, null, true, BYTE_ARRAY_SETTER, BYTE_ARRAY_GETTER);
         registerYqlType(Instant.class, PrimitiveTypeId.INT64, DbTypeQualifier.MILLISECONDS, true, INSTANT_SETTER, INSTANT_GETTER);
         registerYqlType(Instant.class, PrimitiveTypeId.UINT64, DbTypeQualifier.MILLISECONDS, false, INSTANT_UINT_SETTER, INSTANT_UINT_GETTER);
         registerYqlType(Instant.class, PrimitiveTypeId.INT64, DbTypeQualifier.SECONDS, false, INSTANT_SECOND_SETTER, INSTANT_SECOND_GETTER);
