@@ -4,6 +4,8 @@ import lombok.Value;
 import org.assertj.core.api.Assertions;
 import org.junit.Test;
 
+import java.time.Duration;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -21,6 +23,10 @@ public class ChangefeedSchemaTest {
         assertThat(entitySchema.getChangefeeds()).hasSize(1);
         Assertions.assertThat(entitySchema.getChangefeeds().get(0).getMode()).isEqualTo(Changefeed.Mode.NEW_IMAGE);
         Assertions.assertThat(entitySchema.getChangefeeds().get(0).getFormat()).isEqualTo(Changefeed.Format.JSON);
+        Assertions.assertThat(entitySchema.getChangefeeds().get(0).getRetentionPeriod())
+                .isEqualTo(Duration.ofHours(24));
+        Assertions.assertThat(entitySchema.getChangefeeds().get(0).isVirtualTimestampsEnabled()).isFalse();
+        Assertions.assertThat(entitySchema.getChangefeeds().get(0).isInitialScanEnabled()).isFalse();
     }
 
     @Test

@@ -132,6 +132,9 @@ public class YdbSchemaOperations {
                     Changefeed newChangefeed = Changefeed.newBuilder(changefeed.getName())
                             .withMode(Changefeed.Mode.valueOf(changefeed.getMode().name()))
                             .withFormat(Changefeed.Format.valueOf(changefeed.getFormat().name()))
+                            .withVirtualTimestamps(changefeed.isVirtualTimestampsEnabled())
+                            .withRetentionPeriod(changefeed.getRetentionPeriod())
+                            .withInitialScan(changefeed.isInitialScanEnabled())
                             .build();
 
                     alterTableSettings.addChangefeed(newChangefeed);
