@@ -235,9 +235,9 @@ public abstract class Schema<T> {
                 changefeed.name(),
                 changefeed.mode(),
                 changefeed.format(),
-                changefeed.virtualTimestampsEnabled(),
+                changefeed.virtualTimestamps(),
                 retentionPeriod,
-                changefeed.initialScanEnabled()
+                changefeed.initialScan()
         );
     }
 
@@ -708,12 +708,12 @@ public abstract class Schema<T> {
         @NonNull
         tech.ydb.yoj.databind.schema.Changefeed.Format format;
 
-        boolean virtualTimestampsEnabled;
+        boolean virtualTimestamps;
 
         @NonNull
         Duration retentionPeriod;
 
-        boolean initialScanEnabled;
+        boolean initialScan;
     }
 
     /**
