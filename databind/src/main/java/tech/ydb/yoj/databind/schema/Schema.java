@@ -180,7 +180,7 @@ public abstract class Schema<T> {
             }
         }
         return changefeeds.stream()
-                .map(cf -> new Changefeed(cf.name(), cf.mode(), cf.format()))
+                .map(this::changefeedFromAnnotation)
                 .toList();
     }
 
@@ -225,6 +225,20 @@ public abstract class Schema<T> {
 
     private JavaField newRootJavaField(@NonNull JavaField javaField) {
         return new JavaField(javaField, null);
+    }
+
+    private Changefeed changefeedFromAnnotation(@NonNull tech.ydb.yoj.databind.schema.Changefeed changefeed) {
+        var retentionPeriod = Duration.parse(changefeed.retentionPeriod());
+        Preconditions.checkArgument(!(retentionPeriod.isNegative() || retentionPeriod.isZero()),
+                "RetentionPeriod value defined for %s must be positive", getType());
+        return new Changefeed(
+                changefeed.name(),
+                changefeed.mode(),
+                changefeed.format(),
+                changefeed.virtualTimestampsEnabled(),
+                retentionPeriod,
+                changefeed.initialScanEnabled()
+        );
     }
 
     /**
@@ -693,6 +707,13 @@ public abstract class Schema<T> {
 
         @NonNull
         tech.ydb.yoj.databind.schema.Changefeed.Format format;
+
+        boolean virtualTimestampsEnabled;
+
+        @NonNull
+        Duration retentionPeriod;
+
+        boolean initialScanEnabled;
     }
 
     /**

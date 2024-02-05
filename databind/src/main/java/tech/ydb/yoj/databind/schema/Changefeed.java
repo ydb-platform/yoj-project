@@ -25,6 +25,21 @@ public @interface Changefeed {
      */
     Format format() default Format.JSON;
 
+    /**
+     * Virtual timestamps
+     */
+    boolean virtualTimestampsEnabled() default false;
+
+    /**
+     * Retention period for data in feed
+     */
+    String retentionPeriod() default "PT24H";
+
+    /**
+     * Initial table scan
+     */
+    boolean initialScanEnabled() default false;
+
     enum Mode {
         /**
          * Only the key component of the modified row
