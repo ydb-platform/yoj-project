@@ -1,7 +1,6 @@
 package tech.ydb.yoj.databind.schema;
 
 import lombok.Value;
-import org.assertj.core.api.Assertions;
 import org.junit.Test;
 
 import java.time.Duration;
@@ -21,12 +20,11 @@ public class ChangefeedSchemaTest {
         var entitySchema = schemaOf(ChangefeedDefaultsEntity.class);
 
         assertThat(entitySchema.getChangefeeds()).hasSize(1);
-        Assertions.assertThat(entitySchema.getChangefeeds().get(0).getMode()).isEqualTo(Changefeed.Mode.NEW_IMAGE);
-        Assertions.assertThat(entitySchema.getChangefeeds().get(0).getFormat()).isEqualTo(Changefeed.Format.JSON);
-        Assertions.assertThat(entitySchema.getChangefeeds().get(0).getRetentionPeriod())
-                .isEqualTo(Duration.ofHours(24));
-        Assertions.assertThat(entitySchema.getChangefeeds().get(0).isVirtualTimestampsEnabled()).isFalse();
-        Assertions.assertThat(entitySchema.getChangefeeds().get(0).isInitialScanEnabled()).isFalse();
+        assertThat(entitySchema.getChangefeeds().get(0).getMode()).isEqualTo(Changefeed.Mode.NEW_IMAGE);
+        assertThat(entitySchema.getChangefeeds().get(0).getFormat()).isEqualTo(Changefeed.Format.JSON);
+        assertThat(entitySchema.getChangefeeds().get(0).getRetentionPeriod()).isEqualTo(Duration.ofHours(24));
+        assertThat(entitySchema.getChangefeeds().get(0).isVirtualTimestamps()).isFalse();
+        assertThat(entitySchema.getChangefeeds().get(0).isInitialScan()).isFalse();
     }
 
     @Test

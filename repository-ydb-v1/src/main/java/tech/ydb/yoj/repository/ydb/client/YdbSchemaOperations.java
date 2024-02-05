@@ -136,9 +136,9 @@ public class YdbSchemaOperations {
                             changefeed.getName(),
                             Changefeed.Mode.valueOf(changefeed.getMode().name()),
                             Changefeed.Format.valueOf(changefeed.getFormat().name()),
-                            changefeed.isVirtualTimestampsEnabled(),
+                            changefeed.isVirtualTimestamps(),
                             changefeed.getRetentionPeriod(),
-                            changefeed.isInitialScanEnabled()
+                            changefeed.isInitialScan()
                     ));
                     status = session.alterTable(tablespace + name, alterTableSettings).join();
                     if (status.getCode() != com.yandex.ydb.core.StatusCode.SUCCESS) {

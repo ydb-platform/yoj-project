@@ -28,17 +28,18 @@ public @interface Changefeed {
     /**
      * Virtual timestamps
      */
-    boolean virtualTimestampsEnabled() default false;
+    boolean virtualTimestamps() default false;
 
     /**
-     * Retention period for data in feed
+     * Retention period for data in feed, in {@link java.time.Duration} ISO format.
+     * E.g., {@code PT1M}
      */
     String retentionPeriod() default "PT24H";
 
     /**
      * Initial table scan
      */
-    boolean initialScanEnabled() default false;
+    boolean initialScan() default false;
 
     enum Mode {
         /**

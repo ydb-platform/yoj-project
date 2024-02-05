@@ -13,9 +13,9 @@ import static tech.ydb.yoj.databind.schema.Changefeed.Mode.KEYS_ONLY;
         name = "test-changefeed1",
         mode = KEYS_ONLY,
         format = JSON,
-        virtualTimestampsEnabled = true,
+        virtualTimestamps = true,
         retentionPeriod = "PT1H",
-        initialScanEnabled = true
+        initialScan = true
 )
 @Changefeed(name = "test-changefeed2")
 public class ChangefeedEntity implements Entity<ChangefeedEntity> {
