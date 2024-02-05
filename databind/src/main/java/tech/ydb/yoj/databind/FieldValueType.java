@@ -2,7 +2,10 @@ package tech.ydb.yoj.databind;
 
 import com.google.common.base.Preconditions;
 import lombok.NonNull;
+import org.jetbrains.annotations.NotNull;
+import tech.ydb.yoj.ExperimentalApi;
 import tech.ydb.yoj.databind.schema.Column;
+import tech.ydb.yoj.databind.schema.StringValueType;
 
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
@@ -100,15 +103,33 @@ public enum FieldValueType {
             String.class
     ));
 
+    /**
+     * @deprecated It is recommended to use the new {@link StringValueType} annotation instead of calling this method.
+     * <p>
+     * To register a class <em>not in your code</em> (e.g., {@code UUID} from the JDK) as a string-value type, continue using this
+     * method. A later version of YOJ will provide an alternative way of doing so, probably by calling some method on {@code SchemaRegistry}.
+     *
+     * @param clazz class to register as string-value. Must either be final or sealed with permissible final-only implementations.
+     *              All permissible implementations of a sealed class will be registered automatically.
+     */
+    @Deprecated
+    @ExperimentalApi(issue = "https://github.com/ydb-platform/yoj-project/issues/21")
     public static void registerStringValueType(@NonNull Class<?> clazz) {
+        ensureValidStringValueType(clazz);
+        STRING_VALUE_TYPES.add(clazz);
+        if (clazz.isSealed()) {
+            STRING_VALUE_TYPES.addAll(Arrays.asList(clazz.getPermittedSubclasses()));
+        }
+    }
+
+    private static void ensureValidStringValueType(@NotNull Class<?> clazz) {
         boolean isFinal = isFinal(clazz.getModifiers());
         boolean isSealed = clazz.isSealed();
         Preconditions.checkArgument(isFinal || isSealed,
                 "String-value type must either be final or sealed, but got: %s", clazz);
 
-        STRING_VALUE_TYPES.add(clazz);
         if (isSealed) {
-            Arrays.stream(clazz.getPermittedSubclasses()).forEach(FieldValueType::registerStringValueType);
+            Arrays.stream(clazz.getPermittedSubclasses()).forEach(FieldValueType::ensureValidStringValueType);
         }
     }
 
@@ -140,8 +161,7 @@ public enum FieldValueType {
         if (type instanceof ParameterizedType || type instanceof TypeVariable) {
             return OBJECT;
         } else if (type instanceof Class<?> clazz) {
-            // FIXME: remove static configuration here, more it to e.g. a class annotation (or SchemaRegistry)
-            if (STRING_VALUE_TYPES.contains(clazz)) {
+            if (isStringValueType(clazz)) {
                 return STRING;
             } else if (INTEGER_NUMERIC_TYPES.contains(clazz)) {
                 return INTEGER;
@@ -174,6 +194,18 @@ public enum FieldValueType {
         } else {
             return UNKNOWN;
         }
+    }
+
+    private static boolean isStringValueType(Class<?> clazz) {
+        if (STRING_VALUE_TYPES.contains(clazz)) {
+            return true;
+        }
+        if (clazz.getAnnotation(StringValueType.class) != null) {
+            // FIXME: Move the Set of string-value types to SchemaRegistry
+            registerStringValueType(clazz);
+            return true;
+        }
+        return false;
     }
 
     /**

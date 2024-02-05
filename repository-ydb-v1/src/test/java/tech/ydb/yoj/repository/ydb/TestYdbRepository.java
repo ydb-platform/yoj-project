@@ -28,6 +28,7 @@ import tech.ydb.yoj.repository.test.sample.model.Supabubble;
 import tech.ydb.yoj.repository.test.sample.model.Supabubble2;
 import tech.ydb.yoj.repository.test.sample.model.Team;
 import tech.ydb.yoj.repository.test.sample.model.TypeFreak;
+import tech.ydb.yoj.repository.test.sample.model.UpdateFeedEntry;
 import tech.ydb.yoj.repository.ydb.table.YdbTable;
 import tech.ydb.yoj.repository.ydb.yql.YqlPredicate;
 
@@ -119,6 +120,11 @@ public class TestYdbRepository extends YdbRepository {
         @Override
         public Supabubble2Table supabubbles2() {
             return new YdbSupabubble2Table(this);
+        }
+
+        @Override
+        public Table<UpdateFeedEntry> updateFeedEntries() {
+            return table(UpdateFeedEntry.class);
         }
     }
 

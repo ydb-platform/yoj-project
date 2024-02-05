@@ -19,6 +19,7 @@ import tech.ydb.yoj.repository.test.sample.model.Supabubble;
 import tech.ydb.yoj.repository.test.sample.model.Supabubble2;
 import tech.ydb.yoj.repository.test.sample.model.Team;
 import tech.ydb.yoj.repository.test.sample.model.TypeFreak;
+import tech.ydb.yoj.repository.test.sample.model.UpdateFeedEntry;
 import tech.ydb.yoj.repository.test.sample.model.WithUnflattenableField;
 
 import java.util.List;
@@ -39,7 +40,8 @@ public final class TestEntities {
             Supabubble.class,
             Supabubble2.class,
             NonDeserializableEntity.class,
-            WithUnflattenableField.class
+            WithUnflattenableField.class,
+            UpdateFeedEntry.class
     );
 
     @SuppressWarnings("unchecked")

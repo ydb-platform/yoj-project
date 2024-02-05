@@ -139,7 +139,7 @@ public class TypeFreak implements Entity<TypeFreak> {
     }
 
     /**
-     * String-valued type with canonical static factory ({@link #valueOf(String)}) and a matching {@link #toString()}
+     * String-value type with canonical static factory ({@link #valueOf(String)}) and a matching {@link #toString()}
      * instance method.
      * <p><em>E.g.,</em> {@code "XYZ-100500" <=> new Ticket(queue="XYZ", num=100500)}
      */

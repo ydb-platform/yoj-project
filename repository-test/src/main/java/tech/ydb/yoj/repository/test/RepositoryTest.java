@@ -51,6 +51,7 @@ import tech.ydb.yoj.repository.test.sample.model.TypeFreak;
 import tech.ydb.yoj.repository.test.sample.model.TypeFreak.A;
 import tech.ydb.yoj.repository.test.sample.model.TypeFreak.B;
 import tech.ydb.yoj.repository.test.sample.model.TypeFreak.Embedded;
+import tech.ydb.yoj.repository.test.sample.model.UpdateFeedEntry;
 import tech.ydb.yoj.repository.test.sample.model.WithUnflattenableField;
 
 import java.time.Instant;
@@ -60,6 +61,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -2095,7 +2097,7 @@ public abstract class RepositoryTest extends RepositoryTestSupport {
 
         parallelTx(true, true, t -> t.find(new Range<>(new Complex.Id(1, 2L, null, null)))); //lock on range
         parallelTx(false, false, t -> t.find(new Range<>(new Complex.Id(1, 2L, null, null)))); //lock on range
-        
+
         parallelTx(false, true, t -> t.find(new Range<>(new Complex.Id(2, 2L, null, null)))); //not lock on another range
         parallelTx(false, false, t -> t.find(new Range<>(new Complex.Id(2, 2L, null, null)))); //not lock on another range
     }
@@ -2604,6 +2606,30 @@ public abstract class RepositoryTest extends RepositoryTestSupport {
 
         assertThat(txAttempts).hasSize(2);
         assertThat(twoElements).hasSize(2);
+    }
+
+    @Test
+    public void stringValuedIdInsert() {
+        Map<UpdateFeedEntry.Id, UpdateFeedEntry> inserted = new HashMap<>();
+        for (int i = 0; i < 100; i++) {
+            var snap = new UpdateFeedEntry(UpdateFeedEntry.Id.generate("insert"), Instant.now(), "payload-" + i);
+            db.tx(() -> db.updateFeedEntries().insert(snap));
+            inserted.put(snap.getId(), snap);
+        }
+
+        assertThat(db.tx(() -> db.updateFeedEntries().find(inserted.keySet())))
+                .containsExactlyInAnyOrderElementsOf(inserted.values());
+
+        assertThat(db.tx(() -> db.updateFeedEntries().list(ListRequest.builder(UpdateFeedEntry.class)
+                .filter(fb -> fb.where("id").in(inserted.keySet()))
+                .build())))
+                .containsExactlyInAnyOrderElementsOf(inserted.values());
+
+        for (var e : inserted.entrySet()) {
+            assertThat(db.tx(() -> db.updateFeedEntries().query()
+                    .filter(fb -> fb.where("id").eq(e.getKey()))
+                    .findOne())).isEqualTo(e.getValue());
+        }
     }
 
     protected void runInTx(Consumer<RepositoryTransaction> action) {

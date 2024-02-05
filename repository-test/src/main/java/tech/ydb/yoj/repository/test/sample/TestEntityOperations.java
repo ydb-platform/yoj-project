@@ -19,6 +19,7 @@ import tech.ydb.yoj.repository.test.sample.model.Supabubble;
 import tech.ydb.yoj.repository.test.sample.model.Supabubble2;
 import tech.ydb.yoj.repository.test.sample.model.Team;
 import tech.ydb.yoj.repository.test.sample.model.TypeFreak;
+import tech.ydb.yoj.repository.test.sample.model.UpdateFeedEntry;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -56,6 +57,8 @@ public interface TestEntityOperations extends BaseDb {
     SupabubbleTable supabubbles();
 
     Supabubble2Table supabubbles2();
+
+    Table<UpdateFeedEntry> updateFeedEntries();
 
     class ProjectTable extends AbstractDelegatingTable<Project> {
         public ProjectTable(Table<Project> target) {

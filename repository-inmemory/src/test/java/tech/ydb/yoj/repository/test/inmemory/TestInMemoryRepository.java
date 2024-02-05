@@ -23,6 +23,7 @@ import tech.ydb.yoj.repository.test.sample.model.Supabubble;
 import tech.ydb.yoj.repository.test.sample.model.Supabubble2;
 import tech.ydb.yoj.repository.test.sample.model.Team;
 import tech.ydb.yoj.repository.test.sample.model.TypeFreak;
+import tech.ydb.yoj.repository.test.sample.model.UpdateFeedEntry;
 
 import java.util.Set;
 
@@ -99,6 +100,11 @@ public class TestInMemoryRepository extends InMemoryRepository {
         @Override
         public Supabubble2Table supabubbles2() {
             return new Supabubble2InMemoryTable(getMemory(Supabubble2.class));
+        }
+
+        @Override
+        public Table<UpdateFeedEntry> updateFeedEntries() {
+            return table(UpdateFeedEntry.class);
         }
     }
 

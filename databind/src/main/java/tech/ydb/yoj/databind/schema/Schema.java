@@ -45,6 +45,7 @@ import static java.util.Arrays.asList;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toMap;
 import static lombok.AccessLevel.PROTECTED;
+import static tech.ydb.yoj.databind.FieldValueType.STRING;
 
 public abstract class Schema<T> {
     public static final String PATH_DELIMITER = ".";
@@ -195,9 +196,20 @@ public abstract class Schema<T> {
 
         staticName = schema.staticName;
         globalIndexes = schema.globalIndexes;
-        fields = (subSchemaField.fields == null)
-                ? List.of()
-                : subSchemaField.fields.stream().map(this::newRootJavaField).toList();
+
+        if (subSchemaField.fields != null) {
+            fields = subSchemaField.fields.stream().map(this::newRootJavaField).toList();
+        } else {
+            var subSchemaFieldType = subSchemaField.getRawType();
+            if (subSchemaFieldType.getAnnotation(StringValueType.class) != null
+                    && subSchemaFieldType.getAnnotation(StringValueType.class).entityId()) {
+                var dummyField = new JavaField(new DummyStringValueField(subSchemaField), subSchemaField, __ -> true);
+                dummyField.setName(subSchemaField.getName());
+                fields = List.of(dummyField);
+            } else {
+                fields = List.of();
+            }
+        }
         ttlModifier = schema.ttlModifier;
         changefeeds = schema.changefeeds;
     }
@@ -380,6 +392,65 @@ public abstract class Schema<T> {
                 + " [type=" + getType().getName() + "]";
     }
 
+    private static final class DummyStringValueField implements ReflectField {
+        private final JavaField donor;
+
+        private DummyStringValueField(JavaField donor) {
+            this.donor = donor;
+        }
+
+        @Override
+        public String getName() {
+            return donor.getName();
+        }
+
+        @Override
+        public Column getColumn() {
+            return donor.getField().getColumn();
+        }
+
+        @Override
+        public Type getGenericType() {
+            return String.class;
+        }
+
+        @Override
+        public Class<?> getType() {
+            return String.class;
+        }
+
+        @Override
+        public ReflectType<?> getReflectType() {
+            return donor.getField().getReflectType();
+        }
+
+        @Override
+        public Object getValue(Object containingObject) {
+            Preconditions.checkArgument(donor.getRawType().isInstance(containingObject),
+                    "Tried to get value of a string-value field '%s' on an invalid type: expected %s, got %s",
+                    donor.getPath(),
+                    donor.getRawType(),
+                    containingObject == null ? "<null value>" : containingObject.getClass()
+            );
+            return containingObject.toString();
+        }
+
+        @Override
+        public Collection<ReflectField> getChildren() {
+            return Set.of();
+        }
+
+        @Override
+        public FieldValueType getValueType() {
+            return STRING;
+        }
+
+        @Override
+        public String toString() {
+            return "DummyStringValueField[donor=" + donor + "]";
+        }
+    }
+
     public static final class JavaField {
         @Getter
         private final ReflectField field;
@@ -461,6 +532,10 @@ public abstract class Schema<T> {
 
         public Type getType() {
             return field.getGenericType();
+        }
+
+        public Class<?> getRawType() {
+            return field.getType();
         }
 
         // FIXME: make this method non-public

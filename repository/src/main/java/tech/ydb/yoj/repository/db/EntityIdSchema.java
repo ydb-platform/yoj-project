@@ -1,9 +1,11 @@
 package tech.ydb.yoj.repository.db;
 
+import com.google.common.base.Preconditions;
 import com.google.common.reflect.TypeToken;
 import lombok.NonNull;
 import tech.ydb.yoj.databind.FieldValueType;
 import tech.ydb.yoj.databind.schema.Schema;
+import tech.ydb.yoj.databind.schema.StringValueType;
 import tech.ydb.yoj.databind.schema.configuration.SchemaRegistry;
 import tech.ydb.yoj.databind.schema.configuration.SchemaRegistry.SchemaKey;
 import tech.ydb.yoj.databind.schema.naming.NamingStrategy;
@@ -57,7 +59,20 @@ public final class EntityIdSchema<ID extends Entity.Id<?>> extends Schema<ID> im
     private <E extends Entity<E>> EntityIdSchema(EntitySchema<E> entitySchema) {
         super(entitySchema, ID_FIELD_NAME);
 
-        flattenFields().stream()
+        var flattenedFields = flattenFields();
+
+        var idField = entitySchema.getField(EntityIdSchema.ID_FIELD_NAME);
+        if (idField.getValueType().isComposite()) {
+            Preconditions.checkArgument(!flattenedFields.isEmpty(), "ID must have at least 1 field, but got none: %s", idField.getType());
+        } else {
+            var idType = idField.getRawType();
+            var svtAnnotation = idType.getAnnotation(StringValueType.class);
+            Preconditions.checkArgument(svtAnnotation != null && svtAnnotation.entityId(),
+                    "ID must be either a composite with >= 1 field, or a string-value type annotated with @StringValueType(entityId=true), got: %s",
+                    idField.getType());
+        }
+
+        flattenedFields.stream()
                 .filter(f -> !ALLOWED_ID_FIELD_TYPES.contains(FieldValueType.forJavaType(f.getType())))
                 .findAny()
                 .ifPresent(f -> {
