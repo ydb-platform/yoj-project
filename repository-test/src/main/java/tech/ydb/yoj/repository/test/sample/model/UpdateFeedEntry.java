@@ -3,8 +3,8 @@ package tech.ydb.yoj.repository.test.sample.model;
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
 import lombok.Value;
+import tech.ydb.yoj.databind.StringValueType;
 import tech.ydb.yoj.databind.schema.Column;
-import tech.ydb.yoj.databind.schema.StringValueType;
 import tech.ydb.yoj.repository.DbTypeQualifier;
 import tech.ydb.yoj.repository.db.Entity;
 

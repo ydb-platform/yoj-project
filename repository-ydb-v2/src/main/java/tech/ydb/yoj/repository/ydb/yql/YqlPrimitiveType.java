@@ -1,6 +1,7 @@
 package tech.ydb.yoj.repository.ydb.yql;
 
 import com.google.common.primitives.Primitives;
+import com.google.common.reflect.TypeToken;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.UnsafeByteOperations;
@@ -15,6 +16,7 @@ import tech.ydb.table.values.proto.ProtoValue;
 import tech.ydb.yoj.ExperimentalApi;
 import tech.ydb.yoj.databind.ByteArray;
 import tech.ydb.yoj.databind.DbType;
+import tech.ydb.yoj.databind.CustomValueType;
 import tech.ydb.yoj.databind.FieldValueType;
 import tech.ydb.yoj.databind.schema.Column;
 import tech.ydb.yoj.databind.schema.Schema.JavaField;
@@ -42,6 +44,8 @@ import static tech.ydb.yoj.repository.db.common.CommonConverters.enumValueGetter
 import static tech.ydb.yoj.repository.db.common.CommonConverters.enumValueSetter;
 import static tech.ydb.yoj.repository.db.common.CommonConverters.opaqueObjectValueGetter;
 import static tech.ydb.yoj.repository.db.common.CommonConverters.opaqueObjectValueSetter;
+import static tech.ydb.yoj.repository.db.common.CommonConverters.postconvert;
+import static tech.ydb.yoj.repository.db.common.CommonConverters.preconvert;
 import static tech.ydb.yoj.repository.db.common.CommonConverters.stringValueGetter;
 import static tech.ydb.yoj.repository.db.common.CommonConverters.stringValueSetter;
 
@@ -405,7 +409,9 @@ public class YqlPrimitiveType implements YqlType {
     @NonNull
     @Deprecated(forRemoval = true)
     public static YqlPrimitiveType of(Type javaType) {
-        return resolveYqlType(javaType, FieldValueType.forJavaType(javaType), null, null);
+        var cvt = TypeToken.of(javaType).getRawType().getAnnotation(CustomValueType.class);
+        var valueType = FieldValueType.forJavaType(javaType);
+        return resolveYqlType(javaType, valueType, null, null, cvt);
     }
 
     /**
@@ -423,7 +429,34 @@ public class YqlPrimitiveType implements YqlType {
             yqlType = convertToYqlType(column.getDbType().typeString());
         }
 
-        return resolveYqlType(column.getType(), column.getValueType(), yqlType, column.getDbTypeQualifier());
+        return resolveYqlType(column.getType(), column.getValueType(), yqlType, column.getDbTypeQualifier(), column.getCustomValueType());
+    }
+
+    @NonNull
+    private static YqlPrimitiveType resolveYqlType(Type javaType, FieldValueType valueType,
+                                                   PrimitiveTypeId yqlType, String qualifier,
+                                                   CustomValueType cvt) {
+        if (cvt != null && cvt.columnValueType() != valueType) {
+            throw new IllegalStateException("This should never happen: detected FieldValueType must == @CustomValueType.columnValueType(), but got: "
+                    + valueType + " != " + cvt.columnValueType());
+        }
+
+        var underlyingType = resolveYqlType(
+                cvt != null ? cvt.columnClass() : javaType,
+                valueType,
+                yqlType,
+                qualifier
+        );
+        if (cvt == null) {
+            return underlyingType;
+        }
+
+        return new YqlPrimitiveType(
+                underlyingType.javaType,
+                underlyingType.yqlType,
+                (b, o) -> underlyingType.setter.accept(b, preconvert(cvt, o)),
+                v -> postconvert(cvt, underlyingType.getter.apply(v))
+        );
     }
 
     @NonNull

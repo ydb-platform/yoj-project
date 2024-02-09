@@ -2,6 +2,7 @@ package tech.ydb.yoj.repository.test;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterators;
+import lombok.SneakyThrows;
 import org.assertj.core.api.Assertions;
 import org.junit.Assert;
 import org.junit.Test;
@@ -40,6 +41,7 @@ import tech.ydb.yoj.repository.test.sample.model.Complex.Id;
 import tech.ydb.yoj.repository.test.sample.model.EntityWithValidation;
 import tech.ydb.yoj.repository.test.sample.model.IndexedEntity;
 import tech.ydb.yoj.repository.test.sample.model.MultiLevelDirectory;
+import tech.ydb.yoj.repository.test.sample.model.NetworkAppliance;
 import tech.ydb.yoj.repository.test.sample.model.NonDeserializableEntity;
 import tech.ydb.yoj.repository.test.sample.model.NonDeserializableObject;
 import tech.ydb.yoj.repository.test.sample.model.Primitive;
@@ -2630,6 +2632,14 @@ public abstract class RepositoryTest extends RepositoryTestSupport {
                     .filter(fb -> fb.where("id").eq(e.getKey()))
                     .findOne())).isEqualTo(e.getValue());
         }
+    }
+
+    @Test
+    @SneakyThrows
+    public void customValueType() {
+        var app1 = new NetworkAppliance(new NetworkAppliance.Id("app1"), new NetworkAppliance.Ipv6Address("2e:a0::1"));
+        db.tx(() -> db.networkAppliances().insert(app1));
+        assertThat(db.tx(() -> db.networkAppliances().find(app1.id()))).isEqualTo(app1);
     }
 
     protected void runInTx(Consumer<RepositoryTransaction> action) {

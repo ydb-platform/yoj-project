@@ -71,6 +71,9 @@ final class Columns {
         String qualifier = field.getDbTypeQualifier();
         try {
             Preconditions.checkState(field.isSimple(), "Trying to serialize a non-simple field: %s", field);
+
+            value = CommonConverters.preconvert(field.getCustomValueType(), value);
+
             return switch (field.getValueType()) {
                 case STRING -> CommonConverters.serializeStringValue(type, value);
                 case ENUM -> DbTypeQualifier.ENUM_TO_STRING.equals(qualifier)
@@ -97,7 +100,8 @@ final class Columns {
         String qualifier = field.getDbTypeQualifier();
         try {
             Preconditions.checkState(field.isSimple(), "Trying to deserialize a non-simple field: %s", field);
-            return switch (field.getValueType()) {
+
+            var deserialized = switch (field.getValueType()) {
                 case STRING -> CommonConverters.deserializeStringValue(type, value);
                 case ENUM -> DbTypeQualifier.ENUM_TO_STRING.equals(qualifier)
                         ? CommonConverters.deserializeEnumToStringValue(type, value)
@@ -110,6 +114,8 @@ final class Columns {
                 case INTERVAL, TIMESTAMP -> value;
                 default -> throw new IllegalStateException("Don't know how to deserialize field: " + field);
             };
+
+            return CommonConverters.postconvert(field.getCustomValueType(), deserialized);
         } catch (Exception e) {
             throw new ConversionException("Could not deserialize value of type <" + type + ">", e);
         }

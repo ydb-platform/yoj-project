@@ -16,6 +16,7 @@ import tech.ydb.yoj.repository.test.sample.model.Complex;
 import tech.ydb.yoj.repository.test.sample.model.EntityWithValidation;
 import tech.ydb.yoj.repository.test.sample.model.IndexedEntity;
 import tech.ydb.yoj.repository.test.sample.model.LogEntry;
+import tech.ydb.yoj.repository.test.sample.model.NetworkAppliance;
 import tech.ydb.yoj.repository.test.sample.model.Primitive;
 import tech.ydb.yoj.repository.test.sample.model.Project;
 import tech.ydb.yoj.repository.test.sample.model.Referring;
@@ -105,6 +106,11 @@ public class TestInMemoryRepository extends InMemoryRepository {
         @Override
         public Table<UpdateFeedEntry> updateFeedEntries() {
             return table(UpdateFeedEntry.class);
+        }
+
+        @Override
+        public Table<NetworkAppliance> networkAppliances() {
+            return table(NetworkAppliance.class);
         }
     }
 

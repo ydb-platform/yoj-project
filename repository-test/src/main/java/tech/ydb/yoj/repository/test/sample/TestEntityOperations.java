@@ -12,6 +12,7 @@ import tech.ydb.yoj.repository.test.sample.model.Complex;
 import tech.ydb.yoj.repository.test.sample.model.EntityWithValidation;
 import tech.ydb.yoj.repository.test.sample.model.IndexedEntity;
 import tech.ydb.yoj.repository.test.sample.model.LogEntry;
+import tech.ydb.yoj.repository.test.sample.model.NetworkAppliance;
 import tech.ydb.yoj.repository.test.sample.model.Primitive;
 import tech.ydb.yoj.repository.test.sample.model.Project;
 import tech.ydb.yoj.repository.test.sample.model.Referring;
@@ -59,6 +60,8 @@ public interface TestEntityOperations extends BaseDb {
     Supabubble2Table supabubbles2();
 
     Table<UpdateFeedEntry> updateFeedEntries();
+
+    Table<NetworkAppliance> networkAppliances();
 
     class ProjectTable extends AbstractDelegatingTable<Project> {
         public ProjectTable(Table<Project> target) {

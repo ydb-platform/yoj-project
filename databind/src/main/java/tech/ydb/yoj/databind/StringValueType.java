@@ -1,4 +1,4 @@
-package tech.ydb.yoj.databind.schema;
+package tech.ydb.yoj.databind;
 
 import tech.ydb.yoj.ExperimentalApi;
 

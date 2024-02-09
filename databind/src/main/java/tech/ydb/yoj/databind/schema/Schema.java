@@ -8,8 +8,11 @@ import lombok.NonNull;
 import lombok.SneakyThrows;
 import lombok.Value;
 import lombok.With;
+import tech.ydb.yoj.ExperimentalApi;
+import tech.ydb.yoj.databind.CustomValueType;
 import tech.ydb.yoj.databind.DbType;
 import tech.ydb.yoj.databind.FieldValueType;
+import tech.ydb.yoj.databind.StringValueType;
 import tech.ydb.yoj.databind.schema.configuration.SchemaRegistry.SchemaKey;
 import tech.ydb.yoj.databind.schema.naming.NamingStrategy;
 import tech.ydb.yoj.databind.schema.reflect.ReflectField;
@@ -694,6 +697,12 @@ public abstract class Schema<T> {
                     .filter(Objects::nonNull)
                     .findAny()
                     .orElse(null);
+        }
+
+        @Nullable
+        @ExperimentalApi(issue = "https://github.com/ydb-platform/yoj-project/issues/24")
+        public CustomValueType getCustomValueType() {
+            return field.getType().getAnnotation(CustomValueType.class);
         }
 
         @Override

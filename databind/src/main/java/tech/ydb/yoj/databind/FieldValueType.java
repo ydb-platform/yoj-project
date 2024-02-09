@@ -5,7 +5,6 @@ import lombok.NonNull;
 import org.jetbrains.annotations.NotNull;
 import tech.ydb.yoj.ExperimentalApi;
 import tech.ydb.yoj.databind.schema.Column;
-import tech.ydb.yoj.databind.schema.StringValueType;
 
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
@@ -161,6 +160,11 @@ public enum FieldValueType {
         if (type instanceof ParameterizedType || type instanceof TypeVariable) {
             return OBJECT;
         } else if (type instanceof Class<?> clazz) {
+            var cvt = clazz.getAnnotation(CustomValueType.class);
+            if (cvt != null) {
+                return cvt.columnValueType();
+            }
+
             if (isStringValueType(clazz)) {
                 return STRING;
             } else if (INTEGER_NUMERIC_TYPES.contains(clazz)) {
