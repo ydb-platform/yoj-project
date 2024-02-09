@@ -21,6 +21,10 @@ public final class ByteArray implements Comparable<ByteArray> {
         return new ByteArray(array.clone());
     }
 
+    public ByteArray copy() {
+        return ByteArray.copy(array);
+    }
+
     public byte[] getArray() {
         return array;
     }

@@ -100,7 +100,7 @@ public final class ModelField {
         } else if (value.isByteArray()) {
             checkArgument(fieldValueType == FieldValueType.BYTE_ARRAY,
                     ByteArrayFieldExpected::new,
-                    p -> format("Specified a boolean value for non-boolean field \"%s\"", p));
+                    p -> format("Specified a ByteArray value for non-ByteArray field \"%s\"", p));
         } else if (value.isTimestamp()) {
             checkArgument(fieldValueType == FieldValueType.TIMESTAMP || fieldValueType == FieldValueType.INTEGER,
                     DateTimeFieldExpected::new,
