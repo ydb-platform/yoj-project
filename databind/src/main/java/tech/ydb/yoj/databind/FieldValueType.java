@@ -63,6 +63,11 @@ public enum FieldValueType {
      */
     BINARY,
     /**
+     * Binary value: just a stream of uninterpreted bytes.
+     * Java-side <strong>must</strong> be a {@link ByteArray tech.ydb.yoj.databind.ByteArray}.
+     */
+    BYTE_ARRAY,
+    /**
      * Composite value. Can contain any other values, including other composite values.<br>
      * Java-side must be an immutable POJO with all-args constructor, e.g. a Lombok {@code @Value}-annotated
      * class.
@@ -80,7 +85,7 @@ public enum FieldValueType {
     UNKNOWN;
 
     private static final Set<FieldValueType> SORTABLE_VALUE_TYPES = Set.of(
-            INTEGER, STRING, ENUM, TIMESTAMP
+            INTEGER, STRING, ENUM, TIMESTAMP, BYTE_ARRAY
     );
 
     private static final Set<Type> INTEGER_NUMERIC_TYPES = Set.of(
@@ -152,6 +157,8 @@ public enum FieldValueType {
                 return INTERVAL;
             } else if (byte[].class.equals(type)) {
                 return BINARY;
+            } else if (ByteArray.class.equals(type)) {
+                return BYTE_ARRAY;
             } else if (Collection.class.isAssignableFrom(clazz)) {
                 throw new IllegalArgumentException("Raw collection types cannot be used in databinding: " + type);
             } else if (Object.class.equals(clazz)) {

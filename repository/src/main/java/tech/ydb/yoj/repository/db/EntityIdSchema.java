@@ -16,6 +16,7 @@ import java.util.Map;
 import java.util.Set;
 
 import static tech.ydb.yoj.databind.FieldValueType.BOOLEAN;
+import static tech.ydb.yoj.databind.FieldValueType.BYTE_ARRAY;
 import static tech.ydb.yoj.databind.FieldValueType.ENUM;
 import static tech.ydb.yoj.databind.FieldValueType.INTEGER;
 import static tech.ydb.yoj.databind.FieldValueType.STRING;
@@ -49,7 +50,9 @@ public final class EntityIdSchema<ID extends Entity.Id<?>> extends Schema<ID> im
 
     private static final Type ENTITY_TYPE_PARAMETER = Entity.Id.class.getTypeParameters()[0];
 
-    private static final Set<FieldValueType> ALLOWED_ID_FIELD_TYPES = Set.of(STRING, INTEGER, ENUM, BOOLEAN, TIMESTAMP);
+    private static final Set<FieldValueType> ALLOWED_ID_FIELD_TYPES = Set.of(
+            STRING, INTEGER, ENUM, BOOLEAN, TIMESTAMP, BYTE_ARRAY
+    );
 
     private <E extends Entity<E>> EntityIdSchema(EntitySchema<E> entitySchema) {
         super(entitySchema, ID_FIELD_NAME);

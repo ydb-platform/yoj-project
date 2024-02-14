@@ -6,6 +6,7 @@ import lombok.RequiredArgsConstructor;
 import org.eclipse.collections.api.map.ImmutableMap;
 import org.eclipse.collections.api.tuple.Pair;
 import org.eclipse.collections.impl.factory.Maps;
+import tech.ydb.yoj.databind.ByteArray;
 import tech.ydb.yoj.databind.schema.Schema;
 import tech.ydb.yoj.repository.DbTypeQualifier;
 import tech.ydb.yoj.repository.db.Entity;
@@ -77,6 +78,7 @@ final class Columns {
                         : CommonConverters.serializeEnumValue(type, value);
                 case OBJECT -> CommonConverters.serializeOpaqueObjectValue(type, value);
                 case BINARY -> ((byte[]) value).clone();
+                case BYTE_ARRAY -> ((ByteArray) value).copy().getArray();
                 case BOOLEAN, INTEGER, REAL -> value;
                 // TODO: Unify Instant and Duration handling in InMemory and YDB Repository
                 case INTERVAL, TIMESTAMP -> value;
@@ -102,6 +104,7 @@ final class Columns {
                         : CommonConverters.deserializeEnumValue(type, value);
                 case OBJECT -> CommonConverters.deserializeOpaqueObjectValue(type, value);
                 case BINARY -> ((byte[]) value).clone();
+                case BYTE_ARRAY -> ByteArray.copy((byte[]) value);
                 case BOOLEAN, INTEGER, REAL -> value;
                 // TODO: Unify Instant and Duration handling in InMemory and YDB Repository
                 case INTERVAL, TIMESTAMP -> value;

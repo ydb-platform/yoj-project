@@ -5,6 +5,7 @@ import lombok.Getter;
 import lombok.NonNull;
 import tech.ydb.yoj.databind.FieldValueType;
 import tech.ydb.yoj.databind.expression.IllegalExpressionException.FieldTypeError.BooleanFieldExpected;
+import tech.ydb.yoj.databind.expression.IllegalExpressionException.FieldTypeError.ByteArrayFieldExpected;
 import tech.ydb.yoj.databind.expression.IllegalExpressionException.FieldTypeError.DateTimeFieldExpected;
 import tech.ydb.yoj.databind.expression.IllegalExpressionException.FieldTypeError.FlatFieldExpected;
 import tech.ydb.yoj.databind.expression.IllegalExpressionException.FieldTypeError.IntegerFieldExpected;
@@ -96,6 +97,10 @@ public final class ModelField {
             checkArgument(fieldValueType == FieldValueType.BOOLEAN,
                     BooleanFieldExpected::new,
                     p -> format("Specified a boolean value for non-boolean field \"%s\"", p));
+        } else if (value.isByteArray()) {
+            checkArgument(fieldValueType == FieldValueType.BYTE_ARRAY,
+                    ByteArrayFieldExpected::new,
+                    p -> format("Specified a ByteArray value for non-ByteArray field \"%s\"", p));
         } else if (value.isTimestamp()) {
             checkArgument(fieldValueType == FieldValueType.TIMESTAMP || fieldValueType == FieldValueType.INTEGER,
                     DateTimeFieldExpected::new,
