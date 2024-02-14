@@ -93,8 +93,7 @@ public final class CommonConverters {
         }
 
         try {
-            Constructor<?> constructor = clazz.getConstructor(String.class);
-            return s -> s != null ? constructor.newInstance(s) : null;
+            return clazz.getConstructor(String.class)::newInstance;
         } catch (NoSuchMethodException ignored) {
         }
 
