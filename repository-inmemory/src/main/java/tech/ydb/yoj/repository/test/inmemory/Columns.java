@@ -104,7 +104,7 @@ final class Columns {
                         : CommonConverters.deserializeEnumValue(type, value);
                 case OBJECT -> CommonConverters.deserializeOpaqueObjectValue(type, value);
                 case BINARY -> ((byte[]) value).clone();
-                case BYTE_ARRAY -> ((ByteArray) value).copy().getArray();
+                case BYTE_ARRAY -> ByteArray.copy((byte[]) value);
                 case BOOLEAN, INTEGER, REAL -> value;
                 // TODO: Unify Instant and Duration handling in InMemory and YDB Repository
                 case INTERVAL, TIMESTAMP -> value;

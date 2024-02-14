@@ -2264,6 +2264,14 @@ public abstract class RepositoryTest extends RepositoryTestSupport {
     }
 
     @Test
+    public void byteIdEmpty() {
+        BytePkEntity e0 = BytePkEntity.valueOf();
+        db.tx(() -> db.bytePkEntities().insert(e0));
+
+        assertThat(db.tx(() -> db.bytePkEntities().find(e0.getId()))).isEqualTo(e0);
+    }
+
+    @Test
     public void complexIdLessThanWithEmbeddedId() {
         Supabubble sa = new Supabubble(new Supabubble.Id(new Project.Id("naher"), "bubble-A"));
         Supabubble sb = new Supabubble(new Supabubble.Id(new Project.Id("naher"), "bubble-B"));
