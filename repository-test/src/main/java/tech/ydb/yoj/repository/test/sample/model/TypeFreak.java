@@ -11,6 +11,7 @@ import tech.ydb.yoj.repository.db.Table;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 
 @Value
@@ -67,6 +68,8 @@ public class TypeFreak implements Entity<TypeFreak> {
     @Column(dbType = "JSON_DOCUMENT")
     Map<Integer, Embedded> jsonDocumentMap;
 
+    StringValueWrapper stringValueWrapper;
+
     @Column(name = "custom_named_column")
     String customNamedColumn;
 
@@ -109,6 +112,29 @@ public class TypeFreak implements Entity<TypeFreak> {
     public static class StringView implements Table.ViewId<TypeFreak> {
         Id id;
         String stringEmbedded;
+    }
+
+    public static final class StringValueWrapper {
+        private final String value;
+
+        public StringValueWrapper(String value) {
+            this.value = Objects.requireNonNull(value);
+        }
+
+        @Override
+        public boolean equals(Object obj) {
+            return obj instanceof StringValueWrapper s && s.value.equals(value);
+        }
+
+        @Override
+        public int hashCode() {
+            return value.hashCode();
+        }
+
+        @Override
+        public String toString() {
+            return value;
+        }
     }
 
     /**

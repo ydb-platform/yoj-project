@@ -43,6 +43,7 @@ public final class TestEntities {
     @SuppressWarnings("unchecked")
     public static Repository init(@NonNull Repository repository) {
         FieldValueType.registerStringValueType(TypeFreak.Ticket.class);
+        FieldValueType.registerStringValueType(TypeFreak.StringValueWrapper.class);
 
         repository.createTablespace();
         ALL.forEach(entityClass -> repository.schema(entityClass).create());

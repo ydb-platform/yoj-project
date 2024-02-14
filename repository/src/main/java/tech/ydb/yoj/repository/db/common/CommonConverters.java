@@ -6,6 +6,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.annotation.ParametersAreNonnullByDefault;
+
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Type;
@@ -64,10 +65,10 @@ public final class CommonConverters {
             return rawValueGetter::apply;
         }
 
-        Method deserializer = getStringValueDeserializerMethod(clazz);
+        ThrowingGetter<Object> deserializer = getStringValueDeserializerMethod(clazz);
         return v -> {
             try {
-                return deserializer.invoke(null, rawValueGetter.apply(v));
+                return deserializer.throwingGet(rawValueGetter.apply(v));
             } catch (InvocationTargetException e) {
                 // Propagate the real exception thrown by the deserializer method.
                 // All unhandled getter exceptions are wrapped in ConversionException by the Repository, automatically,
@@ -79,18 +80,26 @@ public final class CommonConverters {
         };
     }
 
-    private static Method getStringValueDeserializerMethod(Class<?> clazz) {
+    private static ThrowingGetter<Object> getStringValueDeserializerMethod(Class<?> clazz) {
         for (String methodName : new String[]{"fromString", "valueOf"}) {
             try {
                 Method method = clazz.getMethod(methodName, String.class);
                 if (isStatic(method.getModifiers())) {
-                    return method;
+                    return s -> method.invoke(null, s);
                 }
             } catch (NoSuchMethodException ignored) {
             }
         }
+
+        try {
+            return clazz.getConstructor(String.class)::newInstance;
+        } catch (NoSuchMethodException ignored) {
+        }
+
         throw new IllegalArgumentException(format(
-                "Type <%s> does not have a deserializer method: public static fromString(String)/valueOf(String)",
+                "Type <%s> does not have a deserializer method: public static fromString(String)/valueOf(String) and" +
+                "doesn't have constructor public %s(String)",
+                clazz.getTypeName(),
                 clazz.getTypeName()
         ));
     }
