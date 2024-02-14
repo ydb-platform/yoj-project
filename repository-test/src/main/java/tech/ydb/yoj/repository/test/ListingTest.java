@@ -213,7 +213,7 @@ public abstract class ListingTest extends RepositoryTestSupport {
     @Test
     public void embeddedNulls() {
         db.tx(() -> db.typeFreaks().insert(
-                new TypeFreak(new TypeFreak.Id("b1p", 1), false, (byte) 0, (byte) 0, (short) 0, 0, 0, 0.0f, 0.0, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null)
+                new TypeFreak(new TypeFreak.Id("b1p", 1), false, (byte) 0, (byte) 0, (short) 0, 0, 0, 0.0f, 0.0, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null)
         ));
         ListResult<TypeFreak> lst = db.tx(() -> db.typeFreaks().list(ListRequest.builder(TypeFreak.class)
                 .filter(fb -> fb.where("embedded.a.a").eq("myfqdn"))
@@ -226,7 +226,7 @@ public abstract class ListingTest extends RepositoryTestSupport {
 
     @Test
     public void flattenedIsNull() {
-        var tf = new TypeFreak(new TypeFreak.Id("b1p", 1), false, (byte) 0, (byte) 0, (short) 0, 0, 0, 0.0f, 0.0, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
+        var tf = new TypeFreak(new TypeFreak.Id("b1p", 1), false, (byte) 0, (byte) 0, (short) 0, 0, 0, 0.0f, 0.0, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
         db.tx(() -> db.typeFreaks().insert(tf));
 
         ListResult<TypeFreak> lst = db.tx(() -> db.typeFreaks().list(ListRequest.builder(TypeFreak.class)
@@ -240,7 +240,7 @@ public abstract class ListingTest extends RepositoryTestSupport {
 
     @Test
     public void flattenedIsNotNull() {
-        var tf = new TypeFreak(new TypeFreak.Id("b1p", 1), false, (byte) 0, (byte) 0, (short) 0, 0, 0, 0.0f, 0.0, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, new TypeFreak.Embedded(new TypeFreak.A("A"), new TypeFreak.B("B")), null, null, null, null, null, null, null, null, null, null);
+        var tf = new TypeFreak(new TypeFreak.Id("b1p", 1), false, (byte) 0, (byte) 0, (short) 0, 0, 0, 0.0f, 0.0, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, new TypeFreak.Embedded(new TypeFreak.A("A"), new TypeFreak.B("B")), null, null, null, null, null, null, null, null, null, null, null);
         db.tx(() -> db.typeFreaks().insert(tf));
 
         ListResult<TypeFreak> lst = db.tx(() -> db.typeFreaks().list(ListRequest.builder(TypeFreak.class)
@@ -455,6 +455,7 @@ public abstract class ListingTest extends RepositoryTestSupport {
                 emptyMap(),
                 emptyMap(),
                 emptyMap(),
+                null,
                 "CUSTOM NAMED COLUMN",
                 null
         );
@@ -474,7 +475,7 @@ public abstract class ListingTest extends RepositoryTestSupport {
 
     @Test
     public void listStringValuedFilteredByString() {
-        TypeFreak typeFreak = new TypeFreak(new TypeFreak.Id("b1p", 1), false, (byte) 0, (byte) 0, (short) 0, 0, 0, 0.0f, 0.0, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, new TypeFreak.Ticket("CLOUD", 100500));
+        TypeFreak typeFreak = new TypeFreak(new TypeFreak.Id("b1p", 1), false, (byte) 0, (byte) 0, (short) 0, 0, 0, 0.0f, 0.0, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, new TypeFreak.Ticket("CLOUD", 100500));
         db.tx(() -> db.typeFreaks().insert(typeFreak));
 
         db.tx(() -> {
@@ -490,9 +491,26 @@ public abstract class ListingTest extends RepositoryTestSupport {
     }
 
     @Test
+    public void listStringValuedFilteredByString2() {
+        TypeFreak typeFreak = new TypeFreak(new TypeFreak.Id("b1p", 1), false, (byte) 0, (byte) 0, (short) 0, 0, 0, 0.0f, 0.0, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, new TypeFreak.StringValueWrapper("svw 123"), null, null);
+        db.tx(() -> db.typeFreaks().insert(typeFreak));
+
+        db.tx(() -> {
+            ListResult<TypeFreak> page = listTypeFreak(ListRequest.builder(TypeFreak.class)
+                    .pageSize(100)
+                    .filter(newFilterBuilder(TypeFreak.class)
+                            .where("stringValueWrapper").eq("svw 123")
+                            .build())
+                    .build());
+            assertThat(page).containsExactly(typeFreak);
+            assertThat(page.isLastPage()).isTrue();
+        });
+    }
+
+    @Test
     public void listStringValuedFilteredByStruct() {
         TypeFreak.Ticket ticket = new TypeFreak.Ticket("CLOUD", 100500);
-        TypeFreak typeFreak = new TypeFreak(new TypeFreak.Id("b1p", 1), false, (byte) 0, (byte) 0, (short) 0, 0, 0, 0.0f, 0.0, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, ticket);
+        TypeFreak typeFreak = new TypeFreak(new TypeFreak.Id("b1p", 1), false, (byte) 0, (byte) 0, (short) 0, 0, 0, 0.0f, 0.0, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, ticket);
         db.tx(() -> db.typeFreaks().insert(typeFreak));
 
         db.tx(() -> {

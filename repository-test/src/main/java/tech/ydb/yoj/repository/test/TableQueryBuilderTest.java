@@ -173,7 +173,7 @@ public abstract class TableQueryBuilderTest extends RepositoryTestSupport {
 
     @Test
     public void flattenedIsNull() {
-        var tf = new TypeFreak(new TypeFreak.Id("b1p", 1), false, (byte) 0, (byte) 0, (short) 0, 0, 0, 0.0f, 0.0, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
+        var tf = new TypeFreak(new TypeFreak.Id("b1p", 1), false, (byte) 0, (byte) 0, (short) 0, 0, 0, 0.0f, 0.0, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
         db.tx(() -> db.typeFreaks().insert(tf));
 
         List<TypeFreak> lst = db.tx(() -> getQueryBuilder(db.typeFreaks())
@@ -185,7 +185,7 @@ public abstract class TableQueryBuilderTest extends RepositoryTestSupport {
 
     @Test
     public void flattenedIsNotNull() {
-        var tf = new TypeFreak(new TypeFreak.Id("b1p", 1), false, (byte) 0, (byte) 0, (short) 0, 0, 0, 0.0f, 0.0, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, new TypeFreak.Embedded(new TypeFreak.A("A"), new TypeFreak.B("B")), null, null, null, null, null, null, null, null, null, null);
+        var tf = new TypeFreak(new TypeFreak.Id("b1p", 1), false, (byte) 0, (byte) 0, (short) 0, 0, 0, 0.0f, 0.0, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, new TypeFreak.Embedded(new TypeFreak.A("A"), new TypeFreak.B("B")), null, null, null, null, null, null, null, null, null, null, null);
         db.tx(() -> db.typeFreaks().insert(tf));
 
         List<TypeFreak> lst = db.tx(() -> getQueryBuilder(db.typeFreaks())
@@ -197,7 +197,7 @@ public abstract class TableQueryBuilderTest extends RepositoryTestSupport {
 
     @Test
     public void filterStringValuedByString() {
-        TypeFreak typeFreak = new TypeFreak(new TypeFreak.Id("b1p", 1), false, (byte) 0, (byte) 0, (short) 0, 0, 0, 0.0f, 0.0, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, new TypeFreak.Ticket("CLOUD", 100500));
+        TypeFreak typeFreak = new TypeFreak(new TypeFreak.Id("b1p", 1), false, (byte) 0, (byte) 0, (short) 0, 0, 0, 0.0f, 0.0, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, new TypeFreak.Ticket("CLOUD", 100500));
         db.tx(() -> db.typeFreaks().insert(typeFreak));
         List<TypeFreak> lst = db.tx(() -> getQueryBuilder(db.typeFreaks())
                 .filter(fb -> fb.where("ticket").eq("CLOUD-100500"))
@@ -210,7 +210,7 @@ public abstract class TableQueryBuilderTest extends RepositoryTestSupport {
     @Test
     public void filterStringValuedByStruct() {
         TypeFreak.Ticket ticket = new TypeFreak.Ticket("CLOUD", 100500);
-        TypeFreak typeFreak = new TypeFreak(new TypeFreak.Id("b1p", 1), false, (byte) 0, (byte) 0, (short) 0, 0, 0, 0.0f, 0.0, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, ticket);
+        TypeFreak typeFreak = new TypeFreak(new TypeFreak.Id("b1p", 1), false, (byte) 0, (byte) 0, (short) 0, 0, 0, 0.0f, 0.0, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, ticket);
         db.tx(() -> db.typeFreaks().insert(typeFreak));
         List<TypeFreak> lst = db.tx(() -> getQueryBuilder(db.typeFreaks())
                 .filter(newFilterBuilder(TypeFreak.class)
@@ -225,7 +225,7 @@ public abstract class TableQueryBuilderTest extends RepositoryTestSupport {
     @Test
     public void embeddedNulls() {
         db.tx(() -> db.typeFreaks().insert(
-                new TypeFreak(new TypeFreak.Id("b1p", 1), false, (byte) 0, (byte) 0, (short) 0, 0, 0, 0.0f, 0.0, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null)
+                new TypeFreak(new TypeFreak.Id("b1p", 1), false, (byte) 0, (byte) 0, (short) 0, 0, 0, 0.0f, 0.0, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null)
         ));
         List<TypeFreak> lst = db.tx(() -> getQueryBuilder(db.typeFreaks())
                 .filter(fb -> fb.where("embedded.a.a").eq("myfqdn"))
@@ -427,6 +427,7 @@ public abstract class TableQueryBuilderTest extends RepositoryTestSupport {
                 emptyMap(),
                 emptyMap(),
                 emptyMap(),
+                null,
                 "CUSTOM NAMED COLUMN",
                 null
         );

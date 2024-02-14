@@ -1486,6 +1486,8 @@ public abstract class RepositoryTest extends RepositoryTestSupport {
                 singletonMap(1, new Embedded(new A("ooo"), new B("ppp"))),
                 singletonMap(1, new Embedded(new A("ppp"), new B("qqq"))),
 
+                new TypeFreak.StringValueWrapper("the string value wrapper"),
+
                 "hi there",
 
                 new TypeFreak.Ticket("CLOUD", 25)
@@ -1645,6 +1647,7 @@ public abstract class RepositoryTest extends RepositoryTestSupport {
                     singletonMap(1, new Embedded(new A("a"), new B("b"))),
                     singletonMap(1, new Embedded(new A("a"), new B("b"))),
                     null,
+                    null,
                     null
             );
             db.typeFreaks().save(t);
@@ -1686,6 +1689,7 @@ public abstract class RepositoryTest extends RepositoryTestSupport {
                     null,
                     null,
                     Instant.now().truncatedTo(MILLIS), // we store ms for an java.time.Instant
+                    null,
                     null,
                     null,
                     null,
