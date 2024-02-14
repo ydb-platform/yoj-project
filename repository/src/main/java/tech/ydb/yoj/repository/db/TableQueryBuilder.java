@@ -7,6 +7,7 @@ import tech.ydb.yoj.databind.expression.FilterBuilder;
 import tech.ydb.yoj.databind.expression.FilterExpression;
 import tech.ydb.yoj.databind.expression.OrderBuilder;
 import tech.ydb.yoj.databind.expression.OrderExpression;
+import tech.ydb.yoj.repository.db.table.ReadTable;
 
 import javax.annotation.Nullable;
 import java.util.Collection;
@@ -17,7 +18,7 @@ import java.util.function.UnaryOperator;
 import static lombok.AccessLevel.PRIVATE;
 
 public final class TableQueryBuilder<T extends Entity<T>> {
-    private final Table<T> table;
+    private final ReadTable<T> table;
 
     private Set<? extends Entity.Id<T>> ids;
     private Set<?> keys;
@@ -31,7 +32,7 @@ public final class TableQueryBuilder<T extends Entity<T>> {
 
     private OrderExpression<T> orderBy = null;
 
-    public TableQueryBuilder(@NonNull Table<T> table) {
+    public TableQueryBuilder(@NonNull ReadTable<T> table) {
         this.table = table;
     }
 
