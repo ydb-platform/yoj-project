@@ -11,6 +11,7 @@ import lombok.With;
 import org.apache.commons.text.StringEscapeUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import tech.ydb.yoj.databind.DbType;
 import tech.ydb.yoj.repository.db.Entity;
 import tech.ydb.yoj.repository.db.EntitySchema;
 import tech.ydb.yoj.repository.ydb.YdbConfig;
@@ -285,22 +286,27 @@ public final class YdbSchemaCompatibilityChecker {
     }
 
     private static String typeToDDL(String type) {
-        return switch (type) {
-            case "BOOL" -> "PrimitiveType.bool()";
-            case "UINT8" -> "PrimitiveType.uint8()";
-            case "INT32" -> "PrimitiveType.int32()";
-            case "UINT32" -> "PrimitiveType.uint32()";
-            case "INT64" -> "PrimitiveType.int64()";
-            case "UINT64" -> "PrimitiveType.uint64()";
-            case "FLOAT" -> "PrimitiveType.float32()";
-            case "DOUBLE" -> "PrimitiveType.float64()";
-            case "DATE" -> "PrimitiveType.date()";
-            case "DATETIME" -> "PrimitiveType.datetime()";
-            case "TIMESTAMP" -> "PrimitiveType.timestamp()";
-            case "STRING" -> "PrimitiveType.string()";
-            case "UTF8" -> "PrimitiveType.utf8()";
-            case "JSON" -> "PrimitiveType.json()";
-            default -> throw new IllegalArgumentException("Unknown db type: " + type);
+        if (type == null) {
+            throw new IllegalArgumentException("Unknown db type: " + type);
+        }
+        return switch (DbType.valueOf(type)) {
+            case DEFAULT -> throw new IllegalArgumentException("Unknown db type: " + type);
+            case BOOL -> "PrimitiveType.bool()";
+            case UINT8 -> "PrimitiveType.uint8()";
+            case INT32 -> "PrimitiveType.int32()";
+            case UINT32 -> "PrimitiveType.uint32()";
+            case INT64 -> "PrimitiveType.int64()";
+            case UINT64 -> "PrimitiveType.uint64()";
+            case FLOAT -> "PrimitiveType.float32()";
+            case DOUBLE -> "PrimitiveType.float64()";
+            case DATE -> "PrimitiveType.date()";
+            case DATETIME -> "PrimitiveType.datetime()";
+            case TIMESTAMP -> "PrimitiveType.timestamp()";
+            case INTERVAL -> "PrimitiveType.interval()";
+            case STRING -> "PrimitiveType.string()";
+            case UTF8 -> "PrimitiveType.utf8()";
+            case JSON -> "PrimitiveType.json()";
+            case JSON_DOCUMENT -> "PrimitiveType.jsonDocument()";
         };
     }
 
