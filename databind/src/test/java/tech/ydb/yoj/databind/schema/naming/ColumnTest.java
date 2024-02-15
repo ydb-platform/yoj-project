@@ -12,8 +12,6 @@ import tech.ydb.yoj.databind.schema.configuration.SchemaRegistry;
 import tech.ydb.yoj.databind.schema.configuration.SchemaRegistry.SchemaKey;
 import tech.ydb.yoj.databind.schema.reflect.Reflector;
 
-import java.util.Objects;
-
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class ColumnTest {
@@ -49,7 +47,8 @@ public class ColumnTest {
         Schema<Plain> schema = newSchema(Plain.class);
         assertThat(schema.flattenFields().stream()
             .map(Schema.JavaField::getDbType)
-            .filter(Objects::nonNull)).isEmpty();
+            .filter(dbType -> dbType != DbType.DEFAULT)
+        ).isEmpty();
     }
 
     @Test
