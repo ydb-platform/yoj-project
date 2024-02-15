@@ -109,7 +109,10 @@ public final class JacksonJsonConverter implements JsonConverter {
         return "JacksonJsonConverter";
     }
 
-    private static ObjectMapper createDefaultObjectMapper() {
+    /**
+     * @return {@code ObjectMapper} with reasonable defaults for mapping between Java objects and JSON
+     */
+    public static ObjectMapper createDefaultObjectMapper() {
         ObjectMapper mapper = new ObjectMapper();
         mapper.setTimeZone(TimeZone.getDefault());
         mapper.registerModule(new Jdk8Module());
