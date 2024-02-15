@@ -72,81 +72,50 @@ public class YdbConverter {
     }
 
     static PrimitiveType convertProtoPrimitiveTypeToSDK(ValueProtos.Type type) {
-        switch (type.getTypeId()) {
-            case JSON:
-                return PrimitiveType.Json;
-            case JSON_DOCUMENT:
-                return PrimitiveType.JsonDocument;
-            case BOOL:
-                return PrimitiveType.Bool;
-            case INT8:
-                return PrimitiveType.Int8;
-            case UINT8:
-                return PrimitiveType.Uint8;
-            case INT32:
-                return PrimitiveType.Int32;
-            case UINT32:
-                return PrimitiveType.Uint32;
-            case INT64:
-                return PrimitiveType.Int64;
-            case UINT64:
-                return PrimitiveType.Uint64;
-            case FLOAT:
-                return PrimitiveType.Float;
-            case DOUBLE:
-                return PrimitiveType.Double;
-            case STRING:
-                return PrimitiveType.Bytes;
-            case UTF8:
-                return PrimitiveType.Text;
-            case TIMESTAMP:
-                return PrimitiveType.Timestamp;
-            case INTERVAL:
-                return PrimitiveType.Interval;
-            default:
-                throw new IllegalArgumentException(type.getTypeId().name());
-        }
+        return switch (type.getTypeId()) {
+            case JSON -> PrimitiveType.Json;
+            case JSON_DOCUMENT -> PrimitiveType.JsonDocument;
+            case BOOL -> PrimitiveType.Bool;
+            case INT8 -> PrimitiveType.Int8;
+            case UINT8 -> PrimitiveType.Uint8;
+            case INT32 -> PrimitiveType.Int32;
+            case UINT32 -> PrimitiveType.Uint32;
+            case INT64 -> PrimitiveType.Int64;
+            case UINT64 -> PrimitiveType.Uint64;
+            case FLOAT -> PrimitiveType.Float;
+            case DOUBLE -> PrimitiveType.Double;
+            case STRING -> PrimitiveType.Bytes;
+            case UTF8 -> PrimitiveType.Text;
+            case TIMESTAMP -> PrimitiveType.Timestamp;
+            case INTERVAL -> PrimitiveType.Interval;
+            default -> throw new IllegalArgumentException(type.getTypeId().name());
+        };
     }
 
     private static ValueProtos.Value convertProtoPrimitiveValueToSDK(ValueProtos.Type type, ValueProtos.Value value) {
-        switch (type.getTypeId()) {
-            case JSON:
-                return ProtoValue.fromJson(value.getTextValue());
-            case JSON_DOCUMENT:
-                return ProtoValue.fromJsonDocument(value.getTextValue());
-            case BOOL:
-                return ProtoValue.fromBool(value.getBoolValue());
-            case INT8:
-                return ProtoValue.fromInt8((byte) value.getInt32Value());
-            case UINT8:
-                return ProtoValue.fromUint8((byte) value.getUint32Value());
-            case INT32:
-                return ProtoValue.fromInt32(value.getInt32Value());
-            case UINT32:
-                return ProtoValue.fromUint32(value.getUint32Value());
-            case INT64:
-                return ProtoValue.fromInt64(value.getInt64Value());
-            case UINT64:
-                return ProtoValue.fromUint64(value.getUint64Value());
-            case FLOAT:
-                return ProtoValue.fromFloat(value.getFloatValue());
-            case DOUBLE:
-                return ProtoValue.fromDouble(value.getDoubleValue());
-            case STRING:
+        return switch (type.getTypeId()) {
+            case JSON -> ProtoValue.fromJson(value.getTextValue());
+            case JSON_DOCUMENT -> ProtoValue.fromJsonDocument(value.getTextValue());
+            case BOOL -> ProtoValue.fromBool(value.getBoolValue());
+            case INT8 -> ProtoValue.fromInt8((byte) value.getInt32Value());
+            case UINT8 -> ProtoValue.fromUint8((byte) value.getUint32Value());
+            case INT32 -> ProtoValue.fromInt32(value.getInt32Value());
+            case UINT32 -> ProtoValue.fromUint32(value.getUint32Value());
+            case INT64 -> ProtoValue.fromInt64(value.getInt64Value());
+            case UINT64 -> ProtoValue.fromUint64(value.getUint64Value());
+            case FLOAT -> ProtoValue.fromFloat(value.getFloatValue());
+            case DOUBLE -> ProtoValue.fromDouble(value.getDoubleValue());
+            case STRING -> {
                 if (value.getValueCase() == ValueProtos.Value.ValueCase.BYTES_VALUE) {
-                    return ProtoValue.fromBytes(value.getBytesValue());
-                } else {
-                    return ProtoValue.fromStringAsBytes(value.getTextValue(), StandardCharsets.UTF_8);
+                    yield ProtoValue.fromBytes(value.getBytesValue());
                 }
-            case UTF8:
-                return ProtoValue.fromText(value.getTextValue());
-            case TIMESTAMP:
-                return ProtoValue.fromTimestamp(value.getUint64Value());
-            case INTERVAL:
-                return ProtoValue.fromInterval(value.getInt64Value());
-            default:
-                throw new IllegalArgumentException(type.getTypeId() + ": " + value.toString());
-        }
+                yield ProtoValue.fromStringAsBytes(value.getTextValue(), StandardCharsets.UTF_8);
+            }
+            case UTF8 -> ProtoValue.fromText(value.getTextValue());
+            case TIMESTAMP -> ProtoValue.fromTimestamp(value.getUint64Value());
+            case INTERVAL -> ProtoValue.fromInterval(value.getInt64Value());
+            default -> throw new IllegalArgumentException(type.getTypeId() + ": " + value.toString());
+        };
     }
 
     private static ValueProtos.Value convertProtoDictValueToSDK(ValueProtos.Type type, ValueProtos.Value value) {
@@ -257,42 +226,24 @@ public class YdbConverter {
             }
             return builder;
         }
-        switch (type.getTypeId()) {
-            case JSON:
-                return builder.setTextValue(column.getJson());
-            case JSON_DOCUMENT:
-                return builder.setTextValue(column.getJsonDocument());
-            case BOOL:
-                return builder.setBoolValue(column.getBool());
-            case INT8:
-            case INT16:
-            case INT32:
-                return builder.setInt32Value(column.getInt32());
-            case UINT8:
-                return builder.setUint32Value(column.getUint8());
-            case UINT16:
-                return builder.setUint32Value(column.getUint16());
-            case UINT32:
-                return builder.setUint32Value((int) column.getUint32());
-            case INT64:
-                return builder.setInt64Value(column.getInt64());
-            case UINT64:
-                return builder.setUint64Value(column.getUint64());
-            case FLOAT:
-                return builder.setFloatValue(column.getFloat());
-            case DOUBLE:
-                return builder.setDoubleValue(column.getDouble());
-            case STRING:
-                return builder.setBytesValue(UnsafeByteOperations.unsafeWrap(column.getBytes()));
-            case UTF8:
-                return builder.setTextValue(column.getText());
-            case TIMESTAMP:
-                return builder.setUint64Value(column.getValue().toPb().getUint64Value());
-            case INTERVAL:
-                return builder.setInt64Value(column.getValue().toPb().getInt64Value());
-            default:
-                throw new IllegalArgumentException(column.getType().toPb().getTypeId() + ": " + column.toString());
-        }
+        return switch (type.getTypeId()) {
+            case JSON -> builder.setTextValue(column.getJson());
+            case JSON_DOCUMENT -> builder.setTextValue(column.getJsonDocument());
+            case BOOL -> builder.setBoolValue(column.getBool());
+            case INT8, INT16, INT32 -> builder.setInt32Value(column.getInt32());
+            case UINT8 -> builder.setUint32Value(column.getUint8());
+            case UINT16 -> builder.setUint32Value(column.getUint16());
+            case UINT32 -> builder.setUint32Value((int) column.getUint32());
+            case INT64 -> builder.setInt64Value(column.getInt64());
+            case UINT64 -> builder.setUint64Value(column.getUint64());
+            case FLOAT -> builder.setFloatValue(column.getFloat());
+            case DOUBLE -> builder.setDoubleValue(column.getDouble());
+            case STRING -> builder.setBytesValue(UnsafeByteOperations.unsafeWrap(column.getBytes()));
+            case UTF8 -> builder.setTextValue(column.getText());
+            case TIMESTAMP -> builder.setUint64Value(column.getValue().toPb().getUint64Value());
+            case INTERVAL -> builder.setInt64Value(column.getValue().toPb().getInt64Value());
+            default -> throw new IllegalArgumentException(column.getType().toPb().getTypeId() + ": " + column);
+        };
     }
 
     public static Params convertToParams(Map<String, ValueProtos.TypedValue> queryParameters) {
