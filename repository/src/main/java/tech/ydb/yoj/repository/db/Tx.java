@@ -6,6 +6,10 @@ import javax.annotation.Nullable;
 import java.util.function.Supplier;
 
 public interface Tx {
+    default <T extends Entity<T>> Table<T> table(Class<T> cls) {
+        return getRepositoryTransaction().table(cls);
+    }
+
     void defer(Runnable runnable);
 
     void deferFinally(Runnable runnable);

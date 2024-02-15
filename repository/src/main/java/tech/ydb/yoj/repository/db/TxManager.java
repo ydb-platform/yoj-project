@@ -7,6 +7,8 @@ import tech.ydb.yoj.repository.db.exception.QueryCancelledException;
 import tech.ydb.yoj.repository.db.exception.RetryableException;
 
 import java.time.Duration;
+import java.util.function.Consumer;
+import java.util.function.Function;
 import java.util.function.Supplier;
 
 public interface TxManager {
@@ -147,6 +149,15 @@ public interface TxManager {
      * @param runnable action to perform
      */
     void tx(Runnable runnable);
+
+    <T> T tx(Function<Tx, T> supplier);
+
+    default void txC(Consumer<Tx> consumer) {
+        tx(tx -> {
+            consumer.accept(tx);
+            return null;
+        });
+    }
 
     /**
      * Start a transaction-like session of read-only statements. Each statement will be executed <em>separately</em>,

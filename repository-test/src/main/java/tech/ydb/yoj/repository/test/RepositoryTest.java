@@ -2,6 +2,9 @@ package tech.ydb.yoj.repository.test;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterators;
+import lombok.AccessLevel;
+import lombok.AllArgsConstructor;
+import lombok.RequiredArgsConstructor;
 import org.assertj.core.api.Assertions;
 import org.junit.Assert;
 import org.junit.Test;
@@ -288,13 +291,45 @@ public abstract class RepositoryTest extends RepositoryTestSupport {
 
     @Test
     public void deferFinallyNotInTxContext() {
-        db.tx(() -> Tx.Current.get().deferFinally(() -> assertFalse(Tx.Current.exists())));
+        db.txC(tx -> tx.deferFinally(() -> assertFalse(Tx.Current.exists())));
+    }
+
+    @Test
+    public void myTest() {
+        db.txC(tx -> {
+            // new. Usefull because you see that table depends on tx;
+            Db1.project(tx).findAll();
+
+            // new. Usefull because you can initialize db one time in tx and use call table without pass tx any time
+            Db2.of(tx).project().findAll();
+
+            // old
+            db.projects().findAll();
+        });
+    }
+
+    // Examples of new DB patterns. User can use one or both;
+
+    @AllArgsConstructor(access = AccessLevel.PRIVATE)
+    final static class Db1 {
+        public static TestEntityOperations.ProjectTable project(Tx tx) {
+            return new TestEntityOperations.ProjectTable(tx.table(Project.class));
+        }
+    }
+
+    @RequiredArgsConstructor(staticName = "of")
+    final static class Db2 {
+        private final Tx tx;
+
+        TestEntityOperations.ProjectTable project() {
+            return new TestEntityOperations.ProjectTable(tx.table(Project.class));
+        }
     }
 
     @Test
     public void deferFinallyRollbackNotInTxContext() {
-        assertThatExceptionOfType(RuntimeException.class).isThrownBy(() -> db.tx(() -> {
-            Tx.Current.get().deferFinally(() -> assertFalse(Tx.Current.exists()));
+        assertThatExceptionOfType(RuntimeException.class).isThrownBy(() -> db.txC(tx -> {
+            tx.deferFinally(() -> assertFalse(Tx.Current.exists()));
             throw new RuntimeException();
         }));
     }

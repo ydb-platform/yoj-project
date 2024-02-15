@@ -9,7 +9,7 @@ import tech.ydb.yoj.util.lang.Interrupts;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.function.Supplier;
+import java.util.function.Function;
 
 final class TxImpl implements Tx {
     private static final Logger log = LoggerFactory.getLogger(TxImpl.class);
@@ -32,10 +32,10 @@ final class TxImpl implements Tx {
         this.logStatementOnSuccess = options.isLogStatementOnSuccess();
     }
 
-    <R> R run(Supplier<R> supplier) {
+    <R> R run(Function<Tx, R> func) {
         R value;
         try {
-            value = Current.runInTx(this, () -> runImpl(supplier));
+            value = Current.runInTx(this, () -> runImpl(func));
         } catch (Exception e) {
             if (Interrupts.isInterruptException(e)) {
                 Thread.currentThread().interrupt();
@@ -72,11 +72,11 @@ final class TxImpl implements Tx {
         deferredBeforeCommit.add(runnable);
     }
 
-    private <R> R runImpl(Supplier<R> supplier) {
+    private <R> R runImpl(Function<Tx, R> func) {
         Stopwatch sw = Stopwatch.createStarted();
         R res;
         try {
-            res = supplier.get();
+            res = func.apply(this);
             deferredBeforeCommit.forEach(Runnable::run);
         } catch (Throwable t) {
             doRollback(isBusinessException(t),
