@@ -32,6 +32,8 @@ import tech.ydb.yoj.repository.db.list.ListRequest;
 import tech.ydb.yoj.repository.db.list.ListResult;
 import tech.ydb.yoj.repository.db.readtable.ReadTableParams;
 import tech.ydb.yoj.repository.test.entity.TestEntities;
+import tech.ydb.yoj.repository.test.inmemory.InMemoryCustomQuery;
+import tech.ydb.yoj.repository.test.inmemory.InMemoryTxLockWatcher;
 import tech.ydb.yoj.repository.test.sample.TestDb;
 import tech.ydb.yoj.repository.test.sample.TestDbImpl;
 import tech.ydb.yoj.repository.test.sample.TestEntityOperations;
@@ -54,6 +56,7 @@ import tech.ydb.yoj.repository.test.sample.model.TypeFreak.A;
 import tech.ydb.yoj.repository.test.sample.model.TypeFreak.B;
 import tech.ydb.yoj.repository.test.sample.model.TypeFreak.Embedded;
 import tech.ydb.yoj.repository.test.sample.model.WithUnflattenableField;
+import tech.ydb.yoj.repository.ydb.YdbCustomQuery;
 
 import java.time.Instant;
 import java.util.ArrayList;
@@ -70,6 +73,7 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import java.util.stream.Stream;
 
 import static java.time.temporal.ChronoUnit.MILLIS;
 import static java.util.Arrays.asList;
@@ -323,6 +327,40 @@ public abstract class RepositoryTest extends RepositoryTestSupport {
 
         TestEntityOperations.ProjectTable project() {
             return new TestEntityOperations.ProjectTable(tx.table(Project.class));
+        }
+    }
+
+    // example of custom query
+
+    @Test
+    public void teatCustomQuery() {
+        db.txC(tx -> {
+            List<Project> projs = tx.customQuery(new MyCustomQuery("my_name")).toList();
+        });
+    }
+
+    @AllArgsConstructor
+    public static class MyCustomQuery implements InMemoryCustomQuery<Project>, YdbCustomQuery<String, Project> {
+        private final String name;
+
+        @Override
+        public Query<String> getQuery() {
+            String query = """
+                --!syntax_v1
+                DECLARE $name AS List<String>;
+                SELECT `id` FROM `@TABLESPACE@/Project`
+                    WHERE (`name` IN $name)
+                    ORDER BY `id` ASC
+            """;
+            return new Query<>(query, name);
+        }
+
+        @Override
+        public Stream<Project> query(PublicInMemoryStorage storage, InMemoryTxLockWatcher watcher) {
+            watcher.markTableRead(Project.class);
+
+            return storage.getDataShard(Project.class).findAll().stream()
+                    .filter(p -> p.getName().equals(name));
         }
     }
 

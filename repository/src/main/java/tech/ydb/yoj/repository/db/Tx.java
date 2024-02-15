@@ -4,6 +4,7 @@ import com.google.common.base.Preconditions;
 
 import javax.annotation.Nullable;
 import java.util.function.Supplier;
+import java.util.stream.Stream;
 
 public interface Tx {
     default <T extends Entity<T>> Table<T> table(Class<T> cls) {
@@ -15,6 +16,11 @@ public interface Tx {
     void deferFinally(Runnable runnable);
 
     void deferBeforeCommit(Runnable runnable);
+
+    <T> Stream<T> customQuery(CustomQuery<T> query);
+
+    interface CustomQuery<T> {
+    }
 
     String getName();
 
