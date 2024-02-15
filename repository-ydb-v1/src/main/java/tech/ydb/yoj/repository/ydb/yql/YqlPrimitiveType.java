@@ -11,7 +11,7 @@ import com.yandex.ydb.table.values.proto.ProtoValue;
 import lombok.AllArgsConstructor;
 import lombok.NonNull;
 import lombok.Value;
-import lombok.With;g
+import lombok.With;
 import tech.ydb.yoj.databind.ByteArray;
 import tech.ydb.yoj.databind.DbType;
 import tech.ydb.yoj.databind.FieldValueType;
