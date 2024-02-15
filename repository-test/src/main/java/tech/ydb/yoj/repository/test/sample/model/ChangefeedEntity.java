@@ -1,6 +1,7 @@
 package tech.ydb.yoj.repository.test.sample.model;
 
 import lombok.Value;
+import tech.ydb.yoj.databind.DbType;
 import tech.ydb.yoj.databind.schema.Changefeed;
 import tech.ydb.yoj.databind.schema.Column;
 import tech.ydb.yoj.repository.db.Entity;
@@ -21,7 +22,7 @@ import static tech.ydb.yoj.databind.schema.Changefeed.Mode.KEYS_ONLY;
 public class ChangefeedEntity implements Entity<ChangefeedEntity> {
     Id id;
 
-    @Column(dbType = "UTF8")
+    @Column(dbType = DbType.UTF8)
     String stringField;
 
     @Value

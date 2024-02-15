@@ -4,14 +4,13 @@ import lombok.NonNull;
 import lombok.Value;
 import org.junit.Before;
 import org.junit.Test;
+import tech.ydb.yoj.databind.DbType;
 import tech.ydb.yoj.databind.schema.Column;
 import tech.ydb.yoj.databind.schema.ObjectSchema;
 import tech.ydb.yoj.databind.schema.Schema;
 import tech.ydb.yoj.databind.schema.configuration.SchemaRegistry;
 import tech.ydb.yoj.databind.schema.configuration.SchemaRegistry.SchemaKey;
 import tech.ydb.yoj.databind.schema.reflect.Reflector;
-
-import java.util.Objects;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -48,7 +47,8 @@ public class ColumnTest {
         Schema<Plain> schema = newSchema(Plain.class);
         assertThat(schema.flattenFields().stream()
             .map(Schema.JavaField::getDbType)
-            .filter(Objects::nonNull)).isEmpty();
+            .filter(dbType -> dbType != DbType.DEFAULT)
+        ).isEmpty();
     }
 
     @Test
@@ -56,7 +56,8 @@ public class ColumnTest {
         Schema<UInt32> schema = newSchema(UInt32.class);
         assertThat(schema.flattenFields().stream()
             .map(Schema.JavaField::getDbType))
-            .containsOnly("UInt32");
+            .map(DbType::typeString)
+            .containsOnly("UINT32");
     }
 
     @Test
@@ -112,7 +113,7 @@ public class ColumnTest {
         @Column
         Id id;
 
-        @Column(name = "id", dbType = "UTF8")
+        @Column(name = "id", dbType = DbType.UTF8)
         String value;
 
         @Value
@@ -127,7 +128,7 @@ public class ColumnTest {
         @Column
         Id id;
 
-        @Column(name = "value", dbType = "UTF8")
+        @Column(name = "value", dbType = DbType.UTF8)
         String value;
 
         @Value
@@ -171,7 +172,7 @@ public class ColumnTest {
 
     @Value
     private static final class UInt32 {
-        @Column(dbType = "UInt32", dbTypeQualifier = "Days")
+        @Column(dbType = DbType.UINT32, dbTypeQualifier = "Days")
         int value;
     }
 }

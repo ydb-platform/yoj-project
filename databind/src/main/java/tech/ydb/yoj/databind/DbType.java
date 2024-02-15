@@ -1,87 +1,98 @@
-package tech.ydb.yoj.repository.ydb;
+package tech.ydb.yoj.databind;
 
 /**
  * Database column types supported by YDB.
  */
-public interface DbType {
+public enum DbType {
+    DEFAULT(null),
     /**
      * Boolean value.
      */
-    String BOOL = "BOOL";
+    BOOL("BOOL"),
 
     /**
      * Byte value.
      */
-    String UINT8 = "UINT8";
+    UINT8("UINT8"),
 
     /**
      * Integer value.
      */
-    String INT32 = "INT32";
+    INT32("INT32"),
 
     /**
      * Integer value stored in the db as Uint32.
      */
-    String UINT32 = "UINT32";
+    UINT32("UINT32"),
 
     /**
      * Long value.
      */
-    String INT64 = "INT64";
+    INT64("INT64"),
 
     /**
      * Long value stored in the db as Uint64.
      */
-    String UINT64 = "UINT64";
+    UINT64("UINT64"),
 
     /**
      * Float value.
      */
-    String FLOAT = "FLOAT";
+    FLOAT("FLOAT"),
 
     /**
      * Double value.
      */
-    String DOUBLE = "DOUBLE";
+    DOUBLE("DOUBLE"),
 
     /**
      * Date value, accurate to the day.
      */
-    String DATE = "DATE";
+    DATE("DATE"),
 
     /**
      * Timestamp value, accurate to second.
      */
-    String DATETIME = "DATETIME";
+    DATETIME("DATETIME"),
 
     /**
      * Timestamp value, accurate to microsecond.
      */
-    String TIMESTAMP = "TIMESTAMP";
+    TIMESTAMP("TIMESTAMP"),
 
     /**
      * Interval value, accurate to microsecond.
      */
-    String INTERVAL = "INTERVAL";
+    INTERVAL("INTERVAL"),
 
     /**
      * Binary data.
      */
-    String STRING = "STRING";
+    STRING("STRING"),
 
     /**
      * UTF-8 encoded string.
      */
-    String UTF8 = "UTF8";
+    UTF8("UTF8"),
 
     /**
      * JSON value, stored as a UTF-8 encoded string.
      */
-    String JSON = "JSON";
+    JSON("JSON"),
 
     /**
      * JSON value, stored in an indexed representation permitting efficient query operations of the values inside the
      * JSON value itself.
      */
-    String JSON_DOCUMENT = "JSON_DOCUMENT";
+    JSON_DOCUMENT("JSON_DOCUMENT");
+
+    private final String type;
+
+    DbType(String type) {
+        this.type = type;
+    }
+
+    public String typeString() {
+        return type;
+    }
 }

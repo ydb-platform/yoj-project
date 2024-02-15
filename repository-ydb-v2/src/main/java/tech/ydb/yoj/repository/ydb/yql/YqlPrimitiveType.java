@@ -13,6 +13,7 @@ import tech.ydb.proto.ValueProtos.Type.PrimitiveTypeId;
 import tech.ydb.proto.ValueProtos.Value.ValueCase;
 import tech.ydb.table.values.proto.ProtoValue;
 import tech.ydb.yoj.databind.ByteArray;
+import tech.ydb.yoj.databind.DbType;
 import tech.ydb.yoj.databind.FieldValueType;
 import tech.ydb.yoj.databind.schema.Column;
 import tech.ydb.yoj.databind.schema.Schema.JavaField;
@@ -345,8 +346,10 @@ public class YqlPrimitiveType implements YqlType {
      */
     @NonNull
     public static YqlPrimitiveType of(JavaField column) {
-        String columnType = column.getDbType();
-        PrimitiveTypeId yqlType = (columnType == null) ? null : convertToYqlType(columnType);
+        PrimitiveTypeId yqlType = null;
+        if (column.getDbType() != DbType.DEFAULT) {
+            yqlType = convertToYqlType(column.getDbType().typeString());
+        }
 
         return resolveYqlType(column.getType(), column.getValueType(), yqlType, column.getDbTypeQualifier());
     }

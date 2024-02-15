@@ -1,6 +1,7 @@
 package tech.ydb.yoj.repository.db;
 
 import org.junit.Test;
+import tech.ydb.yoj.databind.DbType;
 import tech.ydb.yoj.databind.schema.Column;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -56,7 +57,7 @@ public class RecordEntitySchemaTest {
     record EntityIncorrectSpecifyInterface(CorrectEntity.Id id) implements RecordEntity<CorrectEntity> {
     }
 
-    record ColumnNameClashes(@Column Id id, @Column(name = "id", dbType = "UTF8") String value) implements RecordEntity<ColumnNameClashes> {
+    record ColumnNameClashes(@Column Id id, @Column(name = "id", dbType = DbType.UTF8) String value) implements RecordEntity<ColumnNameClashes> {
         record Id(@Column long uid) implements Entity.Id<RecordEntitySchemaTest.ColumnNameClashes> {
         }
     }

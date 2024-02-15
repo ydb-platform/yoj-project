@@ -5,6 +5,7 @@ import lombok.Value;
 import org.junit.Test;
 import tech.ydb.proto.ValueProtos;
 import tech.ydb.yoj.databind.expression.OrderExpression;
+import tech.ydb.yoj.databind.DbType;
 import tech.ydb.yoj.databind.schema.Column;
 import tech.ydb.yoj.databind.schema.GlobalIndex;
 import tech.ydb.yoj.databind.schema.Schema;
@@ -12,7 +13,6 @@ import tech.ydb.yoj.repository.db.Entity;
 import tech.ydb.yoj.repository.db.EntitySchema;
 import tech.ydb.yoj.repository.db.Table;
 import tech.ydb.yoj.repository.db.ViewSchema;
-import tech.ydb.yoj.repository.ydb.DbType;
 
 import java.util.List;
 import java.util.Map;

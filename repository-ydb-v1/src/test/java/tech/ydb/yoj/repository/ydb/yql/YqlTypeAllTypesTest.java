@@ -10,13 +10,13 @@ import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 import org.junit.runners.Parameterized.Parameter;
 import org.junit.runners.Parameterized.Parameters;
+import tech.ydb.yoj.databind.DbType;
 import tech.ydb.yoj.databind.FieldValueType;
 import tech.ydb.yoj.databind.schema.Column;
 import tech.ydb.yoj.databind.schema.Schema;
 import tech.ydb.yoj.repository.DbTypeQualifier;
 import tech.ydb.yoj.repository.db.common.CommonConverters;
 import tech.ydb.yoj.repository.db.json.JacksonJsonConverter;
-import tech.ydb.yoj.repository.ydb.DbType;
 
 import java.lang.reflect.Type;
 import java.time.Duration;

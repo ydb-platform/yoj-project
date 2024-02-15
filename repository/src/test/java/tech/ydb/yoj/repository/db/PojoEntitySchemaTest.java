@@ -2,6 +2,7 @@ package tech.ydb.yoj.repository.db;
 
 import lombok.Value;
 import org.junit.Test;
+import tech.ydb.yoj.databind.DbType;
 import tech.ydb.yoj.databind.schema.Column;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -101,7 +102,7 @@ public class PojoEntitySchemaTest {
         @Column
         Id id;
 
-        @Column(name = "id", dbType = "UTF8")
+        @Column(name = "id", dbType = DbType.UTF8)
         String value;
 
         @Value

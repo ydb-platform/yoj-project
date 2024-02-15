@@ -8,6 +8,7 @@ import lombok.NonNull;
 import lombok.SneakyThrows;
 import lombok.Value;
 import lombok.With;
+import tech.ydb.yoj.databind.DbType;
 import tech.ydb.yoj.databind.FieldValueType;
 import tech.ydb.yoj.databind.schema.configuration.SchemaRegistry.SchemaKey;
 import tech.ydb.yoj.databind.schema.naming.NamingStrategy;
@@ -435,12 +436,12 @@ public abstract class Schema<T> {
          * @return the DB column type for data binding if specified, {@code null} otherwise
          * @see Column
          */
-        public String getDbType() {
+        public DbType getDbType() {
             Column annotation = field.getColumn();
-            if (annotation != null && !annotation.dbType().isEmpty()) {
+            if (annotation != null) {
                 return annotation.dbType();
             }
-            return null;
+            return DbType.DEFAULT;
         }
 
         /**

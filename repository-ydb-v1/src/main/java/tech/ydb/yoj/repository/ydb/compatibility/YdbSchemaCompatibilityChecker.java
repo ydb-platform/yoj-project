@@ -11,9 +11,9 @@ import lombok.With;
 import org.apache.commons.text.StringEscapeUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import tech.ydb.yoj.databind.DbType;
 import tech.ydb.yoj.repository.db.Entity;
 import tech.ydb.yoj.repository.db.EntitySchema;
-import tech.ydb.yoj.repository.ydb.DbType;
 import tech.ydb.yoj.repository.ydb.YdbConfig;
 import tech.ydb.yoj.repository.ydb.YdbRepository;
 import tech.ydb.yoj.repository.ydb.client.YdbPaths;
@@ -29,7 +29,6 @@ import java.util.Set;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Function;
-import java.util.stream.Collectors;
 
 import static java.util.function.Predicate.not;
 import static java.util.stream.Collectors.joining;
@@ -273,22 +272,27 @@ public final class YdbSchemaCompatibilityChecker {
     }
 
     private static String typeToDDL(String type) {
-        return switch (type) {
-            case DbType.BOOL -> "PrimitiveType.bool()";
-            case DbType.UINT8 -> "PrimitiveType.uint8()";
-            case DbType.INT32 -> "PrimitiveType.int32()";
-            case DbType.UINT32 -> "PrimitiveType.uint32()";
-            case DbType.INT64 -> "PrimitiveType.int64()";
-            case DbType.UINT64 -> "PrimitiveType.uint64()";
-            case DbType.FLOAT -> "PrimitiveType.float32()";
-            case DbType.DOUBLE -> "PrimitiveType.float64()";
-            case DbType.DATE -> "PrimitiveType.date()";
-            case DbType.DATETIME -> "PrimitiveType.datetime()";
-            case DbType.TIMESTAMP -> "PrimitiveType.timestamp()";
-            case DbType.STRING -> "PrimitiveType.string()";
-            case DbType.UTF8 -> "PrimitiveType.utf8()";
-            case DbType.JSON -> "PrimitiveType.json()";
-            default -> throw new IllegalArgumentException("Unknown db type: " + type);
+        if (type == null) {
+            throw new IllegalArgumentException("Unknown db type: " + type);
+        }
+        return switch (DbType.valueOf(type)) {
+            case DEFAULT -> throw new IllegalArgumentException("Unknown db type: " + type);
+            case BOOL -> "PrimitiveType.bool()";
+            case UINT8 -> "PrimitiveType.uint8()";
+            case INT32 -> "PrimitiveType.int32()";
+            case UINT32 -> "PrimitiveType.uint32()";
+            case INT64 -> "PrimitiveType.int64()";
+            case UINT64 -> "PrimitiveType.uint64()";
+            case FLOAT -> "PrimitiveType.float32()";
+            case DOUBLE -> "PrimitiveType.float64()";
+            case DATE -> "PrimitiveType.date()";
+            case DATETIME -> "PrimitiveType.datetime()";
+            case TIMESTAMP -> "PrimitiveType.timestamp()";
+            case INTERVAL -> "PrimitiveType.interval()";
+            case STRING -> "PrimitiveType.string()";
+            case UTF8 -> "PrimitiveType.utf8()";
+            case JSON -> "PrimitiveType.json()";
+            case JSON_DOCUMENT -> "PrimitiveType.jsonDocument()";
         };
     }
 
@@ -312,11 +316,11 @@ public final class YdbSchemaCompatibilityChecker {
         }
         return ",\n" + indexes.stream()
                 .map(idx -> "\tINDEX `" + idx.getName() + "` GLOBAL ON (" + indexColumns(idx.getColumns()) + ")")
-                .collect(Collectors.joining(",\n")) + "\n";
+                .collect(joining(",\n")) + "\n";
     }
 
     private static String indexColumns(List<String> columns) {
-        return columns.stream().map(c -> "`" + c + "`").collect(Collectors.joining(","));
+        return columns.stream().map(c -> "`" + c + "`").collect(joining(","));
     }
 
     private void makeMigrationTableInstruction(YdbSchemaOperations.Table from, YdbSchemaOperations.Table to) {
