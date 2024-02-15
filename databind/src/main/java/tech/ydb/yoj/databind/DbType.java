@@ -4,7 +4,7 @@ package tech.ydb.yoj.databind;
  * Database column types supported by YDB.
  */
 public enum DbType {
-    DEFAULT(""),
+    DEFAULT(null),
     /**
      * Boolean value.
      */
@@ -86,13 +86,13 @@ public enum DbType {
      */
     JSON_DOCUMENT("JSON_DOCUMENT");
 
-    private final String dbType;
+    private final String type;
 
-    DbType(String dbType) {
-        this.dbType = dbType;
+    DbType(String type) {
+        this.type = type;
     }
 
-    public String getDbType() {
-        return dbType;
+    public String typeString() {
+        return type;
     }
 }

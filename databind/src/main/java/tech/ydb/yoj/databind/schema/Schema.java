@@ -436,12 +436,12 @@ public abstract class Schema<T> {
          * @return the DB column type for data binding if specified, {@code null} otherwise
          * @see Column
          */
-        public String getDbType() {
+        public DbType getDbType() {
             Column annotation = field.getColumn();
-            if (annotation != null && annotation.dbType() != DbType.DEFAULT) {
-                return annotation.dbType().getDbType();
+            if (annotation != null) {
+                return annotation.dbType();
             }
-            return null;
+            return DbType.DEFAULT;
         }
 
         /**
