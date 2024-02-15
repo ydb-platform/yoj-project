@@ -1,6 +1,7 @@
 package tech.ydb.yoj.repository.test.sample.model;
 
 import lombok.Value;
+import tech.ydb.yoj.databind.DbType;
 import tech.ydb.yoj.databind.schema.Column;
 import tech.ydb.yoj.databind.schema.TTL;
 import tech.ydb.yoj.repository.db.Entity;
@@ -12,7 +13,7 @@ import java.time.Instant;
 public class TtlEntity implements Entity<TtlEntity> {
     Id id;
 
-    @Column(dbType = "TIMESTAMP")
+    @Column(dbType = DbType.TIMESTAMP)
     Instant createdAt;
 
     @Value

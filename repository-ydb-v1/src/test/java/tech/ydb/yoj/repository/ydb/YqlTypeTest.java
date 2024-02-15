@@ -7,6 +7,7 @@ import lombok.NonNull;
 import lombok.Value;
 import org.junit.Assert;
 import org.junit.Test;
+import tech.ydb.yoj.databind.DbType;
 import tech.ydb.yoj.databind.FieldValueType;
 import tech.ydb.yoj.databind.schema.Column;
 import tech.ydb.yoj.databind.schema.GlobalIndex;

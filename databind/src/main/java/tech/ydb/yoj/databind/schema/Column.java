@@ -1,5 +1,6 @@
 package tech.ydb.yoj.databind.schema;
 
+import tech.ydb.yoj.databind.DbType;
 import tech.ydb.yoj.databind.FieldValueType;
 
 import java.lang.annotation.Retention;
@@ -15,7 +16,7 @@ import static java.lang.annotation.RetentionPolicy.RUNTIME;
  * <p>Usage Example:
  * <blockquote><pre>
  * // DB column will have name 'DESC' and DB-specific type 'UTF8'
- * &#064;Column(name = "DESC", dbType = "UTF8")
+ * &#064;Column(name = "DESC", dbType = DbType.UTF8)
  * String description;
  *
  * // Subobject's serialized representation will be written to a single BIG_SUBOBJ column
@@ -42,7 +43,7 @@ public @interface Column {
      * The type of the DB column.<br>
      * Defaults to automatically inferred from the field type.
      */
-    String dbType() default "";
+    DbType dbType() default DbType.DEFAULT;
 
     /**
      * Qualifier for refining type representation of the DB column.<br>

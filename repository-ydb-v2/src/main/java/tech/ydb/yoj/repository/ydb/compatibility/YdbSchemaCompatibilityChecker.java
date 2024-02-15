@@ -13,7 +13,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import tech.ydb.yoj.repository.db.Entity;
 import tech.ydb.yoj.repository.db.EntitySchema;
-import tech.ydb.yoj.repository.ydb.DbType;
 import tech.ydb.yoj.repository.ydb.YdbConfig;
 import tech.ydb.yoj.repository.ydb.YdbRepository;
 import tech.ydb.yoj.repository.ydb.client.YdbPaths;
@@ -287,20 +286,20 @@ public final class YdbSchemaCompatibilityChecker {
 
     private static String typeToDDL(String type) {
         return switch (type) {
-            case DbType.BOOL -> "PrimitiveType.bool()";
-            case DbType.UINT8 -> "PrimitiveType.uint8()";
-            case DbType.INT32 -> "PrimitiveType.int32()";
-            case DbType.UINT32 -> "PrimitiveType.uint32()";
-            case DbType.INT64 -> "PrimitiveType.int64()";
-            case DbType.UINT64 -> "PrimitiveType.uint64()";
-            case DbType.FLOAT -> "PrimitiveType.float32()";
-            case DbType.DOUBLE -> "PrimitiveType.float64()";
-            case DbType.DATE -> "PrimitiveType.date()";
-            case DbType.DATETIME -> "PrimitiveType.datetime()";
-            case DbType.TIMESTAMP -> "PrimitiveType.timestamp()";
-            case DbType.STRING -> "PrimitiveType.string()";
-            case DbType.UTF8 -> "PrimitiveType.utf8()";
-            case DbType.JSON -> "PrimitiveType.json()";
+            case "BOOL" -> "PrimitiveType.bool()";
+            case "UINT8" -> "PrimitiveType.uint8()";
+            case "INT32" -> "PrimitiveType.int32()";
+            case "UINT32" -> "PrimitiveType.uint32()";
+            case "INT64" -> "PrimitiveType.int64()";
+            case "UINT64" -> "PrimitiveType.uint64()";
+            case "FLOAT" -> "PrimitiveType.float32()";
+            case "DOUBLE" -> "PrimitiveType.float64()";
+            case "DATE" -> "PrimitiveType.date()";
+            case "DATETIME" -> "PrimitiveType.datetime()";
+            case "TIMESTAMP" -> "PrimitiveType.timestamp()";
+            case "STRING" -> "PrimitiveType.string()";
+            case "UTF8" -> "PrimitiveType.utf8()";
+            case "JSON" -> "PrimitiveType.json()";
             default -> throw new IllegalArgumentException("Unknown db type: " + type);
         };
     }

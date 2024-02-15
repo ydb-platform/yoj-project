@@ -4,6 +4,7 @@ import com.google.common.base.Preconditions;
 import lombok.NonNull;
 import lombok.Value;
 import lombok.With;
+import tech.ydb.yoj.databind.DbType;
 import tech.ydb.yoj.databind.schema.Column;
 import tech.ydb.yoj.repository.db.Entity;
 import tech.ydb.yoj.repository.db.Table;
@@ -20,7 +21,7 @@ public class TypeFreak implements Entity<TypeFreak> {
 
     boolean primitiveBoolean;
     byte primitiveByte;
-    @Column(dbType = "UINT8")
+    @Column(dbType = DbType.UINT8)
     byte primitiveByteUint8;
     short primitiveShort;
     int primitiveInt;
@@ -29,7 +30,7 @@ public class TypeFreak implements Entity<TypeFreak> {
     double primitiveDouble;
     Boolean boxedBoolean;
     Byte boxedByte;
-    @Column(dbType = "UINT8")
+    @Column(dbType = DbType.UINT8)
     Byte boxedByteUint8;
     Short boxedShort;
     Integer boxedInteger;
@@ -37,20 +38,20 @@ public class TypeFreak implements Entity<TypeFreak> {
     Float boxedFloat;
     Double boxedDouble;
 
-    @Column(dbType = "UTF8")
+    @Column(dbType = DbType.UTF8)
     String utf8String;
     String string;
     byte[] bytes;
     Status status;
-    @Column(dbType = "UTF8")
+    @Column(dbType = DbType.UTF8)
     Status utf8Status;
     @With
     Embedded embedded;
-    @Column(flatten = false, dbType = "UTF8")
+    @Column(flatten = false, dbType = DbType.UTF8)
     Embedded utf8embedded;
-    @Column(flatten = false, dbType = "STRING")
+    @Column(flatten = false, dbType = DbType.STRING)
     Embedded stringEmbedded;
-    @Column(flatten = false, dbType = "JSON_DOCUMENT")
+    @Column(flatten = false, dbType = DbType.JSON_DOCUMENT)
     Embedded jsonDocumentEmbedded;
     @Column(flatten = false)
     Embedded jsonEmbedded;
@@ -61,11 +62,11 @@ public class TypeFreak implements Entity<TypeFreak> {
     List<Embedded> list2;
     Set<Embedded> list3;
     Map<Integer, Embedded> map1;
-    @Column(dbType = "UTF8")
+    @Column(dbType = DbType.UTF8)
     Map<Integer, Embedded> utf8map;
-    @Column(dbType = "STRING")
+    @Column(dbType = DbType.STRING)
     Map<Integer, Embedded> stringMap;
-    @Column(dbType = "JSON_DOCUMENT")
+    @Column(dbType = DbType.JSON_DOCUMENT)
     Map<Integer, Embedded> jsonDocumentMap;
 
     StringValueWrapper stringValueWrapper;

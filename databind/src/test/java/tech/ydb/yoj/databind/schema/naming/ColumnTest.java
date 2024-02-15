@@ -4,6 +4,7 @@ import lombok.NonNull;
 import lombok.Value;
 import org.junit.Before;
 import org.junit.Test;
+import tech.ydb.yoj.databind.DbType;
 import tech.ydb.yoj.databind.schema.Column;
 import tech.ydb.yoj.databind.schema.ObjectSchema;
 import tech.ydb.yoj.databind.schema.Schema;
@@ -112,7 +113,7 @@ public class ColumnTest {
         @Column
         Id id;
 
-        @Column(name = "id", dbType = "UTF8")
+        @Column(name = "id", dbType = DbType.UTF8)
         String value;
 
         @Value
@@ -127,7 +128,7 @@ public class ColumnTest {
         @Column
         Id id;
 
-        @Column(name = "value", dbType = "UTF8")
+        @Column(name = "value", dbType = DbType.UTF8)
         String value;
 
         @Value
@@ -171,7 +172,7 @@ public class ColumnTest {
 
     @Value
     private static final class UInt32 {
-        @Column(dbType = "UInt32", dbTypeQualifier = "Days")
+        @Column(dbType = DbType.UINT32, dbTypeQualifier = "Days")
         int value;
     }
 }
