@@ -57,7 +57,7 @@ public class ColumnTest {
         Schema<UInt32> schema = newSchema(UInt32.class);
         assertThat(schema.flattenFields().stream()
             .map(Schema.JavaField::getDbType))
-            .containsOnly("UInt32");
+            .containsOnly("UINT32");
     }
 
     @Test
