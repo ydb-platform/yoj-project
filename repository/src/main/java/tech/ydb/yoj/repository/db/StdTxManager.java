@@ -22,6 +22,7 @@ import javax.annotation.Nullable;
 import java.time.Duration;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.regex.Pattern;
 
@@ -181,23 +182,25 @@ public final class StdTxManager implements TxManager, TxManagerState {
 
     @Override
     public void tx(Runnable runnable) {
-        tx(() -> {
-            runnable.run();
-            return null;
-        });
+        txC(__ -> runnable.run());
     }
 
     @Override
     public <T> T tx(Supplier<T> supplier) {
+        return tx(__ -> supplier.get());
+    }
+
+    @Override
+    public <T> T tx(Function<Tx, T> func) {
         if (name == null) {
-            return withGeneratedNameAndLine().tx(supplier);
+            return withGeneratedNameAndLine().tx(func);
         }
 
         checkSeparatePolicy(separatePolicy, name);
-        return txImpl(supplier);
+        return txImpl(func);
     }
 
-    private <T> T txImpl(Supplier<T> supplier) {
+    private <T> T txImpl(Function<Tx, T> func) {
         RetryableException lastRetryableException = null;
         TxImpl lastTx = null;
         try (Timer ignored = totalDuration.labels(name).startTimer()) {
@@ -207,7 +210,7 @@ public final class StdTxManager implements TxManager, TxManagerState {
                     T result;
                     try (var ignored1 = attemptDuration.labels(name).startTimer()) {
                         lastTx = new TxImpl(name, repository.startTransaction(options), options);
-                        result = runAttempt(supplier, lastTx);
+                        result = runAttempt(lastTx, func);
                     }
 
                     if (options.isDryRun()) {
@@ -258,11 +261,11 @@ public final class StdTxManager implements TxManager, TxManagerState {
         return Strings.removeSuffix(e.getClass().getSimpleName(), "Exception");
     }
 
-    private <T> T runAttempt(Supplier<T> supplier, TxImpl tx) {
+    private <T> T runAttempt(TxImpl tx, Function<Tx, T> func) {
         try (var ignored2 = MDC.putCloseable("tx", formatTx());
              var ignored3 = MDC.putCloseable("tx-id", formatTxId());
              var ignored4 = MDC.putCloseable("tx-name", formatTxName(false))) {
-            return tx.run(supplier);
+            return tx.run(func);
         }
     }
 
