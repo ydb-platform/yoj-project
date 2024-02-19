@@ -331,7 +331,13 @@ public class YqlPrimitiveType implements YqlType {
         VALUE_DEFAULT_YQL_TYPES.put(FieldValueType.ENUM, new ValueYqlTypeSelector(FieldValueType.ENUM, PrimitiveTypeId.STRING, null));
     }
 
+    /**
+     * @deprecated Nothing in YOJ calls {@code YqlPrimitiveType.of(Type)} any more.
+     * <p>Please use {@link #of(JavaField) YqlPrimitiveType.of(JavaField)} because it correcly
+     * respects the customizations specified in the {@link Column &#64;Column} annotation.
+     */
     @NonNull
+    @Deprecated(forRemoval = true)
     public static YqlPrimitiveType of(Type javaType) {
         return resolveYqlType(javaType, FieldValueType.forJavaType(javaType), null, null);
     }

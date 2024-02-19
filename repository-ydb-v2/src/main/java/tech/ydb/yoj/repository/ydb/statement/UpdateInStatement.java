@@ -64,7 +64,7 @@ public class UpdateInStatement<T extends Entity<T>, RESULT>
     @Override
     protected String declarations() {
         var valuesDeclaration = values.keySet().stream()
-                .map(e -> getDeclaration("$" + e.getPath(), YqlType.of(e.getType()).getYqlTypeName()))
+                .map(e -> getDeclaration("$" + e.getPath(), YqlType.of(e).getYqlTypeName()))
                 .collect(joining());
 
         var keysDeclaration = getKeyParams().stream()
@@ -106,7 +106,7 @@ public class UpdateInStatement<T extends Entity<T>, RESULT>
 
     private List<YqlStatementParam> getValuesParams() {
         return this.values.keySet().stream()
-                .map(x -> new YqlStatementParam(YqlType.of(x.getType()), x.getPath(), false))
+                .map(x -> new YqlStatementParam(YqlType.of(x), x.getPath(), false))
                 .collect(Collectors.toList());
     }
 
