@@ -12,6 +12,7 @@ import tech.ydb.proto.ValueProtos;
 import tech.ydb.proto.ValueProtos.Type.PrimitiveTypeId;
 import tech.ydb.proto.ValueProtos.Value.ValueCase;
 import tech.ydb.table.values.proto.ProtoValue;
+import tech.ydb.yoj.ExperimentalApi;
 import tech.ydb.yoj.databind.ByteArray;
 import tech.ydb.yoj.databind.DbType;
 import tech.ydb.yoj.databind.FieldValueType;
@@ -87,6 +88,9 @@ public class YqlPrimitiveType implements YqlType {
     private static final Setter INSTANT_SECOND_SETTER = (b, v) -> b.setInt64Value(((Instant) v).getEpochSecond());
     private static final Setter INSTANT_UINT_SECOND_SETTER = (b, v) -> b.setUint64Value(((Instant) v).getEpochSecond());
     private static final Setter TIMESTAMP_SETTER = (b, v) -> b.setUint64Value(ProtoValue.fromTimestamp((Instant) v).getUint64Value());
+    private static final Setter TIMESTAMP_SECONDS_SETTER = (b, v) -> b.setUint64Value(ProtoValue.fromTimestamp(((Instant) v).truncatedTo(ChronoUnit.SECONDS)).getUint64Value());
+    private static final Setter TIMESTAMP_MILLI_SETTER = (b, v) -> b.setUint64Value(ProtoValue.fromTimestamp(((Instant) v).truncatedTo(ChronoUnit.MILLIS)).getUint64Value());
+
     private static final Setter DURATION_SETTER = (b, v) -> b.setInt64Value(ProtoValue.fromInterval((Duration) v).getInt64Value());
     private static final Setter DURATION_UINT_SETTER = (b, v) -> b.setUint64Value(ProtoValue.fromInterval((Duration) v).getInt64Value());
     private static final Setter DURATION_MILLI_SETTER = (b, v) -> b.setInt64Value(((Duration) v).toMillis());
@@ -125,6 +129,8 @@ public class YqlPrimitiveType implements YqlType {
     private static final Getter INSTANT_SECOND_GETTER = v -> Instant.ofEpochSecond(v.getInt64Value());
     private static final Getter INSTANT_UINT_SECOND_GETTER = v -> Instant.ofEpochSecond(v.getUint64Value());
     private static final Getter TIMESTAMP_GETTER = ProtoValue::toTimestamp;
+    private static final Getter TIMESTAMP_SECONDS_GETTER = v -> ProtoValue.toTimestamp(v).truncatedTo(ChronoUnit.SECONDS);
+    private static final Getter TIMESTAMP_MILLI_GETTER = v -> ProtoValue.toTimestamp(v).truncatedTo(ChronoUnit.MILLIS);
     private static final Getter DURATION_GETTER = ProtoValue::toInterval;
     private static final Getter DURATION_UINT_GETTER = v -> Duration.of(v.getUint64Value(), ChronoUnit.MICROS);
     private static final Getter DURATION_MILLI_GETTER = v -> Duration.ofMillis(v.getInt64Value());
@@ -163,17 +169,21 @@ public class YqlPrimitiveType implements YqlType {
         registerYqlType(Long.class, PrimitiveTypeId.UINT64, null, false, ULONG_SETTER, ULONG_GETTER);
         registerYqlType(Float.class, PrimitiveTypeId.FLOAT, null, true, FLOAT_SETTER, FLOAT_GETTER);
         registerYqlType(Double.class, PrimitiveTypeId.DOUBLE, null, true, DOUBLE_SETTER, DOUBLE_GETTER);
+
         registerYqlType(byte[].class, PrimitiveTypeId.STRING, null, true, BYTES_SETTER, BYTES_GETTER);
         registerYqlType(ByteArray.class, PrimitiveTypeId.STRING, null, true, BYTE_ARRAY_SETTER, BYTE_ARRAY_GETTER);
-        registerYqlType(Instant.class, PrimitiveTypeId.INT64, DbTypeQualifier.MILLISECONDS, true, INSTANT_SETTER, INSTANT_GETTER);
+
+        registerYqlType(Instant.class, PrimitiveTypeId.INT64, null, true, INSTANT_SETTER, INSTANT_GETTER);             // defaults to millis
+        registerYqlType(Instant.class, PrimitiveTypeId.INT64, DbTypeQualifier.MILLISECONDS, false, INSTANT_SETTER, INSTANT_GETTER);
+        registerYqlType(Instant.class, PrimitiveTypeId.UINT64, null, false, INSTANT_UINT_SETTER, INSTANT_UINT_GETTER); // defaults to millis
         registerYqlType(Instant.class, PrimitiveTypeId.UINT64, DbTypeQualifier.MILLISECONDS, false, INSTANT_UINT_SETTER, INSTANT_UINT_GETTER);
         registerYqlType(Instant.class, PrimitiveTypeId.INT64, DbTypeQualifier.SECONDS, false, INSTANT_SECOND_SETTER, INSTANT_SECOND_GETTER);
         registerYqlType(Instant.class, PrimitiveTypeId.UINT64, DbTypeQualifier.SECONDS, false, INSTANT_UINT_SECOND_SETTER, INSTANT_UINT_SECOND_GETTER);
         registerYqlType(Instant.class, PrimitiveTypeId.TIMESTAMP, null, false, TIMESTAMP_SETTER, TIMESTAMP_GETTER);
-        // XXX Temporarily require an explicit specification
-        // of the database type for duration fields in order to find possible places of the old use
-        // of duration in the DB model
-        registerYqlType(Duration.class, PrimitiveTypeId.INTERVAL, null, false /* XXX true */, DURATION_SETTER, DURATION_GETTER);
+        registerYqlType(Instant.class, PrimitiveTypeId.TIMESTAMP, DbTypeQualifier.SECONDS, false, TIMESTAMP_SECONDS_SETTER, TIMESTAMP_SECONDS_GETTER);
+        registerYqlType(Instant.class, PrimitiveTypeId.TIMESTAMP, DbTypeQualifier.MILLISECONDS, false, TIMESTAMP_MILLI_SETTER, TIMESTAMP_MILLI_GETTER);
+
+        registerYqlType(Duration.class, PrimitiveTypeId.INTERVAL, null, true, DURATION_SETTER, DURATION_GETTER);
         registerYqlType(Duration.class, PrimitiveTypeId.INT64, null, false, DURATION_SETTER, DURATION_GETTER);
         registerYqlType(Duration.class, PrimitiveTypeId.UINT64, null, false, DURATION_UINT_SETTER, DURATION_UINT_GETTER);
         registerYqlType(Duration.class, PrimitiveTypeId.INT64, DbTypeQualifier.MILLISECONDS, false, DURATION_MILLI_SETTER, DURATION_MILLI_GETTER);
@@ -321,14 +331,70 @@ public class YqlPrimitiveType implements YqlType {
         }
     }
 
+    /**
+     * @deprecated Call {@link #useRecommendedMappingFor(FieldValueType[]) useNewMappingFor(STRING, ENUM)} instead.
+     */
+    @Deprecated(forRemoval = true)
     public static void changeStringDefaultTypeToUtf8() {
-        VALUE_DEFAULT_YQL_TYPES.put(FieldValueType.STRING, new ValueYqlTypeSelector(FieldValueType.STRING, PrimitiveTypeId.UTF8, null));
-        VALUE_DEFAULT_YQL_TYPES.put(FieldValueType.ENUM, new ValueYqlTypeSelector(FieldValueType.ENUM, PrimitiveTypeId.UTF8, null));
+        useRecommendedMappingFor(FieldValueType.STRING, FieldValueType.ENUM);
     }
 
+    /**
+     * @deprecated This method has a misleading name. Call {@link #useLegacyMappingFor(FieldValueType[]) useLegacyMappingFor(STRING, ENUM)} instead.
+     */
+    @Deprecated(forRemoval = true)
     public static void resetStringDefaultTypeToDefaults() {
-        VALUE_DEFAULT_YQL_TYPES.put(FieldValueType.STRING, new ValueYqlTypeSelector(FieldValueType.STRING, PrimitiveTypeId.STRING, null));
-        VALUE_DEFAULT_YQL_TYPES.put(FieldValueType.ENUM, new ValueYqlTypeSelector(FieldValueType.ENUM, PrimitiveTypeId.STRING, null));
+        useLegacyMappingFor(FieldValueType.STRING, FieldValueType.ENUM);
+    }
+
+    /**
+     * Uses the legacy (YOJ 1.0.x) field value type &harr; YDB column type mapping for the specified field value type(s).
+     * If you need to support legacy applications, call {@code useLegacyMappingFor(STRING, ENUM, TIMESTAMP)} before using
+     * any YOJ features.
+     *
+     * @deprecated We <strong>STRONGLY</strong> advise against using the legacy mapping in new projects.
+     * Please call {@link #useRecommendedMappingFor(FieldValueType...) useNewMappingFor(STRING, ENUM, TIMESTAMP)} instead,
+     * and annotate custom-mapped columns with {@link Column &#64;Column} where a different mapping is desired.
+     *
+     * @param fieldValueTypes field value types to use legacy mapping for
+     */
+    @Deprecated
+    public static void useLegacyMappingFor(FieldValueType... fieldValueTypes) {
+        for (var fvt : fieldValueTypes) {
+            switch (fvt) {
+                case STRING, ENUM -> VALUE_DEFAULT_YQL_TYPES.put(fvt, new ValueYqlTypeSelector(fvt, PrimitiveTypeId.STRING, null));
+                case TIMESTAMP -> {
+                    var selector = new YqlTypeSelector(Instant.class, PrimitiveTypeId.INT64, null);
+                    JAVA_DEFAULT_YQL_TYPES.put(Instant.class, selector);
+                    YQL_TYPES.put(selector, new YqlPrimitiveType(Instant.class, PrimitiveTypeId.INT64, INSTANT_SETTER, INSTANT_GETTER));
+                }
+                default -> throw new IllegalArgumentException("There is no legacy mapping for field value type: " + fvt);
+            }
+        }
+    }
+
+    /**
+     * Uses the recommended field value type &harr; YDB column type mapping for the specified field value type(s).
+     * <p>
+     * In new projects, we <strong>STRONGLY</strong> advise that you call {@code useNewMappingFor(STRING, ENUM, TIMESTAMP)}
+     * before using any YOJ features. This will eventually become the default mapping, and the call will become a no-op and
+     * mighe even be removed.
+     *
+     * @param fieldValueTypes field value types to use the new mapping for
+     */
+    @ExperimentalApi(issue = "https://github.com/ydb-platform/yoj-project/issues/20")
+    public static void useRecommendedMappingFor(FieldValueType... fieldValueTypes) {
+        for (var fvt : fieldValueTypes) {
+            switch (fvt) {
+                case STRING, ENUM -> VALUE_DEFAULT_YQL_TYPES.put(fvt, new ValueYqlTypeSelector(fvt, PrimitiveTypeId.UTF8, null));
+                case TIMESTAMP -> {
+                    var selector = new YqlTypeSelector(Instant.class, PrimitiveTypeId.TIMESTAMP, null);
+                    JAVA_DEFAULT_YQL_TYPES.put(Instant.class, selector);
+                    YQL_TYPES.put(selector, new YqlPrimitiveType(Instant.class, PrimitiveTypeId.TIMESTAMP, TIMESTAMP_SETTER, TIMESTAMP_GETTER));
+                }
+                default -> throw new IllegalArgumentException("There is no new mapping for field value type: " + fvt);
+            }
+        }
     }
 
     /**
