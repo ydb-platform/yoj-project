@@ -36,9 +36,15 @@ public class YqlTypeTest {
 
     @Test
     public void fromYqlMustThrowConversionExceptionIfValueIsNonDeserializable() {
+        record WithNonDeserializableObject(NonDeserializableObject object) {
+        }
+
+        Schema<WithNonDeserializableObject> schema = new Schema<>(WithNonDeserializableObject.class) {
+        };
+
         assertThatExceptionOfType(ConversionException.class)
                 .isThrownBy(() ->
-                        YqlType.of(NonDeserializableObject.class).fromYql(ValueProtos.Value.newBuilder()
+                        YqlType.of(schema.getField("object")).fromYql(ValueProtos.Value.newBuilder()
                                 .setTextValue("{}")
                                 .build())
                 );
@@ -46,19 +52,31 @@ public class YqlTypeTest {
 
     @Test
     public void toYqlMustThrowConversionExceptionIfValueIsNonSerializable() {
+        record WithNonSerializableObject(NonSerializableObject object) {
+        }
+
+        Schema<WithNonSerializableObject> schema = new Schema<>(WithNonSerializableObject.class) {
+        };
+
         assertThatExceptionOfType(ConversionException.class)
-                .isThrownBy(() -> YqlType.of(NonSerializableObject.class).toYql(new NonSerializableObject()));
+                .isThrownBy(() -> YqlType.of(schema.getField("object")).toYql(new NonSerializableObject()));
     }
 
     @Test
     public void unknownEnumValuesAreDeserializedAsNull() {
-        assertThat(YqlType.of(EmptyEnum.class).fromYql(ValueProtos.Value.newBuilder().setTextValue("UZHOS").build()))
+        record WithEmptyEnum(EmptyEnum emptyEnum) {
+        }
+
+        Schema<WithEmptyEnum> schema = new Schema<>(WithEmptyEnum.class) {
+        };
+
+        assertThat(YqlType.of(schema.getField("emptyEnum")).fromYql(ValueProtos.Value.newBuilder().setTextValue("UZHOS").build()))
                 .isNull();
     }
 
     @Test
     public void testSimpleListResponse() {
-        Schema schema = new Schema(TestResponse.class) {
+        Schema<TestResponse> schema = new Schema<>(TestResponse.class) {
         };
         var actual = YqlType.of(schema.getField("simpleListValue")).fromYql(
                 ValueProtos.Value.newBuilder()
