@@ -2622,14 +2622,26 @@ public abstract class RepositoryTest extends RepositoryTestSupport {
         assertThat(db.tx(() -> db.updateFeedEntries().find(inserted.keySet())))
                 .containsExactlyInAnyOrderElementsOf(inserted.values());
 
+        assertThat(db.tx(() -> db.updateFeedEntries().find(inserted.keySet())))
+                .containsExactlyInAnyOrderElementsOf(inserted.values());
+
         assertThat(db.tx(() -> db.updateFeedEntries().list(ListRequest.builder(UpdateFeedEntry.class)
                 .filter(fb -> fb.where("id").in(inserted.keySet()))
+                .build())))
+                .containsExactlyInAnyOrderElementsOf(inserted.values());
+
+        assertThat(db.tx(() -> db.updateFeedEntries().list(ListRequest.builder(UpdateFeedEntry.class)
+                .filter(fb -> fb.where("id").in(inserted.keySet().stream().map(i -> i.toString()).collect(toSet())))
                 .build())))
                 .containsExactlyInAnyOrderElementsOf(inserted.values());
 
         for (var e : inserted.entrySet()) {
             assertThat(db.tx(() -> db.updateFeedEntries().query()
                     .filter(fb -> fb.where("id").eq(e.getKey()))
+                    .findOne())).isEqualTo(e.getValue());
+
+            assertThat(db.tx(() -> db.updateFeedEntries().query()
+                    .filter(fb -> fb.where("id").eq(e.getKey().toString()))
                     .findOne())).isEqualTo(e.getValue());
         }
     }

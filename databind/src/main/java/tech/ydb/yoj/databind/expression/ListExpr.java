@@ -3,6 +3,7 @@ package tech.ydb.yoj.databind.expression;
 import lombok.AllArgsConstructor;
 import lombok.NonNull;
 import lombok.Value;
+import tech.ydb.yoj.databind.schema.Column;
 import tech.ydb.yoj.databind.schema.Schema;
 
 import javax.annotation.Nullable;
@@ -39,17 +40,22 @@ public class ListExpr<T> extends LeafExpression<T> {
 
     @Override
     public java.lang.reflect.Type getFieldType() {
-        return getField().isFlat() ? getField().getFlatFieldType() : getField().getType();
+        return field.isFlat() ? field.getFlatFieldType() : field.getType();
     }
 
     @Override
     public String getFieldName() {
-        return getField().getName();
+        return field.getName();
     }
 
     @Override
     public String getFieldPath() {
-        return getField().getPath();
+        return field.getPath();
+    }
+
+    @Override
+    public Column getColumnAnnotation() {
+        return field.getField().getColumn();
     }
 
     @Nullable
@@ -60,7 +66,8 @@ public class ListExpr<T> extends LeafExpression<T> {
     @NonNull
     public List<Comparable<?>> getExpectedValues() {
         java.lang.reflect.Type fieldType = getFieldType();
-        return values.stream().map(v -> v.getComparable(fieldType)).collect(toList());
+        Column column = field.getField().getColumn();
+        return values.stream().map(v -> v.getComparable(fieldType, column)).collect(toList());
     }
 
     @Override

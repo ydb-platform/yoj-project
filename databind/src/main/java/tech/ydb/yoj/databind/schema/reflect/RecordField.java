@@ -2,6 +2,7 @@ package tech.ydb.yoj.databind.schema.reflect;
 
 import lombok.Getter;
 import lombok.NonNull;
+import tech.ydb.yoj.databind.CustomValueType;
 import tech.ydb.yoj.databind.FieldValueType;
 import tech.ydb.yoj.databind.schema.Column;
 import tech.ydb.yoj.databind.schema.FieldValueException;

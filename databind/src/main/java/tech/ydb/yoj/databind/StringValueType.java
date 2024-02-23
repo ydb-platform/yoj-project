@@ -11,15 +11,15 @@ import static java.lang.annotation.RetentionPolicy.RUNTIME;
 
 /**
  * Marks the type as a <em>String-value type</em>, serialized to the database as text by calling {@code toString()} and
- * deserialized back using {@code static [TYPE] fromString(String)} or {@code static [TYPE] valueOf(String)} method.
+ * deserialized back using {@code static [TYPE] fromString(String)} method, {@code static [TYPE] valueOf(String)} method,
+ * or {@code [TYPE](String)} constructor.
+ * <p>
+ * In general, we recommend the more versatile {@link CustomValueType &#64;CustomValueType} annotation as it allows for
+ * fully custom conversion logic.
  */
 @Target(TYPE)
 @Retention(RUNTIME)
 @Inherited
+@ExperimentalApi(issue = "https://github.com/ydb-platform/yoj-project/issues/21")
 public @interface StringValueType {
-    /**
-     * Experimental feature: Represent the whole Entity ID as a String.
-     */
-    @ExperimentalApi(issue = "https://github.com/ydb-platform/yoj-project/issues/21")
-    boolean entityId();
 }

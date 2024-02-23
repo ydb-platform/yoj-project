@@ -1,7 +1,6 @@
 package tech.ydb.yoj.repository.ydb.yql;
 
 import com.google.common.primitives.Primitives;
-import com.google.common.reflect.TypeToken;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.UnsafeByteOperations;
@@ -335,11 +334,17 @@ public class YqlPrimitiveType implements YqlType {
         VALUE_DEFAULT_YQL_TYPES.put(FieldValueType.ENUM, new ValueYqlTypeSelector(FieldValueType.ENUM, PrimitiveTypeId.STRING, null));
     }
 
+    /**
+     * @deprecated Nothing in YOJ calls {@code YqlPrimitiveType.of(Type)} any more.
+     * <p>Please use {@link #of(JavaField) YqlPrimitiveType.of(JavaField)} because it correcly
+     * respects the customizations specified in the {@link Column &#64;Column} and
+     * {@link CustomValueType &#64;CustomValueType} annotations.
+     */
     @NonNull
+    @Deprecated(forRemoval = true)
     public static YqlPrimitiveType of(Type javaType) {
-        var cvt = TypeToken.of(javaType).getRawType().getAnnotation(CustomValueType.class);
-        var valueType = FieldValueType.forJavaType(javaType);
-        return resolveYqlType(javaType, valueType, null, null, cvt);
+        var valueType = FieldValueType.forJavaType(javaType, null);
+        return resolveYqlType(javaType, valueType, null, null, null);
     }
 
     /**

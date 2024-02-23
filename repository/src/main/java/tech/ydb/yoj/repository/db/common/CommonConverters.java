@@ -6,8 +6,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import tech.ydb.yoj.ExperimentalApi;
 import tech.ydb.yoj.databind.CustomValueType;
-import tech.ydb.yoj.databind.ValueConverter;
-import tech.ydb.yoj.databind.schema.CustomConverterException;
+import tech.ydb.yoj.databind.CustomValueTypes;
 
 import javax.annotation.Nullable;
 import javax.annotation.ParametersAreNonnullByDefault;
@@ -187,33 +186,12 @@ public final class CommonConverters {
 
     @ExperimentalApi(issue = "https://github.com/ydb-platform/yoj-project/issues/24")
     public static Object preconvert(@Nullable CustomValueType cvt, Object value) {
-        if (cvt != null) {
-            value = createCustomValueTypeConverter(cvt).toColumn(value);
-
-            Preconditions.checkArgument(cvt.columnClass().isInstance(value),
-                    "Custom value type converter %s must produce a non-null value of type columnClass()=%s but got value of type %s",
-                    cvt.converter().getCanonicalName(), cvt.columnClass().getCanonicalName(), value.getClass().getCanonicalName());
-        }
-        return value;
+        return CustomValueTypes.preconvert(cvt, value);
     }
 
     @ExperimentalApi(issue = "https://github.com/ydb-platform/yoj-project/issues/24")
     public static Object postconvert(@Nullable CustomValueType cvt, Object value) {
-        if (cvt != null) {
-            value = createCustomValueTypeConverter(cvt).toJava(value);
-        }
-        return value;
-    }
-
-    private static <V, C> ValueConverter<V, C> createCustomValueTypeConverter(CustomValueType cvt) {
-        try {
-            var ctor = cvt.converter().getConstructor();
-            ctor.setAccessible(true);
-            @SuppressWarnings("unchecked") var converter = (ValueConverter<V, C>) ctor.newInstance();
-            return converter;
-        } catch (InstantiationException | IllegalAccessException | NoSuchMethodException | SecurityException | InvocationTargetException e) {
-            throw new CustomConverterException(e, "Could not return custom value type converter " + cvt.converter());
-        }
+        return CustomValueTypes.postconvert(cvt, value);
     }
 
     // TODO: Also standardize Instant and Duration conversion!

@@ -2,7 +2,9 @@ package tech.ydb.yoj.databind.expression;
 
 import com.google.common.collect.ImmutableList;
 import lombok.NonNull;
+import tech.ydb.yoj.databind.schema.Column;
 
+import javax.annotation.Nullable;
 import java.util.List;
 
 public abstract class LeafExpression<T> implements FilterExpression<T> {
@@ -12,6 +14,9 @@ public abstract class LeafExpression<T> implements FilterExpression<T> {
     }
 
     public abstract java.lang.reflect.Type getFieldType();
+
+    @Nullable
+    public abstract Column getColumnAnnotation();
 
     public abstract String getFieldName();
 

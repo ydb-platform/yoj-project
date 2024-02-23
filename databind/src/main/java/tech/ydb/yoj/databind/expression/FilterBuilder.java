@@ -175,7 +175,11 @@ public final class FilterBuilder<T> {
         }
 
         private List<FieldValue> fieldValues(@NonNull Collection<@NonNull ?> values) {
-            return values.stream().map(FieldValue::ofObj).collect(toList());
+            return values.stream().map(this::fieldValue).collect(toList());
+        }
+
+        private FieldValue fieldValue(Object v) {
+            return FieldValue.ofObj(v, field.getJavaField());
         }
 
         @NonNull
@@ -183,7 +187,7 @@ public final class FilterBuilder<T> {
             if (value == null) {
                 return new NullExpr<>(schema, generated, field, operator == EQ ? IS_NULL : IS_NOT_NULL);
             }
-            return new ScalarExpr<>(schema, generated, field, operator, FieldValue.ofObj(value));
+            return new ScalarExpr<>(schema, generated, field, operator, fieldValue(value));
         }
 
         @NonNull
@@ -213,44 +217,44 @@ public final class FilterBuilder<T> {
 
         @NonNull
         public FilterBuilder<T> lt(@NonNull Object value) {
-            current = finisher.apply(new ScalarExpr<>(schema, generated, field, LT, FieldValue.ofObj(value)));
+            current = finisher.apply(new ScalarExpr<>(schema, generated, field, LT, fieldValue(value)));
             return FilterBuilder.this;
         }
 
         @NonNull
         public FilterBuilder<T> lte(@NonNull Object value) {
-            current = finisher.apply(new ScalarExpr<>(schema, generated, field, LTE, FieldValue.ofObj(value)));
+            current = finisher.apply(new ScalarExpr<>(schema, generated, field, LTE, fieldValue(value)));
             return FilterBuilder.this;
         }
 
         @NonNull
         public FilterBuilder<T> gt(@NonNull Object value) {
-            current = finisher.apply(new ScalarExpr<>(schema, generated, field, GT, FieldValue.ofObj(value)));
+            current = finisher.apply(new ScalarExpr<>(schema, generated, field, GT, fieldValue(value)));
             return FilterBuilder.this;
         }
 
         @NonNull
         public FilterBuilder<T> gte(@NonNull Object value) {
-            current = finisher.apply(new ScalarExpr<>(schema, generated, field, GTE, FieldValue.ofObj(value)));
+            current = finisher.apply(new ScalarExpr<>(schema, generated, field, GTE, fieldValue(value)));
             return FilterBuilder.this;
         }
 
         public FilterBuilder<T> between(@NonNull Object min, @NonNull Object max) {
-            FilterExpression<T> gteMin = new ScalarExpr<>(schema, generated, field, GTE, FieldValue.ofObj(min));
-            FilterExpression<T> lteMax = new ScalarExpr<>(schema, generated, field, LTE, FieldValue.ofObj(max));
+            FilterExpression<T> gteMin = new ScalarExpr<>(schema, generated, field, GTE, fieldValue(min));
+            FilterExpression<T> lteMax = new ScalarExpr<>(schema, generated, field, LTE, fieldValue(max));
             current = finisher.apply(gteMin.and(lteMax));
             return FilterBuilder.this;
         }
 
         @NonNull
         public FilterBuilder<T> contains(@NonNull String value) {
-            current = finisher.apply(new ScalarExpr<>(schema, generated, field, CONTAINS, FieldValue.ofObj(value)));
+            current = finisher.apply(new ScalarExpr<>(schema, generated, field, CONTAINS, fieldValue(value)));
             return FilterBuilder.this;
         }
 
         @NonNull
         public FilterBuilder<T> doesNotContain(@NonNull String value) {
-            current = finisher.apply(new ScalarExpr<>(schema, generated, field, NOT_CONTAINS, FieldValue.ofObj(value)));
+            current = finisher.apply(new ScalarExpr<>(schema, generated, field, NOT_CONTAINS, fieldValue(value)));
             return FilterBuilder.this;
         }
 

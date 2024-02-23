@@ -1,7 +1,11 @@
 package tech.ydb.yoj.databind.schema;
 
+import tech.ydb.yoj.ExperimentalApi;
+import tech.ydb.yoj.databind.CustomValueType;
 import tech.ydb.yoj.databind.DbType;
 import tech.ydb.yoj.databind.FieldValueType;
+import tech.ydb.yoj.databind.ValueConverter;
+import tech.ydb.yoj.databind.ValueConverter.NoConverter;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.Target;
@@ -9,6 +13,7 @@ import java.lang.annotation.Target;
 import static java.lang.annotation.ElementType.FIELD;
 import static java.lang.annotation.ElementType.RECORD_COMPONENT;
 import static java.lang.annotation.RetentionPolicy.RUNTIME;
+import static tech.ydb.yoj.databind.FieldValueType.UNKNOWN;
 
 /**
  * Specifies the mapped column for a persistent field.
@@ -60,4 +65,12 @@ public @interface Column {
      * Changing this parameter for a non-composite field has no effect.
      */
     boolean flatten() default true;
+
+    /**
+     * Specifies custom conversion logic for this column, if any.
+     *
+     * @see CustomValueType
+     */
+    @ExperimentalApi(issue = "https://github.com/ydb-platform/yoj-project/issues/24")
+    CustomValueType customValueType() default @CustomValueType(columnValueType = UNKNOWN, columnClass = Void.class, converter = NoConverter.class);
 }

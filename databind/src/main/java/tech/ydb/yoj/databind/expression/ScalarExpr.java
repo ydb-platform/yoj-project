@@ -4,6 +4,7 @@ import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NonNull;
 import lombok.Value;
+import tech.ydb.yoj.databind.schema.Column;
 import tech.ydb.yoj.databind.schema.Schema;
 
 import javax.annotation.Nullable;
@@ -53,7 +54,13 @@ public class ScalarExpr<T> extends LeafExpression<T> {
 
     @NonNull
     public Comparable<?> getExpectedValue() {
-        return value.getComparable(getFieldType());
+        return value.getComparable(getFieldType(), getColumnAnnotation());
+    }
+
+    @Nullable
+    @Override
+    public Column getColumnAnnotation() {
+        return field.getField().getColumn();
     }
 
     @NonNull

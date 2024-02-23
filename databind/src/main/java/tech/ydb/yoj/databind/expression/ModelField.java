@@ -64,12 +64,12 @@ public final class ModelField {
         if (value.isTuple()) {
             value.getTuple().streamComponents()
                     .filter(jfv -> jfv.getValue() != null)
-                    .forEach(jfv -> new ModelField(null, jfv.getField()).validateValue(FieldValue.ofObj(jfv.getValue())));
+                    .forEach(jfv -> new ModelField(null, jfv.getField()).validateValue(FieldValue.ofObj(jfv.getValue(), jfv.getField())));
             return value;
         }
 
         Type fieldType = getFlatFieldType();
-        FieldValueType fieldValueType = FieldValueType.forJavaType(fieldType);
+        FieldValueType fieldValueType = FieldValueType.forJavaType(fieldType, javaField.getField().getColumn());
         if (value.isString()) {
             if (fieldValueType == FieldValueType.ENUM) {
                 TypeToken<?> tt = TypeToken.of(fieldType);

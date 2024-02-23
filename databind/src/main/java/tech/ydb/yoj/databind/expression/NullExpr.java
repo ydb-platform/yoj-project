@@ -4,6 +4,8 @@ import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NonNull;
 import lombok.Value;
+import org.jetbrains.annotations.Nullable;
+import tech.ydb.yoj.databind.schema.Column;
 import tech.ydb.yoj.databind.schema.Schema;
 
 import java.util.Map;
@@ -47,6 +49,12 @@ public class NullExpr<T> extends LeafExpression<T> {
     @Override
     public String getFieldPath() {
         return getField().getPath();
+    }
+
+    @Nullable
+    @Override
+    public Column getColumnAnnotation() {
+        return field.getField().getColumn();
     }
 
     public boolean isActualValueNull(@NonNull T obj) {

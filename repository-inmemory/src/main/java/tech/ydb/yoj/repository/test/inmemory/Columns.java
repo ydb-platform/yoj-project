@@ -68,6 +68,7 @@ final class Columns {
             return null;
         }
         Type type = field.getType();
+        Type serializedType = field.getCustomValueType() != null ? field.getCustomValueType().columnClass() : type;
         String qualifier = field.getDbTypeQualifier();
         try {
             Preconditions.checkState(field.isSimple(), "Trying to serialize a non-simple field: %s", field);
@@ -75,11 +76,11 @@ final class Columns {
             value = CommonConverters.preconvert(field.getCustomValueType(), value);
 
             return switch (field.getValueType()) {
-                case STRING -> CommonConverters.serializeStringValue(type, value);
+                case STRING -> CommonConverters.serializeStringValue(serializedType, value);
                 case ENUM -> DbTypeQualifier.ENUM_TO_STRING.equals(qualifier)
-                        ? CommonConverters.serializeEnumToStringValue(type, value)
-                        : CommonConverters.serializeEnumValue(type, value);
-                case OBJECT -> CommonConverters.serializeOpaqueObjectValue(type, value);
+                        ? CommonConverters.serializeEnumToStringValue(serializedType, value)
+                        : CommonConverters.serializeEnumValue(serializedType, value);
+                case OBJECT -> CommonConverters.serializeOpaqueObjectValue(serializedType, value);
                 case BINARY -> ((byte[]) value).clone();
                 case BYTE_ARRAY -> ((ByteArray) value).copy().getArray();
                 case BOOLEAN, INTEGER, REAL -> value;
@@ -97,16 +98,17 @@ final class Columns {
             return null;
         }
         Type type = field.getType();
+        Type serializedType = field.getCustomValueType() != null ? field.getCustomValueType().columnClass() : type;
         String qualifier = field.getDbTypeQualifier();
         try {
             Preconditions.checkState(field.isSimple(), "Trying to deserialize a non-simple field: %s", field);
 
             var deserialized = switch (field.getValueType()) {
-                case STRING -> CommonConverters.deserializeStringValue(type, value);
+                case STRING -> CommonConverters.deserializeStringValue(serializedType, value);
                 case ENUM -> DbTypeQualifier.ENUM_TO_STRING.equals(qualifier)
-                        ? CommonConverters.deserializeEnumToStringValue(type, value)
-                        : CommonConverters.deserializeEnumValue(type, value);
-                case OBJECT -> CommonConverters.deserializeOpaqueObjectValue(type, value);
+                        ? CommonConverters.deserializeEnumToStringValue(serializedType, value)
+                        : CommonConverters.deserializeEnumValue(serializedType, value);
+                case OBJECT -> CommonConverters.deserializeOpaqueObjectValue(serializedType, value);
                 case BINARY -> ((byte[]) value).clone();
                 case BYTE_ARRAY -> ByteArray.copy((byte[]) value);
                 case BOOLEAN, INTEGER, REAL -> value;

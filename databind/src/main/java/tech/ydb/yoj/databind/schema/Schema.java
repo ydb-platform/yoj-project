@@ -10,9 +10,9 @@ import lombok.Value;
 import lombok.With;
 import tech.ydb.yoj.ExperimentalApi;
 import tech.ydb.yoj.databind.CustomValueType;
+import tech.ydb.yoj.databind.CustomValueTypes;
 import tech.ydb.yoj.databind.DbType;
 import tech.ydb.yoj.databind.FieldValueType;
-import tech.ydb.yoj.databind.StringValueType;
 import tech.ydb.yoj.databind.schema.configuration.SchemaRegistry.SchemaKey;
 import tech.ydb.yoj.databind.schema.naming.NamingStrategy;
 import tech.ydb.yoj.databind.schema.reflect.ReflectField;
@@ -48,7 +48,6 @@ import static java.util.Arrays.asList;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toMap;
 import static lombok.AccessLevel.PROTECTED;
-import static tech.ydb.yoj.databind.FieldValueType.STRING;
 
 public abstract class Schema<T> {
     public static final String PATH_DELIMITER = ".";
@@ -203,10 +202,11 @@ public abstract class Schema<T> {
         if (subSchemaField.fields != null) {
             fields = subSchemaField.fields.stream().map(this::newRootJavaField).toList();
         } else {
-            var subSchemaFieldType = subSchemaField.getRawType();
-            if (subSchemaFieldType.getAnnotation(StringValueType.class) != null
-                    && subSchemaFieldType.getAnnotation(StringValueType.class).entityId()) {
-                var dummyField = new JavaField(new DummyStringValueField(subSchemaField), subSchemaField, __ -> true);
+            var cvt = subSchemaField.getCustomValueType();
+            if (cvt != null) {
+                Preconditions.checkArgument(!cvt.columnValueType().isComposite() && !cvt.columnValueType().isUnknown(),
+                        "Cannot have a composite or unknown columnValueType() in @CustomValueType annotation");
+                var dummyField = new JavaField(new DummyCustomValueSubField(subSchemaField), subSchemaField, __ -> true);
                 dummyField.setName(subSchemaField.getName());
                 fields = List.of(dummyField);
             } else {
@@ -395,10 +395,10 @@ public abstract class Schema<T> {
                 + " [type=" + getType().getName() + "]";
     }
 
-    private static final class DummyStringValueField implements ReflectField {
+    private static final class DummyCustomValueSubField implements ReflectField {
         private final JavaField donor;
 
-        private DummyStringValueField(JavaField donor) {
+        private DummyCustomValueSubField(JavaField donor) {
             this.donor = donor;
         }
 
@@ -414,12 +414,12 @@ public abstract class Schema<T> {
 
         @Override
         public Type getGenericType() {
-            return String.class;
+            return donor.getType();
         }
 
         @Override
         public Class<?> getType() {
-            return String.class;
+            return donor.getRawType();
         }
 
         @Override
@@ -429,13 +429,13 @@ public abstract class Schema<T> {
 
         @Override
         public Object getValue(Object containingObject) {
-            Preconditions.checkArgument(donor.getRawType().isInstance(containingObject),
-                    "Tried to get value of a string-value field '%s' on an invalid type: expected %s, got %s",
+            Preconditions.checkArgument(donor.getRawType().equals(containingObject.getClass()),
+                    "Tried to get value for a custom-value subfield '%s' on an invalid type: expected %s, got %s",
                     donor.getPath(),
                     donor.getRawType(),
-                    containingObject == null ? "<null value>" : containingObject.getClass()
+                    containingObject.getClass()
             );
-            return containingObject.toString();
+            return containingObject;
         }
 
         @Override
@@ -445,7 +445,7 @@ public abstract class Schema<T> {
 
         @Override
         public FieldValueType getValueType() {
-            return STRING;
+            return donor.getValueType();
         }
 
         @Override
@@ -699,10 +699,15 @@ public abstract class Schema<T> {
                     .orElse(null);
         }
 
+        /**
+         * @return {@link CustomValueType &#64;CustomValueType} annotation for the schema field or its type.
+         * This experimental annotation specifies custom value conversion logic between Java field values and
+         * database column values.
+         */
         @Nullable
         @ExperimentalApi(issue = "https://github.com/ydb-platform/yoj-project/issues/24")
         public CustomValueType getCustomValueType() {
-            return field.getType().getAnnotation(CustomValueType.class);
+            return CustomValueTypes.getCustomValueType(field.getType(), field.getColumn());
         }
 
         @Override

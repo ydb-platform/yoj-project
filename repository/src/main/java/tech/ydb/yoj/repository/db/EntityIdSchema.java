@@ -3,6 +3,7 @@ package tech.ydb.yoj.repository.db;
 import com.google.common.base.Preconditions;
 import com.google.common.reflect.TypeToken;
 import lombok.NonNull;
+import tech.ydb.yoj.databind.CustomValueType;
 import tech.ydb.yoj.databind.FieldValueType;
 import tech.ydb.yoj.databind.StringValueType;
 import tech.ydb.yoj.databind.schema.Schema;
@@ -10,10 +11,12 @@ import tech.ydb.yoj.databind.schema.configuration.SchemaRegistry;
 import tech.ydb.yoj.databind.schema.configuration.SchemaRegistry.SchemaKey;
 import tech.ydb.yoj.databind.schema.naming.NamingStrategy;
 import tech.ydb.yoj.databind.schema.reflect.ReflectField;
+import tech.ydb.yoj.repository.db.common.CommonConverters;
 
 import javax.annotation.Nullable;
 import java.lang.reflect.Type;
 import java.util.Comparator;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -61,25 +64,25 @@ public final class EntityIdSchema<ID extends Entity.Id<?>> extends Schema<ID> im
 
         var flattenedFields = flattenFields();
 
-        var idField = entitySchema.getField(EntityIdSchema.ID_FIELD_NAME);
+        var idField = entitySchema.getField(ID_FIELD_NAME);
         if (idField.getValueType().isComposite()) {
             Preconditions.checkArgument(!flattenedFields.isEmpty(), "ID must have at least 1 field, but got none: %s", idField.getType());
         } else {
-            var idType = idField.getRawType();
-            var svtAnnotation = idType.getAnnotation(StringValueType.class);
-            Preconditions.checkArgument(svtAnnotation != null && svtAnnotation.entityId(),
-                    "ID must be either a composite with >= 1 field, or a string-value type annotated with @StringValueType(entityId=true), got: %s",
-                    idField.getType());
+            Preconditions.checkArgument(
+                    idField.getCustomValueType() != null,
+                    "ID must be either a composite with >= 1 field, or a compatible type annotated with @CustomValueType, but got: %s",
+                    idField.getType()
+            );
         }
 
         flattenedFields.stream()
-                .filter(f -> !ALLOWED_ID_FIELD_TYPES.contains(FieldValueType.forJavaType(f.getType())))
+                .filter(f -> !ALLOWED_ID_FIELD_TYPES.contains(FieldValueType.forJavaType(f.getType(), f.getField().getColumn())))
                 .findAny()
                 .ifPresent(f -> {
                     throw new IllegalArgumentException(String.format(
                             "Leaf ID field \"[%s].%s\" <java=%s, db=%s> is none of the allowed types %s",
                             getType().getName(), f.getName(), f.getType(),
-                            FieldValueType.forJavaType(f.getType()), ALLOWED_ID_FIELD_TYPES));
+                            FieldValueType.forJavaType(f.getType(), f.getField().getColumn()), ALLOWED_ID_FIELD_TYPES));
                 });
     }
 
@@ -162,9 +165,14 @@ public final class EntityIdSchema<ID extends Entity.Id<?>> extends Schema<ID> im
     public int compare(@NonNull ID a, @NonNull ID b) {
         Map<String, Object> idA = flatten(a);
         Map<String, Object> idB = flatten(b);
-        for (String fieldName : flattenFieldNames()) {
+
+        List<JavaField> flatFields = flattenFields();
+        for (JavaField field : flatFields) {
+            var cvt = field.getCustomValueType();
+            var fieldName = field.getName();
+
             @SuppressWarnings("unchecked")
-            int res = compare(toComparable(idA.get(fieldName)), toComparable(idB.get(fieldName)));
+            int res = compare(toComparable(idA.get(fieldName), cvt), toComparable(idB.get(fieldName), cvt));
 
             if (res != 0) {
                 return res;
@@ -175,10 +183,13 @@ public final class EntityIdSchema<ID extends Entity.Id<?>> extends Schema<ID> im
 
     @Nullable
     @SuppressWarnings("rawtypes")
-    private static Comparable toComparable(@Nullable Object value) {
+    private static Comparable toComparable(@Nullable Object value, @Nullable CustomValueType cvt) {
         if (value == null) {
             return null;
-        } else if (value instanceof Enum) {
+        }
+
+        value = CommonConverters.preconvert(cvt, value);
+        if (value instanceof Enum) {
             return ((Enum) value).name();
         } else if (value instanceof Comparable) {
             // String, Instant, Boolean

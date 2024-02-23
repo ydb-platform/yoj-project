@@ -7,7 +7,10 @@ import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
 import lombok.Value;
 import tech.ydb.yoj.databind.ByteArray;
+import tech.ydb.yoj.databind.CustomValueType;
+import tech.ydb.yoj.databind.CustomValueTypes;
 import tech.ydb.yoj.databind.FieldValueType;
+import tech.ydb.yoj.databind.schema.Column;
 import tech.ydb.yoj.databind.schema.ObjectSchema;
 import tech.ydb.yoj.databind.schema.Schema.JavaField;
 import tech.ydb.yoj.databind.schema.Schema.JavaFieldValue;
@@ -38,44 +41,49 @@ public class FieldValue {
     ByteArray byteArray;
 
     @NonNull
-    public static FieldValue ofStr(@NonNull String str) {
+    private static FieldValue ofStr(@NonNull String str) {
         return new FieldValue(str, null, null, null, null, null, null);
     }
 
     @NonNull
-    public static FieldValue ofNum(long num) {
+    private static FieldValue ofNum(long num) {
         return new FieldValue(null, num, null, null, null, null, null);
     }
 
     @NonNull
-    public static FieldValue ofReal(double real) {
+    private static FieldValue ofReal(double real) {
         return new FieldValue(null, null, real, null, null, null, null);
     }
 
     @NonNull
-    public static FieldValue ofBool(boolean bool) {
+    private static FieldValue ofBool(boolean bool) {
         return new FieldValue(null, null, null, bool, null, null, null);
     }
 
     @NonNull
-    public static FieldValue ofTimestamp(@NonNull Instant timestamp) {
+    private static FieldValue ofTimestamp(@NonNull Instant timestamp) {
         return new FieldValue(null, null, null, null, timestamp, null, null);
     }
 
     @NonNull
-    public static FieldValue ofTuple(@NonNull Tuple tuple) {
+    private static FieldValue ofTuple(@NonNull Tuple tuple) {
         return new FieldValue(null, null, null, null, null, tuple, null);
     }
 
     @NonNull
-    public static FieldValue ofByteArray(@NonNull ByteArray byteArray) {
+    private static FieldValue ofByteArray(@NonNull ByteArray byteArray) {
         return new FieldValue(null, null, null, null, null, null, byteArray);
     }
 
     @NonNull
+    public static FieldValue ofObj(@NonNull Object obj, @NonNull JavaField jf) {
+        return ofObj(obj, jf.getField().getColumn());
+    }
+
+    @NonNull
     @SuppressWarnings({"unchecked", "rawtypes"})
-    public static FieldValue ofObj(@NonNull Object obj) {
-        switch (FieldValueType.forJavaType(obj.getClass())) {
+    public static FieldValue ofObj(@NonNull Object obj, @Nullable Column column) {
+        switch (FieldValueType.forJavaType(obj.getClass(), column)) {
             case STRING -> {
                 return ofStr(obj.toString());
             }
@@ -108,7 +116,7 @@ public class FieldValue {
                 if (allFieldValues.size() == 1) {
                     JavaFieldValue singleValue = allFieldValues.iterator().next();
                     Preconditions.checkArgument(singleValue.getValue() != null, "Wrappers must have a non-null value inside them");
-                    return ofObj(singleValue.getValue());
+                    return ofObj(singleValue.getValue(), column);
                 }
                 return ofTuple(new Tuple(obj, allFieldValues));
             }
@@ -153,7 +161,8 @@ public class FieldValue {
         if (field.isFlat()) {
             Type fieldType = field.getFlatFieldType();
             Object rawValue = values.get(field.getName());
-            return rawValue == null ? null : ofObj(rawValue).getComparable(fieldType);
+            Column column = field.getField().getColumn();
+            return rawValue == null ? null : ofObj(rawValue, column).getComparable(fieldType, column);
         } else {
             List<JavaFieldValue> components = field.flatten()
                     .map(jf -> new JavaFieldValue(jf, values.get(jf.getName())))
@@ -163,20 +172,23 @@ public class FieldValue {
     }
 
     @NonNull
-    public Object getRaw(@NonNull Type fieldType) {
-        if (FieldValueType.forJavaType(fieldType) == FieldValueType.COMPOSITE) {
+    public Object getRaw(@NonNull Type fieldType, @Nullable Column column) {
+        if (FieldValueType.forJavaType(fieldType, column) == FieldValueType.COMPOSITE) {
             Preconditions.checkState(isTuple(), "Value is not a tuple: %s", this);
             Preconditions.checkState(tuple.getType().equals(fieldType),
                     "Tuple value cannot be converted to a composite of type %s: %s", fieldType, this);
             return tuple.asComposite();
         }
-        return getComparable(fieldType);
+
+        Comparable<?> cmp = getComparable(fieldType, column);
+        CustomValueType cvt = CustomValueTypes.getCustomValueType(fieldType, column);
+        return CustomValueTypes.postconvert(cvt, cmp);
     }
 
     @NonNull
     @SuppressWarnings({"unchecked", "rawtypes"})
-    public Comparable<?> getComparable(@NonNull Type fieldType) {
-        switch (FieldValueType.forJavaType(fieldType)) {
+    public Comparable<?> getComparable(@NonNull Type fieldType, @Nullable Column column) {
+        switch (FieldValueType.forJavaType(fieldType, column)) {
             case STRING -> {
                 Preconditions.checkState(isString(), "Value is not a string: " + this);
                 return str;

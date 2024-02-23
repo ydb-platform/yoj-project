@@ -136,31 +136,29 @@ public enum FieldValueType {
      * Detects database field type appropriate for a Java object of type {@code type}.
      *
      * @param type Java object type
-     * @param columnAnnotation {@code @Column} annotation for the field
+     * @param columnAnnotation {@code @Column} annotation for the field; {@code null} if absent
      *
      * @return database value type
      * @throws IllegalArgumentException if object of this type cannot be mapped to a database value
      */
     @NonNull
     public static FieldValueType forJavaType(Type type, Column columnAnnotation) {
+        var cvt = CustomValueTypes.getCustomValueType(type, columnAnnotation);
+        if (cvt != null) {
+            return cvt.columnValueType();
+        }
+
         boolean flatten = columnAnnotation == null || columnAnnotation.flatten();
         FieldValueType valueType = forJavaType(type);
         return valueType.isComposite() && !flatten ? FieldValueType.OBJECT : valueType;
     }
 
-    /**
-     * Detects database field type appropriate for a Java object of type {@code type}.
-     *
-     * @param type Java object type
-     * @return database value type
-     * @throws IllegalArgumentException if object of this type cannot be mapped to a database value
-     */
     @NonNull
-    public static FieldValueType forJavaType(@NonNull Type type) {
+    private static FieldValueType forJavaType(@NonNull Type type) {
         if (type instanceof ParameterizedType || type instanceof TypeVariable) {
             return OBJECT;
         } else if (type instanceof Class<?> clazz) {
-            var cvt = clazz.getAnnotation(CustomValueType.class);
+            var cvt = CustomValueTypes.getCustomValueType(clazz, null);
             if (cvt != null) {
                 return cvt.columnValueType();
             }
@@ -216,13 +214,18 @@ public enum FieldValueType {
      * Checks whether Java object of type {@code type} is mapped to a composite database value
      * (i.e. > 1 database field)
      *
+     * @deprecated This method does not properly take into account the customizations specified in the
+     * {@link Column &#64;Column} annotation on the field. Please do not call it directly, instead use
+     * {@code FieldValueType.of(type, column).isComposite()} where {@code column} is the
+     * {@link Column &#64;Column} annotation's value.
+     *
      * @param type Java object type
      * @return {@code true} if {@code type} maps to a composite database value; {@code false} otherwise
      * @throws IllegalArgumentException if object of this type cannot be mapped to a database value
      * @see #isComposite()
      */
     public static boolean isComposite(@NonNull Type type) {
-        return forJavaType(type).isComposite();
+        return forJavaType(type, null).isComposite();
     }
 
     /**
