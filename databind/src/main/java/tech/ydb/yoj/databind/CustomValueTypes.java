@@ -6,6 +6,7 @@ import lombok.NonNull;
 import tech.ydb.yoj.ExperimentalApi;
 import tech.ydb.yoj.databind.schema.Column;
 import tech.ydb.yoj.databind.schema.CustomConverterException;
+import tech.ydb.yoj.databind.schema.Schema.JavaField;
 
 import javax.annotation.Nullable;
 import java.lang.reflect.InvocationTargetException;
@@ -19,9 +20,10 @@ public final class CustomValueTypes {
     private CustomValueTypes() {
     }
 
-    public static Object preconvert(@Nullable CustomValueType cvt, Object value) {
+    public static Object preconvert(@NonNull JavaField field, Object value) {
+        var cvt = field.getCustomValueType();
         if (cvt != null) {
-            value = createCustomValueTypeConverter(cvt).toColumn(value);
+            value = createCustomValueTypeConverter(cvt).toColumn(field, value);
 
             Preconditions.checkArgument(cvt.columnClass().isInstance(value),
                     "Custom value type converter %s must produce a non-null value of type columnClass()=%s but got value of type %s",
@@ -30,13 +32,16 @@ public final class CustomValueTypes {
         return value;
     }
 
-    public static Object postconvert(@Nullable CustomValueType cvt, Object value) {
+    public static Object postconvert(@NonNull JavaField field, Object value) {
+        var cvt = field.getCustomValueType();
         if (cvt != null) {
-            value = createCustomValueTypeConverter(cvt).toJava(value);
+            value = createCustomValueTypeConverter(cvt).toJava(field, value);
         }
         return value;
     }
 
+    // TODO: Add caching to e.g. SchemaRegistry using @CustomValueType+[optionally JavaField if there is @Column annotation]+[type] as key,
+    // to avoid repetitive construction of ValueConverters
     private static <V, C> ValueConverter<V, C> createCustomValueTypeConverter(CustomValueType cvt) {
         try {
             var ctor = cvt.converter().getDeclaredConstructor();
@@ -47,7 +52,6 @@ public final class CustomValueTypes {
             throw new CustomConverterException(e, "Could not return custom value type converter " + cvt.converter());
         }
     }
-
 
     @Nullable
     @ExperimentalApi(issue = "https://github.com/ydb-platform/yoj-project/issues/24")

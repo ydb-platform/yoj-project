@@ -62,7 +62,11 @@ public enum FieldValueType {
     /**
      * Binary value: just a stream of uninterpreted bytes.
      * Java-side <strong>must</strong> be a byte array.
+     * <p>
+     * @deprecated It is strongly recommended to use a {@link ByteArray} that is properly {@code Comparable}
+     * and has a sane {@code equals()}.
      */
+    @Deprecated
     BINARY,
     /**
      * Binary value: just a stream of uninterpreted bytes.
@@ -199,15 +203,7 @@ public enum FieldValueType {
     }
 
     private static boolean isStringValueType(Class<?> clazz) {
-        if (STRING_VALUE_TYPES.contains(clazz)) {
-            return true;
-        }
-        if (clazz.getAnnotation(StringValueType.class) != null) {
-            // FIXME: Move the Set of string-value types to SchemaRegistry
-            registerStringValueType(clazz);
-            return true;
-        }
-        return false;
+        return STRING_VALUE_TYPES.contains(clazz);
     }
 
     /**

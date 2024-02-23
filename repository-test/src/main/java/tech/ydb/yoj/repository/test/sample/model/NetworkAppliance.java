@@ -3,15 +3,17 @@ package tech.ydb.yoj.repository.test.sample.model;
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
 import lombok.Value;
+import tech.ydb.yoj.databind.ByteArray;
 import tech.ydb.yoj.databind.CustomValueType;
 import tech.ydb.yoj.databind.ValueConverter;
+import tech.ydb.yoj.databind.schema.Schema.JavaField;
 import tech.ydb.yoj.repository.db.RecordEntity;
 
 import java.net.Inet6Address;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 
-import static tech.ydb.yoj.databind.FieldValueType.BINARY;
+import static tech.ydb.yoj.databind.FieldValueType.BYTE_ARRAY;
 
 public record NetworkAppliance(
         @NonNull Id id,
@@ -20,7 +22,7 @@ public record NetworkAppliance(
     public record Id(@NonNull String value) implements RecordEntity.Id<NetworkAppliance> {
     }
 
-    @CustomValueType(columnValueType = BINARY, columnClass = byte[].class, converter = Ipv6Address.Converter.class)
+    @CustomValueType(columnValueType = BYTE_ARRAY, columnClass = ByteArray.class, converter = Ipv6Address.Converter.class)
     @Value
     @RequiredArgsConstructor
     public static class Ipv6Address {
@@ -30,17 +32,17 @@ public record NetworkAppliance(
             this((Inet6Address) InetAddress.getByName(ip6));
         }
 
-        public static final class Converter implements ValueConverter<Ipv6Address, byte[]> {
+        public static final class Converter implements ValueConverter<Ipv6Address, ByteArray> {
             @Override
-            public byte @NonNull [] toColumn(@NonNull Ipv6Address ipv6Address) {
-                return ipv6Address.addr.getAddress();
+            public @NonNull ByteArray toColumn(@NonNull JavaField field, @NonNull Ipv6Address ipv6Address) {
+                return ByteArray.wrap(ipv6Address.addr.getAddress());
             }
 
             @NonNull
             @Override
-            public Ipv6Address toJava(byte @NonNull [] bytes) {
+            public Ipv6Address toJava(@NonNull JavaField field, @NonNull ByteArray bytes) {
                 try {
-                    return new Ipv6Address((Inet6Address) InetAddress.getByAddress(bytes));
+                    return new Ipv6Address((Inet6Address) InetAddress.getByAddress(bytes.getArray()));
                 } catch (UnknownHostException neverHappens) {
                     throw new InternalError(neverHappens);
                 }

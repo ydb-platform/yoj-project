@@ -2,6 +2,7 @@ package tech.ydb.yoj.databind;
 
 import lombok.NonNull;
 import tech.ydb.yoj.ExperimentalApi;
+import tech.ydb.yoj.databind.schema.Schema.JavaField;
 
 /**
  * Custom conversion logic between database column values and Java field values.
@@ -13,10 +14,10 @@ import tech.ydb.yoj.ExperimentalApi;
 @ExperimentalApi(issue = "https://github.com/ydb-platform/yoj-project/issues/24")
 public interface ValueConverter<J, C> {
     @NonNull
-    C toColumn(@NonNull J v);
+    C toColumn(@NonNull JavaField field, @NonNull J v);
 
     @NonNull
-    J toJava(@NonNull C c);
+    J toJava(@NonNull JavaField field, @NonNull C c);
 
     class NoConverter implements ValueConverter<Void, Void> {
         private NoConverter() {
@@ -24,12 +25,12 @@ public interface ValueConverter<J, C> {
         }
 
         @Override
-        public @NonNull Void toColumn(@NonNull Void v) {
+        public @NonNull Void toColumn(@NonNull JavaField field, @NonNull Void v) {
             throw new UnsupportedOperationException();
         }
 
         @Override
-        public @NonNull Void toJava(@NonNull Void unused) {
+        public @NonNull Void toJava(@NonNull JavaField field, @NonNull Void unused) {
             throw new UnsupportedOperationException();
         }
     }

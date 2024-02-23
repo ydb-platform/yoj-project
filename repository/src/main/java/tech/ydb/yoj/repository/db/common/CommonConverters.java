@@ -184,16 +184,6 @@ public final class CommonConverters {
         return jsonConverter.fromObject(javaType, content);
     }
 
-    @ExperimentalApi(issue = "https://github.com/ydb-platform/yoj-project/issues/24")
-    public static Object preconvert(@Nullable CustomValueType cvt, Object value) {
-        return CustomValueTypes.preconvert(cvt, value);
-    }
-
-    @ExperimentalApi(issue = "https://github.com/ydb-platform/yoj-project/issues/24")
-    public static Object postconvert(@Nullable CustomValueType cvt, Object value) {
-        return CustomValueTypes.postconvert(cvt, value);
-    }
-
     // TODO: Also standardize Instant and Duration conversion!
 
     public interface ThrowingGetter<S> extends Function<S, Object> {

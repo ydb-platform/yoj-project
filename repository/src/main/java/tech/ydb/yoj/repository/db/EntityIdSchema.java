@@ -3,15 +3,13 @@ package tech.ydb.yoj.repository.db;
 import com.google.common.base.Preconditions;
 import com.google.common.reflect.TypeToken;
 import lombok.NonNull;
-import tech.ydb.yoj.databind.CustomValueType;
+import tech.ydb.yoj.databind.CustomValueTypes;
 import tech.ydb.yoj.databind.FieldValueType;
-import tech.ydb.yoj.databind.StringValueType;
 import tech.ydb.yoj.databind.schema.Schema;
 import tech.ydb.yoj.databind.schema.configuration.SchemaRegistry;
 import tech.ydb.yoj.databind.schema.configuration.SchemaRegistry.SchemaKey;
 import tech.ydb.yoj.databind.schema.naming.NamingStrategy;
 import tech.ydb.yoj.databind.schema.reflect.ReflectField;
-import tech.ydb.yoj.repository.db.common.CommonConverters;
 
 import javax.annotation.Nullable;
 import java.lang.reflect.Type;
@@ -168,11 +166,10 @@ public final class EntityIdSchema<ID extends Entity.Id<?>> extends Schema<ID> im
 
         List<JavaField> flatFields = flattenFields();
         for (JavaField field : flatFields) {
-            var cvt = field.getCustomValueType();
             var fieldName = field.getName();
 
             @SuppressWarnings("unchecked")
-            int res = compare(toComparable(idA.get(fieldName), cvt), toComparable(idB.get(fieldName), cvt));
+            int res = compare(toComparable(idA.get(fieldName), field), toComparable(idB.get(fieldName), field));
 
             if (res != 0) {
                 return res;
@@ -183,12 +180,12 @@ public final class EntityIdSchema<ID extends Entity.Id<?>> extends Schema<ID> im
 
     @Nullable
     @SuppressWarnings("rawtypes")
-    private static Comparable toComparable(@Nullable Object value, @Nullable CustomValueType cvt) {
+    private static Comparable toComparable(@Nullable Object value, @NonNull JavaField field) {
         if (value == null) {
             return null;
         }
 
-        value = CommonConverters.preconvert(cvt, value);
+        value = CustomValueTypes.preconvert(field, value);
         if (value instanceof Enum) {
             return ((Enum) value).name();
         } else if (value instanceof Comparable) {

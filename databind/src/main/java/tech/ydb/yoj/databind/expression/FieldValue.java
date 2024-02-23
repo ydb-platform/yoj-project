@@ -7,7 +7,6 @@ import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
 import lombok.Value;
 import tech.ydb.yoj.databind.ByteArray;
-import tech.ydb.yoj.databind.CustomValueType;
 import tech.ydb.yoj.databind.CustomValueTypes;
 import tech.ydb.yoj.databind.FieldValueType;
 import tech.ydb.yoj.databind.schema.Column;
@@ -82,7 +81,7 @@ public class FieldValue {
 
     @NonNull
     @SuppressWarnings({"unchecked", "rawtypes"})
-    public static FieldValue ofObj(@NonNull Object obj, @Nullable Column column) {
+    private static FieldValue ofObj(@NonNull Object obj, @Nullable Column column) {
         switch (FieldValueType.forJavaType(obj.getClass(), column)) {
             case STRING -> {
                 return ofStr(obj.toString());
@@ -159,10 +158,8 @@ public class FieldValue {
     public static Comparable<?> getComparable(@NonNull Map<String, Object> values,
                                               @NonNull JavaField field) {
         if (field.isFlat()) {
-            Type fieldType = field.getFlatFieldType();
             Object rawValue = values.get(field.getName());
-            Column column = field.getField().getColumn();
-            return rawValue == null ? null : ofObj(rawValue, column).getComparable(fieldType, column);
+            return rawValue == null ? null : ofObj(rawValue, field).getComparable(field);
         } else {
             List<JavaFieldValue> components = field.flatten()
                     .map(jf -> new JavaFieldValue(jf, values.get(jf.getName())))
@@ -172,7 +169,9 @@ public class FieldValue {
     }
 
     @NonNull
-    public Object getRaw(@NonNull Type fieldType, @Nullable Column column) {
+    public Object getRaw(@NonNull JavaField field) {
+        Type fieldType = field.isFlat() ? field.getFlatFieldType() : field.getType();
+        Column column = field.getField().getColumn();
         if (FieldValueType.forJavaType(fieldType, column) == FieldValueType.COMPOSITE) {
             Preconditions.checkState(isTuple(), "Value is not a tuple: %s", this);
             Preconditions.checkState(tuple.getType().equals(fieldType),
@@ -180,14 +179,15 @@ public class FieldValue {
             return tuple.asComposite();
         }
 
-        Comparable<?> cmp = getComparable(fieldType, column);
-        CustomValueType cvt = CustomValueTypes.getCustomValueType(fieldType, column);
-        return CustomValueTypes.postconvert(cvt, cmp);
+        Comparable<?> cmp = getComparable(field);
+        return CustomValueTypes.postconvert(field, cmp);
     }
 
     @NonNull
     @SuppressWarnings({"unchecked", "rawtypes"})
-    public Comparable<?> getComparable(@NonNull Type fieldType, @Nullable Column column) {
+    public Comparable<?> getComparable(@NonNull JavaField field) {
+        Type fieldType = field.isFlat() ? field.getFlatFieldType() : field.getType();
+        Column column = field.getField().getColumn();
         switch (FieldValueType.forJavaType(fieldType, column)) {
             case STRING -> {
                 Preconditions.checkState(isString(), "Value is not a string: " + this);

@@ -5,7 +5,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.Value;
 import tech.ydb.yoj.databind.CustomValueType;
 import tech.ydb.yoj.databind.FieldValueType;
-import tech.ydb.yoj.databind.ValueConverter;
+import tech.ydb.yoj.databind.StringValueConverter;
 import tech.ydb.yoj.databind.schema.Column;
 import tech.ydb.yoj.repository.DbTypeQualifier;
 import tech.ydb.yoj.repository.db.Entity;
@@ -33,7 +33,7 @@ public class UpdateFeedEntry implements Entity<UpdateFeedEntry> {
 
     @Value
     @RequiredArgsConstructor(access = PRIVATE)
-    @CustomValueType(columnValueType = FieldValueType.STRING, columnClass = String.class, converter = Id.Converter.class)
+    @CustomValueType(columnValueType = FieldValueType.STRING, columnClass = String.class, converter = StringValueConverter.class)
     public static class Id implements Entity.Id<UpdateFeedEntry> {
         UUID uuid;
         String reserved;
@@ -50,21 +50,6 @@ public class UpdateFeedEntry implements Entity<UpdateFeedEntry> {
 
         public static Id generate(@NonNull String reserved) {
             return new Id(UUID.randomUUID(), reserved);
-        }
-
-        private static final class Converter implements ValueConverter<Id, String> {
-            private Converter() {
-            }
-
-            @Override
-            public @NonNull String toColumn(@NonNull Id id) {
-                return id.toString();
-            }
-
-            @Override
-            public @NonNull Id toJava(@NonNull String s) {
-                return Id.valueOf(s);
-            }
         }
     }
 }

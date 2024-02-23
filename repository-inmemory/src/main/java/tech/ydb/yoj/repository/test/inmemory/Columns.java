@@ -7,6 +7,7 @@ import org.eclipse.collections.api.map.ImmutableMap;
 import org.eclipse.collections.api.tuple.Pair;
 import org.eclipse.collections.impl.factory.Maps;
 import tech.ydb.yoj.databind.ByteArray;
+import tech.ydb.yoj.databind.CustomValueTypes;
 import tech.ydb.yoj.databind.schema.Schema;
 import tech.ydb.yoj.repository.DbTypeQualifier;
 import tech.ydb.yoj.repository.db.Entity;
@@ -73,7 +74,7 @@ final class Columns {
         try {
             Preconditions.checkState(field.isSimple(), "Trying to serialize a non-simple field: %s", field);
 
-            value = CommonConverters.preconvert(field.getCustomValueType(), value);
+            value = CustomValueTypes.preconvert(field, value);
 
             return switch (field.getValueType()) {
                 case STRING -> CommonConverters.serializeStringValue(serializedType, value);
@@ -117,7 +118,7 @@ final class Columns {
                 default -> throw new IllegalStateException("Don't know how to deserialize field: " + field);
             };
 
-            return CommonConverters.postconvert(field.getCustomValueType(), deserialized);
+            return CustomValueTypes.postconvert(field, deserialized);
         } catch (Exception e) {
             throw new ConversionException("Could not deserialize value of type <" + type + ">", e);
         }

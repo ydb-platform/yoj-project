@@ -13,11 +13,10 @@ import tech.ydb.yoj.databind.expression.OrExpr;
 import tech.ydb.yoj.databind.expression.OrderExpression;
 import tech.ydb.yoj.databind.expression.OrderExpression.SortKey;
 import tech.ydb.yoj.databind.expression.ScalarExpr;
-import tech.ydb.yoj.databind.schema.Column;
+import tech.ydb.yoj.databind.schema.Schema.JavaField;
 import tech.ydb.yoj.repository.db.Entity;
 import tech.ydb.yoj.repository.db.EntityIdSchema;
 
-import java.lang.reflect.Type;
 import java.util.Collection;
 import java.util.List;
 import java.util.stream.Stream;
@@ -55,11 +54,9 @@ public final class YqlListingQuery {
             @Override
             public YqlPredicate visitScalarExpr(@NonNull ScalarExpr<T> scalarExpr) {
                 String fieldPath = scalarExpr.getFieldPath();
-                Type fieldType = scalarExpr.getFieldType();
-                Column column = scalarExpr.getColumnAnnotation();
 
                 YqlPredicate.FieldPredicateBuilder pred = YqlPredicate.where(fieldPath);
-                Object expected = scalarExpr.getValue().getRaw(fieldType, column);
+                Object expected = scalarExpr.getValue().getRaw(scalarExpr.getField());
                 return switch (scalarExpr.getOperator()) {
                     case EQ -> pred.eq(expected);
                     case NEQ -> pred.neq(expected);
@@ -90,10 +87,8 @@ public final class YqlListingQuery {
             @Override
             public YqlPredicate visitListExpr(@NonNull ListExpr<T> listExpr) {
                 String fieldPath = listExpr.getFieldPath();
-                Type fieldType = listExpr.getFieldType();
-                Column column = listExpr.getColumnAnnotation();
-
-                List<?> expected = listExpr.getValues().stream().map(v -> v.getRaw(fieldType, column)).collect(toList());
+                JavaField field = listExpr.getField();
+                List<?> expected = listExpr.getValues().stream().map(v -> v.getRaw(field)).collect(toList());
                 switch (listExpr.getOperator()) {
                     case IN:
                         return YqlPredicate.where(fieldPath).in(expected);
