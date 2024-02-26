@@ -121,21 +121,14 @@ public enum FieldValueType {
     @Deprecated(forRemoval = true)
     @ExperimentalApi(issue = "https://github.com/ydb-platform/yoj-project/issues/24")
     public static void registerStringValueType(@NonNull Class<?> clazz) {
-        ensureValidStringValueType(clazz);
-        STRING_VALUE_TYPES.add(clazz);
-        if (clazz.isSealed()) {
-            STRING_VALUE_TYPES.addAll(Arrays.asList(clazz.getPermittedSubclasses()));
-        }
-    }
-
-    private static void ensureValidStringValueType(@NotNull Class<?> clazz) {
         boolean isFinal = isFinal(clazz.getModifiers());
         boolean isSealed = clazz.isSealed();
         Preconditions.checkArgument(isFinal || isSealed,
                 "String-value type must either be final or sealed, but got: %s", clazz);
 
+        STRING_VALUE_TYPES.add(clazz);
         if (isSealed) {
-            Arrays.stream(clazz.getPermittedSubclasses()).forEach(FieldValueType::ensureValidStringValueType);
+            Arrays.stream(clazz.getPermittedSubclasses()).forEach(FieldValueType::registerStringValueType);
         }
     }
 
