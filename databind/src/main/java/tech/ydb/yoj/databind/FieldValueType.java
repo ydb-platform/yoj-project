@@ -107,16 +107,19 @@ public enum FieldValueType {
     ));
 
     /**
-     * @deprecated It is recommended to use the new {@link StringValueType} annotation instead of calling this method.
+     * @deprecated It is recommended to use the {@link CustomValueType} annotation with a {@link StringValueConverter}
+     * instead of calling this method.
      * <p>
-     * To register a class <em>not in your code</em> (e.g., {@code UUID} from the JDK) as a string-value type, continue using this
-     * method. A later version of YOJ will provide an alternative way of doing so, probably by calling some method on {@code SchemaRegistry}.
+     * To register a class <em>not in your code</em> (e.g., {@code UUID} from the JDK) as a string-value type, use
+     * a {@link Column &#64;Column(customValueType=&#64;CustomValueType(...))} annotation on the specific field.
+     * <p>
+     * Future versions of YOJ might remove this method entirely.
      *
      * @param clazz class to register as string-value. Must either be final or sealed with permissible final-only implementations.
      *              All permissible implementations of a sealed class will be registered automatically.
      */
-    @Deprecated
-    @ExperimentalApi(issue = "https://github.com/ydb-platform/yoj-project/issues/21")
+    @Deprecated(forRemoval = true)
+    @ExperimentalApi(issue = "https://github.com/ydb-platform/yoj-project/issues/24")
     public static void registerStringValueType(@NonNull Class<?> clazz) {
         ensureValidStringValueType(clazz);
         STRING_VALUE_TYPES.add(clazz);
