@@ -2,7 +2,6 @@ package tech.ydb.yoj.databind;
 
 import com.google.common.base.Preconditions;
 import lombok.NonNull;
-import org.jetbrains.annotations.NotNull;
 import tech.ydb.yoj.ExperimentalApi;
 import tech.ydb.yoj.databind.schema.Column;
 
@@ -208,7 +207,7 @@ public enum FieldValueType {
      *
      * @deprecated This method does not properly take into account the customizations specified in the
      * {@link Column &#64;Column} annotation on the field. Please do not call it directly, instead use
-     * {@code FieldValueType.of(type, column).isComposite()} where {@code column} is the
+     * {@code FieldValueType.forJavaType(type, column).isComposite()} where {@code column} is the
      * {@link Column &#64;Column} annotation's value.
      *
      * @param type Java object type
@@ -216,6 +215,7 @@ public enum FieldValueType {
      * @throws IllegalArgumentException if object of this type cannot be mapped to a database value
      * @see #isComposite()
      */
+    @Deprecated(forRemoval = true)
     public static boolean isComposite(@NonNull Type type) {
         return forJavaType(type, null).isComposite();
     }
