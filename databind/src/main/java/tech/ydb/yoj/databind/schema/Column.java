@@ -4,7 +4,7 @@ import tech.ydb.yoj.ExperimentalApi;
 import tech.ydb.yoj.databind.CustomValueType;
 import tech.ydb.yoj.databind.DbType;
 import tech.ydb.yoj.databind.FieldValueType;
-import tech.ydb.yoj.databind.ValueConverter.NoConverter;
+import tech.ydb.yoj.databind.converter.ValueConverter.NoConverter;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.Target;

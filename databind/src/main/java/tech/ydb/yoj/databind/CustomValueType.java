@@ -1,6 +1,7 @@
 package tech.ydb.yoj.databind;
 
 import tech.ydb.yoj.ExperimentalApi;
+import tech.ydb.yoj.databind.converter.ValueConverter;
 import tech.ydb.yoj.databind.schema.Schema;
 
 import java.lang.annotation.Retention;
@@ -28,7 +29,8 @@ public @interface CustomValueType {
     FieldValueType columnValueType();
 
     /**
-     * Type of value that {@link #converter() converter's} {@link ValueConverter#toColumn(Schema.JavaField, Object)} toColumn()} method returns
+     * Exact type of value that {@link #converter() converter's} {@link ValueConverter#toColumn(Schema.JavaField, Object) toColumn()} method returns.
+     * Must implement {@link Comparable}.
      */
     Class<? extends Comparable> columnClass();
 

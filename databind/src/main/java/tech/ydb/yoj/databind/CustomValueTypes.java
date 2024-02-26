@@ -4,6 +4,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.reflect.TypeToken;
 import lombok.NonNull;
 import tech.ydb.yoj.ExperimentalApi;
+import tech.ydb.yoj.databind.converter.ValueConverter;
 import tech.ydb.yoj.databind.schema.Column;
 import tech.ydb.yoj.databind.schema.CustomConverterException;
 import tech.ydb.yoj.databind.schema.Schema.JavaField;

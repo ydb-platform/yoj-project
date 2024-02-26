@@ -3,6 +3,7 @@ package tech.ydb.yoj.databind;
 import com.google.common.base.Preconditions;
 import lombok.NonNull;
 import tech.ydb.yoj.ExperimentalApi;
+import tech.ydb.yoj.databind.converter.StringValueConverter;
 import tech.ydb.yoj.databind.schema.Column;
 
 import java.lang.reflect.ParameterizedType;

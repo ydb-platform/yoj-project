@@ -5,7 +5,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.Value;
 import tech.ydb.yoj.databind.ByteArray;
 import tech.ydb.yoj.databind.CustomValueType;
-import tech.ydb.yoj.databind.ValueConverter;
+import tech.ydb.yoj.databind.converter.ValueConverter;
 import tech.ydb.yoj.databind.schema.Schema.JavaField;
 import tech.ydb.yoj.repository.db.RecordEntity;
 

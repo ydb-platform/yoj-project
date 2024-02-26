@@ -1,4 +1,4 @@
-package tech.ydb.yoj.databind;
+package tech.ydb.yoj.databind.converter;
 
 import lombok.NonNull;
 import lombok.SneakyThrows;
