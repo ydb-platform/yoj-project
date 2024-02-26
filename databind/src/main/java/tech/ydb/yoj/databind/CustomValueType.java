@@ -19,6 +19,7 @@ import static java.lang.annotation.RetentionPolicy.RUNTIME;
 @Retention(RUNTIME)
 @Target({TYPE, FIELD, RECORD_COMPONENT})
 @ExperimentalApi(issue = "https://github.com/ydb-platform/yoj-project/issues/24")
+@SuppressWarnings("rawtypes")
 public @interface CustomValueType {
     /**
      * Simple value type that the {@link #converter()} represents a custom value type as.
@@ -29,7 +30,7 @@ public @interface CustomValueType {
     /**
      * Type of value that {@link #converter() converter's} {@link ValueConverter#toColumn(Schema.JavaField, Object)} toColumn()} method returns
      */
-    Class<? extends Comparable<?>> columnClass();
+    Class<? extends Comparable> columnClass();
 
     /**
      * Converter class. Must have a no-args public constructor.

@@ -4,7 +4,6 @@ import tech.ydb.yoj.ExperimentalApi;
 import tech.ydb.yoj.databind.CustomValueType;
 import tech.ydb.yoj.databind.DbType;
 import tech.ydb.yoj.databind.FieldValueType;
-import tech.ydb.yoj.databind.ValueConverter;
 import tech.ydb.yoj.databind.ValueConverter.NoConverter;
 
 import java.lang.annotation.Retention;
@@ -72,5 +71,5 @@ public @interface Column {
      * @see CustomValueType
      */
     @ExperimentalApi(issue = "https://github.com/ydb-platform/yoj-project/issues/24")
-    CustomValueType customValueType() default @CustomValueType(columnValueType = UNKNOWN, columnClass = Void.class, converter = NoConverter.class);
+    CustomValueType customValueType() default @CustomValueType(columnValueType = UNKNOWN, columnClass = Comparable.class, converter = NoConverter.class);
 }
