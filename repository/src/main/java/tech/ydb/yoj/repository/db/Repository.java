@@ -14,6 +14,8 @@ public interface Repository {
 
     <T extends Entity<T>> SchemaOperations<T> schema(Class<T> c);
 
+    <T extends Entity<T>> SchemaOperations<T> schema(EntityDescription<T> c);
+
     /**
      * @deprecated For testing purposes only. Will only <em>reliably</em> work for tables that were created or inspected
      * using calls to {@link #schema(Class)}.
