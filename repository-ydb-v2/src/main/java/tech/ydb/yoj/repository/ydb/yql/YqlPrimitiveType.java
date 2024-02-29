@@ -8,6 +8,8 @@ import lombok.AllArgsConstructor;
 import lombok.NonNull;
 import lombok.Value;
 import lombok.With;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import tech.ydb.proto.ValueProtos;
 import tech.ydb.proto.ValueProtos.Type.PrimitiveTypeId;
 import tech.ydb.proto.ValueProtos.Value.ValueCase;
@@ -50,6 +52,10 @@ import static tech.ydb.yoj.repository.db.common.CommonConverters.stringValueSett
 @Value
 @AllArgsConstructor(access = PRIVATE)
 public class YqlPrimitiveType implements YqlType {
+    private static final Logger log = LoggerFactory.getLogger(YqlPrimitiveType.class);
+
+    private static volatile boolean typeMappingExplicitlySet = false;
+
     // Only table column data types. See https://ydb.tech/en/docs/yql/reference/types/
     private static final Map<PrimitiveTypeId, String> YQL_TYPE_NAMES = Map.ofEntries(
             Map.entry(PrimitiveTypeId.BOOL, "Bool"),
@@ -354,14 +360,14 @@ public class YqlPrimitiveType implements YqlType {
      * If you need to support legacy applications, call {@code useLegacyMappingFor(STRING, ENUM, TIMESTAMP)} before using
      * any YOJ features.
      *
+     * @param fieldValueTypes field value types to use legacy mapping for
      * @deprecated We <strong>STRONGLY</strong> advise against using the legacy mapping in new projects.
      * Please call {@link #useRecommendedMappingFor(FieldValueType...) useNewMappingFor(STRING, ENUM, TIMESTAMP)} instead,
      * and annotate custom-mapped columns with {@link Column &#64;Column} where a different mapping is desired.
-     *
-     * @param fieldValueTypes field value types to use legacy mapping for
      */
     @Deprecated
     public static void useLegacyMappingFor(FieldValueType... fieldValueTypes) {
+        typeMappingExplicitlySet = true;
         for (var fvt : fieldValueTypes) {
             switch (fvt) {
                 case STRING, ENUM -> VALUE_DEFAULT_YQL_TYPES.put(fvt, new ValueYqlTypeSelector(fvt, PrimitiveTypeId.STRING, null));
@@ -386,6 +392,7 @@ public class YqlPrimitiveType implements YqlType {
      */
     @ExperimentalApi(issue = "https://github.com/ydb-platform/yoj-project/issues/20")
     public static void useRecommendedMappingFor(FieldValueType... fieldValueTypes) {
+        typeMappingExplicitlySet = true;
         for (var fvt : fieldValueTypes) {
             switch (fvt) {
                 case STRING, ENUM -> VALUE_DEFAULT_YQL_TYPES.put(fvt, new ValueYqlTypeSelector(fvt, PrimitiveTypeId.UTF8, null));
@@ -457,6 +464,11 @@ public class YqlPrimitiveType implements YqlType {
     @NonNull
     private static YqlPrimitiveType resolveYqlType(Type javaType, FieldValueType valueType,
                                                    PrimitiveTypeId yqlType, String qualifier) {
+        if (!typeMappingExplicitlySet) {
+            typeMappingExplicitlySet = true;
+            log.error("YOJ's Java<->YDB type mapping IS NOT specified explicitly! See https://github.com/ydb-platform/yoj-project/issues/20#issuecomment-1971661677");
+        }
+
         YqlTypeSelector typeSelector;
 
         switch (valueType) {
