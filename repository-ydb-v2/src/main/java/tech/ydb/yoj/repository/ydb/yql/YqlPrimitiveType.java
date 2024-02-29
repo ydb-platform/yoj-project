@@ -438,24 +438,7 @@ public class YqlPrimitiveType implements YqlType {
                                                    PrimitiveTypeId yqlType, String qualifier) {
         if (!typeMappingExplicitlySet) {
             typeMappingExplicitlySet = true;
-            log.error("""
-                    YOJ's Java<->YDB type mapping IS NOT specified explicitly!
-                    Will use legacy mapping which WILL CHANGE IN THE FUTURE, and might NOT be what you need.
-
-                    To continue using the legacy mapping, call
-                        YqlPrimitiveType.useLegacyMappingFor(STRING, ENUM, TIMESTAMP);
-                    before initializing YOJ, e.g. in a lifecycle method.
-
-                    To use the new recommended mapping (which will become DEFAULT in the future), call
-                        YqlPrimitiveType.useLegacyMappingFor(STRING, ENUM, TIMESTAMP);
-                    before initializing YOJ, e.g. in a lifecycle method.
-                    This is HIGHLY RECOMMENDED for new projects, if you have no existing table schema and/or data to migrate.
-
-                    Remember to annotate existing entities' columns whose mapping will change, with:
-                        @Column(dbType=...)
-                    e.g. @Column(dbType=STRING) String stringColumn to retain the mapping java.lang.String<->YDB STRING (=byte array).
-                    """
-            );
+            log.error("YOJ's Java<->YDB type mapping IS NOT specified explicitly! See https://github.com/ydb-platform/yoj-project/issues/20#issuecomment-1971661677");
         }
 
         YqlTypeSelector typeSelector;
