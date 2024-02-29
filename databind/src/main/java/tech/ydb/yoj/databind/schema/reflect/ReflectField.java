@@ -19,7 +19,7 @@ public interface ReflectField {
     String getName();
 
     /**
-     * @return {@code @Column} annotation, if this field is annotated; {@code null} otherwise.
+     * @return {@link Column &#64;Column} annotation, if this field is annotated; {@code null} otherwise.
      * Precisely what means "field is annotated" is implementation-dependent: it might mean that the property getter
      * method is annotated, for example.
      */

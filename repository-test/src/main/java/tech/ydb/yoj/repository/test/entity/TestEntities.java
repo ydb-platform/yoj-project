@@ -11,6 +11,7 @@ import tech.ydb.yoj.repository.test.sample.model.Complex;
 import tech.ydb.yoj.repository.test.sample.model.EntityWithValidation;
 import tech.ydb.yoj.repository.test.sample.model.IndexedEntity;
 import tech.ydb.yoj.repository.test.sample.model.LogEntry;
+import tech.ydb.yoj.repository.test.sample.model.NetworkAppliance;
 import tech.ydb.yoj.repository.test.sample.model.NonDeserializableEntity;
 import tech.ydb.yoj.repository.test.sample.model.Primitive;
 import tech.ydb.yoj.repository.test.sample.model.Project;
@@ -19,6 +20,7 @@ import tech.ydb.yoj.repository.test.sample.model.Supabubble;
 import tech.ydb.yoj.repository.test.sample.model.Supabubble2;
 import tech.ydb.yoj.repository.test.sample.model.Team;
 import tech.ydb.yoj.repository.test.sample.model.TypeFreak;
+import tech.ydb.yoj.repository.test.sample.model.UpdateFeedEntry;
 import tech.ydb.yoj.repository.test.sample.model.WithUnflattenableField;
 
 import java.util.List;
@@ -39,7 +41,9 @@ public final class TestEntities {
             Supabubble.class,
             Supabubble2.class,
             NonDeserializableEntity.class,
-            WithUnflattenableField.class
+            WithUnflattenableField.class,
+            UpdateFeedEntry.class,
+            NetworkAppliance.class
     );
 
     @SuppressWarnings("unchecked")

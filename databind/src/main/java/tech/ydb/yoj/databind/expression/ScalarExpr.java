@@ -1,7 +1,6 @@
 package tech.ydb.yoj.databind.expression;
 
 import lombok.AllArgsConstructor;
-import lombok.Getter;
 import lombok.NonNull;
 import lombok.Value;
 import tech.ydb.yoj.databind.schema.Schema;
@@ -21,7 +20,6 @@ public class ScalarExpr<T> extends LeafExpression<T> {
 
     Operator operator;
 
-    @Getter(PRIVATE)
     Schema.JavaField field;
 
     FieldValue value;
@@ -36,16 +34,6 @@ public class ScalarExpr<T> extends LeafExpression<T> {
         return Type.SCALAR;
     }
 
-    @Override
-    public String getFieldName() {
-        return getField().getName();
-    }
-
-    @Override
-    public String getFieldPath() {
-        return getField().getPath();
-    }
-
     @Nullable
     public Comparable<?> getActualValue(@NonNull T obj) {
         return FieldValue.getComparable(schema.flatten(obj), field);
@@ -53,13 +41,7 @@ public class ScalarExpr<T> extends LeafExpression<T> {
 
     @NonNull
     public Comparable<?> getExpectedValue() {
-        return value.getComparable(getFieldType());
-    }
-
-    @NonNull
-    @Override
-    public java.lang.reflect.Type getFieldType() {
-        return getField().isFlat() ? getField().getFlatFieldType() : getField().getType();
+        return value.getComparable(field);
     }
 
     @Override

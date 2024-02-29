@@ -1,7 +1,6 @@
 package tech.ydb.yoj.databind.expression;
 
 import lombok.AllArgsConstructor;
-import lombok.Getter;
 import lombok.NonNull;
 import lombok.Value;
 import tech.ydb.yoj.databind.schema.Schema;
@@ -21,7 +20,6 @@ public class NullExpr<T> extends LeafExpression<T> {
 
     Operator operator;
 
-    @Getter(PRIVATE)
     Schema.JavaField field;
 
     public NullExpr(@NonNull Schema<T> schema, boolean generated,
@@ -32,21 +30,6 @@ public class NullExpr<T> extends LeafExpression<T> {
     @Override
     public Type getType() {
         return Type.NULL;
-    }
-
-    @Override
-    public java.lang.reflect.Type getFieldType() {
-        return getField().isFlat() ? getField().getFlatFieldType() : getField().getType();
-    }
-
-    @Override
-    public String getFieldName() {
-        return getField().getName();
-    }
-
-    @Override
-    public String getFieldPath() {
-        return getField().getPath();
     }
 
     public boolean isActualValueNull(@NonNull T obj) {

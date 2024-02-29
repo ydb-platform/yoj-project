@@ -2,6 +2,7 @@ package tech.ydb.yoj.databind.expression;
 
 import com.google.common.collect.ImmutableList;
 import lombok.NonNull;
+import tech.ydb.yoj.databind.schema.Schema.JavaField;
 
 import java.util.List;
 
@@ -11,11 +12,20 @@ public abstract class LeafExpression<T> implements FilterExpression<T> {
         return List.of();
     }
 
-    public abstract java.lang.reflect.Type getFieldType();
+    public final java.lang.reflect.Type getFieldType() {
+        var field = getField();
+        return field.isFlat() ? field.getFlatFieldType() : field.getType();
+    }
 
-    public abstract String getFieldName();
+    public final String getFieldName() {
+        return getField().getName();
+    }
 
-    public abstract String getFieldPath();
+    public final String getFieldPath() {
+        return getField().getPath();
+    }
+
+    public abstract JavaField getField();
 
     public abstract boolean isGenerated();
 

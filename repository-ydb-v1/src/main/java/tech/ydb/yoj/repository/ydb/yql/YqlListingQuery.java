@@ -13,10 +13,10 @@ import tech.ydb.yoj.databind.expression.OrExpr;
 import tech.ydb.yoj.databind.expression.OrderExpression;
 import tech.ydb.yoj.databind.expression.OrderExpression.SortKey;
 import tech.ydb.yoj.databind.expression.ScalarExpr;
+import tech.ydb.yoj.databind.schema.Schema.JavaField;
 import tech.ydb.yoj.repository.db.Entity;
 import tech.ydb.yoj.repository.db.EntityIdSchema;
 
-import java.lang.reflect.Type;
 import java.util.Collection;
 import java.util.List;
 import java.util.stream.Stream;
@@ -59,10 +59,10 @@ public final class YqlListingQuery {
             @Override
             public YqlPredicate visitScalarExpr(@NonNull ScalarExpr<T> scalarExpr) {
                 String fieldPath = scalarExpr.getFieldPath();
-                Type fieldType = scalarExpr.getFieldType();
+                JavaField field = scalarExpr.getField();
 
                 YqlPredicate.FieldPredicateBuilder pred = where(fieldPath);
-                Object expected = scalarExpr.getValue().getRaw(fieldType);
+                Object expected = scalarExpr.getValue().getRaw(field);
                 return switch (scalarExpr.getOperator()) {
                     case EQ -> pred.eq(expected);
                     case NEQ -> pred.neq(expected);
@@ -93,9 +93,9 @@ public final class YqlListingQuery {
             @Override
             public YqlPredicate visitListExpr(@NonNull ListExpr<T> listExpr) {
                 String fieldPath = listExpr.getFieldPath();
-                Type fieldType = listExpr.getFieldType();
+                JavaField field = listExpr.getField();
 
-                List<?> expected = listExpr.getValues().stream().map(v -> v.getRaw(fieldType)).collect(toList());
+                List<?> expected = listExpr.getValues().stream().map(v -> v.getRaw(field)).collect(toList());
                 switch (listExpr.getOperator()) {
                     case IN:
                         return where(fieldPath).in(expected);

@@ -2,6 +2,8 @@ package tech.ydb.yoj.databind;
 
 import com.google.common.base.Preconditions;
 import lombok.NonNull;
+import tech.ydb.yoj.ExperimentalApi;
+import tech.ydb.yoj.databind.converter.StringValueConverter;
 import tech.ydb.yoj.databind.schema.Column;
 
 import java.lang.reflect.ParameterizedType;
@@ -60,7 +62,11 @@ public enum FieldValueType {
     /**
      * Binary value: just a stream of uninterpreted bytes.
      * Java-side <strong>must</strong> be a byte array.
+     * <p>
+     * @deprecated It is strongly recommended to use a {@link ByteArray} that is properly {@code Comparable}
+     * and has a sane {@code equals()}.
      */
+    @Deprecated
     BINARY,
     /**
      * Binary value: just a stream of uninterpreted bytes.
@@ -100,6 +106,20 @@ public enum FieldValueType {
             String.class
     ));
 
+    /**
+     * @deprecated It is recommended to use the {@link CustomValueType} annotation with a {@link StringValueConverter}
+     * instead of calling this method.
+     * <p>
+     * To register a class <em>not in your code</em> (e.g., {@code UUID} from the JDK) as a string-value type, use
+     * a {@link Column &#64;Column(customValueType=&#64;CustomValueType(...))} annotation on the specific field.
+     * <p>
+     * Future versions of YOJ might remove this method entirely.
+     *
+     * @param clazz class to register as string-value. Must either be final or sealed with permissible final-only implementations.
+     *              All permissible implementations of a sealed class will be registered automatically.
+     */
+    @Deprecated(forRemoval = true)
+    @ExperimentalApi(issue = "https://github.com/ydb-platform/yoj-project/issues/24")
     public static void registerStringValueType(@NonNull Class<?> clazz) {
         boolean isFinal = isFinal(clazz.getModifiers());
         boolean isSealed = clazz.isSealed();
@@ -116,32 +136,34 @@ public enum FieldValueType {
      * Detects database field type appropriate for a Java object of type {@code type}.
      *
      * @param type Java object type
-     * @param columnAnnotation {@code @Column} annotation for the field
+     * @param columnAnnotation {@code @Column} annotation for the field; {@code null} if absent
      *
      * @return database value type
      * @throws IllegalArgumentException if object of this type cannot be mapped to a database value
      */
     @NonNull
     public static FieldValueType forJavaType(Type type, Column columnAnnotation) {
+        var cvt = CustomValueTypes.getCustomValueType(type, columnAnnotation);
+        if (cvt != null) {
+            return cvt.columnValueType();
+        }
+
         boolean flatten = columnAnnotation == null || columnAnnotation.flatten();
         FieldValueType valueType = forJavaType(type);
         return valueType.isComposite() && !flatten ? FieldValueType.OBJECT : valueType;
     }
 
-    /**
-     * Detects database field type appropriate for a Java object of type {@code type}.
-     *
-     * @param type Java object type
-     * @return database value type
-     * @throws IllegalArgumentException if object of this type cannot be mapped to a database value
-     */
     @NonNull
-    public static FieldValueType forJavaType(@NonNull Type type) {
+    private static FieldValueType forJavaType(@NonNull Type type) {
         if (type instanceof ParameterizedType || type instanceof TypeVariable) {
             return OBJECT;
         } else if (type instanceof Class<?> clazz) {
-            // FIXME: remove static configuration here, more it to e.g. a class annotation (or SchemaRegistry)
-            if (STRING_VALUE_TYPES.contains(clazz)) {
+            var cvt = CustomValueTypes.getCustomValueType(clazz, null);
+            if (cvt != null) {
+                return cvt.columnValueType();
+            }
+
+            if (isStringValueType(clazz)) {
                 return STRING;
             } else if (INTEGER_NUMERIC_TYPES.contains(clazz)) {
                 return INTEGER;
@@ -176,17 +198,27 @@ public enum FieldValueType {
         }
     }
 
+    private static boolean isStringValueType(Class<?> clazz) {
+        return STRING_VALUE_TYPES.contains(clazz);
+    }
+
     /**
      * Checks whether Java object of type {@code type} is mapped to a composite database value
      * (i.e. > 1 database field)
+     *
+     * @deprecated This method does not properly take into account the customizations specified in the
+     * {@link Column &#64;Column} annotation on the field. Please do not call it directly, instead use
+     * {@code FieldValueType.forJavaType(type, column).isComposite()} where {@code column} is the
+     * {@link Column &#64;Column} annotation's value.
      *
      * @param type Java object type
      * @return {@code true} if {@code type} maps to a composite database value; {@code false} otherwise
      * @throws IllegalArgumentException if object of this type cannot be mapped to a database value
      * @see #isComposite()
      */
+    @Deprecated(forRemoval = true)
     public static boolean isComposite(@NonNull Type type) {
-        return forJavaType(type).isComposite();
+        return forJavaType(type, null).isComposite();
     }
 
     /**

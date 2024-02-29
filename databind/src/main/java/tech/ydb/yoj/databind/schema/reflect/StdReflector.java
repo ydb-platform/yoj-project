@@ -40,7 +40,7 @@ public final class StdReflector implements Reflector {
     @Override
     @SuppressWarnings("unchecked")
     public <T> ReflectType<T> reflectRootType(Class<T> type) {
-        return (ReflectType<T>) reflectFor(type, FieldValueType.forJavaType(type));
+        return (ReflectType<T>) reflectFor(type, FieldValueType.forJavaType(type, null));
     }
 
     @Override

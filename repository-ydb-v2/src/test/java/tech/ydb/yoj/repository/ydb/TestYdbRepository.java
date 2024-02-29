@@ -19,6 +19,7 @@ import tech.ydb.yoj.repository.test.sample.model.Complex;
 import tech.ydb.yoj.repository.test.sample.model.EntityWithValidation;
 import tech.ydb.yoj.repository.test.sample.model.IndexedEntity;
 import tech.ydb.yoj.repository.test.sample.model.LogEntry;
+import tech.ydb.yoj.repository.test.sample.model.NetworkAppliance;
 import tech.ydb.yoj.repository.test.sample.model.Primitive;
 import tech.ydb.yoj.repository.test.sample.model.Project;
 import tech.ydb.yoj.repository.test.sample.model.Referring;
@@ -26,6 +27,7 @@ import tech.ydb.yoj.repository.test.sample.model.Supabubble;
 import tech.ydb.yoj.repository.test.sample.model.Supabubble2;
 import tech.ydb.yoj.repository.test.sample.model.Team;
 import tech.ydb.yoj.repository.test.sample.model.TypeFreak;
+import tech.ydb.yoj.repository.test.sample.model.UpdateFeedEntry;
 import tech.ydb.yoj.repository.ydb.table.YdbTable;
 
 import java.util.List;
@@ -118,6 +120,16 @@ public class TestYdbRepository extends YdbRepository {
         @Override
         public Supabubble2Table supabubbles2() {
             return new YdbSupabubble2Table(this);
+        }
+
+        @Override
+        public Table<UpdateFeedEntry> updateFeedEntries() {
+            return table(UpdateFeedEntry.class);
+        }
+
+        @Override
+        public Table<NetworkAppliance> networkAppliances() {
+            return table(NetworkAppliance.class);
         }
     }
 

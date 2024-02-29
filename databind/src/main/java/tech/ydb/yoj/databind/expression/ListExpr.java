@@ -37,21 +37,6 @@ public class ListExpr<T> extends LeafExpression<T> {
         return Type.LIST;
     }
 
-    @Override
-    public java.lang.reflect.Type getFieldType() {
-        return getField().isFlat() ? getField().getFlatFieldType() : getField().getType();
-    }
-
-    @Override
-    public String getFieldName() {
-        return getField().getName();
-    }
-
-    @Override
-    public String getFieldPath() {
-        return getField().getPath();
-    }
-
     @Nullable
     public Comparable<?> getActualValue(@NonNull T obj) {
         return FieldValue.getComparable(schema.flatten(obj), field);
@@ -59,8 +44,7 @@ public class ListExpr<T> extends LeafExpression<T> {
 
     @NonNull
     public List<Comparable<?>> getExpectedValues() {
-        java.lang.reflect.Type fieldType = getFieldType();
-        return values.stream().map(v -> v.getComparable(fieldType)).collect(toList());
+        return values.stream().map(v -> v.getComparable(field)).collect(toList());
     }
 
     @Override

@@ -2,6 +2,7 @@ package tech.ydb.yoj.repository.test;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterators;
+import lombok.SneakyThrows;
 import org.assertj.core.api.Assertions;
 import org.junit.Assert;
 import org.junit.Test;
@@ -40,6 +41,7 @@ import tech.ydb.yoj.repository.test.sample.model.Complex.Id;
 import tech.ydb.yoj.repository.test.sample.model.EntityWithValidation;
 import tech.ydb.yoj.repository.test.sample.model.IndexedEntity;
 import tech.ydb.yoj.repository.test.sample.model.MultiLevelDirectory;
+import tech.ydb.yoj.repository.test.sample.model.NetworkAppliance;
 import tech.ydb.yoj.repository.test.sample.model.NonDeserializableEntity;
 import tech.ydb.yoj.repository.test.sample.model.NonDeserializableObject;
 import tech.ydb.yoj.repository.test.sample.model.Primitive;
@@ -51,6 +53,7 @@ import tech.ydb.yoj.repository.test.sample.model.TypeFreak;
 import tech.ydb.yoj.repository.test.sample.model.TypeFreak.A;
 import tech.ydb.yoj.repository.test.sample.model.TypeFreak.B;
 import tech.ydb.yoj.repository.test.sample.model.TypeFreak.Embedded;
+import tech.ydb.yoj.repository.test.sample.model.UpdateFeedEntry;
 import tech.ydb.yoj.repository.test.sample.model.WithUnflattenableField;
 
 import java.time.Instant;
@@ -60,6 +63,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -2095,7 +2099,7 @@ public abstract class RepositoryTest extends RepositoryTestSupport {
 
         parallelTx(true, true, t -> t.find(new Range<>(new Complex.Id(1, 2L, null, null)))); //lock on range
         parallelTx(false, false, t -> t.find(new Range<>(new Complex.Id(1, 2L, null, null)))); //lock on range
-        
+
         parallelTx(false, true, t -> t.find(new Range<>(new Complex.Id(2, 2L, null, null)))); //not lock on another range
         parallelTx(false, false, t -> t.find(new Range<>(new Complex.Id(2, 2L, null, null)))); //not lock on another range
     }
@@ -2604,6 +2608,50 @@ public abstract class RepositoryTest extends RepositoryTestSupport {
 
         assertThat(txAttempts).hasSize(2);
         assertThat(twoElements).hasSize(2);
+    }
+
+    @Test
+    public void stringValuedIdInsert() {
+        Map<UpdateFeedEntry.Id, UpdateFeedEntry> inserted = new HashMap<>();
+        for (int i = 0; i < 100; i++) {
+            var snap = new UpdateFeedEntry(UpdateFeedEntry.Id.generate("insert"), Instant.now(), "payload-" + i);
+            db.tx(() -> db.updateFeedEntries().insert(snap));
+            inserted.put(snap.getId(), snap);
+        }
+
+        assertThat(db.tx(() -> db.updateFeedEntries().find(inserted.keySet())))
+                .containsExactlyInAnyOrderElementsOf(inserted.values());
+
+        assertThat(db.tx(() -> db.updateFeedEntries().find(inserted.keySet())))
+                .containsExactlyInAnyOrderElementsOf(inserted.values());
+
+        assertThat(db.tx(() -> db.updateFeedEntries().list(ListRequest.builder(UpdateFeedEntry.class)
+                .filter(fb -> fb.where("id").in(inserted.keySet()))
+                .build())))
+                .containsExactlyInAnyOrderElementsOf(inserted.values());
+
+        assertThat(db.tx(() -> db.updateFeedEntries().list(ListRequest.builder(UpdateFeedEntry.class)
+                .filter(fb -> fb.where("id").in(inserted.keySet().stream().map(i -> i.toString()).collect(toSet())))
+                .build())))
+                .containsExactlyInAnyOrderElementsOf(inserted.values());
+
+        for (var e : inserted.entrySet()) {
+            assertThat(db.tx(() -> db.updateFeedEntries().query()
+                    .filter(fb -> fb.where("id").eq(e.getKey()))
+                    .findOne())).isEqualTo(e.getValue());
+
+            assertThat(db.tx(() -> db.updateFeedEntries().query()
+                    .filter(fb -> fb.where("id").eq(e.getKey().toString()))
+                    .findOne())).isEqualTo(e.getValue());
+        }
+    }
+
+    @Test
+    @SneakyThrows
+    public void customValueType() {
+        var app1 = new NetworkAppliance(new NetworkAppliance.Id("app1"), new NetworkAppliance.Ipv6Address("2e:a0::1"));
+        db.tx(() -> db.networkAppliances().insert(app1));
+        assertThat(db.tx(() -> db.networkAppliances().find(app1.id()))).isEqualTo(app1);
     }
 
     protected void runInTx(Consumer<RepositoryTransaction> action) {

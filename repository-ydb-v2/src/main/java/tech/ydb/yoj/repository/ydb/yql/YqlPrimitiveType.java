@@ -14,6 +14,8 @@ import tech.ydb.proto.ValueProtos.Value.ValueCase;
 import tech.ydb.table.values.proto.ProtoValue;
 import tech.ydb.yoj.ExperimentalApi;
 import tech.ydb.yoj.databind.ByteArray;
+import tech.ydb.yoj.databind.CustomValueType;
+import tech.ydb.yoj.databind.CustomValueTypes;
 import tech.ydb.yoj.databind.DbType;
 import tech.ydb.yoj.databind.FieldValueType;
 import tech.ydb.yoj.databind.schema.Column;
@@ -400,12 +402,14 @@ public class YqlPrimitiveType implements YqlType {
     /**
      * @deprecated Nothing in YOJ calls {@code YqlPrimitiveType.of(Type)} any more.
      * <p>Please use {@link #of(JavaField) YqlPrimitiveType.of(JavaField)} because it correcly
-     * respects the customizations specified in the {@link Column &#64;Column} annotation.
+     * respects the customizations specified in the {@link Column &#64;Column} and
+     * {@link CustomValueType &#64;CustomValueType} annotations.
      */
     @NonNull
     @Deprecated(forRemoval = true)
     public static YqlPrimitiveType of(Type javaType) {
-        return resolveYqlType(javaType, FieldValueType.forJavaType(javaType), null, null);
+        var valueType = FieldValueType.forJavaType(javaType, null);
+        return resolveYqlType(javaType, valueType, null, null);
     }
 
     /**
@@ -423,7 +427,31 @@ public class YqlPrimitiveType implements YqlType {
             yqlType = convertToYqlType(column.getDbType().typeString());
         }
 
-        return resolveYqlType(column.getType(), column.getValueType(), yqlType, column.getDbTypeQualifier());
+        Type javaType = column.getType();
+        FieldValueType valueType = column.getValueType();
+        String qualifier = column.getDbTypeQualifier();
+        CustomValueType cvt = column.getCustomValueType();
+        if (cvt != null && cvt.columnValueType() != valueType) {
+            throw new IllegalStateException("This should never happen: detected FieldValueType must == @CustomValueType.columnValueType(), but got: "
+                    + valueType + " != " + cvt.columnValueType());
+        }
+
+        var underlyingType = resolveYqlType(
+                cvt != null ? cvt.columnClass() : javaType,
+                valueType,
+                yqlType,
+                qualifier
+        );
+        if (cvt == null) {
+            return underlyingType;
+        }
+
+        return new YqlPrimitiveType(
+                underlyingType.javaType,
+                underlyingType.yqlType,
+                (b, o) -> underlyingType.setter.accept(b, CustomValueTypes.preconvert(column, o)),
+                v -> CustomValueTypes.postconvert(column, underlyingType.getter.apply(v))
+        );
     }
 
     @NonNull

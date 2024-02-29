@@ -1,7 +1,9 @@
 package tech.ydb.yoj.repository.db;
 
+import com.google.common.base.Preconditions;
 import com.google.common.reflect.TypeToken;
 import lombok.NonNull;
+import tech.ydb.yoj.databind.CustomValueTypes;
 import tech.ydb.yoj.databind.FieldValueType;
 import tech.ydb.yoj.databind.schema.Schema;
 import tech.ydb.yoj.databind.schema.configuration.SchemaRegistry;
@@ -12,6 +14,7 @@ import tech.ydb.yoj.databind.schema.reflect.ReflectField;
 import javax.annotation.Nullable;
 import java.lang.reflect.Type;
 import java.util.Comparator;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -57,14 +60,27 @@ public final class EntityIdSchema<ID extends Entity.Id<?>> extends Schema<ID> im
     private <E extends Entity<E>> EntityIdSchema(EntitySchema<E> entitySchema) {
         super(entitySchema, ID_FIELD_NAME);
 
-        flattenFields().stream()
-                .filter(f -> !ALLOWED_ID_FIELD_TYPES.contains(FieldValueType.forJavaType(f.getType())))
+        var flattenedFields = flattenFields();
+
+        var idField = entitySchema.getField(ID_FIELD_NAME);
+        if (idField.getValueType().isComposite()) {
+            Preconditions.checkArgument(!flattenedFields.isEmpty(), "ID must have at least 1 field, but got none: %s", idField.getType());
+        } else {
+            Preconditions.checkArgument(
+                    idField.getCustomValueType() != null,
+                    "ID must be either a composite with >= 1 field, or a compatible type annotated with @CustomValueType, but got: %s",
+                    idField.getType()
+            );
+        }
+
+        flattenedFields.stream()
+                .filter(f -> !ALLOWED_ID_FIELD_TYPES.contains(FieldValueType.forJavaType(f.getType(), f.getField().getColumn())))
                 .findAny()
                 .ifPresent(f -> {
                     throw new IllegalArgumentException(String.format(
                             "Leaf ID field \"[%s].%s\" <java=%s, db=%s> is none of the allowed types %s",
                             getType().getName(), f.getName(), f.getType(),
-                            FieldValueType.forJavaType(f.getType()), ALLOWED_ID_FIELD_TYPES));
+                            FieldValueType.forJavaType(f.getType(), f.getField().getColumn()), ALLOWED_ID_FIELD_TYPES));
                 });
     }
 
@@ -147,9 +163,13 @@ public final class EntityIdSchema<ID extends Entity.Id<?>> extends Schema<ID> im
     public int compare(@NonNull ID a, @NonNull ID b) {
         Map<String, Object> idA = flatten(a);
         Map<String, Object> idB = flatten(b);
-        for (String fieldName : flattenFieldNames()) {
+
+        List<JavaField> flatFields = flattenFields();
+        for (JavaField field : flatFields) {
+            var fieldName = field.getName();
+
             @SuppressWarnings("unchecked")
-            int res = compare(toComparable(idA.get(fieldName)), toComparable(idB.get(fieldName)));
+            int res = compare(toComparable(idA.get(fieldName), field), toComparable(idB.get(fieldName), field));
 
             if (res != 0) {
                 return res;
@@ -160,10 +180,13 @@ public final class EntityIdSchema<ID extends Entity.Id<?>> extends Schema<ID> im
 
     @Nullable
     @SuppressWarnings("rawtypes")
-    private static Comparable toComparable(@Nullable Object value) {
+    private static Comparable toComparable(@Nullable Object value, @NonNull JavaField field) {
         if (value == null) {
             return null;
-        } else if (value instanceof Enum) {
+        }
+
+        value = CustomValueTypes.preconvert(field, value);
+        if (value instanceof Enum) {
             return ((Enum) value).name();
         } else if (value instanceof Comparable) {
             // String, Instant, Boolean
