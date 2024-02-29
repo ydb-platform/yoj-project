@@ -35,8 +35,7 @@ minimally intrusive, so that your domain objects (with all the juicy business lo
 - `repository-inmemory`: In-Memory Repository API implementation using persistent data structures from Eclipse 
 Collections. Has YDB-like semantics for data modification, to easily and quickly test your business logic without 
 spinning containers or accessing a real YDB installation. **Highly recommended.**
-- `repository-ydb-v1`: Repository API implementation for YDB. Uses legacy YDB SDK v1.x. **Not recommended** for new
-  projects.
+- `repository-ydb-v1`: Repository API implementation for YDB. Uses legacy YDB SDK v1.x. **On life support till Summer 2024 (bug fixes only)**
 - `repository-ydb-common`: Common Logic for all YDB Repository implementations, regardless of the YDB SDK version used.
 - `repository-test`: Basic tests which all Repository implementations must pass.
 - `json-jackson-v2`: Support for JSON serialization and deserialization of entity fields, using Jackson 2.x.
