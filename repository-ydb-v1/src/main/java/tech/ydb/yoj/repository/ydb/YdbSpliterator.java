@@ -2,7 +2,6 @@ package tech.ydb.yoj.repository.ydb;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.yandex.ydb.core.Status;
-import lombok.Value;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import tech.ydb.yoj.repository.db.exception.DeadlineExceededException;
@@ -128,13 +127,13 @@ class YdbSpliterator<V> implements Spliterator<V> {
             throw new DeadlineExceededException("Stream deadline exceeded on poll");
         }
 
-        if (value.isEndData()) {
+        if (value.endData()) {
             endData = true;
-            validateResponse.accept(value.getStatus(), value.getError());
+            validateResponse.accept(value.status(), value.error());
             return false;
         }
 
-        action.accept(value.getValue());
+        action.accept(value.value());
         return true;
     }
 
@@ -166,13 +165,12 @@ class YdbSpliterator<V> implements Spliterator<V> {
         return flags;
     }
 
-    @Value
-    private static class QueueValue<V> {
-        V value;
-        Status status;
-        Throwable error;
-        boolean endData;
-
+    private record QueueValue<V>(
+            V value,
+            Status status,
+            Throwable error,
+            boolean endData
+    ) {
         public static <V> QueueValue<V> of(V value) {
             return new QueueValue<>(value, null, null, false);
         }
