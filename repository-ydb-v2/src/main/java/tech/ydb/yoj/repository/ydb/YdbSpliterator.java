@@ -71,7 +71,7 @@ public class YdbSpliterator<V> implements Spliterator<V> {
     public void onNext(V value) {
         if (closed) {
             // Need to abort supplier thread if stream is closed. onSupplierThreadComplete will exit immediately.
-            // ConsumerDoneException isn't handled because onSupplierThreadComplete will exit by streamClosed.
+            // ConsumerDoneException isn't handled because onSupplierThreadComplete will exit by this.closed.
             throw ConsumerDoneException.INSTANCE;
         }
 
@@ -145,7 +145,7 @@ public class YdbSpliterator<V> implements Spliterator<V> {
         }
 
         closed = true;
-        // Abort offer in supplier thread. onNext() will look at streamClosed and exit immediately.
+        // Abort offer in supplier thread. onNext() will look at this.closed and exit immediately.
         // onSupplierThreadComplete() just will exit.
         queue.clear();
     }
