@@ -205,7 +205,7 @@ public class YdbSpliteratorTest {
         spliterator.onNext(1);
 
         // wait for block on onNext(2) and close stream
-        var thread = new TestingThread(() -> doAfter(100, spliterator::onStreamClose));
+        var thread = new TestingThread(() -> doAfter(100, spliterator::close));
         thread.start();
 
         spliterator.onNext(2);
