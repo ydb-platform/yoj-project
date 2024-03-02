@@ -38,7 +38,7 @@ public class YdbSpliterator<V> implements Spliterator<V> {
     private final BlockingQueue<QueueValue<V>> queue = new ArrayBlockingQueue<>(1);
     private final BiConsumer<Status, Throwable> validateResponse;
 
-    private volatile boolean streamClosed = false;
+    private volatile boolean closed = false;
 
     private boolean endData = false;
 
@@ -69,7 +69,7 @@ public class YdbSpliterator<V> implements Spliterator<V> {
 
     // (supplier thread) Send data to stream thread.
     public void onNext(V value) {
-        if (streamClosed) {
+        if (closed) {
             // Need to abort supplier thread if stream is closed. onSupplierThreadComplete will exit immediately.
             // ConsumerDoneException isn't handled because onSupplierThreadComplete will exit by streamClosed.
             throw ConsumerDoneException.INSTANCE;
@@ -89,7 +89,7 @@ public class YdbSpliterator<V> implements Spliterator<V> {
     // (supplier thread) Send knowledge to stream when data is over.
     public void onSupplierThreadComplete(Status status, Throwable ex) {
         ex = unwrapException(ex);
-        if (ex instanceof OfferDeadlineExceededException || streamClosed) {
+        if (ex instanceof OfferDeadlineExceededException || closed) {
             // If deadline exceeded happen, need to do nothing. Stream thread will exit at deadline by themself.
             return;
         }
@@ -140,7 +140,7 @@ public class YdbSpliterator<V> implements Spliterator<V> {
 
     // (stream thread) close spliterator and abort supplier thread
     public void close() {
-        streamClosed = true;
+        closed = true;
         // Abort offer in supplier thread. onNext() will look at streamClosed and exit immediately.
         // onSupplierThreadComplete() just will exit.
         queue.clear();
