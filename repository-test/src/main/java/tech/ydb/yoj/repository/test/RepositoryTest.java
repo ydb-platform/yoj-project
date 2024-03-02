@@ -1,6 +1,7 @@
 package tech.ydb.yoj.repository.test;
 
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Iterators;
 import lombok.SneakyThrows;
 import org.assertj.core.api.Assertions;
@@ -66,18 +67,22 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.Spliterator;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import java.util.stream.Stream;
+import java.util.stream.StreamSupport;
 
 import static java.time.temporal.ChronoUnit.MILLIS;
 import static java.util.Arrays.asList;
 import static java.util.Collections.emptyList;
 import static java.util.Collections.singleton;
 import static java.util.Collections.singletonMap;
+import static java.util.Spliterator.ORDERED;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -550,6 +555,44 @@ public abstract class RepositoryTest extends RepositoryTestSupport {
 
         assertThatExceptionOfType(OptimisticLockException.class)
                 .isThrownBy(tx::commit);
+    }
+
+    @Test
+    public void testSpliteratorDoubleTryAdvance() {
+        db.tx(() -> {
+            for (int i = 0; i < 100; i++) {
+                db.projects().save(new Project(new Project.Id(String.valueOf(i)), ""));
+            }
+        });
+
+        ReadTableParams<Project.Id> params = ReadTableParams.<Project.Id>builder()
+                .useNewSpliterator(true)
+                .build();
+
+        db.readOnly().run(() -> {
+            Spliterator<Project> spliterator = db.projects().readTable(params).spliterator();
+
+            // this loop calls tryAdvance() on spliterator one time after tryAdvance() says false
+            while (true) {
+                if (!spliterator.tryAdvance(__ -> {})) {
+                    return;
+                }
+            }
+        });
+
+        // one more example
+        db.readOnly().run(() -> {
+            Stream<Project> stream = db.projects().readTable(params);
+
+            Stream<List<Project>> stream2 = StreamSupport.stream(
+                    // With this line steam calls tryAdvance() on spliterator one time after tryAdvance() says false
+                    () -> Iterables.partition(stream::iterator, 5).spliterator(),
+                    ORDERED,
+                    false
+            );
+
+            assertEquals(100, stream2.mapToLong(List::size).sum());
+        });
     }
 
     @Test
