@@ -78,7 +78,7 @@ public class YdbRepositoryTransaction<REPO extends YdbRepository>
     private static final Logger log = LoggerFactory.getLogger(YdbRepositoryTransaction.class);
 
     private final List<YdbRepository.Query<?>> pendingWrites = new ArrayList<>();
-    private final List<Stream<?>> openedStreams = new ArrayList<>();
+    private final List<YdbSpliterator<?>> spliterators = new ArrayList<>();
 
     @Getter
     private final TxOptions options;
@@ -102,10 +102,10 @@ public class YdbRepositoryTransaction<REPO extends YdbRepository>
         this.cache = options.isFirstLevelCache() ? new RepositoryCacheImpl() : RepositoryCache.empty();
     }
 
-    private <V> Stream<V> makeStream(YdbSpliterator<V> spliterator) {
-        Stream<V> stream = spliterator.createStream();
-        openedStreams.add(stream);
-        return stream;
+    private <V> YdbSpliterator<V> createSpliterator(String request, boolean isOrdered) {
+        YdbSpliterator<V> spliterator = new YdbSpliterator<>(request, isOrdered);
+        spliterators.add(spliterator);
+        return spliterator;
     }
 
     @Override
@@ -153,9 +153,9 @@ public class YdbRepositoryTransaction<REPO extends YdbRepository>
 
     private void closeStreams() {
         Exception summaryException = null;
-        for (Stream<?> stream : openedStreams) {
+        for (YdbSpliterator<?> spliterator : spliterators) {
             try {
-                stream.close();
+                spliterator.close();
             } catch (Exception e) {
                 if (summaryException == null) {
                     summaryException = e;
@@ -381,7 +381,7 @@ public class YdbRepositoryTransaction<REPO extends YdbRepository>
         String yql = getYql(statement);
         Params sdkParams = getSdkParams(statement, params);
 
-        YdbSpliterator<RESULT> spliterator = new YdbSpliterator<>("scanQuery: " + yql, false);
+        YdbSpliterator<RESULT> spliterator = createSpliterator("scanQuery: " + yql, false);
 
         initSession();
         session.executeScanQuery(
@@ -389,7 +389,7 @@ public class YdbRepositoryTransaction<REPO extends YdbRepository>
                 rs -> new ResultSetConverter(rs).stream(statement::readResult).forEach(spliterator::onNext)
         ).whenComplete(spliterator::onSupplierThreadComplete);
 
-        return makeStream(spliterator);
+        return spliterator.createStream();
     }
 
     @Override
@@ -483,7 +483,7 @@ public class YdbRepositoryTransaction<REPO extends YdbRepository>
         }
 
         if (params.isUseNewSpliterator()) {
-            YdbSpliterator<RESULT> spliterator = new YdbSpliterator<>("readTable: " + tableName, params.isOrdered());
+            YdbSpliterator<RESULT> spliterator = createSpliterator("readTable: " + tableName, params.isOrdered());
 
             initSession();
             session.readTable(
@@ -491,7 +491,7 @@ public class YdbRepositoryTransaction<REPO extends YdbRepository>
                     resultSet -> new ResultSetConverter(resultSet).stream(mapper::mapResult).forEach(spliterator::onNext)
             ).whenComplete(spliterator::onSupplierThreadComplete);
 
-            return makeStream(spliterator);
+            return spliterator.createStream();
         }
 
         try {
