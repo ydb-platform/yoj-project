@@ -139,6 +139,10 @@ class YdbSpliterator<V> implements Spliterator<V> {
 
     // (stream thread) close spliterator and abort supplier thread
     public void close() {
+        if (closed) {
+            return;
+        }
+        
         closed = true;
         // Abort offer in supplier thread. onNext() will look at streamClosed and exit immediately.
         // onSupplierThreadComplete() just will exit.
