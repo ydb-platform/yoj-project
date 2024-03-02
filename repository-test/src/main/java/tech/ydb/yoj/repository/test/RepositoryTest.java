@@ -569,7 +569,11 @@ public abstract class RepositoryTest extends RepositoryTestSupport {
             Spliterator<Project> spliterator = db.projects().readTable(params).spliterator();
 
             // this loop calls tryAdvance() on spliterator one time after tryAdvance() says false
-            while (spliterator.tryAdvance(__ -> {}));
+            while (true) {
+                if (!spliterator.tryAdvance(__ -> {})) {
+                    return;
+                }
+            }
         });
 
         // one more example
