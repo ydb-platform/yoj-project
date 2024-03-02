@@ -139,6 +139,7 @@ class YdbSpliterator<V> implements Spliterator<V> {
 
     // (stream thread) close spliterator and abort supplier thread
     public void close() {
+        // close() can be called twice by stream.close() and in the end of transaction
         if (closed) {
             return;
         }
