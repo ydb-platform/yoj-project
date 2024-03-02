@@ -41,6 +41,8 @@ public class YdbSpliterator<V> implements Spliterator<V> {
 
     private volatile boolean streamClosed = false;
 
+    private boolean endData = false;
+
     public YdbSpliterator(String request, boolean isOrdered) {
         this(request, isOrdered, DEFAULT_STREAM_WORK_TIMEOUT);
     }
@@ -117,12 +119,18 @@ public class YdbSpliterator<V> implements Spliterator<V> {
     @Override
     // (stream thread) called from stream engine for get new value.
     public boolean tryAdvance(Consumer<? super V> action) {
+        // Stream API can call tryAdvance() once again even if tryAdvance() returned false
+        if (endData) {
+            return false;
+        }
+
         QueueValue<V> value = poll();
         if (value == null) {
             throw new DeadlineExceededException("Stream deadline exceeded on poll");
         }
 
         if (value.isEndData()) {
+            endData = true;
             validateResponse.accept(value.getStatus(), value.getError());
             return false;
         }
