@@ -138,7 +138,7 @@ public class YdbSpliteratorTest {
         }
 
         public Stream<Integer> stream() {
-            return spliterator.makeStream();
+            return spliterator.createStream();
         }
 
         public void interrupt() {

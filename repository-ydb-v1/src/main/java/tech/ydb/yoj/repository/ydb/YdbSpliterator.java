@@ -62,7 +62,7 @@ class YdbSpliterator<V> implements Spliterator<V> {
     }
 
     // Correct way to create stream with YdbSpliterator. onClose call is important for avoid supplier thread leak.
-    public Stream<V> makeStream() {
+    public Stream<V> createStream() {
         return StreamSupport.stream(this, false).onClose(this::close);
     }
 
@@ -142,7 +142,7 @@ class YdbSpliterator<V> implements Spliterator<V> {
         if (closed) {
             return;
         }
-        
+
         closed = true;
         // Abort offer in supplier thread. onNext() will look at streamClosed and exit immediately.
         // onSupplierThreadComplete() just will exit.

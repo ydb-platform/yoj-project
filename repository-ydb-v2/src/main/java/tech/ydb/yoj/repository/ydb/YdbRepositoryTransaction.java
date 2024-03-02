@@ -103,7 +103,7 @@ public class YdbRepositoryTransaction<REPO extends YdbRepository>
     }
 
     private <V> Stream<V> makeStream(YdbSpliterator<V> spliterator) {
-        Stream<V> stream = spliterator.makeStream();
+        Stream<V> stream = spliterator.createStream();
         openedStreams.add(stream);
         return stream;
     }
