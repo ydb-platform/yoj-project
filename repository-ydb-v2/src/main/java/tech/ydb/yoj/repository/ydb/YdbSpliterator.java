@@ -25,6 +25,8 @@ import static tech.ydb.yoj.repository.ydb.client.YdbValidator.validate;
 /**
  * {@code YdbSpliterator} is used for read data from YDB streams.
  * It's possible to supply values from different threads, but supplier threads mustn't call onNext concurrently.
+ * <p>
+ * Should be closed by close() method for finish work in session.
  */
 public class YdbSpliterator<V> implements Spliterator<V> {
     private static final Logger log = LoggerFactory.getLogger(YdbSpliterator.class);
