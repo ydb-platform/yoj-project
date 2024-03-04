@@ -2,7 +2,6 @@ package tech.ydb.yoj.repository.ydb;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.yandex.ydb.core.Status;
-import lombok.Value;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import tech.ydb.yoj.repository.db.exception.DeadlineExceededException;
@@ -25,6 +24,8 @@ import java.util.stream.StreamSupport;
 /**
  * {@code YdbSpliterator} is used for read data from YDB streams.
  * It's possible to supply values from different threads, but supplier threads mustn't call onNext concurrently.
+ * <p>
+ * Should be closed by close() method for finish work in session.
  */
 class YdbSpliterator<V> implements Spliterator<V> {
     private static final Logger log = LoggerFactory.getLogger(YdbSpliterator.class);
@@ -38,7 +39,7 @@ class YdbSpliterator<V> implements Spliterator<V> {
     private final BlockingQueue<QueueValue<V>> queue = new ArrayBlockingQueue<>(1);
     private final BiConsumer<Status, Throwable> validateResponse;
 
-    private volatile boolean streamClosed = false;
+    private volatile boolean closed = false;
 
     private boolean endData = false;
 
@@ -63,15 +64,15 @@ class YdbSpliterator<V> implements Spliterator<V> {
     }
 
     // Correct way to create stream with YdbSpliterator. onClose call is important for avoid supplier thread leak.
-    public Stream<V> makeStream() {
-        return StreamSupport.stream(this, false).onClose(this::onStreamClose);
+    public Stream<V> createStream() {
+        return StreamSupport.stream(this, false).onClose(this::close);
     }
 
     // (supplier thread) Send data to stream thread.
     public void onNext(V value) {
-        if (streamClosed) {
+        if (closed) {
             // Need to abort supplier thread if stream is closed. onSupplierThreadComplete will exit immediately.
-            // ConsumerDoneException isn't handled because onSupplierThreadComplete will exit by streamClosed.
+            // ConsumerDoneException isn't handled because onSupplierThreadComplete will exit by this.closed.
             throw ConsumerDoneException.INSTANCE;
         }
 
@@ -89,7 +90,7 @@ class YdbSpliterator<V> implements Spliterator<V> {
     // (supplier thread) Send knowledge to stream when data is over.
     public void onSupplierThreadComplete(Status status, Throwable ex) {
         ex = unwrapException(ex);
-        if (ex instanceof OfferDeadlineExceededException || streamClosed) {
+        if (ex instanceof OfferDeadlineExceededException || closed) {
             // If deadline exceeded happen, need to do nothing. Stream thread will exit at deadline by themself.
             return;
         }
@@ -128,21 +129,25 @@ class YdbSpliterator<V> implements Spliterator<V> {
             throw new DeadlineExceededException("Stream deadline exceeded on poll");
         }
 
-        if (value.isEndData()) {
+        if (value.endData()) {
             endData = true;
-            validateResponse.accept(value.getStatus(), value.getError());
+            validateResponse.accept(value.status(), value.error());
             return false;
         }
 
-        action.accept(value.getValue());
+        action.accept(value.value());
         return true;
     }
 
-    // (stream thread) callback on stream.close()
-    @VisibleForTesting
-    protected void onStreamClose() {
-        streamClosed = true;
-        // Abort offer in supplier thread. onNext() will look at streamClosed and exit immediately.
+    // (stream thread) close spliterator and abort supplier thread
+    public void close() {
+        // close() can be called twice by stream.close() and in the end of transaction
+        if (closed) {
+            return;
+        }
+
+        closed = true;
+        // Abort offer in supplier thread. onNext() will look at this.closed and exit immediately.
         // onSupplierThreadComplete() just will exit.
         queue.clear();
     }
@@ -167,13 +172,12 @@ class YdbSpliterator<V> implements Spliterator<V> {
         return flags;
     }
 
-    @Value
-    private static class QueueValue<V> {
-        V value;
-        Status status;
-        Throwable error;
-        boolean endData;
-
+    private record QueueValue<V>(
+            V value,
+            Status status,
+            Throwable error,
+            boolean endData
+    ) {
         public static <V> QueueValue<V> of(V value) {
             return new QueueValue<>(value, null, null, false);
         }
