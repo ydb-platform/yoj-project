@@ -120,6 +120,10 @@ public class YdbSpliterator<V> implements Spliterator<V> {
     @Override
     // (stream thread) called from stream engine for get new value.
     public boolean tryAdvance(Consumer<? super V> action) {
+        if (closed) {
+            throw new IllegalStateException("Can't use closed YdbSpliterator");
+        }
+
         // Stream API can call tryAdvance() once again even if tryAdvance() returned false
         if (endData) {
             return false;
