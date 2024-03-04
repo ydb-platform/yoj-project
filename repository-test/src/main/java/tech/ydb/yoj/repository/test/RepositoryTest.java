@@ -2692,7 +2692,11 @@ public abstract class RepositoryTest extends RepositoryTestSupport {
     @Test
     @SneakyThrows
     public void customValueType() {
-        var app1 = new NetworkAppliance(new NetworkAppliance.Id("app1"), new NetworkAppliance.Ipv6Address("2e:a0::1"));
+        var app1 = new NetworkAppliance(
+                new NetworkAppliance.Id("app1"),
+                new NetworkAppliance.Ipv6Address("2e:a0::1"),
+                new NetworkAppliance.SixtyFourBitString(Long.parseUnsignedLong("cafecafecafecafe", 16))
+        );
         db.tx(() -> db.networkAppliances().insert(app1));
         assertThat(db.tx(() -> db.networkAppliances().find(app1.id()))).isEqualTo(app1);
     }

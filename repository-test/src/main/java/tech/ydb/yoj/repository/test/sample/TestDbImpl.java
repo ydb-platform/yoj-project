@@ -11,7 +11,8 @@ public class TestDbImpl<R extends Repository> implements TestDb {
     private final TxManager txManagerImpl;
 
     public TestDbImpl(R repository) {
-        txManagerImpl = new StdTxManager(repository);
+        txManagerImpl = new StdTxManager(repository)
+                .withLogStatementOnSuccess(true);
     }
 
     @Delegate
