@@ -172,7 +172,7 @@ public class YdbRepositoryTransaction<REPO extends YdbRepository>
 
     private void validate(String request, StatusCode statusCode, String response) {
         if (!isBadSession) {
-            isBadSession = YdbValidator.isServerSideError(statusCode);
+            isBadSession = YdbValidator.isTransactionClosedByServer(statusCode);
         }
         try {
             YdbValidator.validate(request, statusCode, response);

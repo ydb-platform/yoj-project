@@ -103,7 +103,7 @@ public final class YdbValidator {
         }
     }
 
-    public static boolean isServerSideError(StatusCode statusCode) {
+    public static boolean isTransactionClosedByServer(StatusCode statusCode) {
         return switch (statusCode) {
             case UNUSED_STATUS,
                     ALREADY_EXISTS,
