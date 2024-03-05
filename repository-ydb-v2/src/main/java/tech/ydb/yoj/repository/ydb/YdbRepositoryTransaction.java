@@ -171,11 +171,13 @@ public class YdbRepositoryTransaction<REPO extends YdbRepository>
     }
 
     private void validate(String request, StatusCode statusCode, String response) {
+        if (!isBadSession) {
+            isBadSession = YdbValidator.isServerSideError(statusCode);
+        }
         try {
             YdbValidator.validate(request, statusCode, response);
         } catch (BadSessionException | OptimisticLockException e) {
             transactionLocal.log().info("Request got %s: DB tx was invalidated", e.getClass().getSimpleName());
-            isBadSession = true;
             throw e;
         }
     }

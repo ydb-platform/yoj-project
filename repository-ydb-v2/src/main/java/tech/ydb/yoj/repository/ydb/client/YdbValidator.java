@@ -103,6 +103,42 @@ public final class YdbValidator {
         }
     }
 
+    public static boolean isServerSideError(StatusCode statusCode) {
+        return switch (statusCode) {
+            case UNUSED_STATUS,
+                    ALREADY_EXISTS,
+                    BAD_REQUEST,
+                    UNAUTHORIZED,
+                    INTERNAL_ERROR,
+                    ABORTED,
+                    UNAVAILABLE,
+                    OVERLOADED,
+                    SCHEME_ERROR,
+                    GENERIC_ERROR,
+                    TIMEOUT,
+                    BAD_SESSION,
+                    PRECONDITION_FAILED,
+                    NOT_FOUND,
+                    SESSION_EXPIRED,
+                    CANCELLED,
+                    UNDETERMINED,
+                    UNSUPPORTED,
+                    SESSION_BUSY,
+                    EXTERNAL_ERROR -> true;
+            case SUCCESS,
+                    TRANSPORT_UNAVAILABLE,
+                    CLIENT_CANCELLED,
+                    CLIENT_CALL_UNIMPLEMENTED,
+                    CLIENT_DEADLINE_EXCEEDED,
+                    CLIENT_INTERNAL_ERROR,
+                    CLIENT_UNAUTHENTICATED,
+                    CLIENT_DEADLINE_EXPIRED,
+                    CLIENT_DISCOVERY_FAILED,
+                    CLIENT_LIMITS_REACHED,
+                    CLIENT_RESOURCE_EXHAUSTED -> false;
+        };
+    }
+
     public static void checkGrpcContextStatus(String errorMessage, @Nullable Throwable cause) {
         if (Context.current().getDeadline() != null && Context.current().getDeadline().isExpired()) {
             // время на обработку запроса закончилось, нужно выбросить отдельное исключение чтобы не было ретраев
