@@ -160,7 +160,7 @@ public interface Table<T extends Entity<T>> {
 
     default FirstLevelCache getFirstLevelCache() {
         return null;
-    };
+    }
 
     @NonNull
     default <X extends Exception> T find(Entity.Id<T> id, Supplier<? extends X> throwIfAbsent) throws X {
@@ -350,23 +350,38 @@ public interface Table<T extends Entity<T>> {
     @Deprecated
     void update(Entity.Id<T> id, Changeset changeset);
 
+    /**
+     * Base interface for <em>views</em>, that is, arbitrary subsets of {@link Entity} fields.
+     *
+     * @see ViewId
+     */
     interface View {
     }
 
-    interface ViewId<T extends Entity<T>> extends View {
-        Entity.Id<T> getId();
+    /**
+     * Base interface for ID-aware views, that is, subsets of {@link Entity} fields
+     * that contain the Entity's ID.
+     *
+     * @param <E> entity type
+     * @see RecordViewId
+     */
+    interface ViewId<E extends Entity<E>> extends View {
+        Entity.Id<E> getId();
     }
 
     /**
-     * Base interface for ID-aware table views that are Java {@link java.lang.Record records}.
-     * <p>Forwards {@link ViewId#getId() ViewId's getId() method} to the record's {@code id()} accessor.
+     * Base interface for ID-aware views that are implemented as {@link java.lang.Record Java Records}.
+     * <p>Forwards {@link ViewId#getId() ViewId's getId() method} to the record's {@code id()} accessor,
+     * so you don't need to override the {@code getId()} method yourself.
      *
      * @param <E> entity type
+     * @see ViewId
      */
-    interface RecordViewId<T extends Entity<T>> extends ViewId<T> {
-        Entity.Id<T> id();
+    interface RecordViewId<E extends Entity<E>> extends ViewId<E> {
+        Entity.Id<E> id();
 
-        default Entity.Id<T> getId() {
+        @Override
+        default Entity.Id<E> getId() {
             return id();
         }
     }
