@@ -8,7 +8,8 @@ die() {
   exit 1
 }
 
-[ -z "$YOJ_VERSION" ] && die "Please set YOJ_VERSION before calling prepare-release.sh"
+[ -z "$YOJ_VERSION" ] && die "Please set YOJ_VERSION before calling prepare-release.sh!"
+(echo "$YOJ_VERSION" | grep -- '-SNAPSHOT' >/dev/null) && die "Please set YOJ_VERSION to a release version (x.y.z)!"
 [ -z "$MVN" ] && MVN='mvn'
 
 echo "[**] Updating YOJ artifact version to ${YOJ_VERSION}..."
@@ -34,7 +35,7 @@ git tag "v${YOJ_VERSION}"
 
 echo
 echo "[**] Pushing changes:"
-#git push origin && git push origin --tags
+git push origin && git push origin --tags
 
 echo
 echo "[**] Done!"
