@@ -51,25 +51,25 @@ public final class YdbDataCompatibilityChecker {
         }
         stream.forEach(ec -> {
             log.info(format("Checking entities of %s", ec.getSimpleName()));
-            txManager.readOnly().noFirstLevelCache()
-                    .run(() -> {
-                        Stopwatch sw = Stopwatch.createStarted();
-                        RepositoryTransaction tx = Tx.Current.get().getRepositoryTransaction();
-                        try {
-                            @SuppressWarnings("unchecked")
-                            long checkedCount = tx.table(ec).readTable(params).count();
+            Stopwatch sw = Stopwatch.createStarted();
+            try {
+                txManager.readOnly().noFirstLevelCache().run(() -> {
+                    RepositoryTransaction tx = Tx.Current.get().getRepositoryTransaction();
 
-                            log.info(format("[%s] Checked %d entities of %s", sw, checkedCount, ec.getSimpleName()));
-                        } catch (Exception e) {
-                            String message = format("[%s] Got exception while checking entities of %s: ", sw, ec.getSimpleName());
-                            if (config.skipSchemaErrors && e instanceof YdbSchemaException) {
-                                log.warn(message);
-                            } else {
-                                log.error(message);
-                                throw e;
-                            }
-                        }
-                    });
+                    @SuppressWarnings("unchecked")
+                    long checkedCount = tx.table(ec).readTable(params).count();
+
+                    log.info(format("[%s] Checked %d entities of %s", sw, checkedCount, ec.getSimpleName()));
+                });
+            } catch (Exception e) {
+                String message = format("[%s] Got exception while checking entities of %s: ", sw, ec.getSimpleName());
+                if (config.skipSchemaErrors && e instanceof YdbSchemaException) {
+                    log.warn(message);
+                } else {
+                    log.error(message);
+                    throw e;
+                }
+            }
         });
         log.info(format("[%s] Data compatibility checked successfully", totalTime));
     }
