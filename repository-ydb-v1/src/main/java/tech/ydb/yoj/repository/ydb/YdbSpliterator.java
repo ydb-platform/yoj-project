@@ -35,7 +35,11 @@ class YdbSpliterator<V> implements Spliterator<V> {
     // Deadline for stream work
     private final long streamWorkDeadlineNanos;
     private final int flags;
-    // ArrayBlockingQueue(1) is used instead SynchronousQueue because clear() behavior is needed
+    /* ArrayBlockingQueue(1) is used instead SynchronousQueue because clear() behavior is needed
+     * ArrayBlockingQueue(1) was chosen to minimize memory usage. This is not a performance-efficient solution
+     * since it requires synchronization between threads for each object. If necessary, we can increase
+     * the queue size or choose a different mechanism for concurrency interaction.
+     */
     private final BlockingQueue<QueueValue<V>> queue = new ArrayBlockingQueue<>(1);
     private final BiConsumer<Status, Throwable> validateResponse;
 
