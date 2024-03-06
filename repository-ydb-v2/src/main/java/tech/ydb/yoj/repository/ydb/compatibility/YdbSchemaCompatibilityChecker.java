@@ -11,6 +11,8 @@ import lombok.With;
 import org.apache.commons.text.StringEscapeUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import tech.ydb.core.StatusCode;
+import tech.ydb.core.UnexpectedResultException;
 import tech.ydb.yoj.databind.DbType;
 import tech.ydb.yoj.repository.db.Entity;
 import tech.ydb.yoj.repository.db.EntitySchema;
@@ -34,7 +36,6 @@ import java.util.stream.Collectors;
 
 import static java.util.function.Predicate.not;
 import static java.util.stream.Collectors.joining;
-import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toMap;
 import static java.util.stream.Collectors.toSet;
 
@@ -81,9 +82,12 @@ public final class YdbSchemaCompatibilityChecker {
                 .filter(Objects::nonNull)
                 .collect(toSet());
 
-        List<YdbSchemaOperations.Table> realTables = tableDirectories.stream()
-                .flatMap(path -> repository.getSchemaOperations().getTables(path).stream())
-                .collect(toList());
+        List<YdbSchemaOperations.Table> realTables = new ArrayList<>();
+        for (String path : tableDirectories) {
+            List<YdbSchemaOperations.Table> tables = getRealTables(path);
+
+            realTables.addAll(tables);
+        }
 
         checkCompatibility(tablesFromSource, realTables);
 
@@ -121,6 +125,18 @@ public final class YdbSchemaCompatibilityChecker {
                     ddl
             );
             throw new IllegalStateException("Code schema is not compatible with DB schema on " + getEndpoint());
+        }
+    }
+
+    private List<YdbSchemaOperations.Table> getRealTables(String path) {
+        try {
+            return repository.getSchemaOperations().getTables(path);
+        } catch (UnexpectedResultException e) {
+            // SCHEME_ERROR means that path not found => don't have tables
+            if (e.getStatus().getCode() == StatusCode.SCHEME_ERROR) {
+                return List.of();
+            }
+            throw e;
         }
     }
 
