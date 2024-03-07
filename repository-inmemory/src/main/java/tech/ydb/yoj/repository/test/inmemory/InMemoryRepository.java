@@ -39,7 +39,7 @@ public class InMemoryRepository implements Repository {
 
     @Override
     public Set<Class<? extends Entity<?>>> tables() {
-        return storage.tables();
+        return Set.copyOf(storage.tables());
     }
 
     @Override
