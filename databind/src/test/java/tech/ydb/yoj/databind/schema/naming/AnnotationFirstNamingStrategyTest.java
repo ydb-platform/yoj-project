@@ -3,7 +3,7 @@ package tech.ydb.yoj.databind.schema.naming;
 import org.junit.Test;
 import tech.ydb.yoj.databind.schema.Schema;
 
-public class AnnotationFirstNamingStrategyTest extends BaseNamingStrategyTest {
+public class AnnotationFirstNamingStrategyTest extends BaseNamingStrategyTestBase {
     @Test
     public void testEntityTableName() {
         verifyTableName(TestEntity.class, "TestEntity");

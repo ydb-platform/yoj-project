@@ -1,0 +1,10 @@
+###############################################################################
+# Bazel now uses Bzlmod by default to manage external dependencies.
+# Please consider migrating your external dependencies from WORKSPACE to MODULE.bazel.
+#
+# For more details, please check https://github.com/bazelbuild/bazel/issues/18958
+###############################################################################
+bazel_dep(name = "rules_java", version = "7.4.0")
+bazel_dep(name = "contrib_rules_jvm", version = "0.24.0")
+bazel_dep(name = "rules_jvm_external", version = "6.0")
+bazel_dep(name = "apple_rules_lint", version = "0.3.2")

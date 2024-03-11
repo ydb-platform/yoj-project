@@ -4,7 +4,7 @@ import org.junit.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-public class DeleteByIdStatementTest extends AbstractMultipleVarsYqlStatementTest {
+public class DeleteByIdStatementTest extends AbstractMultipleVarsYqlStatementTestBase {
 
     @Test
     public void testDelete() {

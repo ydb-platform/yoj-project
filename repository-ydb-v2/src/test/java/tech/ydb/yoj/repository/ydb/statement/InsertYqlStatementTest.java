@@ -4,7 +4,7 @@ import org.junit.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-public class InsertYqlStatementTest extends AbstractMultipleVarsYqlStatementTest {
+public class InsertYqlStatementTest extends AbstractMultipleVarsYqlStatementTestBase {
 
     @Test
     public void testInsert() {

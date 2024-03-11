@@ -20,7 +20,7 @@ import tech.ydb.yoj.repository.ydb.TestYdbConfig;
 import tech.ydb.yoj.repository.ydb.YdbRepository;
 import tech.ydb.yoj.repository.ydb.YdbRepositoryTransaction;
 
-public abstract class AbstractMultipleVarsYqlStatementTest extends RepositoryTestSupport {
+public abstract class AbstractMultipleVarsYqlStatementTestBase extends RepositoryTestSupport {
 
     protected static final TestEntity ENTITY_1 = new TestEntity(TestEntity.Id.of("a"), "foo");
     protected static final TestEntity ENTITY_1_1 = new TestEntity(TestEntity.Id.of("a"), "fuu");
