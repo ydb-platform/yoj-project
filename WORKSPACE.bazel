@@ -1,0 +1,96 @@
+load("@rules_jvm_external//:defs.bzl", "maven_install")
+load("@rules_jvm_external//:specs.bzl", "maven")
+
+ANNOTATION_API_VERSION = "1.3.2"
+
+ASSERTJ_VERSION = "3.25.1"
+
+COMMONS_TEXT_VERSION = "1.10.0"
+
+ECLIPSE_COLLECTIONS_VERSION = "9.2.0"
+
+FIND_BUGS_VERSION = "3.0.2"
+
+GRPC_VERSION = "1.61.0"
+
+GUAVA_VERSION = "33.0.0-jre"
+
+JACKSON_VERSION = "2.16.1"
+
+JUNIT_JUPITER_VERSION = "5.10.1"
+
+JUNIT_VERSION = "4.13.2"
+
+KOTLIN_VERSION = "1.9.22"
+
+LOG4J_VERSION = "2.22.1"
+
+LOMBOK_VERSION = "1.18.30"
+
+MOCKITO_VERSION = "5.9.0"
+
+PROMETHEUS_VERSION = "1.1.0"
+
+SIMPLECLIENT_VERSION = "0.9.0"
+
+SLF4J_VERSION = "2.0.11"
+
+SNAKEYAML_VERSION = "1.33"
+
+YDB_PROTOAPI_VERSION = "1.6.0"
+
+YDB_SDK_V1_VERSION = "1.14.14"
+
+YDB_SDK_VERSION = "2.1.12"
+
+maven_install(
+    name = "java_contribs_stable",
+    artifacts = [
+        "com.fasterxml.jackson.core:jackson-databind:" + JACKSON_VERSION,
+        "com.fasterxml.jackson.datatype:jackson-datatype-jdk8:" + JACKSON_VERSION,
+        "com.fasterxml.jackson.datatype:jackson-datatype-jsr310:" + JACKSON_VERSION,
+        "com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:" + JACKSON_VERSION,
+        "com.google.code.findbugs:jsr305:" + FIND_BUGS_VERSION,
+        "com.google.guava:guava:" + GUAVA_VERSION,
+        "com.yandex.ydb:ydb-sdk-core:" + YDB_SDK_V1_VERSION,
+        "com.yandex.ydb:ydb-sdk-proto:" + YDB_SDK_V1_VERSION,
+        "com.yandex.ydb:ydb-sdk-table:" + YDB_SDK_V1_VERSION,
+        "io.grpc:grpc-bom:" + GRPC_VERSION,
+        "io.grpc:grpc-netty-shaded:" + GRPC_VERSION,
+        "io.grpc:grpc-netty:" + GRPC_VERSION,
+        "io.prometheus:simpleclient:" + SIMPLECLIENT_VERSION,
+        "javax.annotation:javax.annotation-api:" + ANNOTATION_API_VERSION,
+        "junit:junit:" + JUNIT_VERSION,
+        "org.apache.commons:commons-text:" + COMMONS_TEXT_VERSION,
+        "org.yaml:snakeyaml:" + SNAKEYAML_VERSION,
+        "org.apache.logging.log4j:log4j-api:" + LOG4J_VERSION,
+        "org.apache.logging.log4j:log4j-slf4j2-impl:" + LOG4J_VERSION,
+        "org.assertj:assertj-core:" + ASSERTJ_VERSION,
+        "org.eclipse.collections:eclipse-collections-api:" + ECLIPSE_COLLECTIONS_VERSION,
+        "org.eclipse.collections:eclipse-collections:" + ECLIPSE_COLLECTIONS_VERSION,
+        "org.jetbrains.kotlin:kotlin-reflect:" + KOTLIN_VERSION,
+        "org.mockito:mockito-core:" + MOCKITO_VERSION,
+        "org.projectlombok:lombok:" + LOMBOK_VERSION,
+        "org.slf4j:slf4j-api:" + SLF4J_VERSION,
+        "tech.ydb:ydb-proto-api:" + YDB_PROTOAPI_VERSION,
+        "tech.ydb:ydb-sdk-bom:" + YDB_SDK_VERSION,
+        "tech.ydb:ydb-sdk-topic:" + YDB_SDK_VERSION,
+        "tech.ydb:ydb-sdk-core:" + YDB_SDK_VERSION,
+        "tech.ydb:ydb-sdk-table:" + YDB_SDK_VERSION,
+        "tech.ydb:ydb-sdk-scheme:" + YDB_SDK_VERSION,
+        "tech.ydb.test:ydb-junit4-support:" + YDB_SDK_VERSION,
+        maven.artifact(
+            artifact = "grpc-core",
+            exclusions = [
+                "io.grpc:grpc-util",
+            ],
+            group = "io.grpc",
+            version = GRPC_VERSION,
+        ),
+    ],
+    fetch_sources = True,
+    generate_compat_repositories = True,
+    repositories = [
+        "https://repo1.maven.org/maven2",
+    ],
+)

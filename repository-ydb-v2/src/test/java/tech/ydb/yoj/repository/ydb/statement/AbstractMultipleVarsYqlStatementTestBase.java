@@ -22,7 +22,7 @@ import tech.ydb.yoj.repository.ydb.YdbConfig;
 import tech.ydb.yoj.repository.ydb.YdbRepository;
 import tech.ydb.yoj.repository.ydb.YdbRepositoryTransaction;
 
-public abstract class AbstractMultipleVarsYqlStatementTest extends RepositoryTestSupport {
+public abstract class AbstractMultipleVarsYqlStatementTestBase extends RepositoryTestSupport {
 
     @ClassRule
     public static final GrpcTransportRule ydbTransport = new GrpcTransportRule();

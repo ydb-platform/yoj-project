@@ -1,0 +1,14 @@
+common --enable_bzlmod
+
+# java common flags
+common --java_language_version=21
+common --java_runtime_version=remotejdk_21
+common --tool_java_language_version=21
+common --tool_java_runtime_version=remotejdk_21
+
+# java build flags
+build --nojava_header_compilation
+#build --strict_java_deps error
+
+# Don't depend on a JAVA_HOME pointing at a system JDK, see https://github.com/bazelbuild/rules_jvm_external/issues/445
+build --repo_env=JAVA_HOME=../bazel_tools/jdk

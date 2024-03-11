@@ -5,7 +5,6 @@ import tech.ydb.yoj.repository.db.IsolationLevel;
 import tech.ydb.yoj.repository.db.Repository;
 import tech.ydb.yoj.repository.db.RepositoryTransaction;
 import tech.ydb.yoj.repository.db.StdTxManager;
-import tech.ydb.yoj.repository.db.StdTxManagerTest;
 import tech.ydb.yoj.repository.db.Tx;
 import tech.ydb.yoj.repository.db.TxOptions;
 import tech.ydb.yoj.repository.db.cache.TransactionLocal;
@@ -18,7 +17,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 /**
- * Part of {@link StdTxManagerTest}.
+ * Part of {@link import tech.ydb.yoj.repository.db.StdTxManagerTest}.
  * This is a copy of {@link TestDbTxCaller}
  * for testing calls from different packages.
  */

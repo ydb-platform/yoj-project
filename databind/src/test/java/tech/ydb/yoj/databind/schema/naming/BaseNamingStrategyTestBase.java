@@ -4,7 +4,7 @@ import tech.ydb.yoj.databind.schema.Schema;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-public abstract class BaseNamingStrategyTest {
+public abstract class BaseNamingStrategyTestBase {
     protected abstract <T> Schema<T> getSchema(Class<T> entityType);
 
     protected <T> void verifyTableName(Class<T> entityType, String tableName) {

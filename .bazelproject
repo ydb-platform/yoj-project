@@ -1,0 +1,23 @@
+workspace_type: java
+
+java_language_level: 21
+
+directories:
+  .
+  -databind/pom.xml
+  -repository/pom.xml
+  -json-jackson-v2/pom.xml
+  -repository-inmemory/pom.xml
+  -repository-test/pom.xml
+  -repository-ydb-common/pom.xml
+  -repository-ydb-v1/pom.xml
+  -repository-ydb-v2/pom.xml
+  -util/pom.xml
+
+test_sources:
+  databind/src/test
+  repository/src/test
+  repository-inmemory/src/test
+  repository-ydb-v1/src/test
+  repository-ydb-v2/src/test
+  util/src/test
