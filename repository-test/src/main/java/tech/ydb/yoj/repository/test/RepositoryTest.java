@@ -48,7 +48,6 @@ import tech.ydb.yoj.repository.test.sample.model.NonDeserializableObject;
 import tech.ydb.yoj.repository.test.sample.model.Primitive;
 import tech.ydb.yoj.repository.test.sample.model.Project;
 import tech.ydb.yoj.repository.test.sample.model.Referring;
-import tech.ydb.yoj.repository.test.sample.model.annotations.Sha256;
 import tech.ydb.yoj.repository.test.sample.model.Simple;
 import tech.ydb.yoj.repository.test.sample.model.Supabubble;
 import tech.ydb.yoj.repository.test.sample.model.TypeFreak;
@@ -60,6 +59,7 @@ import tech.ydb.yoj.repository.test.sample.model.Version;
 import tech.ydb.yoj.repository.test.sample.model.VersionedAliasedEntity;
 import tech.ydb.yoj.repository.test.sample.model.VersionedEntity;
 import tech.ydb.yoj.repository.test.sample.model.WithUnflattenableField;
+import tech.ydb.yoj.repository.test.sample.model.annotations.Sha256;
 
 import java.time.Instant;
 import java.util.ArrayList;
