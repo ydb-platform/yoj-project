@@ -48,6 +48,7 @@ import tech.ydb.yoj.repository.test.sample.model.NonDeserializableObject;
 import tech.ydb.yoj.repository.test.sample.model.Primitive;
 import tech.ydb.yoj.repository.test.sample.model.Project;
 import tech.ydb.yoj.repository.test.sample.model.Referring;
+import tech.ydb.yoj.repository.test.sample.model.annotations.Sha256;
 import tech.ydb.yoj.repository.test.sample.model.Simple;
 import tech.ydb.yoj.repository.test.sample.model.Supabubble;
 import tech.ydb.yoj.repository.test.sample.model.TypeFreak;
@@ -71,6 +72,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.Spliterator;
+import java.util.UUID;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
@@ -2728,7 +2730,8 @@ public abstract class RepositoryTest extends RepositoryTestSupport {
 
     @Test
     public void customValueTypeInFilterByAlias() {
-        var ve = new VersionedAliasedEntity(new VersionedAliasedEntity.Id("heyhey", new Version(100L)), new Version(100_500L));
+        UUID testPrefferedUUID = UUID.randomUUID();
+        var ve = new VersionedAliasedEntity(new VersionedAliasedEntity.Id("heyhey", new Version(100L), testPrefferedUUID, new Sha256("100")), new Version(100_500L), testPrefferedUUID);
         db.tx(() -> db.versionedAliasedEntities().insert(ve));
         assertThat(db.tx(() -> db.versionedAliasedEntities().find(ve.id()))).isEqualTo(ve);
         assertThat(db.tx(() -> db.versionedAliasedEntities().query()

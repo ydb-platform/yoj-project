@@ -4,6 +4,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.lang.annotation.Annotation;
 import java.lang.reflect.AnnotatedElement;
+import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -23,16 +24,39 @@ public class Annotations {
 
     @Nullable
     public static <A extends Annotation> A find(Class<A> annotation, @Nonnull AnnotatedElement component) {
-        A column = component.getAnnotation(annotation);
-        if (column != null) {
-            return column;
+        A found = component.getAnnotation(annotation);
+        if (found != null) {
+            return found;
         }
-        return findInDepth(annotation, List.of(component.getAnnotations()));
+        Set<Annotation> ann;
+        if (component instanceof Class<?> clazz) {
+            ann = collectAnnotations(clazz);
+        } else {
+            ann = Set.of(component.getAnnotations());
+        }
+        return findInDepth(annotation, ann);
+    }
+
+    @Nonnull
+    private static Set<Annotation> collectAnnotations(Class<?> component) {
+        Set<Annotation> result = new HashSet<>();
+        Set<Class<?>> classesToExamine = new HashSet<>();
+        classesToExamine.add(component);
+        while (!classesToExamine.isEmpty()) {
+            Class<?> candidate = classesToExamine.iterator().next();
+            result.addAll(List.of(candidate.getDeclaredAnnotations()));
+            if (candidate.getSuperclass() != null) {
+                classesToExamine.add(candidate.getSuperclass());
+            }
+            classesToExamine.addAll(List.of(candidate.getInterfaces()));
+            classesToExamine.remove(candidate);
+        }
+        return result;
     }
 
     @Nullable
     @SuppressWarnings("unchecked")
-    private static <A extends Annotation> A findInDepth(Class<A> annotation, @Nonnull List<Annotation> anns) {
+    private static <A extends Annotation> A findInDepth(Class<A> annotation, @Nonnull Collection<Annotation> anns) {
         Set<Annotation> visited = new HashSet<>();
         Set<Annotation> annotationToExamine = new HashSet<>(anns);
         while (!annotationToExamine.isEmpty()) {

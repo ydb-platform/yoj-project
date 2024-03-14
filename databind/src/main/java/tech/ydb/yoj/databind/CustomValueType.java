@@ -8,6 +8,7 @@ import java.lang.annotation.Inherited;
 import java.lang.annotation.Retention;
 import java.lang.annotation.Target;
 
+import static java.lang.annotation.ElementType.ANNOTATION_TYPE;
 import static java.lang.annotation.ElementType.FIELD;
 import static java.lang.annotation.ElementType.RECORD_COMPONENT;
 import static java.lang.annotation.ElementType.TYPE;
@@ -22,7 +23,7 @@ import static java.lang.annotation.RetentionPolicy.RUNTIME;
  */
 @Inherited
 @Retention(RUNTIME)
-@Target({TYPE, FIELD, RECORD_COMPONENT})
+@Target({TYPE, FIELD, RECORD_COMPONENT, ANNOTATION_TYPE})
 @ExperimentalApi(issue = "https://github.com/ydb-platform/yoj-project/issues/24")
 public @interface CustomValueType {
     /**

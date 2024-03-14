@@ -8,6 +8,7 @@ import tech.ydb.yoj.databind.converter.ValueConverter;
 import tech.ydb.yoj.databind.schema.Column;
 import tech.ydb.yoj.databind.schema.CustomConverterException;
 import tech.ydb.yoj.databind.schema.Schema.JavaField;
+import tech.ydb.yoj.util.lang.Annotations;
 
 import javax.annotation.Nullable;
 import java.lang.reflect.InvocationTargetException;
@@ -72,7 +73,7 @@ public final class CustomValueTypes {
         var cvtAnnotation = columnAnnotation == null ? null : columnAnnotation.customValueType();
 
         var columnCvt = cvtAnnotation == null || cvtAnnotation.converter().equals(ValueConverter.NoConverter.class) ? null : cvtAnnotation;
-        var cvt = columnCvt == null ? rawType.getAnnotation(CustomValueType.class) : columnCvt;
+        var cvt = columnCvt == null ? Annotations.find(CustomValueType.class, rawType) : columnCvt;
         if (cvt != null) {
             Preconditions.checkArgument(!cvt.columnValueType().isComposite(), "@CustomValueType.columnValueType must be != COMPOSITE");
             Preconditions.checkArgument(!cvt.columnValueType().isUnknown(), "@CustomValueType.columnValueType must be != UNKNOWN");
