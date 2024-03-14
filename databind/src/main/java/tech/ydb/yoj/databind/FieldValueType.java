@@ -25,30 +25,29 @@ import static java.lang.reflect.Modifier.isFinal;
 public enum FieldValueType {
     /**
      * Integer value.
-     * Java-side <strong>must</strong> either be a numeric primitive, or extend {@link Number java.lang.Number} and
-     * implement {@link Comparable java.lang.Comparable}.
+     * Java-side <strong>must</strong> be a {@code long}, {@code int}, {@code short} or {@code byte},
+     * or an instance of their wrapper classes {@code Long}, {@code Integer}, {@code Short} or {@code Byte}.
      */
     INTEGER,
     /**
      * Real (floating-point) number value.
-     * Java-side <strong>must</strong> either be a numeric primitive, or extend {@link Number java.lang.Number} and
-     * implement {@link Comparable java.lang.Comparable}.
+     * Java-side <strong>must</strong> be a {@code double} or a {@code float}, or an instance of their
+     * wrapper classes {@code Double} or {@code Float}.
      */
     REAL,
     /**
      * String value.
-     * Java-side <strong>must</strong> be serialized to simple string value.
+     * Java-side <strong>must</strong> be a {@code String}.
      */
     STRING,
     /**
      * Boolean value.
-     * Java-side <strong>must</strong> either be an instance of {@link Boolean java.lang.Boolean} or a {@code boolean}
-     * primitive.
+     * Java-side <strong>must</strong> either be a {@code boolean} primitive, or an instance of its
+     * wrapper class {@code Boolean}.
      */
     BOOLEAN,
     /**
-     * Enum value. Java-side <strong>must</strong> be an instance of {@link Enum java.lang.Enum}.<br>
-     * Typically stored as {@link Enum#name() enum constant name} or its {@link Enum#ordinal() ordinal}.
+     * Enum value. Java-side <strong>must</strong> be a concrete subclass of {@link Enum java.lang.Enum}.
      */
     ENUM,
     /**
@@ -61,12 +60,14 @@ public enum FieldValueType {
     INTERVAL,
     /**
      * Binary value: just a stream of uninterpreted bytes.
-     * Java-side <strong>must</strong> be a byte array.
+     * Java-side <strong>must</strong> be a {@code byte[]}.
      * <p>
-     * @deprecated It is strongly recommended to use a {@link ByteArray} that is properly {@code Comparable}
-     * and has a sane {@code equals()}.
+     *
+     * @deprecated Support for mapping raw {@code byte[]} will be removed in YOJ 3.0.0.
+     * Even now, it is strongly recommended to use a {@link ByteArray}: it is properly {@code Comparable}
+     * and has a sane {@code equals()}, which ensures that queries will work the same for in-memory database and YDB.
      */
-    @Deprecated
+    @Deprecated(forRemoval = true)
     BINARY,
     /**
      * Binary value: just a stream of uninterpreted bytes.
@@ -75,19 +76,24 @@ public enum FieldValueType {
     BYTE_ARRAY,
     /**
      * Composite value. Can contain any other values, including other composite values.<br>
-     * Java-side must be an immutable POJO with all-args constructor, e.g. a Lombok {@code @Value}-annotated
-     * class.
+     * Java-side must be an immutable value reflectable by YOJ: a Java {@code Record},
+     * a Kotlin {@code data class}, an immutable POJO with all-args constructor annotated with
+     * {@code @ConstructorProperties} etc.
      */
     COMPOSITE,
     /**
      * Polymorphic object stored in an opaque form (i.e., individual fields cannot be accessed by data binding).<br>
-     * Serialized form strongly depends on the the marshalling mechanism (<em>e.g.</em>, JSON, YAML, ...).<br>
+     * Serialized form strongly depends on the the marshalling mechanism (<em>e.g.</em>, JSON, YAML, ...).
      */
     OBJECT,
     /**
+     * @deprecated This enum constant will be removed in YOJ 3.0.0; {@link #forJavaType(Type, Column)} will instead
+     * throw an {@code IllegalArgumentException} if an unmappable type is encountered.
+     * <p>
      * Value type is unknown.<br>
      * It <em>might</em> be supported by the data binding implementation, but relying on that fact is not recommended.
      */
+    @Deprecated(forRemoval = true)
     UNKNOWN;
 
     private static final Set<FieldValueType> SORTABLE_VALUE_TYPES = Set.of(
@@ -107,16 +113,13 @@ public enum FieldValueType {
     ));
 
     /**
-     * @deprecated It is recommended to use the {@link CustomValueType} annotation with a {@link StringValueConverter}
-     * instead of calling this method.
-     * <p>
-     * To register a class <em>not in your code</em> (e.g., {@code UUID} from the JDK) as a string-value type, use
-     * a {@link Column &#64;Column(customValueType=&#64;CustomValueType(...))} annotation on the specific field.
-     * <p>
-     * Future versions of YOJ might remove this method entirely.
-     *
      * @param clazz class to register as string-value. Must either be final or sealed with permissible final-only implementations.
      *              All permissible implementations of a sealed class will be registered automatically.
+     * @deprecated This method will be removed in YOJ 3.0.0.
+     * Use the {@link CustomValueType} annotation with a {@link StringValueConverter} instead of calling this method.
+     * <p>
+     * To register a class <em>not in your code</em> (e.g., {@code UUID} from the JDK) as a string-value type, use
+     * a {@link Column &#64;Column(customValueType=&#64;CustomValueType(...))} annotation on a specific field.
      */
     @Deprecated(forRemoval = true)
     @ExperimentalApi(issue = "https://github.com/ydb-platform/yoj-project/issues/24")
@@ -145,7 +148,7 @@ public enum FieldValueType {
     public static FieldValueType forJavaType(Type type, Column columnAnnotation) {
         var cvt = CustomValueTypes.getCustomValueType(type, columnAnnotation);
         if (cvt != null) {
-            return cvt.columnValueType();
+            type = cvt.columnClass();
         }
 
         boolean flatten = columnAnnotation == null || columnAnnotation.flatten();
@@ -158,11 +161,6 @@ public enum FieldValueType {
         if (type instanceof ParameterizedType || type instanceof TypeVariable) {
             return OBJECT;
         } else if (type instanceof Class<?> clazz) {
-            var cvt = CustomValueTypes.getCustomValueType(clazz, null);
-            if (cvt != null) {
-                return cvt.columnValueType();
-            }
-
             if (isStringValueType(clazz)) {
                 return STRING;
             } else if (INTEGER_NUMERIC_TYPES.contains(clazz)) {
@@ -206,10 +204,13 @@ public enum FieldValueType {
      * Checks whether Java object of type {@code type} is mapped to a composite database value
      * (i.e. > 1 database field)
      *
-     * @deprecated This method does not properly take into account the customizations specified in the
-     * {@link Column &#64;Column} annotation on the field. Please do not call it directly, instead use
-     * {@code FieldValueType.forJavaType(type, column).isComposite()} where {@code column} is the
-     * {@link Column &#64;Column} annotation's value.
+     * @deprecated This method will be removed in YOJ 3.0.0.
+     * This method does not properly take into account the customizations specified in the
+     * {@link Column &#64;Column} annotation on the field.
+     * <br>Please do not call this method directly, instead use
+     * {@link #forJavaType(Type, Column) FieldValueType.forJavaType(type, column).isComposite()}
+     * where {@code column} is the {@link Column &#64;Column} annotation's value or {@code null} if
+     * there is no annotation/you explicitly don't care.
      *
      * @param type Java object type
      * @return {@code true} if {@code type} maps to a composite database value; {@code false} otherwise
@@ -229,12 +230,28 @@ public enum FieldValueType {
     }
 
     /**
+     * @deprecated This method will be removed in YOJ 3.0.0 along with the {@link #UNKNOWN} enum constant.
+     *
      * @return {@code true} if there is no fitting database value type for the type provided; {@code false} otherwise
      */
+    @Deprecated(forRemoval = true)
     public boolean isUnknown() {
         return this == UNKNOWN;
     }
 
+    /**
+     * @deprecated This method will be removed in YOJ 3.0.0. This method is misleadingly named and is not generally useful.
+     * <ul>
+     * <li>It does not return the list of all Comparable single-column value types (INTERVAL and BOOLEAN are missing).
+     * In fact, all single-column value types except for BINARY are Comparable.</li>
+     * <li>What is considered <em>sortable</em> generally depends on your business logic.
+     * <br>E.g.: Are boolean values sortable or not? They're certainly Comparable.
+     * <br>E.g.: How do you sort columns with FieldValueType.STRING? Depends on your Locale for in-memory DB and your locale+collation+phase of the moon
+     * for a real database
+     * <br><em>etc.</em></li>
+     * </ul>
+     */
+    @Deprecated(forRemoval = true)
     public boolean isSortable() {
         return SORTABLE_VALUE_TYPES.contains(this);
     }

@@ -18,8 +18,7 @@ import static java.lang.reflect.Modifier.isStatic;
  * <pre>
  * &#64;Column(
  *     customValueType=&#64;CustomValueType(
- *         columnValueType=STRING,
- *         columnClass=&lt;your type&gt;,
+ *         columnClass=String.class,
  *         converter=StringValueConverter.class
  *     )
  * )

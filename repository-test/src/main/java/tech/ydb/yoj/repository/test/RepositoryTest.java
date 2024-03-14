@@ -2659,10 +2659,15 @@ public abstract class RepositoryTest extends RepositoryTestSupport {
     }
 
     @Test
-    public void stringValuedIdInsert() {
+    public void customValuedIds() {
         Map<UpdateFeedEntry.Id, UpdateFeedEntry> inserted = new HashMap<>();
         for (int i = 0; i < 100; i++) {
-            var snap = new UpdateFeedEntry(UpdateFeedEntry.Id.generate("insert"), Instant.now(), "payload-" + i);
+            var snap = new UpdateFeedEntry(
+                    UpdateFeedEntry.Id.generate("insert"),
+                    Instant.now(),
+                    "payload-" + i,
+                    Math.random() < 0.5 ? UpdateFeedEntry.Status.ACTIVE : UpdateFeedEntry.Status.INACTIVE
+            );
             db.tx(() -> db.updateFeedEntries().insert(snap));
             inserted.put(snap.getId(), snap);
         }

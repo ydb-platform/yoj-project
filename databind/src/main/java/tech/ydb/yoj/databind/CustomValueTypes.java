@@ -25,8 +25,8 @@ public final class CustomValueTypes {
     public static Object preconvert(@NonNull JavaField field, @NonNull Object value) {
         var cvt = field.getCustomValueType();
         if (cvt != null) {
-            if (cvt.columnClass().equals(value.getClass())) {
-                // Already preconverted
+            if (cvt.columnClass().isInstance(value)) {
+                // Value is already preconverted
                 return value;
             }
 
@@ -42,11 +42,6 @@ public final class CustomValueTypes {
     public static Object postconvert(@NonNull JavaField field, @NonNull Object value) {
         var cvt = field.getCustomValueType();
         if (cvt != null) {
-            if (field.getRawType().equals(value.getClass())) {
-                // Already postconverted
-                return value;
-            }
-
             value = createCustomValueTypeConverter(cvt).toJava(field, value);
         }
         return value;
@@ -75,15 +70,31 @@ public final class CustomValueTypes {
         var columnCvt = cvtAnnotation == null || cvtAnnotation.converter().equals(ValueConverter.NoConverter.class) ? null : cvtAnnotation;
         var cvt = columnCvt == null ? Annotations.find(CustomValueType.class, rawType) : columnCvt;
         if (cvt != null) {
-            Preconditions.checkArgument(!cvt.columnValueType().isComposite(), "@CustomValueType.columnValueType must be != COMPOSITE");
-            Preconditions.checkArgument(!cvt.columnValueType().isUnknown(), "@CustomValueType.columnValueType must be != UNKNOWN");
+            var columnClass = cvt.columnClass();
+
+            var recursiveCvt = getCustomValueType(columnClass, null);
+            Preconditions.checkArgument(recursiveCvt == null,
+                    "Defining recursive custom value types is prohibited, but @CustomValueType.columnClass=%s is annotated with %s",
+                    columnClass.getCanonicalName(),
+                    recursiveCvt);
+
+            Preconditions.checkArgument(!columnClass.isInterface() && !isAbstract(columnClass.getModifiers()),
+                    "@CustomValueType.columnClass=%s must not be an interface or an abstract class", columnClass.getCanonicalName());
+
+            var fvt = FieldValueType.forJavaType(columnClass, null);
+            Preconditions.checkArgument(!fvt.isComposite(),
+                    "@CustomValueType.columnClass=%s must not map to FieldValueType.COMPOSITE", columnClass.getCanonicalName());
+            Preconditions.checkArgument(!fvt.isUnknown(),
+                    "@CustomValueType.columnClass=%s must not map to FieldValueType.UNKNOWN", columnClass.getCanonicalName());
+
+            var converterClass = cvt.converter();
             Preconditions.checkArgument(
-                    !cvt.converter().equals(ValueConverter.NoConverter.class)
-                            && !cvt.converter().isInterface()
-                            && !isAbstract(cvt.converter().getModifiers())
-                            && (cvt.converter().getDeclaringClass() == null || isStatic(cvt.converter().getModifiers())),
-                    "@CustomValueType.converter must not be an interface, abstract class, non-static inner class, or NoConverter.class, but got: %s",
-                    cvt);
+                    !converterClass.equals(ValueConverter.NoConverter.class)
+                            && !converterClass.isInterface()
+                            && !isAbstract(converterClass.getModifiers())
+                            && (converterClass.getDeclaringClass() == null || isStatic(converterClass.getModifiers())),
+                    "@CustomValueType.converter=%s must not be an interface, abstract class, non-static inner class, or NoConverter.class",
+                    converterClass.getCanonicalName());
         }
 
         return cvt;

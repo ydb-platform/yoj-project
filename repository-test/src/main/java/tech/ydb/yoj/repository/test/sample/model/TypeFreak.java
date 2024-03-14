@@ -6,7 +6,6 @@ import lombok.Value;
 import lombok.With;
 import tech.ydb.yoj.databind.CustomValueType;
 import tech.ydb.yoj.databind.DbType;
-import tech.ydb.yoj.databind.FieldValueType;
 import tech.ydb.yoj.databind.converter.StringValueConverter;
 import tech.ydb.yoj.databind.schema.Column;
 import tech.ydb.yoj.repository.db.Entity;
@@ -118,7 +117,7 @@ public class TypeFreak implements Entity<TypeFreak> {
         String stringEmbedded;
     }
 
-    @CustomValueType(columnValueType = FieldValueType.STRING, columnClass = String.class, converter = StringValueConverter.class)
+    @CustomValueType(columnClass = String.class, converter = StringValueConverter.class)
     public static final class StringValueWrapper {
         private final String value;
 
@@ -147,7 +146,7 @@ public class TypeFreak implements Entity<TypeFreak> {
      * instance method.
      * <p><em>E.g.,</em> {@code "XYZ-100500" <=> new Ticket(queue="XYZ", num=100500)}
      */
-    @CustomValueType(columnValueType = FieldValueType.STRING, columnClass = String.class, converter = StringValueConverter.class)
+    @CustomValueType(columnClass = String.class, converter = StringValueConverter.class)
     public record Ticket(@NonNull String queue, int num) {
         public Ticket {
             Preconditions.checkArgument(num >= 1, "ticket number must be >= 1");

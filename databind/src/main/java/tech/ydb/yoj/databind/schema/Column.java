@@ -13,7 +13,6 @@ import static java.lang.annotation.ElementType.ANNOTATION_TYPE;
 import static java.lang.annotation.ElementType.FIELD;
 import static java.lang.annotation.ElementType.RECORD_COMPONENT;
 import static java.lang.annotation.RetentionPolicy.RUNTIME;
-import static tech.ydb.yoj.databind.FieldValueType.UNKNOWN;
 
 /**
  * Specifies the mapped column for a persistent field.
@@ -72,5 +71,5 @@ public @interface Column {
      * @see CustomValueType
      */
     @ExperimentalApi(issue = "https://github.com/ydb-platform/yoj-project/issues/24")
-    CustomValueType customValueType() default @CustomValueType(columnValueType = UNKNOWN, columnClass = Comparable.class, converter = NoConverter.class);
+    CustomValueType customValueType() default @CustomValueType(columnClass = Comparable.class, converter = NoConverter.class);
 }

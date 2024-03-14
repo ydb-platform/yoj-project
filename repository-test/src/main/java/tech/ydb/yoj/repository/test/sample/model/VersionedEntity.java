@@ -1,7 +1,6 @@
 package tech.ydb.yoj.repository.test.sample.model;
 
 import tech.ydb.yoj.databind.CustomValueType;
-import tech.ydb.yoj.databind.FieldValueType;
 import tech.ydb.yoj.databind.schema.Column;
 import tech.ydb.yoj.repository.db.Entity;
 import tech.ydb.yoj.repository.db.RecordEntity;
@@ -10,7 +9,6 @@ public record VersionedEntity(
         Id id,
         @Column(
                 customValueType = @CustomValueType(
-                        columnValueType = FieldValueType.INTEGER,
                         columnClass = Long.class,
                         converter = Version.Converter.class
                 )
@@ -21,7 +19,6 @@ public record VersionedEntity(
             String value,
             @Column(
                     customValueType = @CustomValueType(
-                            columnValueType = FieldValueType.INTEGER,
                             columnClass = Long.class,
                             converter = Version.Converter.class
                     )

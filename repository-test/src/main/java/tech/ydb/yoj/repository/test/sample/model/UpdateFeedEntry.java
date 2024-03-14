@@ -4,7 +4,7 @@ import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
 import lombok.Value;
 import tech.ydb.yoj.databind.CustomValueType;
-import tech.ydb.yoj.databind.FieldValueType;
+import tech.ydb.yoj.databind.converter.EnumOrdinalConverter;
 import tech.ydb.yoj.databind.converter.StringValueConverter;
 import tech.ydb.yoj.databind.schema.Column;
 import tech.ydb.yoj.repository.DbTypeQualifier;
@@ -25,15 +25,24 @@ public class UpdateFeedEntry implements Entity<UpdateFeedEntry> {
 
     String payload;
 
-    public UpdateFeedEntry(Id id, Instant updatedAt, String payload) {
+    Status status;
+
+    public UpdateFeedEntry(Id id, Instant updatedAt, String payload, Status status) {
         this.id = id;
         this.updatedAt = updatedAt.truncatedTo(ChronoUnit.SECONDS);
         this.payload = payload;
+        this.status = status;
+    }
+
+    @CustomValueType(columnClass = Integer.class, converter = EnumOrdinalConverter.class)
+    public enum Status {
+        ACTIVE,
+        INACTIVE,
     }
 
     @Value
     @RequiredArgsConstructor(access = PRIVATE)
-    @CustomValueType(columnValueType = FieldValueType.STRING, columnClass = String.class, converter = StringValueConverter.class)
+    @CustomValueType(columnClass = String.class, converter = StringValueConverter.class)
     public static class Id implements Entity.Id<UpdateFeedEntry> {
         UUID uuid;
         String reserved;
