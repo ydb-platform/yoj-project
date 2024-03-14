@@ -28,6 +28,7 @@ import tech.ydb.yoj.repository.test.sample.model.Supabubble2;
 import tech.ydb.yoj.repository.test.sample.model.Team;
 import tech.ydb.yoj.repository.test.sample.model.TypeFreak;
 import tech.ydb.yoj.repository.test.sample.model.UpdateFeedEntry;
+import tech.ydb.yoj.repository.test.sample.model.VersionedAliasedEntity;
 import tech.ydb.yoj.repository.test.sample.model.VersionedEntity;
 import tech.ydb.yoj.repository.ydb.table.YdbTable;
 
@@ -136,6 +137,10 @@ public class TestYdbRepository extends YdbRepository {
         @Override
         public Table<VersionedEntity> versionedEntities() {
             return table(VersionedEntity.class);
+        }
+
+        public Table<VersionedAliasedEntity> versionedAliasedEntities() {
+            return table(VersionedAliasedEntity.class);
         }
     }
 

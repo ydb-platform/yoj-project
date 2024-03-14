@@ -56,8 +56,10 @@ import tech.ydb.yoj.repository.test.sample.model.TypeFreak.B;
 import tech.ydb.yoj.repository.test.sample.model.TypeFreak.Embedded;
 import tech.ydb.yoj.repository.test.sample.model.UpdateFeedEntry;
 import tech.ydb.yoj.repository.test.sample.model.Version;
+import tech.ydb.yoj.repository.test.sample.model.VersionedAliasedEntity;
 import tech.ydb.yoj.repository.test.sample.model.VersionedEntity;
 import tech.ydb.yoj.repository.test.sample.model.WithUnflattenableField;
+import tech.ydb.yoj.repository.test.sample.model.annotations.Sha256;
 
 import java.time.Instant;
 import java.util.ArrayList;
@@ -70,6 +72,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.Spliterator;
+import java.util.UUID;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
@@ -2724,6 +2727,29 @@ public abstract class RepositoryTest extends RepositoryTestSupport {
                 .findOne()
         )).isEqualTo(ve);
         assertThat(db.tx(() -> db.versionedEntities().query()
+                .where("id.version").eq(100L)
+                .and("version2").eq(null)
+                .findOne()
+        )).isNull();
+    }
+
+    @Test
+    public void customValueTypeInFilterByAlias() {
+        UUID testPrefferedUUID = UUID.randomUUID();
+        var ve = new VersionedAliasedEntity(new VersionedAliasedEntity.Id("heyhey", new Version(100L), testPrefferedUUID, new Sha256("100")), new Version(100_500L), testPrefferedUUID);
+        db.tx(() -> db.versionedAliasedEntities().insert(ve));
+        assertThat(db.tx(() -> db.versionedAliasedEntities().find(ve.id()))).isEqualTo(ve);
+        assertThat(db.tx(() -> db.versionedAliasedEntities().query()
+                .where("id.version").eq(ve.id().version())
+                .and("version2").eq(ve.version2())
+                .findOne()
+        )).isEqualTo(ve);
+        assertThat(db.tx(() -> db.versionedAliasedEntities().query()
+                .where("id.version").eq(100L)
+                .and("version2").eq(100_500L)
+                .findOne()
+        )).isEqualTo(ve);
+        assertThat(db.tx(() -> db.versionedAliasedEntities().query()
                 .where("id.version").eq(100L)
                 .and("version2").eq(null)
                 .findOne()
