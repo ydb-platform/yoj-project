@@ -75,39 +75,36 @@ public class FieldValue {
     }
 
     @NonNull
-    public static FieldValue ofObj(@NonNull Object obj, @NonNull JavaField jf) {
-        return ofObj(obj, jf.getField().getColumn());
-    }
+    public static FieldValue ofObj(@NonNull Object obj, @NonNull JavaField javaField) {
+        FieldValueType fvt = FieldValueType.forJavaType(obj.getClass(), javaField.getField().getColumn());
+        Object postconverted = CustomValueTypes.preconvert(javaField, obj);
 
-    @NonNull
-    @SuppressWarnings({"unchecked", "rawtypes"})
-    private static FieldValue ofObj(@NonNull Object obj, @Nullable Column column) {
-        switch (FieldValueType.forJavaType(obj.getClass(), column)) {
+        switch (fvt) {
             case STRING -> {
-                return ofStr(obj.toString());
+                return ofStr((String) postconverted);
             }
             case ENUM -> {
-                return ofStr(((Enum<?>) obj).name());
+                return ofStr(((Enum<?>) postconverted).name());
             }
             case INTEGER -> {
-                return ofNum(((Number) obj).longValue());
+                return ofNum(((Number) postconverted).longValue());
             }
             case REAL -> {
-                return ofReal(((Number) obj).doubleValue());
+                return ofReal(((Number) postconverted).doubleValue());
             }
             case BOOLEAN -> {
-                return ofBool((Boolean) obj);
+                return ofBool((Boolean) postconverted);
             }
             case BYTE_ARRAY -> {
-                return ofByteArray((ByteArray) obj);
+                return ofByteArray((ByteArray) postconverted);
             }
             case TIMESTAMP -> {
-                return ofTimestamp((Instant) obj);
+                return ofTimestamp((Instant) postconverted);
             }
             case COMPOSITE -> {
-                ObjectSchema schema = ObjectSchema.of(obj.getClass());
+                ObjectSchema schema = ObjectSchema.of(postconverted.getClass());
                 List<JavaField> flatFields = schema.flattenFields();
-                Map<String, Object> flattenedObj = schema.flatten(obj);
+                Map<String, Object> flattenedObj = schema.flatten(postconverted);
 
                 List<JavaFieldValue> allFieldValues = flatFields.stream()
                         .map(jf -> new JavaFieldValue(jf, flattenedObj.get(jf.getName())))
@@ -115,7 +112,7 @@ public class FieldValue {
                 if (allFieldValues.size() == 1) {
                     JavaFieldValue singleValue = allFieldValues.iterator().next();
                     Preconditions.checkArgument(singleValue.getValue() != null, "Wrappers must have a non-null value inside them");
-                    return ofObj(singleValue.getValue(), column);
+                    return ofObj(singleValue.getValue(), singleValue.getField());
                 }
                 return ofTuple(new Tuple(obj, allFieldValues));
             }

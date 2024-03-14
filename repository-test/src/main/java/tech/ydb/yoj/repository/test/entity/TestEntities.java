@@ -1,7 +1,6 @@
 package tech.ydb.yoj.repository.test.entity;
 
 import lombok.NonNull;
-import tech.ydb.yoj.databind.FieldValueType;
 import tech.ydb.yoj.repository.db.Entity;
 import tech.ydb.yoj.repository.db.Repository;
 import tech.ydb.yoj.repository.test.sample.model.Book;
@@ -21,6 +20,7 @@ import tech.ydb.yoj.repository.test.sample.model.Supabubble2;
 import tech.ydb.yoj.repository.test.sample.model.Team;
 import tech.ydb.yoj.repository.test.sample.model.TypeFreak;
 import tech.ydb.yoj.repository.test.sample.model.UpdateFeedEntry;
+import tech.ydb.yoj.repository.test.sample.model.VersionedEntity;
 import tech.ydb.yoj.repository.test.sample.model.WithUnflattenableField;
 
 import java.util.List;
@@ -43,14 +43,12 @@ public final class TestEntities {
             NonDeserializableEntity.class,
             WithUnflattenableField.class,
             UpdateFeedEntry.class,
-            NetworkAppliance.class
+            NetworkAppliance.class,
+            VersionedEntity.class
     );
 
     @SuppressWarnings("unchecked")
     public static Repository init(@NonNull Repository repository) {
-        FieldValueType.registerStringValueType(TypeFreak.Ticket.class);
-        FieldValueType.registerStringValueType(TypeFreak.StringValueWrapper.class);
-
         repository.createTablespace();
         ALL.forEach(entityClass -> repository.schema(entityClass).create());
 

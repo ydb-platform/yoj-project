@@ -25,6 +25,7 @@ import tech.ydb.yoj.repository.test.sample.model.Supabubble2;
 import tech.ydb.yoj.repository.test.sample.model.Team;
 import tech.ydb.yoj.repository.test.sample.model.TypeFreak;
 import tech.ydb.yoj.repository.test.sample.model.UpdateFeedEntry;
+import tech.ydb.yoj.repository.test.sample.model.VersionedEntity;
 
 import java.util.Set;
 
@@ -111,6 +112,11 @@ public class TestInMemoryRepository extends InMemoryRepository {
         @Override
         public Table<NetworkAppliance> networkAppliances() {
             return table(NetworkAppliance.class);
+        }
+
+        @Override
+        public Table<VersionedEntity> versionedEntities() {
+            return table(VersionedEntity.class);
         }
     }
 
