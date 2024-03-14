@@ -21,9 +21,14 @@ public final class CustomValueTypes {
     private CustomValueTypes() {
     }
 
-    public static Object preconvert(@NonNull JavaField field, Object value) {
+    public static Object preconvert(@NonNull JavaField field, @NonNull Object value) {
         var cvt = field.getCustomValueType();
         if (cvt != null) {
+            if (cvt.columnClass().equals(value.getClass())) {
+                // Already preconverted
+                return value;
+            }
+
             value = createCustomValueTypeConverter(cvt).toColumn(field, value);
 
             Preconditions.checkArgument(cvt.columnClass().isInstance(value),
@@ -33,9 +38,14 @@ public final class CustomValueTypes {
         return value;
     }
 
-    public static Object postconvert(@NonNull JavaField field, Object value) {
+    public static Object postconvert(@NonNull JavaField field, @NonNull Object value) {
         var cvt = field.getCustomValueType();
         if (cvt != null) {
+            if (field.getRawType().equals(value.getClass())) {
+                // Already postconverted
+                return value;
+            }
+
             value = createCustomValueTypeConverter(cvt).toJava(field, value);
         }
         return value;
