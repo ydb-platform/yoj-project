@@ -6,7 +6,6 @@ import lombok.SneakyThrows;
 import lombok.Value;
 import tech.ydb.yoj.databind.ByteArray;
 import tech.ydb.yoj.databind.CustomValueType;
-import tech.ydb.yoj.databind.FieldValueType;
 import tech.ydb.yoj.databind.converter.ValueConverter;
 import tech.ydb.yoj.databind.schema.Column;
 import tech.ydb.yoj.databind.schema.Schema.JavaField;
@@ -17,7 +16,6 @@ import java.net.InetAddress;
 import java.net.UnknownHostException;
 
 import static tech.ydb.yoj.databind.DbType.UINT64;
-import static tech.ydb.yoj.databind.FieldValueType.BYTE_ARRAY;
 
 public record NetworkAppliance(
         @NonNull Id id,
@@ -29,7 +27,7 @@ public record NetworkAppliance(
 
     @Value
     @RequiredArgsConstructor
-    @CustomValueType(columnValueType = BYTE_ARRAY, columnClass = ByteArray.class, converter = Ipv6Address.Converter.class)
+    @CustomValueType(columnClass = ByteArray.class, converter = Ipv6Address.Converter.class)
     public static class Ipv6Address {
         Inet6Address addr;
 
@@ -60,7 +58,7 @@ public record NetworkAppliance(
         }
     }
 
-    @CustomValueType(columnValueType = FieldValueType.INTEGER, columnClass = Long.class, converter = LikeLong.Converter.class)
+    @CustomValueType(columnClass = Long.class, converter = LikeLong.Converter.class)
     public static abstract class LikeLong extends Number implements Comparable<LikeLong> {
         @Override
         public int intValue() {

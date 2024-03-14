@@ -365,10 +365,6 @@ public class YqlPrimitiveType implements YqlType {
         FieldValueType valueType = column.getValueType();
         String qualifier = column.getDbTypeQualifier();
         CustomValueType cvt = column.getCustomValueType();
-        if (cvt != null && cvt.columnValueType() != valueType) {
-            throw new IllegalStateException("This should never happen: detected FieldValueType must == @CustomValueType.columnValueType(), but got: "
-                    + valueType + " != " + cvt.columnValueType());
-        }
 
         var underlyingType = resolveYqlType(
                 cvt != null ? cvt.columnClass() : javaType,

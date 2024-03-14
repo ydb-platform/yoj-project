@@ -77,34 +77,34 @@ public class FieldValue {
     @NonNull
     public static FieldValue ofObj(@NonNull Object obj, @NonNull JavaField javaField) {
         FieldValueType fvt = FieldValueType.forJavaType(obj.getClass(), javaField.getField().getColumn());
-        Object postconverted = CustomValueTypes.preconvert(javaField, obj);
+        obj = CustomValueTypes.preconvert(javaField, obj);
 
         switch (fvt) {
             case STRING -> {
-                return ofStr((String) postconverted);
+                return ofStr((String) obj);
             }
             case ENUM -> {
-                return ofStr(((Enum<?>) postconverted).name());
+                return ofStr(((Enum<?>) obj).name());
             }
             case INTEGER -> {
-                return ofNum(((Number) postconverted).longValue());
+                return ofNum(((Number) obj).longValue());
             }
             case REAL -> {
-                return ofReal(((Number) postconverted).doubleValue());
+                return ofReal(((Number) obj).doubleValue());
             }
             case BOOLEAN -> {
-                return ofBool((Boolean) postconverted);
+                return ofBool((Boolean) obj);
             }
             case BYTE_ARRAY -> {
-                return ofByteArray((ByteArray) postconverted);
+                return ofByteArray((ByteArray) obj);
             }
             case TIMESTAMP -> {
-                return ofTimestamp((Instant) postconverted);
+                return ofTimestamp((Instant) obj);
             }
             case COMPOSITE -> {
-                ObjectSchema schema = ObjectSchema.of(postconverted.getClass());
+                ObjectSchema schema = ObjectSchema.of(obj.getClass());
                 List<JavaField> flatFields = schema.flattenFields();
-                Map<String, Object> flattenedObj = schema.flatten(postconverted);
+                Map<String, Object> flattenedObj = schema.flatten(obj);
 
                 List<JavaFieldValue> allFieldValues = flatFields.stream()
                         .map(jf -> new JavaFieldValue(jf, flattenedObj.get(jf.getName())))
@@ -118,7 +118,7 @@ public class FieldValue {
             }
             default -> throw new UnsupportedOperationException(
                     "Unsupported value type: not a string, integer, timestamp, enum, "
-                            + "floating-point number, tuple or wrapper of the above"
+                            + "floating-point number, byte array, tuple or wrapper of the above"
             );
         }
     }

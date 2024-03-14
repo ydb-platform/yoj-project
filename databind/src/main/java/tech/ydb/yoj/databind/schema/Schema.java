@@ -204,8 +204,6 @@ public abstract class Schema<T> {
         } else {
             var cvt = subSchemaField.getCustomValueType();
             if (cvt != null) {
-                Preconditions.checkArgument(!cvt.columnValueType().isComposite() && !cvt.columnValueType().isUnknown(),
-                        "Cannot have a composite or unknown columnValueType() in @CustomValueType annotation");
                 var dummyField = new JavaField(new DummyCustomValueSubField(subSchemaField), subSchemaField, __ -> true);
                 dummyField.setName(subSchemaField.getName());
                 fields = List.of(dummyField);
