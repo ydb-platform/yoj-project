@@ -10,6 +10,7 @@ import kotlin.reflect.jvm.ReflectJvmMapping;
 import tech.ydb.yoj.databind.FieldValueType;
 import tech.ydb.yoj.databind.schema.Column;
 import tech.ydb.yoj.databind.schema.FieldValueException;
+import tech.ydb.yoj.util.lang.Annotations;
 
 import javax.annotation.Nullable;
 import java.lang.reflect.Type;
@@ -50,7 +51,7 @@ public final class KotlinDataClassComponent implements ReflectField {
         Preconditions.checkArgument(field != null, "Could not get Java field for property '%s' of '%s'",
                 property.getName(), kPropertyType);
 
-        this.column = field.getAnnotation(Column.class);
+        this.column = Annotations.find(Column.class, field);
         this.valueType = FieldValueType.forJavaType(genericType, column);
         this.reflectType = reflector.reflectFieldType(genericType, valueType);
     }

@@ -9,6 +9,7 @@ import tech.ydb.yoj.databind.converter.ValueConverter.NoConverter;
 import java.lang.annotation.Retention;
 import java.lang.annotation.Target;
 
+import static java.lang.annotation.ElementType.ANNOTATION_TYPE;
 import static java.lang.annotation.ElementType.FIELD;
 import static java.lang.annotation.ElementType.RECORD_COMPONENT;
 import static java.lang.annotation.RetentionPolicy.RUNTIME;
@@ -34,7 +35,7 @@ import static tech.ydb.yoj.databind.FieldValueType.UNKNOWN;
  * BigSubobject subobj2;
  * </pre></blockquote>
  */
-@Target({FIELD, RECORD_COMPONENT})
+@Target({FIELD, RECORD_COMPONENT, ANNOTATION_TYPE})
 @Retention(RUNTIME)
 public @interface Column {
     /**

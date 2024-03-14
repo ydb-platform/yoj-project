@@ -20,6 +20,7 @@ import tech.ydb.yoj.repository.test.sample.model.Supabubble2;
 import tech.ydb.yoj.repository.test.sample.model.Team;
 import tech.ydb.yoj.repository.test.sample.model.TypeFreak;
 import tech.ydb.yoj.repository.test.sample.model.UpdateFeedEntry;
+import tech.ydb.yoj.repository.test.sample.model.VersionedAliasedEntity;
 import tech.ydb.yoj.repository.test.sample.model.VersionedEntity;
 import tech.ydb.yoj.repository.test.sample.model.WithUnflattenableField;
 
@@ -44,7 +45,8 @@ public final class TestEntities {
             WithUnflattenableField.class,
             UpdateFeedEntry.class,
             NetworkAppliance.class,
-            VersionedEntity.class
+            VersionedEntity.class,
+            VersionedAliasedEntity.class
     );
 
     @SuppressWarnings("unchecked")

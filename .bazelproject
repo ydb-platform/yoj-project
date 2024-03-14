@@ -21,3 +21,6 @@ test_sources:
   repository-ydb-v1/src/test
   repository-ydb-v2/src/test
   util/src/test
+
+# Automatically includes all relevant targets under the 'directories' above
+derive_targets_from_directories: true

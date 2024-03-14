@@ -21,6 +21,7 @@ import tech.ydb.yoj.repository.test.sample.model.Supabubble2;
 import tech.ydb.yoj.repository.test.sample.model.Team;
 import tech.ydb.yoj.repository.test.sample.model.TypeFreak;
 import tech.ydb.yoj.repository.test.sample.model.UpdateFeedEntry;
+import tech.ydb.yoj.repository.test.sample.model.VersionedAliasedEntity;
 import tech.ydb.yoj.repository.test.sample.model.VersionedEntity;
 
 import java.util.ArrayList;
@@ -65,6 +66,8 @@ public interface TestEntityOperations extends BaseDb {
     Table<NetworkAppliance> networkAppliances();
 
     Table<VersionedEntity> versionedEntities();
+
+    Table<VersionedAliasedEntity> versionedAliasedEntities();
 
     class ProjectTable extends AbstractDelegatingTable<Project> {
         public ProjectTable(Table<Project> target) {

@@ -56,6 +56,7 @@ import tech.ydb.yoj.repository.test.sample.model.TypeFreak.B;
 import tech.ydb.yoj.repository.test.sample.model.TypeFreak.Embedded;
 import tech.ydb.yoj.repository.test.sample.model.UpdateFeedEntry;
 import tech.ydb.yoj.repository.test.sample.model.Version;
+import tech.ydb.yoj.repository.test.sample.model.VersionedAliasedEntity;
 import tech.ydb.yoj.repository.test.sample.model.VersionedEntity;
 import tech.ydb.yoj.repository.test.sample.model.WithUnflattenableField;
 
@@ -2719,6 +2720,28 @@ public abstract class RepositoryTest extends RepositoryTestSupport {
                 .findOne()
         )).isEqualTo(ve);
         assertThat(db.tx(() -> db.versionedEntities().query()
+                .where("id.version").eq(100L)
+                .and("version2").eq(null)
+                .findOne()
+        )).isNull();
+    }
+
+    @Test
+    public void customValueTypeInFilterByAlias() {
+        var ve = new VersionedAliasedEntity(new VersionedAliasedEntity.Id("heyhey", new Version(100L)), new Version(100_500L));
+        db.tx(() -> db.versionedAliasedEntities().insert(ve));
+        assertThat(db.tx(() -> db.versionedAliasedEntities().find(ve.id()))).isEqualTo(ve);
+        assertThat(db.tx(() -> db.versionedAliasedEntities().query()
+                .where("id.version").eq(ve.id().version())
+                .and("version2").eq(ve.version2())
+                .findOne()
+        )).isEqualTo(ve);
+        assertThat(db.tx(() -> db.versionedAliasedEntities().query()
+                .where("id.version").eq(100L)
+                .and("version2").eq(100_500L)
+                .findOne()
+        )).isEqualTo(ve);
+        assertThat(db.tx(() -> db.versionedAliasedEntities().query()
                 .where("id.version").eq(100L)
                 .and("version2").eq(null)
                 .findOne()

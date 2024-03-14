@@ -5,6 +5,7 @@ import lombok.NonNull;
 import tech.ydb.yoj.databind.FieldValueType;
 import tech.ydb.yoj.databind.schema.Column;
 import tech.ydb.yoj.databind.schema.FieldValueException;
+import tech.ydb.yoj.util.lang.Annotations;
 
 import javax.annotation.Nullable;
 import java.lang.reflect.Type;
@@ -40,7 +41,7 @@ public final class RecordField implements ReflectField {
         this.name = delegate.getName();
         this.genericType = delegate.getGenericType();
         this.type = delegate.getType();
-        this.column = delegate.getAnnotation(Column.class);
+        this.column = Annotations.find(Column.class, delegate);
         this.valueType = FieldValueType.forJavaType(genericType, column);
         this.reflectType = reflector.reflectFieldType(genericType, valueType);
     }
