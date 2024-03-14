@@ -40,7 +40,7 @@ public final class RecordField implements ReflectField {
         this.name = delegate.getName();
         this.genericType = delegate.getGenericType();
         this.type = delegate.getType();
-        this.column = delegate.getAnnotation(Column.class);
+        this.column = Annotations.find(Column.class, delegate);
         this.valueType = FieldValueType.forJavaType(genericType, column);
         this.reflectType = reflector.reflectFieldType(genericType, valueType);
     }

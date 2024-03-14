@@ -50,7 +50,7 @@ public final class KotlinDataClassComponent implements ReflectField {
         Preconditions.checkArgument(field != null, "Could not get Java field for property '%s' of '%s'",
                 property.getName(), kPropertyType);
 
-        this.column = field.getAnnotation(Column.class);
+        this.column = Annotations.find(Column.class, field);
         this.valueType = FieldValueType.forJavaType(genericType, column);
         this.reflectType = reflector.reflectFieldType(genericType, valueType);
     }

@@ -46,7 +46,7 @@ public final class PojoField implements ReflectField {
 
         this.genericType = delegate.getGenericType();
         this.type = delegate.getType();
-        this.column = delegate.getAnnotation(Column.class);
+        this.column = Annotations.find(Column.class, delegate);
         this.valueType = FieldValueType.forJavaType(genericType, column);
         this.reflectType = reflector.reflectFieldType(genericType, valueType);
     }
