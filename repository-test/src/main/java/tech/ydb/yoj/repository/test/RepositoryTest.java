@@ -60,6 +60,7 @@ import tech.ydb.yoj.repository.test.sample.model.VersionedAliasedEntity;
 import tech.ydb.yoj.repository.test.sample.model.VersionedEntity;
 import tech.ydb.yoj.repository.test.sample.model.WithUnflattenableField;
 import tech.ydb.yoj.repository.test.sample.model.annotations.Sha256;
+import tech.ydb.yoj.repository.test.sample.model.annotations.UniqueEntity;
 
 import java.time.Instant;
 import java.util.ArrayList;
@@ -2736,7 +2737,7 @@ public abstract class RepositoryTest extends RepositoryTestSupport {
     @Test
     public void customValueTypeInFilterByAlias() {
         UUID testPrefferedUUID = UUID.randomUUID();
-        var ve = new VersionedAliasedEntity(new VersionedAliasedEntity.Id("heyhey", new Version(100L), testPrefferedUUID, new Sha256("100")), new Version(100_500L), testPrefferedUUID);
+        var ve = new VersionedAliasedEntity(new VersionedAliasedEntity.Id("heyhey", new Version(100L), testPrefferedUUID, new Sha256("100")), new Version(100_500L), testPrefferedUUID, new UniqueEntity.Id(testPrefferedUUID));
         db.tx(() -> db.versionedAliasedEntities().insert(ve));
         assertThat(db.tx(() -> db.versionedAliasedEntities().find(ve.id()))).isEqualTo(ve);
         assertThat(db.tx(() -> db.versionedAliasedEntities().query()
@@ -2754,6 +2755,10 @@ public abstract class RepositoryTest extends RepositoryTestSupport {
                 .and("version2").eq(null)
                 .findOne()
         )).isNull();
+        assertThat(db.tx(() -> db.versionedAliasedEntities().query()
+                .where("uniqueId").eq(ve.uniqueId())
+                .findOne()
+        )).isEqualTo(ve);
     }
 
     protected void runInTx(Consumer<RepositoryTransaction> action) {
