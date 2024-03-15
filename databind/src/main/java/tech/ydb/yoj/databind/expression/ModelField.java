@@ -69,7 +69,7 @@ public final class ModelField {
         }
 
         Type fieldType = getFlatFieldType();
-        FieldValueType fieldValueType = FieldValueType.forJavaType(fieldType, javaField.getField().getColumn());
+        FieldValueType fieldValueType = FieldValueType.forJavaType(fieldType, javaField.toFlatField().getField().getColumn());
         if (value.isString()) {
             if (fieldValueType == FieldValueType.ENUM) {
                 TypeToken<?> tt = TypeToken.of(fieldType);

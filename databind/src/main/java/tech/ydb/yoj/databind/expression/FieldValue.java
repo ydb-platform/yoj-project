@@ -156,7 +156,7 @@ public class FieldValue {
                                               @NonNull JavaField field) {
         if (field.isFlat()) {
             Object rawValue = values.get(field.getName());
-            return rawValue == null ? null : ofObj(rawValue, field).getComparable(field);
+            return rawValue == null ? null : ofObj(rawValue, field.toFlatField()).getComparable(field);
         } else {
             List<JavaFieldValue> components = field.flatten()
                     .map(jf -> new JavaFieldValue(jf, values.get(jf.getName())))
@@ -184,7 +184,7 @@ public class FieldValue {
     @SuppressWarnings({"unchecked", "rawtypes"})
     public Comparable<?> getComparable(@NonNull JavaField field) {
         Type fieldType = field.isFlat() ? field.getFlatFieldType() : field.getType();
-        Column column = field.getField().getColumn();
+        Column column = field.isFlat() ? field.toFlatField().getField().getColumn() : field.getField().getColumn();
         switch (FieldValueType.forJavaType(fieldType, column)) {
             case STRING -> {
                 Preconditions.checkState(isString(), "Value is not a string: " + this);
