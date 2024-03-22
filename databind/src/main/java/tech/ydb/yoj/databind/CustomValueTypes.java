@@ -3,7 +3,10 @@ package tech.ydb.yoj.databind;
 import com.google.common.base.Preconditions;
 import com.google.common.reflect.TypeToken;
 import lombok.NonNull;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import tech.ydb.yoj.ExperimentalApi;
+import tech.ydb.yoj.databind.converter.StringValueConverter;
 import tech.ydb.yoj.databind.converter.ValueConverter;
 import tech.ydb.yoj.databind.schema.Column;
 import tech.ydb.yoj.databind.schema.CustomConverterException;
@@ -16,9 +19,12 @@ import java.lang.reflect.Type;
 
 import static java.lang.reflect.Modifier.isAbstract;
 import static java.lang.reflect.Modifier.isStatic;
+import static tech.ydb.yoj.databind.FieldValueType.STRING;
 
 @ExperimentalApi(issue = "https://github.com/ydb-platform/yoj-project/issues/24")
 public final class CustomValueTypes {
+    private static final Logger log = LoggerFactory.getLogger(CustomValueTypes.class);
+
     private CustomValueTypes() {
     }
 
@@ -35,6 +41,14 @@ public final class CustomValueTypes {
             Preconditions.checkArgument(cvt.columnClass().isInstance(value),
                     "Custom value type converter %s must produce a non-null value of type columnClass()=%s but got value of type %s",
                     cvt.converter().getCanonicalName(), cvt.columnClass().getCanonicalName(), value.getClass().getCanonicalName());
+        } else {
+            // Legacy string-valued type (registered by FieldValueType.registerStringValueType())
+            if (field.getValueType() == STRING && !String.class.equals(field.getRawType()) && !(value instanceof String)) {
+                log.warn("You are using FieldValueType.registerStringValueType({}.class) which is deprecated for removal. "
+                                + "Please use @StringColumn annotation on the Entity field or a @StringValueType annotation on the string-valued type",
+                        field.getRawType().getCanonicalName());
+                return new StringValueConverter<>().toColumn(field, value);
+            }
         }
         return value;
     }
@@ -43,6 +57,14 @@ public final class CustomValueTypes {
         var cvt = field.getCustomValueType();
         if (cvt != null) {
             value = createCustomValueTypeConverter(cvt).toJava(field, value);
+        } else {
+            // Legacy string-valued type (registered by FieldValueType.registerStringValueType())
+            if (field.getValueType() == STRING && !String.class.equals(field.getRawType()) && value instanceof String) {
+                log.warn("You are using FieldValueType.registerStringValueType({}.class) which is deprecated for removal. "
+                                + "Please use @StringColumn annotation on the Entity field or a @StringValueType annotation on the string-valued type",
+                        field.getRawType().getCanonicalName());
+                return new StringValueConverter<>().toJava(field, (String) value);
+            }
         }
         return value;
     }

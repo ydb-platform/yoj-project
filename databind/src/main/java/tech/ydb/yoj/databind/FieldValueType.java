@@ -3,7 +3,6 @@ package tech.ydb.yoj.databind;
 import com.google.common.base.Preconditions;
 import lombok.NonNull;
 import tech.ydb.yoj.ExperimentalApi;
-import tech.ydb.yoj.databind.converter.StringValueConverter;
 import tech.ydb.yoj.databind.schema.Column;
 
 import java.lang.reflect.ParameterizedType;
@@ -116,10 +115,12 @@ public enum FieldValueType {
      * @param clazz class to register as string-value. Must either be final or sealed with permissible final-only implementations.
      *              All permissible implementations of a sealed class will be registered automatically.
      * @deprecated This method will be removed in YOJ 3.0.0.
-     * Use the {@link CustomValueType} annotation with a {@link StringValueConverter} instead of calling this method.
+     * Use the {@link tech.ydb.yoj.databind.converter.StringColumn @StringColumn} annotation on the field or
+     * {@link tech.ydb.yoj.databind.converter.StringValueType @StringValueType} annotation on the type
+     * instead of calling this method.
      * <p>
      * To register a class <em>not in your code</em> (e.g., {@code UUID} from the JDK) as a string-value type, use
-     * a {@link Column &#64;Column(customValueType=&#64;CustomValueType(...))} annotation on a specific field.
+     * the {@link tech.ydb.yoj.databind.converter.StringColumn @StringColumn} annotation on a specific field.
      */
     @Deprecated(forRemoval = true)
     @ExperimentalApi(issue = "https://github.com/ydb-platform/yoj-project/issues/24")

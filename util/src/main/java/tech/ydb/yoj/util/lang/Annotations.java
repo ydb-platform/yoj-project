@@ -9,7 +9,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
-public class Annotations {
+public final class Annotations {
     private Annotations() {
     }
 
@@ -21,7 +21,6 @@ public class Annotations {
      *
      * @return annotation found or null
      */
-
     @Nullable
     public static <A extends Annotation> A find(Class<A> annotation, @Nonnull AnnotatedElement component) {
         A found = component.getAnnotation(annotation);

@@ -5,7 +5,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.Value;
 import tech.ydb.yoj.databind.CustomValueType;
 import tech.ydb.yoj.databind.converter.EnumOrdinalConverter;
-import tech.ydb.yoj.databind.converter.StringValueConverter;
+import tech.ydb.yoj.databind.converter.StringValueType;
 import tech.ydb.yoj.databind.schema.Column;
 import tech.ydb.yoj.repository.DbTypeQualifier;
 import tech.ydb.yoj.repository.db.Entity;
@@ -42,7 +42,7 @@ public class UpdateFeedEntry implements Entity<UpdateFeedEntry> {
 
     @Value
     @RequiredArgsConstructor(access = PRIVATE)
-    @CustomValueType(columnClass = String.class, converter = StringValueConverter.class)
+    @StringValueType
     public static class Id implements Entity.Id<UpdateFeedEntry> {
         UUID uuid;
         String reserved;

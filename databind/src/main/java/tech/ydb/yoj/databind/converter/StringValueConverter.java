@@ -30,7 +30,7 @@ import static java.lang.reflect.Modifier.isStatic;
 public final class StringValueConverter<J> implements ValueConverter<J, String> {
     private volatile Function<String, J> deserializer;
 
-    private StringValueConverter() {
+    public StringValueConverter() {
     }
 
     @Override
