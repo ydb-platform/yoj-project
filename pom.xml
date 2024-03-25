@@ -25,6 +25,7 @@
         <module>repository-ydb-common</module>
         <module>repository-ydb-v1</module>
         <module>repository-ydb-v2</module>
+        <module>aspect</module>
         <module>util</module>
     </modules>
 
@@ -147,6 +148,7 @@
         <testcontainers.version>1.19.1</testcontainers.version>
         <jackson.version>2.16.1</jackson.version>
         <snakeyaml.version>1.33</snakeyaml.version>
+        <aspectjweaver.version>1.9.21</aspectjweaver.version>
     </properties>
 
     <profiles>
@@ -651,6 +653,11 @@
                 <artifactId>kotlin-stdlib</artifactId>
                 <version>${kotlin.version}</version>
                 <optional>true</optional>
+            </dependency>
+            <dependency>
+                <groupId>org.aspectj</groupId>
+                <artifactId>aspectjweaver</artifactId>
+                <version>${aspectjweaver.version}</version>
             </dependency>
         </dependencies>
     </dependencyManagement>
