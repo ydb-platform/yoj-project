@@ -12,6 +12,7 @@ directories:
   -repository-ydb-common/pom.xml
   -repository-ydb-v1/pom.xml
   -repository-ydb-v2/pom.xml
+  -tx-aspect/pom.xml
   -util/pom.xml
 
 test_sources:
