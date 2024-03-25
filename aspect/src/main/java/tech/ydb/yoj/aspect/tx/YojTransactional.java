@@ -1,4 +1,4 @@
-package tech.ydb.yoj.spring.tx;
+package tech.ydb.yoj.aspect.tx;
 
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Inherited;

@@ -25,7 +25,7 @@
         <module>repository-ydb-common</module>
         <module>repository-ydb-v1</module>
         <module>repository-ydb-v2</module>
-        <module>tx-aspect</module>
+        <module>aspect</module>
         <module>util</module>
     </modules>
 

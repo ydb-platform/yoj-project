@@ -1,4 +1,4 @@
-package tech.ydb.yoj.spring.tx;
+package tech.ydb.yoj.aspect.tx;
 
 import org.aspectj.lang.ProceedingJoinPoint;
 import org.aspectj.lang.Signature;
