@@ -25,7 +25,7 @@ public final class Annotations {
     @Nullable
     public static <A extends Annotation> A find(Class<A> annotation, @Nonnull AnnotatedElement component) {
         A found = component.getAnnotation(annotation);
-        return found != null? found : findInDepth(annotation, component);
+        return found != null ? found : findInDepth(annotation, component);
     }
 
     @Nonnull
