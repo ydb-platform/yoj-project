@@ -4,10 +4,11 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.lang.annotation.Annotation;
 import java.lang.reflect.AnnotatedElement;
-import java.util.Collection;
+import java.util.Arrays;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Set;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 public final class Annotations {
     private Annotations() {
@@ -24,16 +25,7 @@ public final class Annotations {
     @Nullable
     public static <A extends Annotation> A find(Class<A> annotation, @Nonnull AnnotatedElement component) {
         A found = component.getAnnotation(annotation);
-        if (found != null) {
-            return found;
-        }
-        Set<Annotation> ann;
-        if (component instanceof Class<?> clazz) {
-            ann = collectAnnotations(clazz);
-        } else {
-            ann = Set.of(component.getAnnotations());
-        }
-        return findInDepth(annotation, ann);
+        return found != null ? found : findInDepth(annotation, component);
     }
 
     @Nonnull
@@ -43,11 +35,16 @@ public final class Annotations {
         classesToExamine.add(component);
         while (!classesToExamine.isEmpty()) {
             Class<?> candidate = classesToExamine.iterator().next();
-            result.addAll(List.of(candidate.getDeclaredAnnotations()));
-            if (candidate.getSuperclass() != null) {
+            nonJdkAnnotations(candidate.getDeclaredAnnotations())
+                    .forEach(result::add);
+            if (candidate.getSuperclass() != null && !jdkClass(candidate.getSuperclass())) {
                 classesToExamine.add(candidate.getSuperclass());
             }
-            classesToExamine.addAll(List.of(candidate.getInterfaces()));
+            for (Class<?> in : candidate.getInterfaces()) {
+                if (!jdkClass(in)) {
+                    classesToExamine.add(in);
+                }
+            }
             classesToExamine.remove(candidate);
         }
         return result;
@@ -55,20 +52,38 @@ public final class Annotations {
 
     @Nullable
     @SuppressWarnings("unchecked")
-    private static <A extends Annotation> A findInDepth(Class<A> annotation, @Nonnull Collection<Annotation> anns) {
+    private static <A extends Annotation> A findInDepth(Class<A> annotation, @Nonnull AnnotatedElement component) {
         Set<Annotation> visited = new HashSet<>();
-        Set<Annotation> annotationToExamine = new HashSet<>(anns);
+        Set<Annotation> annotationToExamine = getAnnotations(component);
         while (!annotationToExamine.isEmpty()) {
             Annotation candidate = annotationToExamine.iterator().next();
             if (visited.add(candidate)) {
                 if (candidate.annotationType() == annotation) {
                     return (A) candidate;
                 } else {
-                    annotationToExamine.addAll(List.of(candidate.annotationType().getDeclaredAnnotations()));
+                    nonJdkAnnotations(candidate.annotationType().getDeclaredAnnotations())
+                            .forEach(annotationToExamine::add);
                 }
             }
             annotationToExamine.remove(candidate);
         }
         return null;
+    }
+
+    private static Set<Annotation> getAnnotations(AnnotatedElement component) {
+        if (component instanceof Class<?> clazz) {
+            return jdkClass(clazz) ? new HashSet<>() : collectAnnotations(clazz);
+        } else {
+            return nonJdkAnnotations(component.getAnnotations()).collect(Collectors.toSet());
+        }
+    }
+
+    private static Stream<Annotation> nonJdkAnnotations(Annotation[] annotations) {
+        return Arrays.stream(annotations)
+                .filter(da -> !jdkClass(da.annotationType()));
+    }
+
+    static boolean jdkClass(Class<?> type) {
+        return type.getName().startsWith("java.");
     }
 }
