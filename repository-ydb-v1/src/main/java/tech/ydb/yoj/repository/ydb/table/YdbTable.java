@@ -9,6 +9,7 @@ import tech.ydb.yoj.databind.expression.FilterExpression;
 import tech.ydb.yoj.databind.expression.OrderExpression;
 import tech.ydb.yoj.repository.db.Entity;
 import tech.ydb.yoj.repository.db.Entity.Id;
+import tech.ydb.yoj.repository.db.EntityDescription;
 import tech.ydb.yoj.repository.db.EntityIdSchema;
 import tech.ydb.yoj.repository.db.EntitySchema;
 import tech.ydb.yoj.repository.db.Range;
@@ -57,6 +58,7 @@ public class YdbTable<T extends Entity<T>> implements Table<T> {
     private final QueryExecutor executor;
     @Getter
     private final Class<T> type;
+    private final EntityDescription<T> desc;
 
     public YdbTable(Class<T> type, QueryExecutor executor) {
         this.type = type;

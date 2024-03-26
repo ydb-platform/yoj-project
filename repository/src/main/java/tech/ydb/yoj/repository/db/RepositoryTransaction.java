@@ -10,6 +10,8 @@ import tech.ydb.yoj.repository.db.exception.OptimisticLockException;
 public interface RepositoryTransaction {
     <T extends Entity<T>> Table<T> table(Class<T> c);
 
+    <T extends Entity<T>> Table<T> table(EntityDescription<T> c);
+
     /**
      * Commits the transaction or throws exception. Note that this method is not expected to be called, if the last
      * transaction statement has thrown an exception, because it means that transaction didn't 'execute normally'.

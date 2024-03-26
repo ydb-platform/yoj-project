@@ -3,6 +3,7 @@ package tech.ydb.yoj.repository.db.cache;
 import com.google.common.collect.Maps;
 import lombok.NonNull;
 import tech.ydb.yoj.repository.db.Entity;
+import tech.ydb.yoj.repository.db.EntityDescription;
 
 import java.util.Collections;
 import java.util.ConcurrentModificationException;
@@ -16,15 +17,19 @@ import java.util.stream.Collectors;
 
 
 public interface FirstLevelCache {
-    <E extends Entity<E>> E get(@NonNull Entity.Id<E> id, @NonNull Function<Entity.Id<E>, E> loader);
+    <E extends Entity<E>> E get(
+            @NonNull EntityDescription<E> desc,
+            @NonNull Entity.Id<E> id,
+            @NonNull Function<Entity.Id<E>, E> loader
+    );
 
-    <E extends Entity<E>> Optional<E> peek(@NonNull Entity.Id<E> id);
+    <E extends Entity<E>> Optional<E> peek(@NonNull EntityDescription<E> desc, @NonNull Entity.Id<E> id);
 
     /**
      * Returns a immutable copy of the entities of {@code entityType} type that are in the
      * transaction L1 cache.
      */
-    <E extends Entity<E>> List<E> snapshot(@NonNull Class<E> entityType);
+    <E extends Entity<E>> List<E> snapshot(@NonNull EntityDescription<E> desc);
 
     /**
      * Returns a unmodifiable map containing the entities of {@code entityType} type that are in the
@@ -32,13 +37,13 @@ public interface FirstLevelCache {
      * changes to second affect the first. To avoid an {@link ConcurrentModificationException} exception
      * when iterating and simultaneous modification of the transaction L1 cache, you may need to make a copy.
      */
-    <E extends Entity<E>> Map<Entity.Id<E>, E> entities(@NonNull Class<E> entityType);
+    <E extends Entity<E>> Map<Entity.Id<E>, E> entities(@NonNull EntityDescription<E> desc);
 
-    <E extends Entity<E>> void put(@NonNull E e);
+    <E extends Entity<E>> void put(@NonNull EntityDescription<E> desc, @NonNull E e);
 
-    <E extends Entity<E>> void putEmpty(@NonNull Entity.Id<E> id);
+    <E extends Entity<E>> void putEmpty(@NonNull EntityDescription<E> desc, @NonNull Entity.Id<E> id);
 
-    <E extends Entity<E>> boolean containsKey(@NonNull Entity.Id<E> id);
+    <E extends Entity<E>> boolean containsKey(@NonNull EntityDescription<E> desc, @NonNull Entity.Id<E> id);
 
     static FirstLevelCache empty() {
         return new FirstLevelCache() {
