@@ -6,7 +6,7 @@
 
     <groupId>tech.ydb.yoj</groupId>
     <artifactId>yoj-parent</artifactId>
-    <version>2.2.8-SNAPSHOT</version>
+    <version>2.2.8</version>
     <packaging>pom</packaging>
 
     <name>YDB ORM for Java (YOJ)</name>
