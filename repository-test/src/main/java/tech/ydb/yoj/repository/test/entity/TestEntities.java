@@ -8,6 +8,7 @@ import tech.ydb.yoj.repository.test.sample.model.Book;
 import tech.ydb.yoj.repository.test.sample.model.Bubble;
 import tech.ydb.yoj.repository.test.sample.model.BytePkEntity;
 import tech.ydb.yoj.repository.test.sample.model.Complex;
+import tech.ydb.yoj.repository.test.sample.model.DetachedEntity;
 import tech.ydb.yoj.repository.test.sample.model.EntityWithValidation;
 import tech.ydb.yoj.repository.test.sample.model.IndexedEntity;
 import tech.ydb.yoj.repository.test.sample.model.LogEntry;
@@ -48,7 +49,8 @@ public final class TestEntities {
             UpdateFeedEntry.class,
             NetworkAppliance.class,
             VersionedEntity.class,
-            VersionedAliasedEntity.class
+            VersionedAliasedEntity.class,
+            DetachedEntity.class
     );
 
     @SuppressWarnings("unchecked")

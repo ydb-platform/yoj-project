@@ -9,6 +9,7 @@ import tech.ydb.yoj.repository.db.bulk.BulkParams;
 import tech.ydb.yoj.repository.test.sample.model.Bubble;
 import tech.ydb.yoj.repository.test.sample.model.BytePkEntity;
 import tech.ydb.yoj.repository.test.sample.model.Complex;
+import tech.ydb.yoj.repository.test.sample.model.DetachedEntity;
 import tech.ydb.yoj.repository.test.sample.model.EntityWithValidation;
 import tech.ydb.yoj.repository.test.sample.model.IndexedEntity;
 import tech.ydb.yoj.repository.test.sample.model.LogEntry;
@@ -68,6 +69,8 @@ public interface TestEntityOperations extends BaseDb {
     Table<VersionedEntity> versionedEntities();
 
     Table<VersionedAliasedEntity> versionedAliasedEntities();
+
+    Table<DetachedEntity> detachedEntities();
 
     class ProjectTable extends AbstractDelegatingTable<Project> {
         public ProjectTable(Table<Project> target) {

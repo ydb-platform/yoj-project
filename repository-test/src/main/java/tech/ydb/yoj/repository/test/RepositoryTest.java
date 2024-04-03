@@ -39,6 +39,8 @@ import tech.ydb.yoj.repository.test.sample.model.Bubble;
 import tech.ydb.yoj.repository.test.sample.model.BytePkEntity;
 import tech.ydb.yoj.repository.test.sample.model.Complex;
 import tech.ydb.yoj.repository.test.sample.model.Complex.Id;
+import tech.ydb.yoj.repository.test.sample.model.DetachedEntity;
+import tech.ydb.yoj.repository.test.sample.model.DetachedEntityId;
 import tech.ydb.yoj.repository.test.sample.model.EntityWithValidation;
 import tech.ydb.yoj.repository.test.sample.model.IndexedEntity;
 import tech.ydb.yoj.repository.test.sample.model.MultiLevelDirectory;
@@ -2759,6 +2761,13 @@ public abstract class RepositoryTest extends RepositoryTestSupport {
                 .where("uniqueId").eq(ve.uniqueId())
                 .findOne()
         )).isEqualTo(ve);
+    }
+
+    @Test
+    public void detachedEntity() {
+        var theEntity = new DetachedEntity(new DetachedEntityId("some-id"));
+        db.tx(() -> db.detachedEntities().save(theEntity));
+        assertThat(db.tx(() -> db.detachedEntities().find(theEntity.id()))).isEqualTo(theEntity);
     }
 
     protected void runInTx(Consumer<RepositoryTransaction> action) {
