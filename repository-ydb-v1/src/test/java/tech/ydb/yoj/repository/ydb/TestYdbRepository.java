@@ -17,6 +17,7 @@ import tech.ydb.yoj.repository.test.sample.TestEntityOperations.IndexedTable;
 import tech.ydb.yoj.repository.test.sample.TestEntityOperations.Supabubble2Table;
 import tech.ydb.yoj.repository.test.sample.model.Bubble;
 import tech.ydb.yoj.repository.test.sample.model.Complex;
+import tech.ydb.yoj.repository.test.sample.model.DetachedEntity;
 import tech.ydb.yoj.repository.test.sample.model.EntityWithValidation;
 import tech.ydb.yoj.repository.test.sample.model.IndexedEntity;
 import tech.ydb.yoj.repository.test.sample.model.LogEntry;
@@ -142,6 +143,11 @@ public class TestYdbRepository extends YdbRepository {
         @Override
         public Table<VersionedAliasedEntity> versionedAliasedEntities() {
             return table(VersionedAliasedEntity.class);
+        }
+
+        @Override
+        public Table<DetachedEntity> detachedEntities() {
+            return table(DetachedEntity.class);
         }
     }
 
