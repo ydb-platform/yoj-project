@@ -14,7 +14,7 @@ import java.util.stream.Collectors;
  * The structure of input class and its nested classes.
  * @param className
  * @param fields all non-static fields, doesn't matter whether they are 'simple' or not
- * @param nestedClasses
+ * @param nestedClasses map < fieldTypeName, SourceClassStructure >
  * @param nestLevel since the same structure is used for nested classes, this field indicates how
  *                  nested the class is. 0 means it's a root class.
  */

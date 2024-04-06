@@ -71,17 +71,17 @@ import java.util.Set;
  *  <ul>
  *      <b>Additional info:</b>
  *      <li>Support Records</li>
+ *      <li>Support Kotlin data classes</li>
  *  </ul>
  * <ul>
  *      <b>Known issues (should be fixed in future):</b>
- *     <li>If there is Id-class with a single field id, it will generate "id.id" constant instead of "id" which is
- *     assumed in our ORM</li>
  *     <li>if entity doesn't have @Table it won't be processed even if it's implements Entity interface</li>
  *     <li>We assume that annotation @Table is used on top-level class</li>
  *     <li>The AP will break in case of two nested classes which refer each other (i.e. circular dependency) </li>
  *     <li>Will generate nested classes even if @Column(flatten=true) </li>
  *     <li>Will generate nested classes even if they are in fact empty </li>
  *     <li>No logs are written</li>
+ *     <li>if a field has type of a class which is not nested inside the annotated class, the field will be ignored</li>
  *     <li>There is a rare situation when generated code won't compile. The following source class
  *     <pre>{@code
  *          class Name{

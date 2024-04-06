@@ -7,12 +7,13 @@ import javax.annotation.Nullable;
 import javax.annotation.Nonnull;
 import tech.ydb.yoj.databind.schema.Column;
 import tech.ydb.yoj.databind.schema.Table;
+import tech.ydb.yoj.repository.db.Entity;
 
 /**
  * Some comments
  */
 @Table(name = "audit_event_record")
-public class TypicalEntity {
+public class TypicalEntity implements Entity<TypicalEntity> {
 
     public static final Comparator<TypicalEntity> COMPARE_BY_ID =
             (e1, e2) -> TypicalEntity.Id.NATURAL_ORDER.compare(e1.getId(), e2.getId());
@@ -20,7 +21,7 @@ public class TypicalEntity {
     @Column
     @Nonnull private final Id id;
 
-    public static class Id {
+    public static class Id implements Entity.Id<TypicalEntity> {
 
         private static final Comparator<Id> NATURAL_ORDER =
                 Comparator.comparing(Id::getTrailId)

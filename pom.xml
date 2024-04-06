@@ -133,6 +133,7 @@
         <commons-lang.version>3.13.0</commons-lang.version>
         <commons-text.version>1.10.0</commons-text.version>
         <compile-testing.version>0.21.0</compile-testing.version>
+        <kotlin-compile-testing.version>1.5.0</kotlin-compile-testing.version>
         <prometheus.version>0.6.0</prometheus.version>
         <error-prone-annotations.version>2.14.0</error-prone-annotations.version>
         <gson-version>2.10.1</gson-version>
@@ -562,6 +563,11 @@
                 <groupId>com.google.testing.compile</groupId>
                 <artifactId>compile-testing</artifactId>
                 <version>${compile-testing.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.github.tschuchortdev</groupId>
+                <artifactId>kotlin-compile-testing</artifactId>
+                <version>${kotlin-compile-testing.version}</version>
             </dependency>
             <dependency>
                 <groupId>org.mockito</groupId>

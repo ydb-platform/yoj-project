@@ -47,7 +47,11 @@
         <dependency>
             <groupId>com.google.testing.compile</groupId>
             <artifactId>compile-testing</artifactId>
-            <version>0.21.0</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>com.github.tschuchortdev</groupId>
+            <artifactId>kotlin-compile-testing</artifactId>
             <scope>test</scope>
         </dependency>
     </dependencies>

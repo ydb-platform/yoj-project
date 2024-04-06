@@ -3,6 +3,7 @@ package tech.ydb.yoj.generator;
 import com.google.common.base.CaseFormat;
 import org.apache.commons.lang3.StringUtils;
 
+import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -42,6 +43,21 @@ record TargetClassStructure(
         );
     }
 
+    private static boolean hasOnlyOneField(@Nullable SourceClassStructure field) {
+
+        while (field != null) {
+            // We must have only one field ...
+            List<FieldInfo> fields = field.fields();
+            if (fields.size() != 1) {
+                return false;
+            }
+            // ... and it should be simple ...
+            field = field.nestedClasses().get(fields.get(0).type());
+            // ... but if it's not, probably a nested class is one-fielded. So we should recursively check it
+        }
+        return true;
+    }
+
     private static TargetClassStructure build(
             SourceClassStructure sourceClassStructure,
             String className,
@@ -54,7 +70,7 @@ record TargetClassStructure(
         for (FieldInfo field : sourceClassStructure.fields()) {
             SourceClassStructure complexField = sourceClassStructure.nestedClasses().get(field.type());
 
-            if (complexField == null) {
+            if (complexField == null || (isIdField(field) && hasOnlyOneField(complexField))) {
                 fields.add(field.name());
             } else {
                 nestedClasses.add(
@@ -69,6 +85,13 @@ record TargetClassStructure(
             }
         }
         return new TargetClassStructure(className, fields, nestedClasses, fieldPrefix, nestLevel);
+    }
+
+    private static boolean isIdField(FieldInfo field) {
+        // The better way would be to check that the fields' type implements Entity.Id class.
+        // However, since the Entity interface is publicly available,
+        // I don't think that renaming of the field will happen
+        return field.name().equals("id");
     }
 
     public static String concatFieldNameChain(String one, String two) {
