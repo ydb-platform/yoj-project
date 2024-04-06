@@ -120,11 +120,20 @@ record TargetClassStructure(
             import javax.annotation.processing.Generated;
             
             @Generated("%s")
-            """.formatted(packageName, FieldGeneratorAnnotationProcessor.class.getName()));
+            public final class %s {
+            """.formatted(
+                    packageName,
+                    FieldGeneratorAnnotationProcessor.class.getName(),
+                    className
+                )
+            );
+        } else {
+            // Nested class
+            result.append(ident).append("public static final class %s {\n".formatted(className));
         }
 
-        // Start class
-        result.append(ident).append("public class %s {\n".formatted(className));
+        // private c-tor, to make it non-instantiable
+        result.append(ident).append("    private %s(){}\n\n".formatted(className));
 
         // fields
         simpleFieldNames.stream()
