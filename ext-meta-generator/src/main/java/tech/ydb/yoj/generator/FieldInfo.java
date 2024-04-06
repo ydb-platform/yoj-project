@@ -7,6 +7,7 @@ import javax.lang.model.element.TypeElement;
 import javax.lang.model.element.VariableElement;
 import javax.lang.model.util.Types;
 import java.util.List;
+import java.util.Set;
 
 /**
  * Information about all fields in a source class
@@ -17,7 +18,7 @@ record FieldInfo(String name, String type) {
 
     public static List<FieldInfo> extractAllFields(Element classElement, Types typeUtils) {
         return classElement.getEnclosedElements().stream()
-                .filter(FieldInfo::isNonStaticField)
+                .filter(FieldInfo::isFieldRelevant)
                 .map(element -> FieldInfo.extractField(element, typeUtils))
                 .toList();
     }
@@ -43,17 +44,21 @@ record FieldInfo(String name, String type) {
         )) {
             return ((TypeElement) nonPrimitiveType).getQualifiedName().toString();
         } else {
-            return "primitive";
+            // In case of primitive we don't care about type because it will never be nested
+            return "-primitive-";
         }
     }
 
-    private static boolean isNonStaticField(Element e) {
+    private static boolean isFieldRelevant(Element e) {
         if (e.getKind() != ElementKind.FIELD) {
             return false;
         }
         VariableElement variableElement = (VariableElement) e;
         //noinspection RedundantIfStatement
-        if (variableElement.getModifiers().contains(Modifier.STATIC)) {
+        if (
+                variableElement.getModifiers().contains(Modifier.STATIC) ||
+                variableElement.getModifiers().contains(Modifier.TRANSIENT)
+        ) {
             return false;
         }
         return true;

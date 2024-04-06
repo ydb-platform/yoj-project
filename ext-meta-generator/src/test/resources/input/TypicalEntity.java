@@ -73,14 +73,12 @@ public class TypicalEntity implements Entity<TypicalEntity> {
 
     @Nullable
     private final Instant lastUpdated;
-
     @Nullable
     private final Object payload;
-
     @Nullable
     private final Object metadata;
-
     private final SomeEnum state;
+    private final transient String transientField = "Must be ignored";
 
     public yandex.cloud.trail.model.TypicalEntity.Id getId() {
         return id;
