@@ -79,8 +79,7 @@ import java.util.Set;
  *     <li>if entity doesn't have @Table it won't be processed even if it's implements Entity interface</li>
  *     <li>We assume that annotation @Table is used on top-level class</li>
  *     <li>The AP will break in case of two nested classes which refer each other (i.e. circular dependency) </li>
- *     <li>Will generate nested classes even if @Column(flatten=true) </li>
- *     <li>Will generate nested classes even if they are in fact empty </li>
+ *     <li>Will generate nested classes even disregarding @Column's flatten option </li>
  *     <li>No logs are written</li>
  *     <li>if a field has type of a class which is not nested inside the annotated class, the field will be ignored</li>
  *     <li>There is a rare situation when generated code won't compile. The following source class
