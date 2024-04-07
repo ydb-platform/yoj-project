@@ -2,17 +2,18 @@ package input;
 
 import java.time.Instant;
 
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 import tech.ydb.yoj.databind.schema.Column;
 import tech.ydb.yoj.databind.schema.Table;
 import tech.ydb.yoj.repository.db.Entity;
+
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
 @Table(name = "audit_event_record")
 public class EntityWithSimpleSingularId implements Entity<EntityWithSimpleSingularId>{
 
     @Column
-    @NotNull
+    @Nonnull
     private Id id;
 
     @Override
@@ -21,7 +22,7 @@ public class EntityWithSimpleSingularId implements Entity<EntityWithSimpleSingul
     }
     public static class Id implements Entity.Id<EntityWithSimpleSingularId> {
 
-        @NotNull
+        @Nonnull
         private final String value = "";
     }
 

@@ -7,7 +7,6 @@ import javax.lang.model.element.TypeElement;
 import javax.lang.model.element.VariableElement;
 import javax.lang.model.util.Types;
 import java.util.List;
-import java.util.Set;
 
 /**
  * Information about all fields in a source class

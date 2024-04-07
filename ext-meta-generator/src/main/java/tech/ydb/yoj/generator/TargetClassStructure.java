@@ -1,7 +1,7 @@
 package tech.ydb.yoj.generator;
 
 import com.google.common.base.CaseFormat;
-import org.apache.commons.lang3.StringUtils;
+import com.google.common.base.Strings;
 
 import javax.annotation.Nullable;
 import java.util.ArrayList;
@@ -95,10 +95,10 @@ record TargetClassStructure(
     }
 
     public static String concatFieldNameChain(String one, String two) {
-        if (StringUtils.isEmpty(one)) {
+        if (Strings.isNullOrEmpty(one)) {
             return two;
         }
-        if (StringUtils.isEmpty(two)) {
+        if (Strings.isNullOrEmpty(two)) {
             return one;
         }
         return one + "." + two;
@@ -109,7 +109,7 @@ record TargetClassStructure(
      */
     public String render(String packageName) {
 
-        String ident = StringUtils.repeat(' ', nestLevel * 4);
+        String ident = Strings.repeat(" ", nestLevel * 4);
         StringBuilder result = new StringBuilder();
 
         // header

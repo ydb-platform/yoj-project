@@ -5,7 +5,6 @@ import com.google.testing.compile.Compiler;
 import com.google.testing.compile.JavaFileObjects;
 import com.tschuchort.compiletesting.KotlinCompilation;
 import com.tschuchort.compiletesting.SourceFile;
-import lombok.extern.log4j.Log4j2;
 import lombok.extern.slf4j.Slf4j;
 import org.junit.Test;
 
