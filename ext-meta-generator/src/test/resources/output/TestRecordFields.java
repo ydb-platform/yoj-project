@@ -9,6 +9,7 @@ public final class TestRecordFields {
     public static final String FIELD_ONE = "fieldOne";
     public static final String FIELD = "field";
     public static final String ID = "id";
+    public static final String IC_INTEGRAL = "ic";
     public static final class Ic {
         private Ic(){}
 

@@ -3,6 +3,7 @@ package tech.ydb.yoj.generator;
 import com.google.common.base.CaseFormat;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -26,6 +27,7 @@ import java.util.Map;
  *                                                 </pre>
  *                         <p>Then RootClassFields and nested RootClassFields.Parent will be generated.</p>
  *                         RootClassFields's fieldPrefix will be '' and RootClassFields.Parent's fieldPrefix is 'parent'
+ * @param originatingField the name of the field which was the cause of this nested class. Null for root class
  * @param nestLevel nesting level. 0 is a root class.
  */
 record TargetClassStructure(
@@ -33,6 +35,7 @@ record TargetClassStructure(
         List<String> simpleFieldNames,
         List<TargetClassStructure> nestedClasses,
         String fieldPrefix,
+        @Nullable String originatingField,
         int nestLevel
 ) {
 
@@ -40,8 +43,10 @@ record TargetClassStructure(
         return new Builder(sourceClassStructure).build(
                 sourceClassStructure,
                 targetClassName,
-                "",
-                0
+                //  it's a root so:
+                "", // No prefix
+                null, // No originating field
+                0 // Top level
         );
     }
 
@@ -57,6 +62,7 @@ record TargetClassStructure(
                 SourceClassStructure sourceClassStructure,
                 String className,
                 String fieldPrefix,
+                @Nullable String originatingField,
                 int nestLevel
         ) {
             List<String> fields = new ArrayList<>();
@@ -80,13 +86,14 @@ record TargetClassStructure(
                                     CaseFormat.LOWER_CAMEL.to(CaseFormat.UPPER_CAMEL, field.name()),
                                     // fieldPrefix
                                     Utils.concatFieldNameChain(fieldPrefix, field.name()),
+                                    field.name(),
                                     nestLevel + 1
                             )
                     );
                 }
             }
 
-            return new TargetClassStructure(className, fields, nestedClasses, fieldPrefix, nestLevel);
+            return new TargetClassStructure(className, fields, nestedClasses, fieldPrefix, originatingField, nestLevel);
         }
 
         public boolean isSimpleField(FieldInfo field) {

@@ -48,6 +48,14 @@ public class StringConstantsRenderer {
 
         // nested classes
         for (TargetClassStructure nestedClass : targetClass.nestedClasses()) {
+            // Render integral field of a nested class...
+            String renderedField = renderField(
+                    targetClass.fieldPrefix(),
+                    nestedClass.originatingField(),
+                    "_INTEGRAL"
+            );
+            result.append("%s    %s\n".formatted(ident,renderedField));
+            // ... and the class itself
             result.append(render(nestedClass, null));
         }
 
@@ -58,10 +66,14 @@ public class StringConstantsRenderer {
     }
 
     private static String renderField(String fieldPrefix, String simpleFieldName) {
-        return "public static final String %s = \"%s\";".formatted(
+        return renderField(fieldPrefix, simpleFieldName, "");
+    }
+
+    private static String renderField(String fieldPrefix, String simpleFieldName, String namePostfix) {
+        return "public static final String %s%s = \"%s\";".formatted(
                 CaseFormat.LOWER_CAMEL.to(CaseFormat.UPPER_UNDERSCORE, simpleFieldName),
+                namePostfix,
                 Utils.concatFieldNameChain(fieldPrefix, simpleFieldName)
         );
     }
-
 }
