@@ -50,7 +50,6 @@ record TargetClassStructure(
         );
     }
 
-
     private static class Builder {
         private final Map<String, SourceClassStructure> allAvailableNestedClasses = new HashMap<>();
 
@@ -105,7 +104,7 @@ record TargetClassStructure(
             SourceClassStructure structure = allAvailableNestedClasses.get(field.type());
             if (structure == null) {
                 throw new IllegalArgumentException(
-                        "Field %s of type is not considered to be complex!".formatted(
+                        "Field %s of type %s is not considered to be complex!".formatted(
                                 field.name(),
                                 field.type()
                         )
@@ -118,8 +117,8 @@ record TargetClassStructure(
          * Calculate amount of fields inside the given one. E.g. if the field is simple return 1, if field is complex
          * it will go inside of it and calculate how much fields inside the nested class
          */
-        public int calcAmountOfFieldsInside(FieldInfo field){
-            if (isSimpleField(field)){
+        public int calcAmountOfFieldsInside(FieldInfo field) {
+            if (isSimpleField(field)) {
                 return 1;
             }
             int fieldsInside = 0;
@@ -136,7 +135,10 @@ record TargetClassStructure(
             return field.name().equals("id");
         }
 
-        private static void calcAllAvailableNestedClasses(SourceClassStructure root, Map<String, SourceClassStructure> result){
+        private static void calcAllAvailableNestedClasses(
+                SourceClassStructure root,
+                Map<String, SourceClassStructure> result
+        ) {
             result.putAll(root.nestedClasses());
             root.nestedClasses().values().forEach(nested -> calcAllAvailableNestedClasses(nested, result));
         }

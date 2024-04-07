@@ -5,6 +5,7 @@ import java.util.Comparator;
 
 import javax.annotation.Nullable;
 import javax.annotation.Nonnull;
+
 import tech.ydb.yoj.databind.schema.Column;
 import tech.ydb.yoj.databind.schema.Table; // imported but not used
 
@@ -15,7 +16,8 @@ public class NonEntityClass {
             (e1, e2) -> NonEntityClass.Id.NATURAL_ORDER.compare(e1.getId(), e2.getId());
 
     @Column
-    @Nonnull private final Id id;
+    @Nonnull
+    private final Id id;
 
     public static class Id {
 

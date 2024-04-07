@@ -19,7 +19,7 @@ public class NestedClass {
         B b1;
         B b2;
 
-        static class B{
+        static class B {
             String fieldB1;
             String fieldB2;
         }
@@ -28,6 +28,7 @@ public class NestedClass {
     static class C {
         D d; // Class D is not nested inside C but still available
     }
+
     static class D {
         String fieldD;
     }

@@ -10,7 +10,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
 @Table(name = "audit_event_record")
-public class EntityWithSimpleSingularId implements Entity<EntityWithSimpleSingularId>{
+public class EntityWithSimpleSingularId implements Entity<EntityWithSimpleSingularId> {
 
     @Column
     @Nonnull
@@ -20,6 +20,7 @@ public class EntityWithSimpleSingularId implements Entity<EntityWithSimpleSingul
     public Entity.Id<EntityWithSimpleSingularId> getId() {
         return id;
     }
+
     public static class Id implements Entity.Id<EntityWithSimpleSingularId> {
 
         @Nonnull

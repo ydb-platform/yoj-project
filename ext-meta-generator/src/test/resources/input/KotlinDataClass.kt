@@ -32,7 +32,7 @@ data class KotlinDataClass(
 data class NotNestedClass(
         @Column(name = "issued_at")
         val issuedAt: Long,
-       @Column(name = "algorithm")
+        @Column(name = "algorithm")
         val algorithm: String?
 )
 

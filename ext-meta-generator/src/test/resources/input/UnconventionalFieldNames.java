@@ -2,7 +2,7 @@ package input;
 
 import tech.ydb.yoj.databind.schema.Table;
 
-@Table(name="table")
+@Table(name = "table")
 class UnconventionalFieldNames {
 
     //Trying to trick generator to generate the same name of constant
@@ -16,7 +16,8 @@ class UnconventionalFieldNames {
     String _fie_ldWithUnderscores;
     strange_Name FieldIn_UpperCamelCase;
     strange_Name _FieldStartedWithUnderScore;
-    class strange_Name{
+
+    class strange_Name {
         Object NestedFieldInUpperCamelCase;
     }
 }

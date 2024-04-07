@@ -1,7 +1,8 @@
 package input;
+
 import tech.ydb.yoj.databind.schema.Table;
 
-@Table(name="table")
+@Table(name = "table")
 public class ComplexNesting {
 
     String field;
@@ -9,9 +10,10 @@ public class ComplexNesting {
     Class1.Class1_2.Class1_2_3 complex;
     Class1.Class1_2.EmptyClass emptyField;
 
-    static class Class1{
+    static class Class1 {
         Object someField; // Must ignore
         Class1_2 class1Field;  // Must Ignore
+
         static class Class1_2 {
             Object class2Field;
             EmptyClass emptyField;

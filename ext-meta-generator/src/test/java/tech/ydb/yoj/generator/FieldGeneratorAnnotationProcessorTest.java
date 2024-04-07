@@ -115,8 +115,8 @@ public class FieldGeneratorAnnotationProcessorTest {
                 BufferedReader bufferedReader = new BufferedReader(reader)
         ) {
             return bufferedReader.lines().collect(Collectors.joining("\n"));
-        } catch (Exception ex){
-            throw new RuntimeException("Failed on file: "+fileName, ex);
+        } catch (Exception ex) {
+            throw new RuntimeException("Failed on file: " + fileName, ex);
         }
     }
 

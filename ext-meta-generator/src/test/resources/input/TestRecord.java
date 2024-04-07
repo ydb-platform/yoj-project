@@ -17,4 +17,5 @@ record TestRecord(String fieldOne, String field, Id id, InnerClass ic) implement
     static class InnerClass {
         String innerClassValue;
     }
+
 }

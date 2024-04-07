@@ -5,6 +5,7 @@ import java.util.Comparator;
 
 import javax.annotation.Nullable;
 import javax.annotation.Nonnull;
+
 import tech.ydb.yoj.databind.schema.Column;
 import tech.ydb.yoj.databind.schema.Table;
 import tech.ydb.yoj.repository.db.Entity;
@@ -19,7 +20,8 @@ public class TypicalEntity implements Entity<TypicalEntity> {
             (e1, e2) -> TypicalEntity.Id.NATURAL_ORDER.compare(e1.getId(), e2.getId());
 
     @Column
-    @Nonnull private final Id id;
+    @Nonnull
+    private final Id id;
 
     public static class Id implements Entity.Id<TypicalEntity> {
 

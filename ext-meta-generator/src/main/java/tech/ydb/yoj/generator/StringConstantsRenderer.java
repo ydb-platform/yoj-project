@@ -5,7 +5,7 @@ import com.google.common.base.Strings;
 
 import javax.annotation.Nullable;
 
-public class StringConstantsRenderer {
+class StringConstantsRenderer {
 
     /**
      * returns the source code of the class
@@ -18,13 +18,13 @@ public class StringConstantsRenderer {
         // header
         if (packageName != null) {
             result.append("""
-            package %s;
-       
-            import javax.annotation.processing.Generated;
-            
-            @Generated("%s")
-            public final class %s {
-            """.formatted(
+                            package %s;
+                                   
+                            import javax.annotation.processing.Generated;
+                                        
+                            @Generated("%s")
+                            public final class %s {
+                            """.formatted(
                             packageName,
                             FieldGeneratorAnnotationProcessor.class.getName(),
                             targetClass.className()
@@ -54,7 +54,7 @@ public class StringConstantsRenderer {
                     nestedClass.originatingField(),
                     "_INTEGRAL"
             );
-            result.append("%s    %s\n".formatted(ident,renderedField));
+            result.append("%s    %s\n".formatted(ident, renderedField));
             // ... and the class itself
             result.append(render(nestedClass, null));
         }
