@@ -29,6 +29,11 @@ public class EntityWithComplexSingularId implements Entity<EntityWithComplexSing
         private static class NestedId {
             @Nonnull
             private MoreNestedId value;
+            private EmptyField emptyField;
+
+            private static class EmptyField {
+
+            }
         }
 
         private static class MoreNestedId {

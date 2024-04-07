@@ -2,6 +2,7 @@ package tech.ydb.yoj.generator;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import tech.ydb.yoj.ExperimentalApi;
 import tech.ydb.yoj.databind.schema.Table;
 
 import javax.annotation.processing.AbstractProcessor;
@@ -111,7 +112,7 @@ import java.util.Set;
  * @author pavel-lazarev
  */
 
-// Test When a class A has B, B has C. And A uses B.C as field Type
+@ExperimentalApi(issue = "https://github.com/ydb-platform/yoj-project/pull/57")
 @SupportedAnnotationTypes({
         "tech.ydb.yoj.databind.schema.Table",
 })
@@ -139,15 +140,15 @@ public class FieldGeneratorAnnotationProcessor extends AbstractProcessor {
                     rootElement.getSimpleName() + TARGET_CLASS_NAME_SUFFIX
             );
 
-            String packageName = TargetClassStructure.concatFieldNameChain(
+            String packageName = Utils.concatFieldNameChain(
                     calcPackage(rootElement),
                     TARGET_PACKAGE
             );
-            String generatedSource = targetClassStructure.render(packageName);
+            String generatedSource = StringConstantsRenderer.render(targetClassStructure, packageName);
             log.debug("Generated:\n {}", generatedSource);
             saveFile(
                     generatedSource,
-                    TargetClassStructure.concatFieldNameChain(
+                    Utils.concatFieldNameChain(
                             packageName,
                             targetClassStructure.className()
                     )

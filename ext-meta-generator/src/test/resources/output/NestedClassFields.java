@@ -41,4 +41,13 @@ public final class NestedClassFields {
             public static final String FIELD_B2 = "a2.b2.fieldB2";
         }
     }
+    public static final class C {
+        private C(){}
+
+        public static final class D {
+            private D(){}
+
+            public static final String FIELD_D = "c.d.fieldD";
+        }
+    }
 }

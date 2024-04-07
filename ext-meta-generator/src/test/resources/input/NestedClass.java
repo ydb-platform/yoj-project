@@ -10,6 +10,8 @@ public class NestedClass {
     // (See output/NestedClassFields.java)
     A a1;
     A a2;
+    C c;
+
 
     static class A {
         String fieldA;
@@ -21,6 +23,13 @@ public class NestedClass {
             String fieldB1;
             String fieldB2;
         }
+    }
+
+    static class C {
+        D d; // Class D is not nested inside C but still available
+    }
+    static class D {
+        String fieldD;
     }
 }
 

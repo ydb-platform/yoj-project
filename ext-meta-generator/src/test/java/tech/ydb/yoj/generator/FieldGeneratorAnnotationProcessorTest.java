@@ -27,33 +27,38 @@ public class FieldGeneratorAnnotationProcessorTest {
     }
 
     @Test
-    public void nestedEntity() {
+    public void nestedClass() {
         testCase("input/NestedClass.java", "output/NestedClassFields.java");
     }
 
     @Test
-    public void entityWithComplexNesting() {
+    public void complexNesting() {
         testCase("input/ComplexNesting.java", "output/ComplexNestingFields.java");
     }
 
     @Test
-    public void recordEntity() {
+    public void testRecord() {
         testCase("input/TestRecord.java", "output/TestRecordFields.java");
     }
 
     @Test
-    public void unconventionalNaming() {
+    public void unconventionalFieldNames() {
         testCase("input/UnconventionalFieldNames.java", "output/UnconventionalFieldNamesFields.java");
     }
 
     @Test
-    public void EntityWithComplexSingularId() {
+    public void entityWithComplexSingularId() {
         testCase("input/EntityWithComplexSingularId.java", "output/EntityWithComplexSingularIdFields.java");
     }
 
     @Test
-    public void EntityWithSimpleSingularId() {
+    public void entityWithSimpleSingularId() {
         testCase("input/EntityWithSimpleSingularId.java", "output/EntityWithSimpleSingularIdFields.java");
+    }
+
+    @Test
+    public void noSimpleFieldsClass() {
+        testCase("input/NoSimpleFieldsClass.java", "output/NoSimpleFieldsClassFields.java");
     }
 
     @Test

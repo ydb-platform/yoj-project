@@ -1,5 +1,6 @@
 package tech.ydb.yoj.generator;
 
+import javax.annotation.Nonnull;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.TypeElement;
@@ -34,13 +35,6 @@ record SourceClassStructure(
         final String className = ((TypeElement) classElement).getQualifiedName().toString();
         final List<FieldInfo> fields = FieldInfo.extractAllFields(classElement, typeUtils);
         final Map<String, SourceClassStructure> nestedClasses = analyseNestedClasses(classElement, nestLevel, typeUtils);
-
-        // Nested classes my have nested classes inside of them: they must be available for current class too
-        Map<String, SourceClassStructure> classesOfNestedClasses = new HashMap<>();
-        for (SourceClassStructure nested : nestedClasses.values()) {
-            classesOfNestedClasses.putAll(nested.nestedClasses());
-        }
-        nestedClasses.putAll(classesOfNestedClasses);
 
         return new SourceClassStructure(className, fields, nestedClasses, nestLevel);
     }
