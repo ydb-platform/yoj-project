@@ -16,7 +16,7 @@ import java.util.stream.Collectors;
 import static java.util.stream.Collectors.toSet;
 
 @NoArgsConstructor(access = AccessLevel.PRIVATE)
-public final class CommonTable {
+public final class TableUtils {
     public static  <E extends Entity<E>, ID extends Entity.Id<E>> List<E> find(
             TransactionLocal transactionLocal, Table<E> table, Set<ID> ids) {
         if (ids.isEmpty()) {

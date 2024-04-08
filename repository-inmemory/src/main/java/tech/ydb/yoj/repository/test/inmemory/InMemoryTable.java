@@ -7,7 +7,7 @@ import tech.ydb.yoj.databind.expression.FilterExpression;
 import tech.ydb.yoj.databind.expression.OrderExpression;
 import tech.ydb.yoj.databind.schema.ObjectSchema;
 import tech.ydb.yoj.databind.schema.Schema;
-import tech.ydb.yoj.repository.db.CommonTable;
+import tech.ydb.yoj.repository.db.TableUtils;
 import tech.ydb.yoj.repository.db.Entity;
 import tech.ydb.yoj.repository.db.EntityExpressions;
 import tech.ydb.yoj.repository.db.EntityIdSchema;
@@ -187,7 +187,7 @@ public class InMemoryTable<T extends Entity<T>> implements Table<T> {
 
     @Override
     public <ID extends Entity.Id<T>> List<T> find(Set<ID> ids) {
-        return CommonTable.find(transaction.getTransactionLocal(), this, ids);
+        return TableUtils.find(transaction.getTransactionLocal(), this, ids);
     }
 
     @Override

@@ -7,7 +7,7 @@ import lombok.Getter;
 import lombok.NonNull;
 import tech.ydb.yoj.databind.expression.FilterExpression;
 import tech.ydb.yoj.databind.expression.OrderExpression;
-import tech.ydb.yoj.repository.db.CommonTable;
+import tech.ydb.yoj.repository.db.TableUtils;
 import tech.ydb.yoj.repository.db.Entity;
 import tech.ydb.yoj.repository.db.Entity.Id;
 import tech.ydb.yoj.repository.db.EntityIdSchema;
@@ -237,7 +237,7 @@ public class YdbTable<T extends Entity<T>> implements Table<T> {
 
     @Override
     public <ID extends Id<T>> List<T> find(Set<ID> ids) {
-        return CommonTable.find(executor.getTransactionLocal(), this, ids);
+        return TableUtils.find(executor.getTransactionLocal(), this, ids);
     }
 
     @Override
