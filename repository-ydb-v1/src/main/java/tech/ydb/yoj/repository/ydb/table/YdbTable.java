@@ -7,6 +7,7 @@ import lombok.Getter;
 import lombok.NonNull;
 import tech.ydb.yoj.databind.expression.FilterExpression;
 import tech.ydb.yoj.databind.expression.OrderExpression;
+import tech.ydb.yoj.repository.db.CommonTable;
 import tech.ydb.yoj.repository.db.Entity;
 import tech.ydb.yoj.repository.db.Entity.Id;
 import tech.ydb.yoj.repository.db.EntityIdSchema;
@@ -16,7 +17,6 @@ import tech.ydb.yoj.repository.db.Table;
 import tech.ydb.yoj.repository.db.Tx;
 import tech.ydb.yoj.repository.db.ViewSchema;
 import tech.ydb.yoj.repository.db.bulk.BulkParams;
-import tech.ydb.yoj.repository.db.cache.FirstLevelCache;
 import tech.ydb.yoj.repository.db.cache.TransactionLocal;
 import tech.ydb.yoj.repository.db.readtable.ReadTableParams;
 import tech.ydb.yoj.repository.db.statement.Changeset;
@@ -233,6 +233,11 @@ public class YdbTable<T extends Entity<T>> implements Table<T> {
     public <V extends View> V find(Class<V> viewType, Entity.Id<T> id) {
         List<V> res = executor.execute(YqlStatement.find(type, viewType), id);
         return res.isEmpty() ? null : res.get(0);
+    }
+
+    @Override
+    public <ID extends Id<T>> List<T> find(Set<ID> ids) {
+        return CommonTable.find(executor.getTransactionLocal(), this, ids);
     }
 
     @Override
