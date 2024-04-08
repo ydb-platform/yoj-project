@@ -462,11 +462,6 @@ public class YdbTable<T extends Entity<T>> implements Table<T> {
     }
 
     @Override
-    public FirstLevelCache getFirstLevelCache() {
-        return executor.getTransactionLocal().firstLevelCache();
-    }
-
-    @Override
     @NonNull
     public T postLoad(T e) {
         T e1 = e.postLoad();

@@ -534,11 +534,6 @@ public class InMemoryTable<T extends Entity<T>> implements Table<T> {
         return true;
     }
 
-    @Override
-    public FirstLevelCache getFirstLevelCache() {
-        return transaction.getTransactionLocal().firstLevelCache();
-    }
-
     @Nullable
     @Override
     public T postLoad(T entity) {

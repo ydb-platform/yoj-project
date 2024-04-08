@@ -16,7 +16,6 @@ import tech.ydb.yoj.repository.db.Table;
 import tech.ydb.yoj.repository.db.Tx;
 import tech.ydb.yoj.repository.db.ViewSchema;
 import tech.ydb.yoj.repository.db.bulk.BulkParams;
-import tech.ydb.yoj.repository.db.cache.FirstLevelCache;
 import tech.ydb.yoj.repository.db.cache.TransactionLocal;
 import tech.ydb.yoj.repository.db.readtable.ReadTableParams;
 import tech.ydb.yoj.repository.db.statement.Changeset;
@@ -459,11 +458,6 @@ public class YdbTable<T extends Entity<T>> implements Table<T> {
         T entityToSave = rawEntity.postLoad().preSave();
         executor.pendingExecute(YqlStatement.save(type), entityToSave);
         executor.getTransactionLocal().projectionCache().save(entityToSave);
-    }
-
-    @Override
-    public FirstLevelCache getFirstLevelCache() {
-        return executor.getTransactionLocal().firstLevelCache();
     }
 
     @Override

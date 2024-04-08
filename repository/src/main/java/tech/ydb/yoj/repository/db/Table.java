@@ -5,7 +5,6 @@ import lombok.NonNull;
 import tech.ydb.yoj.databind.expression.FilterExpression;
 import tech.ydb.yoj.databind.expression.OrderExpression;
 import tech.ydb.yoj.repository.db.bulk.BulkParams;
-import tech.ydb.yoj.repository.db.cache.FirstLevelCache;
 import tech.ydb.yoj.repository.db.list.ListRequest;
 import tech.ydb.yoj.repository.db.list.ListResult;
 import tech.ydb.yoj.repository.db.list.ViewListResult;
@@ -158,10 +157,6 @@ public interface Table<T extends Entity<T>> {
         return readTableIds(ReadTableParams.getDefault());
     }
 
-    default FirstLevelCache getFirstLevelCache() {
-        return null;
-    }
-
     @NonNull
     default <X extends Exception> T find(Entity.Id<T> id, Supplier<? extends X> throwIfAbsent) throws X {
         T found = find(id);
@@ -276,7 +271,7 @@ public interface Table<T extends Entity<T>> {
         }
 
         var orderBy = EntityExpressions.defaultOrder(getType());
-        var cache = getFirstLevelCache();
+        var cache = Tx.Current.get().getRepositoryTransaction().getTransactionLocal().firstLevelCache();
         var isPartialIdMode = ids.iterator().next().isPartial();
 
         var foundInCache = ids.stream()
