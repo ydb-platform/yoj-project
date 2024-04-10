@@ -144,6 +144,11 @@
             </dependency>
             <dependency>
                 <groupId>tech.ydb.yoj</groupId>
+                <artifactId>yoj-ext-meta-generator</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>tech.ydb.yoj</groupId>
                 <artifactId>yoj-util</artifactId>
                 <version>${project.version}</version>
             </dependency>
