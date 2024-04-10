@@ -10,7 +10,7 @@ public final class TypicalEntityFields {
     public static final String PAYLOAD = "payload";
     public static final String METADATA = "metadata";
     public static final String STATE = "state";
-    public static final String ID_INTEGRAL = "id";
+    public static final String ID_OBJ = "id";
     public static final class Id {
         private Id(){}
 

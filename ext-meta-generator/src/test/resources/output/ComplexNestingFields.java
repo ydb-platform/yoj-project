@@ -7,7 +7,7 @@ public final class ComplexNestingFields {
     private ComplexNestingFields(){}
 
     public static final String FIELD = "field";
-    public static final String COMPLEX_INTEGRAL = "complex";
+    public static final String COMPLEX_OBJ = "complex";
     public static final class Complex {
         private Complex(){}
 

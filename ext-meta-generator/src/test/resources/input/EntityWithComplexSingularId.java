@@ -42,6 +42,15 @@ public class EntityWithComplexSingularId implements Entity<EntityWithComplexSing
         }
     }
 
+    private NotId notId;
+    private static class NotId {
+        NestedNotId nestedNotId;
+        private static class NestedNotId{
+            @Nonnull
+            private final String value = "";
+        }
+    }
+
     @Nullable
     private Instant lastUpdated;
 

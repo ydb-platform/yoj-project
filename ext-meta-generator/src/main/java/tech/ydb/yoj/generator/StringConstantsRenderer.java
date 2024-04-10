@@ -8,6 +8,13 @@ import javax.annotation.Nullable;
 class StringConstantsRenderer {
 
     /**
+     * For every complex field (i.e. a nested class), an 'integral' field is created. So one can
+     * refer a whole complex field (e.g. `where(SomeEntityFields.ID_OBJ).eq(...)` even when `Id`
+     * is a complex field
+     */
+    public static final String INTEGRAL_FIELD_SUFFIX = "_OBJ";
+
+    /**
      * returns the source code of the class
      */
     public static String render(TargetClassStructure targetClass, @Nullable String packageName) {
@@ -52,7 +59,7 @@ class StringConstantsRenderer {
             String renderedField = renderField(
                     targetClass.fieldPrefix(),
                     nestedClass.originatingField(),
-                    "_INTEGRAL"
+                    INTEGRAL_FIELD_SUFFIX
             );
             result.append("%s    %s\n".formatted(ident, renderedField));
             // ... and the class itself

@@ -27,6 +27,12 @@ public class EntityWithSimpleSingularId implements Entity<EntityWithSimpleSingul
         private final String value = "";
     }
 
+    private NotId notId;
+    private static class NotId {
+        @Nonnull
+        private final String value = "";
+    }
+
     @Nullable
     private final Instant lastUpdated = Instant.now();
 
