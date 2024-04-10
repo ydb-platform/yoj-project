@@ -17,7 +17,10 @@ import static java.lang.annotation.RetentionPolicy.RUNTIME;
 /**
  * Specifies the mapped column for a persistent field.
  * <p>If no {@code Column} annotation is specified, the default values apply.
- * <p>Usage Example:
+ * <p>This is a <em>meta-annotation</em>: it can be applied to other annotations; if you use these annotations,
+ * YOJ will correctly apply the {@code @Column} annotation. This allows you to define reusable column customizations.
+ * See e.g. {@link tech.ydb.yoj.databind.converter.ObjectColumn @ObjectColumn}.
+ * <p><strong>Usage Example:</strong>
  * <blockquote><pre>
  * // DB column will have name 'DESC' and DB-specific type 'UTF8'
  * &#064;Column(name = "DESC", dbType = DbType.UTF8)
@@ -56,12 +59,17 @@ public @interface Column {
     String dbTypeQualifier() default "";
 
     /**
-     * Determines whether the {@link FieldValueType#COMPOSITE composite field}
-     * will be <em>flattened</em> into primitive-typed DB columns ({@code flatten=true});
-     * or represented as a single field holding some serialized representation of the field's value
-     * ({@code flatten=false}).<br>
+     * Determines whether the {@link FieldValueType#COMPOSITE composite field} will be:
+     * <ul>
+     * <li><em>flattened</em> into multiple primitive-typed DB columns ({@code flatten=true}),</li>
+     * <li>or represented as a single column holding the serialized representation of the field's value
+     * ({@code flatten=false}).</li>
+     * </ul>
+     * </li>
      * Defaults to {@code true} (flatten composite fields).<br>
      * Changing this parameter for a non-composite field has no effect.
+     * <p><strong>Tip:</strong> Use the {@link ObjectColumn @ObjectColumn} annotation
+     * if you only need to override {@code @Column.flatten} to {@code false}.
      */
     boolean flatten() default true;
 

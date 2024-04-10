@@ -69,7 +69,7 @@ final class Columns {
             return null;
         }
         Type type = field.getType();
-        Type serializedType = field.getCustomValueType() != null ? field.getCustomValueType().columnClass() : type;
+        Type serializedType = field.getCustomValueTypeInfo() != null ? field.getCustomValueTypeInfo().getColumnClass() : type;
         String qualifier = field.getDbTypeQualifier();
         try {
             Preconditions.checkState(field.isSimple(), "Trying to serialize a non-simple field: %s", field);
@@ -77,7 +77,7 @@ final class Columns {
             value = CustomValueTypes.preconvert(field, value);
 
             return switch (field.getValueType()) {
-                case STRING -> CommonConverters.serializeStringValue(serializedType, value);
+                case STRING -> value;
                 case ENUM -> DbTypeQualifier.ENUM_TO_STRING.equals(qualifier)
                         ? CommonConverters.serializeEnumToStringValue(serializedType, value)
                         : CommonConverters.serializeEnumValue(serializedType, value);
@@ -99,13 +99,13 @@ final class Columns {
             return null;
         }
         Type type = field.getType();
-        Type serializedType = field.getCustomValueType() != null ? field.getCustomValueType().columnClass() : type;
+        Type serializedType = field.getCustomValueTypeInfo() != null ? field.getCustomValueTypeInfo().getColumnClass() : type;
         String qualifier = field.getDbTypeQualifier();
         try {
             Preconditions.checkState(field.isSimple(), "Trying to deserialize a non-simple field: %s", field);
 
             var deserialized = switch (field.getValueType()) {
-                case STRING -> CommonConverters.deserializeStringValue(serializedType, value);
+                case STRING -> value;
                 case ENUM -> DbTypeQualifier.ENUM_TO_STRING.equals(qualifier)
                         ? CommonConverters.deserializeEnumToStringValue(serializedType, value)
                         : CommonConverters.deserializeEnumValue(serializedType, value);

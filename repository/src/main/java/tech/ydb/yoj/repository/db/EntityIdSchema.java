@@ -67,20 +67,20 @@ public final class EntityIdSchema<ID extends Entity.Id<?>> extends Schema<ID> im
             Preconditions.checkArgument(!flattenedFields.isEmpty(), "ID must have at least 1 field, but got none: %s", idField.getType());
         } else {
             Preconditions.checkArgument(
-                    idField.getCustomValueType() != null,
+                    idField.getCustomValueTypeInfo() != null,
                     "ID must be either a composite with >= 1 field, or a compatible type annotated with @CustomValueType, but got: %s",
                     idField.getType()
             );
         }
 
         flattenedFields.stream()
-                .filter(f -> !ALLOWED_ID_FIELD_TYPES.contains(FieldValueType.forJavaType(f.getType(), f.getField().getColumn())))
+                .filter(f -> !ALLOWED_ID_FIELD_TYPES.contains(FieldValueType.forSchemaField(f)))
                 .findAny()
                 .ifPresent(f -> {
                     throw new IllegalArgumentException(String.format(
                             "Leaf ID field \"[%s].%s\" <java=%s, db=%s> is none of the allowed types %s",
                             getType().getName(), f.getName(), f.getType(),
-                            FieldValueType.forJavaType(f.getType(), f.getField().getColumn()), ALLOWED_ID_FIELD_TYPES));
+                            FieldValueType.forSchemaField(f), ALLOWED_ID_FIELD_TYPES));
                 });
     }
 

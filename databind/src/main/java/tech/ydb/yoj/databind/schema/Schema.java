@@ -9,8 +9,6 @@ import lombok.SneakyThrows;
 import lombok.Value;
 import lombok.With;
 import tech.ydb.yoj.ExperimentalApi;
-import tech.ydb.yoj.databind.CustomValueType;
-import tech.ydb.yoj.databind.CustomValueTypes;
 import tech.ydb.yoj.databind.DbType;
 import tech.ydb.yoj.databind.FieldValueType;
 import tech.ydb.yoj.databind.schema.configuration.SchemaRegistry.SchemaKey;
@@ -202,8 +200,7 @@ public abstract class Schema<T> {
         if (subSchemaField.fields != null) {
             fields = subSchemaField.fields.stream().map(this::newRootJavaField).toList();
         } else {
-            var cvt = subSchemaField.getCustomValueType();
-            if (cvt != null) {
+            if (subSchemaField.getCustomValueTypeInfo() != null) {
                 var dummyField = new JavaField(new DummyCustomValueSubField(subSchemaField), subSchemaField, __ -> true);
                 dummyField.setName(subSchemaField.getName());
                 fields = List.of(dummyField);
@@ -405,6 +402,7 @@ public abstract class Schema<T> {
             return donor.getName();
         }
 
+        @Nullable
         @Override
         public Column getColumn() {
             return donor.getField().getColumn();
@@ -444,6 +442,12 @@ public abstract class Schema<T> {
         @Override
         public FieldValueType getValueType() {
             return donor.getValueType();
+        }
+
+        @Nullable
+        @Override
+        public CustomValueTypeInfo<?, ?> getCustomValueTypeInfo() {
+            return donor.getCustomValueTypeInfo();
         }
 
         @Override
@@ -698,14 +702,15 @@ public abstract class Schema<T> {
         }
 
         /**
-         * @return {@link CustomValueType &#64;CustomValueType} annotation for the schema field or its type.
-         * This experimental annotation specifies custom value conversion logic between Java field values and
-         * database column values.
+         * @return information about custom value type for the schema field or its {@link #getRawType() class}
+         * The {@link tech.ydb.yoj.databind.CustomValueType @CustomValueType} experimental annotation
+         * specifies custom value conversion logic between Java field values and database column values.
          */
         @Nullable
+        @SuppressWarnings("unchecked")
         @ExperimentalApi(issue = "https://github.com/ydb-platform/yoj-project/issues/24")
-        public CustomValueType getCustomValueType() {
-            return CustomValueTypes.getCustomValueType(field.getType(), field.getColumn());
+        public <J, C extends Comparable<? super C>> CustomValueTypeInfo<J, C> getCustomValueTypeInfo() {
+            return (CustomValueTypeInfo<J, C>) field.getCustomValueTypeInfo();
         }
 
         @Override

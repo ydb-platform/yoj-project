@@ -6,8 +6,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.annotation.ParametersAreNonnullByDefault;
-import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.Method;
 import java.lang.reflect.Type;
 import java.util.Locale;
 import java.util.Map;
@@ -16,7 +14,6 @@ import java.util.function.Function;
 import java.util.stream.Stream;
 
 import static java.lang.String.format;
-import static java.lang.reflect.Modifier.isStatic;
 import static java.util.stream.Collectors.toUnmodifiableMap;
 
 @ParametersAreNonnullByDefault
@@ -42,65 +39,6 @@ public final class CommonConverters {
 
     public static void disableJsonConverter() {
         CommonConverters.jsonConverter = JsonConverter.NONE;
-    }
-
-    public static <D> ThrowingSetter<D> stringValueSetter(Type type, BiConsumer<D, Object> rawValueSetter) {
-        return (d, v) -> rawValueSetter.accept(d, serializeStringValue(type, v));
-    }
-
-    public static String serializeStringValue(Type ignored, Object v) {
-        return v.toString();
-    }
-
-    public static Object deserializeStringValue(Type type, Object src) {
-        return String.class.equals(type) ? src : stringValueGetter(type, v -> v).apply(src);
-    }
-
-    public static <S> ThrowingGetter<S> stringValueGetter(Type type, Function<S, Object> rawValueGetter) {
-        if (!(type instanceof Class<?> clazz)) {
-            throw new IllegalArgumentException(format("Type <%s> is not a class", type.getTypeName()));
-        }
-        if (String.class.equals(clazz)) {
-            return rawValueGetter::apply;
-        }
-
-        ThrowingGetter<Object> deserializer = getStringValueDeserializerMethod(clazz);
-        return v -> {
-            try {
-                return deserializer.throwingGet(rawValueGetter.apply(v));
-            } catch (InvocationTargetException e) {
-                // Propagate the real exception thrown by the deserializer method.
-                // All unhandled getter exceptions are wrapped in ConversionException by the Repository, automatically,
-                // so we don't need to do any wrapping here.
-                throw e.getCause();
-            } catch (Exception e) {
-                throw new IllegalStateException("Reflection problem with deserializer method " + deserializer, e);
-            }
-        };
-    }
-
-    private static ThrowingGetter<Object> getStringValueDeserializerMethod(Class<?> clazz) {
-        for (String methodName : new String[]{"fromString", "valueOf"}) {
-            try {
-                Method method = clazz.getMethod(methodName, String.class);
-                if (isStatic(method.getModifiers())) {
-                    return s -> method.invoke(null, s);
-                }
-            } catch (NoSuchMethodException ignored) {
-            }
-        }
-
-        try {
-            return clazz.getConstructor(String.class)::newInstance;
-        } catch (NoSuchMethodException ignored) {
-        }
-
-        throw new IllegalArgumentException(format(
-                "Type <%s> does not have a deserializer method: public static fromString(String)/valueOf(String) and" +
-                "doesn't have constructor public %s(String)",
-                clazz.getTypeName(),
-                clazz.getTypeName()
-        ));
     }
 
     public static <D> ThrowingSetter<D> enumValueSetter(Type type, BiConsumer<D, Object> rawValueSetter) {

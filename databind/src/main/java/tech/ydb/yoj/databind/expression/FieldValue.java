@@ -9,7 +9,6 @@ import lombok.Value;
 import tech.ydb.yoj.databind.ByteArray;
 import tech.ydb.yoj.databind.CustomValueTypes;
 import tech.ydb.yoj.databind.FieldValueType;
-import tech.ydb.yoj.databind.schema.Column;
 import tech.ydb.yoj.databind.schema.ObjectSchema;
 import tech.ydb.yoj.databind.schema.Schema.JavaField;
 import tech.ydb.yoj.databind.schema.Schema.JavaFieldValue;
@@ -75,9 +74,9 @@ public class FieldValue {
     }
 
     @NonNull
-    public static FieldValue ofObj(@NonNull Object obj, @NonNull JavaField javaField) {
-        FieldValueType fvt = FieldValueType.forJavaType(obj.getClass(), javaField.getField().getColumn());
-        obj = CustomValueTypes.preconvert(javaField, obj);
+    public static FieldValue ofObj(@NonNull Object obj, @NonNull JavaField schemaField) {
+        FieldValueType fvt = FieldValueType.forJavaType(obj.getClass(), schemaField.getField());
+        obj = CustomValueTypes.preconvert(schemaField, obj);
 
         switch (fvt) {
             case STRING -> {
@@ -167,9 +166,10 @@ public class FieldValue {
 
     @NonNull
     public Object getRaw(@NonNull JavaField field) {
-        Type fieldType = field.isFlat() ? field.getFlatFieldType() : field.getType();
-        Column column = field.getField().getColumn();
-        if (FieldValueType.forJavaType(fieldType, column) == FieldValueType.COMPOSITE) {
+        field = field.isFlat() ? field.toFlatField() : field;
+
+        Type fieldType = field.getType();
+        if (FieldValueType.forSchemaField(field).isComposite()) {
             Preconditions.checkState(isTuple(), "Value is not a tuple: %s", this);
             Preconditions.checkState(tuple.getType().equals(fieldType),
                     "Tuple value cannot be converted to a composite of type %s: %s", fieldType, this);
@@ -183,9 +183,10 @@ public class FieldValue {
     @NonNull
     @SuppressWarnings({"unchecked", "rawtypes"})
     public Comparable<?> getComparable(@NonNull JavaField field) {
-        Type fieldType = field.isFlat() ? field.getFlatFieldType() : field.getType();
-        Column column = field.isFlat() ? field.toFlatField().getField().getColumn() : field.getField().getColumn();
-        switch (FieldValueType.forJavaType(fieldType, column)) {
+        field = field.isFlat() ? field.toFlatField() : field;
+
+        Type fieldType = field.getType();
+        switch (FieldValueType.forSchemaField(field)) {
             case STRING -> {
                 Preconditions.checkState(isString(), "Value is not a string: " + this);
                 return str;

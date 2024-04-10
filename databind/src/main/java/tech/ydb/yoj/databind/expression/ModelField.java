@@ -13,6 +13,7 @@ import tech.ydb.yoj.databind.expression.IllegalExpressionException.FieldTypeErro
 import tech.ydb.yoj.databind.expression.IllegalExpressionException.FieldTypeError.StringFieldExpected;
 import tech.ydb.yoj.databind.expression.IllegalExpressionException.FieldTypeError.UnknownEnumConstant;
 import tech.ydb.yoj.databind.schema.Schema;
+import tech.ydb.yoj.databind.schema.Schema.JavaField;
 
 import javax.annotation.Nullable;
 import java.lang.reflect.Type;
@@ -26,22 +27,26 @@ import static java.util.Arrays.stream;
 @Getter
 public final class ModelField {
     private final String userFieldPath;
-    private final Schema.JavaField javaField;
+    private final JavaField javaField;
 
-    public ModelField(@Nullable String userFieldPath, @NonNull Schema.JavaField javaField) {
+    public ModelField(@Nullable String userFieldPath, @NonNull JavaField javaField) {
         this.userFieldPath = userFieldPath;
         this.javaField = javaField;
     }
 
     @NonNull
-    public static ModelField of(@NonNull Schema.JavaField field) {
+    public static ModelField of(@NonNull JavaField field) {
         return new ModelField(null, field);
     }
 
     @NonNull
     public Type getFlatFieldType() {
+        return toFlatField().getType();
+    }
+
+    private JavaField toFlatField() {
         checkState(javaField.isFlat(), FlatFieldExpected::new, p -> format("Not a flat field: \"%s\"", p));
-        return javaField.getFlatFieldType();
+        return javaField.toFlatField();
     }
 
     @NonNull
@@ -68,11 +73,11 @@ public final class ModelField {
             return value;
         }
 
-        Type fieldType = getFlatFieldType();
-        FieldValueType fieldValueType = FieldValueType.forJavaType(fieldType, javaField.toFlatField().getField().getColumn());
+        JavaField flatField = toFlatField();
+        FieldValueType fieldValueType = FieldValueType.forSchemaField(flatField);
         if (value.isString()) {
             if (fieldValueType == FieldValueType.ENUM) {
-                TypeToken<?> tt = TypeToken.of(fieldType);
+                TypeToken<?> tt = TypeToken.of(flatField.getType());
                 String enumConstant = value.getStr();
                 Class<?> clazz = tt.getRawType();
                 checkArgument(enumHasConstant(clazz, enumConstant),
@@ -118,7 +123,7 @@ public final class ModelField {
     public <U> ModelField forSchema(@NonNull Schema<U> dstSchema,
                                     @NonNull UnaryOperator<String> pathTransformer) {
         String newFieldPath = pathTransformer.apply(javaField.getPath());
-        Schema.JavaField newField = dstSchema.getField(newFieldPath);
+        JavaField newField = dstSchema.getField(newFieldPath);
         return new ModelField(this.userFieldPath, newField);
     }
 

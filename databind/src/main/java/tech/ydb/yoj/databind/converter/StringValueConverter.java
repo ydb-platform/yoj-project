@@ -12,18 +12,17 @@ import static java.lang.String.format;
 import static java.lang.reflect.Modifier.isStatic;
 
 /**
- * Possible String value type replacement: a generic converter that can be applied to your
- * type/your columns with
- * <blockquote>
- * <pre>
- * &#64;Column(
- *     customValueType=&#64;CustomValueType(
- *         columnClass=String.class,
- *         converter=StringValueConverter.class
- *     )
- * )
- * </pre>
- * </blockquote>
+ * Generic YDB text column &harr; Java value converter. Uses {@link Object#toString()} to convert Java values
+ * to YDB column values, and one of ({@code static fromString(String)}, {@code static valueOf(String)} or the
+ * 1-arg {@code String} constructor) to convert YDB column values back to Java.
+ * <ul>
+ * <li>Apply it locally to your entity's field, by using the {@link StringColumn @StringColumn} annotation.
+ * Explicitly specify {@code @Column(customValueType=@CustomValueType(columnClass=String.class, converter=StringValueConverter.class), ...)}
+ * if you need to add more column customizations.</li>
+ * <li>Apply it globally to a user-defined field type, by using the {@link StringValueType @StringValueType} annotation.
+ * Explicitly specify {@code @CustomValueType(columnClass=String.class, converter=StringValueConverter.class), ...)} if you prefer not to use
+ * meta-annotations.</li>
+ * </ul>
  *
  * @param <J> Java type
  */

@@ -2,6 +2,7 @@ package tech.ydb.yoj.databind.schema.reflect;
 
 import tech.ydb.yoj.databind.FieldValueType;
 import tech.ydb.yoj.databind.schema.Column;
+import tech.ydb.yoj.databind.schema.CustomValueTypeInfo;
 
 import javax.annotation.Nullable;
 import java.lang.reflect.Type;
@@ -25,6 +26,9 @@ public interface ReflectField {
      */
     @Nullable
     Column getColumn();
+
+    @Nullable
+    CustomValueTypeInfo<?, ?> getCustomValueTypeInfo();
 
     /**
      * @return full generic field type

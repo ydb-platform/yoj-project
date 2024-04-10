@@ -18,6 +18,7 @@ import tech.ydb.yoj.databind.CustomValueTypes;
 import tech.ydb.yoj.databind.DbType;
 import tech.ydb.yoj.databind.FieldValueType;
 import tech.ydb.yoj.databind.schema.Column;
+import tech.ydb.yoj.databind.schema.CustomValueTypeInfo;
 import tech.ydb.yoj.databind.schema.Schema.JavaField;
 import tech.ydb.yoj.repository.DbTypeQualifier;
 import tech.ydb.yoj.repository.db.common.CommonConverters;
@@ -43,8 +44,6 @@ import static tech.ydb.yoj.repository.db.common.CommonConverters.enumValueGetter
 import static tech.ydb.yoj.repository.db.common.CommonConverters.enumValueSetter;
 import static tech.ydb.yoj.repository.db.common.CommonConverters.opaqueObjectValueGetter;
 import static tech.ydb.yoj.repository.db.common.CommonConverters.opaqueObjectValueSetter;
-import static tech.ydb.yoj.repository.db.common.CommonConverters.stringValueGetter;
-import static tech.ydb.yoj.repository.db.common.CommonConverters.stringValueSetter;
 
 @Value
 @AllArgsConstructor(access = PRIVATE)
@@ -103,8 +102,8 @@ public class YqlPrimitiveType implements YqlType {
     private static final Function<Type, Setter> ENUM_TO_STRING_UTF8_SETTERS = type -> enumToStringValueSetter(type, TEXT_SETTER)::accept;
     private static final Function<Type, Setter> JSON_STRING_SETTERS = type -> opaqueObjectValueSetter(type, STRING_SETTER)::accept;
     private static final Function<Type, Setter> JSON_UTF8_SETTERS = type -> opaqueObjectValueSetter(type, TEXT_SETTER)::accept;
-    private static final Function<Type, Setter> STRING_VALUE_STRING_SETTERS = type -> stringValueSetter(type, STRING_SETTER)::accept;
-    private static final Function<Type, Setter> STRING_VALUE_UTF8_SETTERS = type -> stringValueSetter(type, TEXT_SETTER)::accept;
+    private static final Function<Type, Setter> STRING_VALUE_STRING_SETTERS = type -> (d, v) -> STRING_SETTER.accept(d, v.toString());
+    private static final Function<Type, Setter> STRING_VALUE_UTF8_SETTERS = type -> (d, v) -> TEXT_SETTER.accept(d, v.toString());
 
     private static final Getter BOOL_GETTER = ValueProtos.Value::getBoolValue;
     private static final Getter BYTE_GETTER = value -> (byte) value.getInt32Value();
@@ -143,8 +142,8 @@ public class YqlPrimitiveType implements YqlType {
     private static final Function<Type, Getter> ENUM_TO_STRING_UTF8_GETTERS = type -> enumToStringValueGetter(type, TEXT_GETTER)::apply;
     private static final Function<Type, Getter> JSON_STRING_GETTERS = type -> opaqueObjectValueGetter(type, STRING_GETTER)::apply;
     private static final Function<Type, Getter> JSON_UTF8_GETTERS = type -> opaqueObjectValueGetter(type, TEXT_GETTER)::apply;
-    private static final Function<Type, Getter> STRING_VALUE_STRING_GETTERS = type -> stringValueGetter(type, STRING_GETTER)::apply;
-    private static final Function<Type, Getter> STRING_VALUE_UTF8_GETTERS = type -> stringValueGetter(type, TEXT_GETTER)::apply;
+    private static final Function<Type, Getter> STRING_VALUE_STRING_GETTERS = type -> STRING_GETTER;
+    private static final Function<Type, Getter> STRING_VALUE_UTF8_GETTERS = type -> TEXT_GETTER;
 
     private static final Map<YqlTypeSelector, YqlPrimitiveType> YQL_TYPES = new ConcurrentHashMap<>();
     private static final Map<Type, YqlTypeSelector> JAVA_DEFAULT_YQL_TYPES = new HashMap<>();
@@ -342,7 +341,7 @@ public class YqlPrimitiveType implements YqlType {
     @NonNull
     @Deprecated(forRemoval = true)
     public static YqlPrimitiveType of(Type javaType) {
-        var valueType = FieldValueType.forJavaType(javaType, null);
+        var valueType = FieldValueType.forJavaType(javaType, null, null);
         return resolveYqlType(javaType, valueType, null, null);
     }
 
@@ -364,10 +363,10 @@ public class YqlPrimitiveType implements YqlType {
         Type javaType = column.getType();
         FieldValueType valueType = column.getValueType();
         String qualifier = column.getDbTypeQualifier();
-        CustomValueType cvt = column.getCustomValueType();
+        CustomValueTypeInfo<?, ?> cvt = column.getCustomValueTypeInfo();
 
         var underlyingType = resolveYqlType(
-                cvt != null ? cvt.columnClass() : javaType,
+                cvt != null ? cvt.getColumnClass() : javaType,
                 valueType,
                 yqlType,
                 qualifier

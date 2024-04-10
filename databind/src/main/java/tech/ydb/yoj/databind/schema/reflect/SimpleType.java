@@ -20,7 +20,8 @@ public final class SimpleType<T> implements ReflectType<T> {
 
         @Override
         public boolean matches(Class<?> rawType, FieldValueType fvt) {
-            return !fvt.isComposite() && !fvt.isUnknown();
+            return !fvt.isComposite()
+                    && fvt != FieldValueType.UNKNOWN; // TODO(entropia@): This won't be necessary when we remove FieldValueType.UNKNOWN in YOJ 3.0.0
         }
 
         @Override

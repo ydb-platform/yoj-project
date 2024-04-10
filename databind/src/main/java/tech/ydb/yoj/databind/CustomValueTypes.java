@@ -3,13 +3,12 @@ package tech.ydb.yoj.databind;
 import com.google.common.base.Preconditions;
 import com.google.common.reflect.TypeToken;
 import lombok.NonNull;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import tech.ydb.yoj.ExperimentalApi;
 import tech.ydb.yoj.databind.converter.StringValueConverter;
 import tech.ydb.yoj.databind.converter.ValueConverter;
 import tech.ydb.yoj.databind.schema.Column;
 import tech.ydb.yoj.databind.schema.CustomConverterException;
+import tech.ydb.yoj.databind.schema.CustomValueTypeInfo;
 import tech.ydb.yoj.databind.schema.Schema.JavaField;
 import tech.ydb.yoj.util.lang.Annotations;
 
@@ -19,63 +18,48 @@ import java.lang.reflect.Type;
 
 import static java.lang.reflect.Modifier.isAbstract;
 import static java.lang.reflect.Modifier.isStatic;
-import static tech.ydb.yoj.databind.FieldValueType.STRING;
 
 @ExperimentalApi(issue = "https://github.com/ydb-platform/yoj-project/issues/24")
 public final class CustomValueTypes {
-    private static final Logger log = LoggerFactory.getLogger(CustomValueTypes.class);
-
     private CustomValueTypes() {
     }
 
     public static Object preconvert(@NonNull JavaField field, @NonNull Object value) {
-        var cvt = field.getCustomValueType();
-        if (cvt != null) {
-            if (cvt.columnClass().isInstance(value)) {
-                // Value is already preconverted
-                return value;
-            }
-
-            value = createCustomValueTypeConverter(cvt).toColumn(field, value);
-
-            Preconditions.checkArgument(cvt.columnClass().isInstance(value),
-                    "Custom value type converter %s must produce a non-null value of type columnClass()=%s but got value of type %s",
-                    cvt.converter().getCanonicalName(), cvt.columnClass().getCanonicalName(), value.getClass().getCanonicalName());
-        } else {
-            // Legacy string-valued type (registered by FieldValueType.registerStringValueType())
-            if (field.getValueType() == STRING && !String.class.equals(field.getRawType()) && !(value instanceof String)) {
-                log.warn("You are using FieldValueType.registerStringValueType({}.class) which is deprecated for removal. "
-                                + "Please use @StringColumn annotation on the Entity field or a @StringValueType annotation on the string-valued type",
-                        field.getRawType().getCanonicalName());
-                return new StringValueConverter<>().toColumn(field, value);
-            }
+        var cvt = field.getCustomValueTypeInfo();
+        if (cvt == null) {
+            return value;
         }
+        if (cvt.getColumnClass().isInstance(value)) {
+            // Value is already preconverted
+            return value;
+        }
+
+        value = cvt.toColumn(field, value);
+        Preconditions.checkArgument(cvt.getColumnClass().isInstance(value),
+                "Custom value type converter %s must produce a non-null value of type columnClass()=%s but got value of type %s",
+                cvt.getConverter().getClass().getCanonicalName(),
+                cvt.getColumnClass().getCanonicalName(),
+                value.getClass().getCanonicalName());
         return value;
     }
 
-    public static Object postconvert(@NonNull JavaField field, @NonNull Object value) {
-        var cvt = field.getCustomValueType();
-        if (cvt != null) {
-            value = createCustomValueTypeConverter(cvt).toJava(field, value);
-        } else {
-            // Legacy string-valued type (registered by FieldValueType.registerStringValueType())
-            if (field.getValueType() == STRING && !String.class.equals(field.getRawType()) && value instanceof String) {
-                log.warn("You are using FieldValueType.registerStringValueType({}.class) which is deprecated for removal. "
-                                + "Please use @StringColumn annotation on the Entity field or a @StringValueType annotation on the string-valued type",
-                        field.getRawType().getCanonicalName());
-                return new StringValueConverter<>().toJava(field, (String) value);
-            }
+    public static <C extends Comparable<? super C>> Object postconvert(@NonNull JavaField field, @NonNull Object value) {
+        CustomValueTypeInfo<?, C> cvt = field.getCustomValueTypeInfo();
+        if (cvt == null) {
+            return value;
         }
-        return value;
+
+        Preconditions.checkArgument(value instanceof Comparable, "postconvert() only takes Comparable values, but got value of %s", value.getClass());
+
+        @SuppressWarnings("unchecked") C comparable = (C) value;
+        return cvt.toJava(field, comparable);
     }
 
-    // TODO: Add caching to e.g. SchemaRegistry using @CustomValueType+[optionally JavaField if there is @Column annotation]+[type] as key,
-    // to avoid repetitive construction of ValueConverters
-    private static <V, C> ValueConverter<V, C> createCustomValueTypeConverter(CustomValueType cvt) {
+    private static <J, C extends Comparable<? super C>> ValueConverter<J, C> createCustomValueTypeConverter(CustomValueType cvt) {
         try {
             var ctor = cvt.converter().getDeclaredConstructor();
             ctor.setAccessible(true);
-            @SuppressWarnings("unchecked") var converter = (ValueConverter<V, C>) ctor.newInstance();
+            @SuppressWarnings("unchecked") var converter = (ValueConverter<J, C>) ctor.newInstance();
             return converter;
         } catch (InstantiationException | IllegalAccessException | NoSuchMethodException | SecurityException | InvocationTargetException e) {
             throw new CustomConverterException(e, "Could not return custom value type converter " + cvt.converter());
@@ -84,9 +68,32 @@ public final class CustomValueTypes {
 
     @Nullable
     @ExperimentalApi(issue = "https://github.com/ydb-platform/yoj-project/issues/24")
-    public static CustomValueType getCustomValueType(@NonNull Type type, @Nullable Column columnAnnotation) {
-        var rawType = type instanceof Class<?> ? (Class<?>) type : TypeToken.of(type).getRawType();
+    public static <J, C extends Comparable<? super C>> CustomValueTypeInfo<J, C> getCustomValueTypeInfo(
+            @NonNull Type type, @Nullable Column columnAnnotation
+    ) {
+        Class<?> rawType = type instanceof Class<?> ? (Class<?>) type : TypeToken.of(type).getRawType();
+        CustomValueType cvt = getCustomValueType(rawType, columnAnnotation);
+        if (cvt == null) {
+            if (FieldValueType.isCustomStringValueType(rawType)) {
+                @SuppressWarnings("unchecked")
+                var legacyStringVtInfo = (CustomValueTypeInfo<J, C>) new CustomValueTypeInfo<>(String.class, new StringValueConverter<J>());
 
+                return legacyStringVtInfo;
+            }
+
+            return null;
+        }
+
+        @SuppressWarnings("unchecked")
+        Class<C> columnClass = (Class<C>) cvt.columnClass();
+
+        ValueConverter<J, C> converter = createCustomValueTypeConverter(cvt);
+
+        return new CustomValueTypeInfo<>(columnClass, converter);
+    }
+
+    @Nullable
+    private static CustomValueType getCustomValueType(@NonNull Class<?> rawType, @Nullable Column columnAnnotation) {
         var cvtAnnotation = columnAnnotation == null ? null : columnAnnotation.customValueType();
 
         var columnCvt = cvtAnnotation == null || cvtAnnotation.converter().equals(ValueConverter.NoConverter.class) ? null : cvtAnnotation;
@@ -103,10 +110,12 @@ public final class CustomValueTypes {
             Preconditions.checkArgument(!columnClass.isInterface() && !isAbstract(columnClass.getModifiers()),
                     "@CustomValueType.columnClass=%s must not be an interface or an abstract class", columnClass.getCanonicalName());
 
-            var fvt = FieldValueType.forJavaType(columnClass, null);
+            var fvt = FieldValueType.forJavaType(columnClass);
             Preconditions.checkArgument(!fvt.isComposite(),
                     "@CustomValueType.columnClass=%s must not map to FieldValueType.COMPOSITE", columnClass.getCanonicalName());
-            Preconditions.checkArgument(!fvt.isUnknown(),
+
+            // TODO(entropia@): This won't be necessary when we remove FieldValueType.UNKNOWN in YOJ 3.0.0
+            Preconditions.checkArgument(fvt != FieldValueType.UNKNOWN,
                     "@CustomValueType.columnClass=%s must not map to FieldValueType.UNKNOWN", columnClass.getCanonicalName());
 
             var converterClass = cvt.converter();

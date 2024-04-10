@@ -186,7 +186,7 @@ public abstract class PredicateStatement<PARAMS, ENTITY extends Entity<ENTITY>, 
         }
 
         private Object getValueForField(JavaField rootField, String fieldName, boolean compositeYqlType, Object paramValue) {
-            if (!compositeYqlType && FieldValueType.isComposite(paramValue.getClass())) {
+            if (!compositeYqlType && FieldValueType.forJavaType(paramValue.getClass(), rootField.getField()).isComposite()) {
                 Map<String, Object> m = new LinkedHashMap<>();
                 rootField.collectValueTo(paramValue, m);
                 return m.get(fieldName);

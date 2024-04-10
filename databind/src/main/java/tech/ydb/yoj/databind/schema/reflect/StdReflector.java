@@ -40,7 +40,7 @@ public final class StdReflector implements Reflector {
     @Override
     @SuppressWarnings("unchecked")
     public <T> ReflectType<T> reflectRootType(Class<T> type) {
-        return (ReflectType<T>) reflectFor(type, FieldValueType.forJavaType(type, null));
+        return (ReflectType<T>) reflectFor(type, FieldValueType.COMPOSITE);
     }
 
     @Override
@@ -49,7 +49,8 @@ public final class StdReflector implements Reflector {
     }
 
     private ReflectType<?> reflectFor(Type type, FieldValueType fvt) {
-        if (fvt.isUnknown()) {
+        // TODO(entropia@): This won't be necessary when we remove FieldValueType.UNKNOWN in YOJ 3.0.0
+        if (fvt == FieldValueType.UNKNOWN) {
             throw new IllegalArgumentException("Unknown field value type for: " + type);
         }
 

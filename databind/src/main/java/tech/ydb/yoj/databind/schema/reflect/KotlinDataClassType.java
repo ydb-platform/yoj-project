@@ -12,7 +12,6 @@ import kotlin.reflect.jvm.ReflectJvmMapping;
 import java.lang.reflect.Constructor;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Objects;
 
 import static java.util.stream.Collectors.toMap;
 
@@ -44,12 +43,6 @@ public final class KotlinDataClassType<T> implements ReflectType<T> {
                 kClassName, primaryKtConstructor);
         this.constructor = primaryJavaConstructor;
         this.constructor.setAccessible(true);
-
-        var functions = KClasses.getDeclaredMemberFunctions(kClass).stream()
-                .filter(c -> KotlinDataClassTypeFactory.isComponentMethodName(c.getName())
-                        && c.getParameters().size() == 1
-                        && Objects.equals(kClass, c.getParameters().get(0).getType().getClassifier()))
-                .collect(toMap(KCallable::getName, m -> m));
 
         var mutableProperties = KClasses.getDeclaredMemberProperties(kClass).stream()
                 .filter(p -> p instanceof KMutableProperty)

@@ -18,12 +18,23 @@ import static java.lang.annotation.RetentionPolicy.RUNTIME;
 /**
  * Annotates the class, or entity field/record component as having a custom {@link ValueConverter value converter}.
  * <br>The specified converter will be used by YOJ instead of the default (Database column&harr;Java field) mapping.
- * <p>{@link Column#customValueType() @Column(customValueType=...)} annotation on an entity field/record component
- * has priority over annotation on the field's/record component's class.
- * <p>This annotation is <em>inherited</em>, so make sure that your {@link #converter() converter} either supports all
- * possible subclasses of your class, or restrict subclassing by making your class {@code final} or {@code sealed}.
- * <p>Defining <em>recursive</em> custom value types is prohibited: that is, you cannot have a custom value type with
+ * <br>Defining <em>recursive</em> custom value types is prohibited: that is, you cannot have a custom value type with
  * a converter that returns value of {@link #columnClass() another custom value type}.
+ * <ul>
+ * <li>This annotation is <em>inherited</em>, so make sure that your {@link #converter() converter} either supports all
+ * possible subclasses of your class, or restrict subclassing by making your class {@code final} or {@code sealed}.
+ * <li>This is a <em>meta-annotation</em>: it can be applied to other annotations; if you use these annotations, YOJ
+ * will correctly apply the {@code @CustomValueType} annotation. This allows to define custom value type configuration
+ * once and then re-use it in multiple classes.
+ * <li>{@link Column#customValueType() @Column(customValueType=...)} annotation on an entity field/record component
+ * has priority over annotation on the field's/record component's class. {@link Column @Column} is also a meta-annotation,
+ * so you can define custom value types for individual columns using {@code @Column.customValueType}.</li>
+ * </ul>
+ *
+ * @see tech.ydb.yoj.databind.converter.StringValueConverter StringValueConverter
+ * @see tech.ydb.yoj.databind.converter.StringColumn StringColumn
+ * @see tech.ydb.yoj.databind.converter.StringValueType StringValueType
+ * @see tech.ydb.yoj.databind.converter.EnumOrdinalConverter EnumOrdinalConverter
  */
 @Inherited
 @Retention(RUNTIME)
