@@ -449,7 +449,7 @@ public class YqlPrimitiveType implements YqlType {
         }
 
         return new YqlPrimitiveType(
-                underlyingType.javaType,
+                javaType,
                 underlyingType.yqlType,
                 (b, o) -> underlyingType.setter.accept(b, CustomValueTypes.preconvert(column, o)),
                 v -> CustomValueTypes.postconvert(column, underlyingType.getter.apply(v))
