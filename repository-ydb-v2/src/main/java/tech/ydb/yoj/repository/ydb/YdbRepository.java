@@ -1,6 +1,7 @@
 package tech.ydb.yoj.repository.ydb;
 
 import com.google.common.base.Strings;
+import com.google.common.base.Suppliers;
 import io.grpc.ClientInterceptor;
 import io.grpc.netty.shaded.io.grpc.netty.NettyChannelBuilder;
 import lombok.Getter;
@@ -27,6 +28,8 @@ import tech.ydb.yoj.repository.ydb.client.YdbTableHint;
 import tech.ydb.yoj.repository.ydb.compatibility.YdbDataCompatibilityChecker;
 import tech.ydb.yoj.repository.ydb.compatibility.YdbSchemaCompatibilityChecker;
 import tech.ydb.yoj.repository.ydb.statement.Statement;
+import tech.ydb.yoj.util.function.MoreSuppliers;
+import tech.ydb.yoj.util.function.MoreSuppliers.CloseableMemoizer;
 
 import java.lang.reflect.Field;
 import java.util.ArrayList;
@@ -38,6 +41,7 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Supplier;
 
 import static java.util.stream.Collectors.toUnmodifiableSet;
 import static tech.ydb.yoj.repository.ydb.client.YdbPaths.canonicalDatabase;
@@ -45,11 +49,10 @@ import static tech.ydb.yoj.repository.ydb.client.YdbPaths.canonicalDatabase;
 public class YdbRepository implements Repository {
     private static final Logger log = LoggerFactory.getLogger(YdbRepository.class);
 
-    @Getter
-    private final YdbSchemaOperations schemaOperations;
-    @Getter
-    private final SessionManager sessionManager;
     private final GrpcTransport transport;
+    private final CloseableMemoizer<SessionManager> sessionManager;
+    private final Supplier<YdbSchemaOperations> schemaOperations;
+
     @Getter
     private final String tablespace;
 
@@ -67,19 +70,19 @@ public class YdbRepository implements Repository {
     }
 
     public YdbRepository(@NonNull YdbConfig config, @NonNull AuthProvider authProvider, List<ClientInterceptor> interceptors) {
-            this(config, makeGrpcTransport(config, authProvider, interceptors));
+        this(config, makeGrpcTransport(config, authProvider, interceptors));
     }
 
-    public YdbRepository(
-            @NonNull YdbConfig config,
-            GrpcTransport transport
-    ) {
+    public YdbRepository(@NonNull YdbConfig config, @NonNull GrpcTransport transport) {
         this.config = config;
         this.tablespace = YdbPaths.canonicalTablespace(config.getTablespace());
         this.entityClassesByTableName = new ConcurrentHashMap<>();
         this.transport = transport;
-        this.sessionManager = new YdbSessionManager(config, transport);
-        this.schemaOperations = buildSchemaOperations(config.getTablespace(), transport, sessionManager);
+
+        CloseableMemoizer<SessionManager> sessionManager = MoreSuppliers.memoizeCloseable(() -> new YdbSessionManager(config, transport));
+        this.sessionManager = sessionManager;
+
+        this.schemaOperations = Suppliers.memoize(() -> buildSchemaOperations(config.getTablespace(), transport, sessionManager.get()));
     }
 
     private static GrpcTransport makeGrpcTransport(
@@ -87,11 +90,11 @@ public class YdbRepository implements Repository {
             @NonNull AuthProvider authProvider,
             List<ClientInterceptor> interceptors
     ) {
-        GrpcTransportBuilder builder = makeGrpcTransportBuilder(config, authProvider, interceptors);
-        if (config.isUseSingleChannelTransport()) {
-            return new SingleChannelTransport(builder);
-        }
-        return builder.build();
+        boolean singleChannel = config.isUseSingleChannelTransport();
+        return new LazyGrpcTransport(
+                makeGrpcTransportBuilder(config, authProvider, interceptors),
+                singleChannel ? SingleChannelTransport::new : GrpcTransportBuilder::build
+        );
     }
 
     private static GrpcTransportBuilder makeGrpcTransportBuilder(@NonNull YdbConfig config, AuthProvider authProvider, List<ClientInterceptor> interceptors) {
@@ -145,6 +148,14 @@ public class YdbRepository implements Repository {
         channelBuilder.maxInboundMessageSize(64 << 20); // 64 MiB
     }
 
+    public SessionManager getSessionManager() {
+        return sessionManager.get();
+    }
+
+    public YdbSchemaOperations getSchemaOperations() {
+        return schemaOperations.get();
+    }
+
     @NonNull
     protected YdbSchemaOperations buildSchemaOperations(@NonNull String tablespace, GrpcTransport transport, SessionManager sessionManager) {
         return new YdbSchemaOperations(tablespace, sessionManager, transport);
@@ -179,18 +190,18 @@ public class YdbRepository implements Repository {
 
     @Override
     public void shutdown() {
-        getSessionManager().shutdown();
+        sessionManager.close();
         transport.close();
     }
 
     @Override
     public void createTablespace() {
-        schemaOperations.createTablespace();
+        getSchemaOperations().createTablespace();
     }
 
     @Override
     public Set<Class<? extends Entity<?>>> tables() {
-        return schemaOperations.getTableNames().stream()
+        return getSchemaOperations().getTableNames().stream()
                 .map(entityClassesByTableName::get)
                 .filter(Objects::nonNull)
                 .collect(toUnmodifiableSet());
@@ -203,6 +214,8 @@ public class YdbRepository implements Repository {
 
     @Override
     public String makeSnapshot() {
+        YdbSchemaOperations schemaOperations = getSchemaOperations();
+
         String snapshotPath = schemaOperations.getTablespace() + ".snapshot-" + UUID.randomUUID() + "/";
         schemaOperations.snapshot(snapshotPath);
         return snapshotPath;
@@ -210,6 +223,8 @@ public class YdbRepository implements Repository {
 
     @Override
     public void loadSnapshot(String id) {
+        YdbSchemaOperations schemaOperations = getSchemaOperations();
+
         String current = schemaOperations.getTablespace();
 
         schemaOperations.getTableNames().forEach(schemaOperations::dropTable);
@@ -227,7 +242,7 @@ public class YdbRepository implements Repository {
     @Override
     public void dropDb() {
         try {
-            schemaOperations.removeTablespace();
+            getSchemaOperations().removeTablespace();
             entityClassesByTableName.clear();
         } catch (Exception e) {
             log.error("Could not drop all tables from tablespace", e);
@@ -241,7 +256,7 @@ public class YdbRepository implements Repository {
             @Override
             public void create() {
                 String tableName = schema.getName();
-                schemaOperations.createTable(tableName, schema.flattenFields(), schema.flattenId(),
+                getSchemaOperations().createTable(tableName, schema.flattenFields(), schema.flattenId(),
                         extractHint(), schema.getGlobalIndexes(), schema.getTtlModifier(), schema.getChangefeeds());
                 if (!schema.isDynamic()) {
                     entityClassesByTableName.put(tableName, c);
@@ -261,14 +276,14 @@ public class YdbRepository implements Repository {
             @Override
             public void drop() {
                 String tableName = schema.getName();
-                schemaOperations.dropTable(tableName);
+                getSchemaOperations().dropTable(tableName);
                 entityClassesByTableName.remove(tableName);
             }
 
             @Override
             public boolean exists() {
                 String tableName = schema.getName();
-                boolean exists = schemaOperations.hasTable(tableName);
+                boolean exists = getSchemaOperations().hasTable(tableName);
                 if (!schema.isDynamic()) {
                     if (exists) {
                         entityClassesByTableName.put(tableName, c);
