@@ -96,7 +96,7 @@ public final class FilterBuilder<T> {
     }
 
     public FieldBuilder where(@NonNull String fieldPath) {
-        return new FieldBuilder(ModelField.of(schema.getField(fieldPath)), generated, e -> e);
+        return and(fieldPath);
     }
 
     public FieldBuilder and(@NonNull String fieldPath) {
