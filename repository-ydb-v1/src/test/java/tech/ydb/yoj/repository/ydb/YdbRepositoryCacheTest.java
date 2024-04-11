@@ -91,7 +91,7 @@ public class YdbRepositoryCacheTest {
 
         when(session.executeDataQuery(any(), any(), any(), any())).thenReturn(convertEntity(results));
 
-        ops.complexes().find(new Range<>(new Complex.Id(1, null, null, null)));
+        ops.complexes().find(Range.create(new Complex.Id(1, null, null, null)));
         for (Complex c : results) {
             ops.complexes().find(c.getId());
         }

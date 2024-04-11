@@ -46,7 +46,7 @@ abstract class BatchFindSpliterator<R, T extends Entity<T>, ID extends Entity.Id
         );
         this.top = YqlLimit.top(batchSize);
         if (partial != null) {
-            Range<ID> range = new Range<>(partial);
+            Range<ID> range = Range.create(partial);
             Map<String, Object> eqMap = range.getEqMap();
             this.initialPartialPredicates = this.idSchema
                     .flattenFields().stream()

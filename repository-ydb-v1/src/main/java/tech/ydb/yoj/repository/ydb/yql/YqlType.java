@@ -11,7 +11,7 @@ public interface YqlType {
     ValueProtos.Type.Builder getYqlTypeBuilder();
 
     /**
-     * @deprecated Nothing in YOJ calls {@code YqlType.of(Type)} any more.
+     * @deprecated This method will be removed in YOJ 3.0.0. Nothing in YOJ calls {@code YqlType.of(Type)} any more.
      * <p>Please use {@link #of(JavaField) YqlType.of(JavaField)} because it correcly
      * respects the customizations specified in the {@link Column &#64;Column} annotation.
      */

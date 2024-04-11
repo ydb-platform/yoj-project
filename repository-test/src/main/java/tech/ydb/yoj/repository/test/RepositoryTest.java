@@ -357,26 +357,34 @@ public abstract class RepositoryTest extends RepositoryTestSupport {
         assertThatExceptionOfType(IllegalArgumentException.class)
                 .isThrownBy(() -> db.tx(() -> db.projects().streamAll(5001)));
     }
+    
+    private static <ID extends Entity.Id<?>> ReadTableParams<ID> defaultReadTableParamsNonLegacy() {
+        return RepositoryTest.<ID>buildReadTableParamsNonLegacy().build();
+    }
+
+    private static <ID extends Entity.Id<?>> ReadTableParams.ReadTableParamsBuilder<ID> buildReadTableParamsNonLegacy() {
+        return ReadTableParams.<ID>builder().useNewSpliterator(true);
+    }
 
     @Test
     public void readTable() {
-        assertThat(db.readOnly().run(() -> db.projects().readTable(ReadTableParams.getDefault()).count())).isEqualTo(0);
+        assertThat(db.readOnly().run(() -> db.projects().readTable(defaultReadTableParamsNonLegacy()).count())).isEqualTo(0);
 
         List<Project> expectedProjects = new ArrayList<>();
         for (int i = 1; i <= 9; ++i) {
             Project p = new Project(new Project.Id(String.valueOf(i)), "project-" + i);
             expectedProjects.add(p);
             db.tx(() -> db.projects().save(p));
-            assertThat(db.readOnly().run(() -> db.projects().readTable(ReadTableParams.getDefault()).count()))
+            assertThat(db.readOnly().run(() -> db.projects().readTable(defaultReadTableParamsNonLegacy()).count()))
                     .isEqualTo(i);
         }
 
-        ReadTableParams<Project.Id> readFrom = ReadTableParams.<Project.Id>builder()
+        ReadTableParams<Project.Id> readFrom = RepositoryTest.<Project.Id>buildReadTableParamsNonLegacy()
                 .fromKeyInclusive(expectedProjects.get(3).getId())
                 .rowLimit(5)
                 .ordered()
                 .build();
-        ReadTableParams<Project.Id> readFromUnordered = ReadTableParams.<Project.Id>builder()
+        ReadTableParams<Project.Id> readFromUnordered = RepositoryTest.<Project.Id>buildReadTableParamsNonLegacy()
                 .fromKeyInclusive(expectedProjects.get(3).getId())
                 .rowLimit(5)
                 .build();
@@ -391,12 +399,12 @@ public abstract class RepositoryTest extends RepositoryTestSupport {
         );
         assertThatExceptionOfType(IllegalArgumentException.class)
                 .isThrownBy(() -> db.readOnly().run(() -> db.projects().readTable(readFromUnordered)));
-        ReadTableParams<Project.Id> readFromTo = ReadTableParams.<Project.Id>builder()
+        ReadTableParams<Project.Id> readFromTo = RepositoryTest.<Project.Id>buildReadTableParamsNonLegacy()
                 .fromKeyInclusive(expectedProjects.get(3).getId())
                 .toKey(expectedProjects.get(7).getId())
                 .ordered()
                 .build();
-        ReadTableParams<Project.Id> readFromToUnordered = ReadTableParams.<Project.Id>builder()
+        ReadTableParams<Project.Id> readFromToUnordered = RepositoryTest.<Project.Id>buildReadTableParamsNonLegacy()
                 .fromKeyInclusive(expectedProjects.get(3).getId())
                 .toKey(expectedProjects.get(7).getId())
                 .build();
@@ -412,12 +420,12 @@ public abstract class RepositoryTest extends RepositoryTestSupport {
         assertThatExceptionOfType(IllegalArgumentException.class)
                 .isThrownBy(() -> db.readOnly().run(() -> db.projects().readTable(readFromToUnordered)));
         assertThatExceptionOfType(IllegalTransactionIsolationLevelException.class)
-                .isThrownBy(() -> db.tx(() -> db.projects().readTable(ReadTableParams.getDefault()).count()));
+                .isThrownBy(() -> db.tx(() -> db.projects().readTable(defaultReadTableParamsNonLegacy()).count()));
     }
 
     @Test
     public void readTableIds() {
-        assertThat(db.readOnly().run(() -> db.projects().readTableIds(ReadTableParams.getDefault()).count()))
+        assertThat(db.readOnly().run(() -> db.projects().readTableIds(defaultReadTableParamsNonLegacy()).count()))
                 .isEqualTo(0);
 
         List<Project.Id> expectedProjectIds = new ArrayList<>();
@@ -425,16 +433,16 @@ public abstract class RepositoryTest extends RepositoryTestSupport {
             Project p = new Project(new Project.Id(String.valueOf(i)), "project-" + i);
             expectedProjectIds.add(p.getId());
             db.tx(() -> db.projects().save(p));
-            assertThat(db.readOnly().run(() -> db.projects().readTableIds(ReadTableParams.getDefault()).count()))
+            assertThat(db.readOnly().run(() -> db.projects().readTableIds(defaultReadTableParamsNonLegacy()).count()))
                     .isEqualTo(i);
         }
 
-        ReadTableParams<Project.Id> readFrom = ReadTableParams.<Project.Id>builder()
+        ReadTableParams<Project.Id> readFrom = RepositoryTest.<Project.Id>buildReadTableParamsNonLegacy()
                 .fromKeyInclusive(expectedProjectIds.get(3))
                 .rowLimit(5)
                 .ordered()
                 .build();
-        ReadTableParams<Project.Id> readFromUnordered = ReadTableParams.<Project.Id>builder()
+        ReadTableParams<Project.Id> readFromUnordered = RepositoryTest.<Project.Id>buildReadTableParamsNonLegacy()
                 .fromKeyInclusive(expectedProjectIds.get(3))
                 .rowLimit(5)
                 .build();
@@ -449,12 +457,12 @@ public abstract class RepositoryTest extends RepositoryTestSupport {
         );
         assertThatExceptionOfType(IllegalArgumentException.class)
                 .isThrownBy(() -> db.readOnly().run(() -> db.projects().readTableIds(readFromUnordered)));
-        ReadTableParams<Project.Id> readFromTo = ReadTableParams.<Project.Id>builder()
+        ReadTableParams<Project.Id> readFromTo = RepositoryTest.<Project.Id>buildReadTableParamsNonLegacy()
                 .fromKeyInclusive(expectedProjectIds.get(3))
                 .toKey(expectedProjectIds.get(7))
                 .ordered()
                 .build();
-        ReadTableParams<Project.Id> readFromToUnordered = ReadTableParams.<Project.Id>builder()
+        ReadTableParams<Project.Id> readFromToUnordered = RepositoryTest.<Project.Id>buildReadTableParamsNonLegacy()
                 .fromKeyInclusive(expectedProjectIds.get(3))
                 .toKey(expectedProjectIds.get(7))
                 .build();
@@ -470,12 +478,12 @@ public abstract class RepositoryTest extends RepositoryTestSupport {
         assertThatExceptionOfType(IllegalArgumentException.class)
                 .isThrownBy(() -> db.readOnly().run(() -> db.projects().readTableIds(readFromToUnordered)));
         assertThatExceptionOfType(IllegalTransactionIsolationLevelException.class)
-                .isThrownBy(() -> db.tx(() -> db.projects().readTableIds(ReadTableParams.getDefault()).count()));
+                .isThrownBy(() -> db.tx(() -> db.projects().readTableIds(defaultReadTableParamsNonLegacy()).count()));
     }
 
     @Test
     public void readTableViews() {
-        assertThat(db.readOnly().run(() -> db.typeFreaks().readTableIds(ReadTableParams.getDefault()).count()))
+        assertThat(db.readOnly().run(() -> db.typeFreaks().readTableIds(defaultReadTableParamsNonLegacy()).count()))
                 .isEqualTo(0);
 
         List<TypeFreak.View> expectedViews = new ArrayList<>();
@@ -489,11 +497,11 @@ public abstract class RepositoryTest extends RepositoryTestSupport {
             if (i < 50) {
                 expectedViews.add(new TypeFreak.View(tf.getId(), tf.getEmbedded()));
                 assertThat(db.readOnly().run(() -> db.typeFreaks()
-                        .readTable(TypeFreak.View.class, ReadTableParams.getDefault()).count())).isEqualTo(savedCount);
+                        .readTable(TypeFreak.View.class, defaultReadTableParamsNonLegacy()).count())).isEqualTo(savedCount);
             }
         }
 
-        ReadTableParams<TypeFreak.Id> readFrom = ReadTableParams.<TypeFreak.Id>builder()
+        ReadTableParams<TypeFreak.Id> readFrom = RepositoryTest.<TypeFreak.Id>buildReadTableParamsNonLegacy()
                 .fromKeyInclusive(expectedViews.get(0).getId())
                 .rowLimit(expectedViews.size())
                 .ordered()
@@ -501,7 +509,7 @@ public abstract class RepositoryTest extends RepositoryTestSupport {
         assertThat(db.readOnly().run(() -> db.typeFreaks().readTable(TypeFreak.View.class, readFrom).collect(toList())))
                 .isEqualTo(expectedViews);
 
-        ReadTableParams<TypeFreak.Id> readFromTo = ReadTableParams.<TypeFreak.Id>builder()
+        ReadTableParams<TypeFreak.Id> readFromTo = RepositoryTest.<TypeFreak.Id>buildReadTableParamsNonLegacy()
                 .fromKeyInclusive(expectedViews.get(0).getId())
                 .toKeyInclusive(expectedViews.get(expectedViews.size() - 1).getId())
                 .ordered()
@@ -510,7 +518,7 @@ public abstract class RepositoryTest extends RepositoryTestSupport {
                 .isEqualTo(expectedViews);
 
         assertThatExceptionOfType(IllegalTransactionIsolationLevelException.class)
-                .isThrownBy(() -> db.tx(() -> db.typeFreaks().readTableIds(ReadTableParams.getDefault()).count()));
+                .isThrownBy(() -> db.tx(() -> db.typeFreaks().readTableIds(defaultReadTableParamsNonLegacy()).count()));
     }
 
     @Test
@@ -533,8 +541,11 @@ public abstract class RepositoryTest extends RepositoryTestSupport {
         assertThatExceptionOfType(OptimisticLockException.class)
                 .isThrownBy(() -> tx.table(Project.class).find(id2));
 
-        assertThatExceptionOfType(IllegalStateException.class)
-                .isThrownBy(tx::commit);
+        try {
+            tx.commit();
+        } catch (IllegalStateException ignore) {
+            // Some implementations throw, some don't
+        }
 
         tx.rollback(); // YOJ-tx rollback is possible. session.rollbackCommit() won't execute
     }
@@ -573,12 +584,8 @@ public abstract class RepositoryTest extends RepositoryTestSupport {
             }
         });
 
-        ReadTableParams<Project.Id> params = ReadTableParams.<Project.Id>builder()
-                .useNewSpliterator(true)
-                .build();
-
         db.readOnly().run(() -> {
-            Spliterator<Project> spliterator = db.projects().readTable(params).spliterator();
+            Spliterator<Project> spliterator = db.projects().readTable(defaultReadTableParamsNonLegacy()).spliterator();
 
             // this loop calls tryAdvance() on spliterator one time after tryAdvance() says false
             while (true) {
@@ -590,7 +597,7 @@ public abstract class RepositoryTest extends RepositoryTestSupport {
 
         // one more example
         db.readOnly().run(() -> {
-            Stream<Project> stream = db.projects().readTable(params);
+            Stream<Project> stream = db.projects().readTable(defaultReadTableParamsNonLegacy());
 
             Stream<List<Project>> stream2 = StreamSupport.stream(
                     // With this line steam calls tryAdvance() on spliterator one time after tryAdvance() says false
@@ -694,27 +701,27 @@ public abstract class RepositoryTest extends RepositoryTestSupport {
         assertThat(
                 db.tx(() -> db.complexes().streamPartial(new Complex.Id(0, 0L, "aaa", Complex.Status.OK), 2).collect(toList()))
         ).isEqualTo(
-                db.tx(() -> db.complexes().find(new Range<>(new Complex.Id(0, 0L, "aaa", Complex.Status.OK))))
+                db.tx(() -> db.complexes().find(Range.create(new Complex.Id(0, 0L, "aaa", Complex.Status.OK))))
         );
         assertThat(
                 db.tx(() -> db.complexes().streamPartial(new Complex.Id(0, 0L, "aaa", null), 2).collect(toList()))
         ).isEqualTo(
-                db.tx(() -> db.complexes().find(new Range<>(new Complex.Id(0, 0L, "aaa", null))))
+                db.tx(() -> db.complexes().find(Range.create(new Complex.Id(0, 0L, "aaa", null))))
         );
         assertThat(
                 db.tx(() -> db.complexes().streamPartial(new Complex.Id(0, 0L, null, null), 2).collect(toList()))
         ).isEqualTo(
-                db.tx(() -> db.complexes().find(new Range<>(new Complex.Id(0, 0L, null, null))))
+                db.tx(() -> db.complexes().find(Range.create(new Complex.Id(0, 0L, null, null))))
         );
         assertThat(
                 db.tx(() -> db.complexes().streamPartial(new Complex.Id(0, null, null, null), 2).collect(toList()))
         ).isEqualTo(
-                db.tx(() -> db.complexes().find(new Range<>(new Complex.Id(0, null, null, null))))
+                db.tx(() -> db.complexes().find(Range.create(new Complex.Id(0, null, null, null))))
         );
         assertThat(
                 db.tx(() -> db.complexes().streamPartial(new Complex.Id(null, null, null, null), 2).collect(toList()))
         ).isEqualTo(
-                db.tx(() -> db.complexes().find(new Range<>(new Complex.Id(null, null, null, null))))
+                db.tx(() -> db.complexes().find(Range.create(new Complex.Id(null, null, null, null))))
         );
     }
 
@@ -727,7 +734,7 @@ public abstract class RepositoryTest extends RepositoryTestSupport {
         assertThat(
                 db.tx(() -> db.complexes().streamPartial(new Complex.Id(0, null, null, null), 100).collect(toList()))
         ).isEqualTo(
-                db.tx(() -> db.complexes().find(new Range<>(new Complex.Id(null, null, null, null))))
+                db.tx(() -> db.complexes().find(Range.create(new Complex.Id(null, null, null, null))))
         );
 
 
@@ -749,31 +756,31 @@ public abstract class RepositoryTest extends RepositoryTestSupport {
         assertThat(
                 db.tx(() -> db.complexes().streamPartialIds(new Complex.Id(0, 0L, "aaa", Complex.Status.OK), 100).collect(toList()))
         ).isEqualTo(
-                db.tx(() -> db.complexes().find(new Range<>(new Complex.Id(0, 0L, "aaa", Complex.Status.OK)))
+                db.tx(() -> db.complexes().find(Range.create(new Complex.Id(0, 0L, "aaa", Complex.Status.OK)))
                         .stream().map(Complex::getId).collect(toList()))
         );
         assertThat(
                 db.tx(() -> db.complexes().streamPartialIds(new Complex.Id(0, 0L, "aaa", null), 100).collect(toList()))
         ).isEqualTo(
-                db.tx(() -> db.complexes().find(new Range<>(new Complex.Id(0, 0L, "aaa", null)))
+                db.tx(() -> db.complexes().find(Range.create(new Complex.Id(0, 0L, "aaa", null)))
                         .stream().map(Complex::getId).collect(toList()))
         );
         assertThat(
                 db.tx(() -> db.complexes().streamPartialIds(new Complex.Id(0, 0L, null, null), 100).collect(toList()))
         ).isEqualTo(
-                db.tx(() -> db.complexes().find(new Range<>(new Complex.Id(0, 0L, null, null)))
+                db.tx(() -> db.complexes().find(Range.create(new Complex.Id(0, 0L, null, null)))
                         .stream().map(Complex::getId).collect(toList()))
         );
         assertThat(
                 db.tx(() -> db.complexes().streamPartialIds(new Complex.Id(0, null, null, null), 100).collect(toList()))
         ).isEqualTo(
-                db.tx(() -> db.complexes().find(new Range<>(new Complex.Id(0, null, null, null)))
+                db.tx(() -> db.complexes().find(Range.create(new Complex.Id(0, null, null, null)))
                         .stream().map(Complex::getId).collect(toList()))
         );
         assertThat(
                 db.tx(() -> db.complexes().streamPartialIds(new Complex.Id(null, null, null, null), 100).collect(toList()))
         ).isEqualTo(
-                db.tx(() -> db.complexes().find(new Range<>(new Complex.Id(null, null, null, null)))
+                db.tx(() -> db.complexes().find(Range.create(new Complex.Id(null, null, null, null)))
                         .stream().map(Complex::getId).collect(toList()))
         );
     }
@@ -835,25 +842,25 @@ public abstract class RepositoryTest extends RepositoryTestSupport {
     public void findRange() {
         db.tx(this::makeComplexes);
         db.tx(() -> {
-            assertEquals(1, db.complexes().find(new Range<>(new Complex.Id(0, 0L, "aaa", Complex.Status.OK))).size());
-            assertEquals(2, db.complexes().find(new Range<>(new Complex.Id(0, 0L, "aaa", null))).size());
-            assertEquals(6, db.complexes().find(new Range<>(new Complex.Id(0, 0L, null, null))).size());
-            assertEquals(18, db.complexes().find(new Range<>(new Complex.Id(0, null, null, null))).size());
-            assertEquals(54, db.complexes().find(new Range<>(new Complex.Id(null, null, null, null))).size());
+            assertEquals(1, db.complexes().find(Range.create(new Complex.Id(0, 0L, "aaa", Complex.Status.OK))).size());
+            assertEquals(2, db.complexes().find(Range.create(new Complex.Id(0, 0L, "aaa", null))).size());
+            assertEquals(6, db.complexes().find(Range.create(new Complex.Id(0, 0L, null, null))).size());
+            assertEquals(18, db.complexes().find(Range.create(new Complex.Id(0, null, null, null))).size());
+            assertEquals(54, db.complexes().find(Range.create(new Complex.Id(null, null, null, null))).size());
 
-            assertEquals(4, db.complexes().find(new Range<>(
+            assertEquals(4, db.complexes().find(Range.create(
                     new Complex.Id(0, 0L, "aaa", null),
                     new Complex.Id(0, 0L, "aab", null)
             )).size());
-            assertEquals(4, db.complexes().find(new Range<>(
+            assertEquals(4, db.complexes().find(Range.create(
                     new Complex.Id(0, 0L, null, null),
                     new Complex.Id(0, 0L, "aab", null)
             )).size());
-            assertEquals(2, db.complexes().find(new Range<>(
+            assertEquals(2, db.complexes().find(Range.create(
                     new Complex.Id(0, 0L, "bbb", null),
                     new Complex.Id(0, 0L, null, null)
             )).size());
-            assertEquals(36, db.complexes().find(new Range<>(
+            assertEquals(36, db.complexes().find(Range.create(
                     new Complex.Id(1, null, null, null),
                     new Complex.Id(2, null, null, null)
             )).size());
@@ -1784,11 +1791,10 @@ public abstract class RepositoryTest extends RepositoryTestSupport {
         });
         db.tx(() -> {
             assertEquals(r, db.referrings().find(r.getId()));
-            assertEquals(p1, r.getProject().resolve());
-            assertEquals(c1, r.getComplex().resolve());
-            assertEquals(c1, r.getComplex().resolve());
-            assertEquals(asList(p1, p2), r.getProjects().stream().map(Entity.Id::resolve).collect(toList()));
-            assertEquals(asList(c1, c2), r.getComplexes().stream().map(Entity.Id::resolve).collect(toList()));
+            assertEquals(p1, db.projects().find(r.getProject()));
+            assertEquals(c1, db.complexes().find(r.getComplex()));
+            assertEquals(asList(p1, p2), r.getProjects().stream().map(db.projects()::find).collect(toList()));
+            assertEquals(asList(c1, c2), r.getComplexes().stream().map(db.complexes()::find).collect(toList()));
         });
     }
 
@@ -1965,7 +1971,7 @@ public abstract class RepositoryTest extends RepositoryTestSupport {
                 expectedViews.add(new TypeFreak.View(tf.getId(), tf.getEmbedded()));
             }
         }
-        Range<TypeFreak.Id> findRange = new Range<>(
+        Range<TypeFreak.Id> findRange = Range.create(
                 expectedViews.get(0).getId(),
                 expectedViews.get(expectedViews.size() - 1).getId()
         );
@@ -2027,7 +2033,7 @@ public abstract class RepositoryTest extends RepositoryTestSupport {
         ));
 
         db.tx(() -> {
-            assertThat(db.primitives().find(new Range<>(new Primitive.Id(-5), new Primitive.Id(50))))
+            assertThat(db.primitives().find(Range.create(new Primitive.Id(-5), new Primitive.Id(50))))
                     .containsOnly(
                             new Primitive(new Primitive.Id(1), 100500),
                             new Primitive(new Primitive.Id(42), 9000)
@@ -2059,7 +2065,7 @@ public abstract class RepositoryTest extends RepositoryTestSupport {
         db.tx(() -> db.complexes().insert(c1, c2, c3, c4, c5, c6));
 
         List<Complex> found = db.tx(() -> db.complexes().find(
-                new Range<>(
+                Range.create(
                         new Complex.Id(999_000, 0L, "AAA", null),
                         new Complex.Id(999_000, 0L, "UUU", null)
                 )));
@@ -2091,16 +2097,16 @@ public abstract class RepositoryTest extends RepositoryTestSupport {
 
         assertThat(db.tx(() -> db.table(Book.ByTitle.class).countAll()))
                 .isEqualTo(3L);
-        assertThat(db.tx(() -> db.table(Book.ByTitle.class).find(new Range<>(new Book.ByTitle.Id("title1", null)))))
+        assertThat(db.tx(() -> db.table(Book.ByTitle.class).find(Range.create(new Book.ByTitle.Id("title1", null)))))
                 .hasSize(2);
-        assertThat(db.tx(() -> db.table(Book.ByTitle.class).find(new Range<>(new Book.ByTitle.Id("title2", null)))))
+        assertThat(db.tx(() -> db.table(Book.ByTitle.class).find(Range.create(new Book.ByTitle.Id("title2", null)))))
                 .hasSize(1);
 
         assertThat(db.tx(() -> db.table(Book.ByAuthor.class).countAll()))
                 .isEqualTo(4L);
-        assertThat(db.tx(() -> db.table(Book.ByAuthor.class).find(new Range<>(new Book.ByAuthor.Id("author1", null)))))
+        assertThat(db.tx(() -> db.table(Book.ByAuthor.class).find(Range.create(new Book.ByAuthor.Id("author1", null)))))
                 .hasSize(2);
-        assertThat(db.tx(() -> db.table(Book.ByAuthor.class).find(new Range<>(new Book.ByAuthor.Id("author2", null)))))
+        assertThat(db.tx(() -> db.table(Book.ByAuthor.class).find(Range.create(new Book.ByAuthor.Id("author2", null)))))
                 .hasSize(2);
 
         db.tx(() -> {
@@ -2112,16 +2118,16 @@ public abstract class RepositoryTest extends RepositoryTestSupport {
 
         assertThat(db.tx(() -> db.table(Book.ByTitle.class).countAll()))
                 .isEqualTo(2L);
-        assertThat(db.tx(() -> db.table(Book.ByTitle.class).find(new Range<>(new Book.ByTitle.Id("title1", null)))))
+        assertThat(db.tx(() -> db.table(Book.ByTitle.class).find(Range.create(new Book.ByTitle.Id("title1", null)))))
                 .hasSize(1);
-        assertThat(db.tx(() -> db.table(Book.ByTitle.class).find(new Range<>(new Book.ByTitle.Id("title2", null)))))
+        assertThat(db.tx(() -> db.table(Book.ByTitle.class).find(Range.create(new Book.ByTitle.Id("title2", null)))))
                 .hasSize(1);
 
         assertThat(db.tx(() -> db.table(Book.ByAuthor.class).countAll()))
                 .isEqualTo(5L);
-        assertThat(db.tx(() -> db.table(Book.ByAuthor.class).find(new Range<>(new Book.ByAuthor.Id("author1", null)))))
+        assertThat(db.tx(() -> db.table(Book.ByAuthor.class).find(Range.create(new Book.ByAuthor.Id("author1", null)))))
                 .hasSize(2);
-        assertThat(db.tx(() -> db.table(Book.ByAuthor.class).find(new Range<>(new Book.ByAuthor.Id("author2", null)))))
+        assertThat(db.tx(() -> db.table(Book.ByAuthor.class).find(Range.create(new Book.ByAuthor.Id("author2", null)))))
                 .hasSize(3);
 
         db.tx(() -> db.table(Book.class).findAll().forEach(b -> db.table(Book.class).delete(b.getId())));
@@ -2148,11 +2154,11 @@ public abstract class RepositoryTest extends RepositoryTestSupport {
         parallelTx(false, true, t -> t.find(new Complex.Id(2, 4L, "l", Complex.Status.FAIL))); //not lock on another row
         parallelTx(false, false, t -> t.find(new Complex.Id(2, 4L, "l", Complex.Status.FAIL))); //not lock on another row
 
-        parallelTx(true, true, t -> t.find(new Range<>(new Complex.Id(1, 2L, null, null)))); //lock on range
-        parallelTx(false, false, t -> t.find(new Range<>(new Complex.Id(1, 2L, null, null)))); //lock on range
+        parallelTx(true, true, t -> t.find(Range.create(new Complex.Id(1, 2L, null, null)))); //lock on range
+        parallelTx(false, false, t -> t.find(Range.create(new Complex.Id(1, 2L, null, null)))); //lock on range
 
-        parallelTx(false, true, t -> t.find(new Range<>(new Complex.Id(2, 2L, null, null)))); //not lock on another range
-        parallelTx(false, false, t -> t.find(new Range<>(new Complex.Id(2, 2L, null, null)))); //not lock on another range
+        parallelTx(false, true, t -> t.find(Range.create(new Complex.Id(2, 2L, null, null)))); //not lock on another range
+        parallelTx(false, false, t -> t.find(Range.create(new Complex.Id(2, 2L, null, null)))); //not lock on another range
     }
 
     private void parallelTx(boolean shouldThrown, boolean writeTx, Consumer<Table<Complex>> consumer) {
@@ -2530,9 +2536,8 @@ public abstract class RepositoryTest extends RepositoryTestSupport {
         );
         db.tx(() -> db.table(NonDeserializableEntity.class).insert(nonDeserializableEntity));
 
-        ReadTableParams<NonDeserializableEntity.Id> params = ReadTableParams.<NonDeserializableEntity.Id>builder().useNewSpliterator(true).build();
         assertThatExceptionOfType(ConversionException.class).isThrownBy(() ->
-                db.readOnly().run(() -> db.table(NonDeserializableEntity.class).readTable(params).collect(toList()))
+                db.readOnly().run(() -> db.table(NonDeserializableEntity.class).readTable(defaultReadTableParamsNonLegacy()).collect(toList()))
         );
     }
 
@@ -2547,8 +2552,10 @@ public abstract class RepositoryTest extends RepositoryTestSupport {
 
         });
 
-        ReadTableParams<Referring.Id> params = ReadTableParams.<Referring.Id>builder().useNewSpliterator(true).build();
-        db.readOnly().run(() -> db.referrings().readTable(params).forEach(r -> r.getProject().resolve()));
+        db.readOnly().run(() ->
+                db.referrings().readTable(defaultReadTableParamsNonLegacy())
+                        .forEach(r -> db.projects().find(r.getProject()))
+        );
     }
 
     @Test
@@ -2583,7 +2590,7 @@ public abstract class RepositoryTest extends RepositoryTestSupport {
     public void findRangeAndPutInCache() {
         db.tx(this::makeComplexes);
         db.tx(() -> {
-            List<Complex> rangeResults = db.complexes().find(new Range<>(new Complex.Id(0, 0L, null, null)));
+            List<Complex> rangeResults = db.complexes().find(Range.create(new Complex.Id(0, 0L, null, null)));
             assertEquals(6, rangeResults.size());
 
             // Check, that there are the same objects, it's mean they was returned from cache

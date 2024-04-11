@@ -55,7 +55,7 @@ public final class TestEntities {
 
     @SuppressWarnings("unchecked")
     public static Repository init(@NonNull Repository repository) {
-        // Legacy registration. Used in e.g. UniqueEntity
+        // Intentional Legacy registration. Used in e.g. UniqueEntity
         FieldValueType.registerStringValueType(UUID.class);
 
         repository.createTablespace();

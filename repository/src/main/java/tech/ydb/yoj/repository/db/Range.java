@@ -5,6 +5,8 @@ import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.NonNull;
 import lombok.Value;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -18,6 +20,8 @@ import static java.util.stream.Collectors.toList;
 @Value
 @AllArgsConstructor(access = AccessLevel.PRIVATE)
 public class Range<ID extends Entity.Id<?>> {
+    private static final Logger log = LoggerFactory.getLogger(Range.class);
+
     EntityIdSchema<ID> type;
     Map<String, Object> eqMap;
     Map<String, Object> minMap;
@@ -113,8 +117,7 @@ public class Range<ID extends Entity.Id<?>> {
         eqMap.forEach((k, v) -> list.add(k + "=" + v));
         minMap.forEach((k, v) -> list.add(k + ">=" + v));
         maxMap.forEach((k, v) -> list.add(k + "<=" + v));
-        return Range.class.getSimpleName()
-                + "("
+        return "Range("
                 + type.getType().getName().replaceFirst(".*\\.", "")
                 + ": "
                 + String.join(", ", list)
@@ -122,18 +125,20 @@ public class Range<ID extends Entity.Id<?>> {
     }
 
     /**
-     * @deprecated use create method instead
+     * @deprecated This method will be removed in YOJ 3.0.0. Use {@link #create(Entity.Id)} instead.
      */
-    @Deprecated
+    @Deprecated(forRemoval = true)
     public Range(@NonNull ID partial) {
         this(partial, partial);
     }
 
     /**
-     * @deprecated use create method instead
+     * @deprecated This method will be removed in YOJ 3.0.0. Use {@link #create(Entity.Id, Entity.Id)} instead.
      */
-    @Deprecated
+    @Deprecated(forRemoval = true)
     public Range(@NonNull ID min, @NonNull ID max) {
+        log.warn("You are using new Range(ID[, ID]) which is deprecated for removal in YOJ 3.0.0. Please use Range.create(ID[, ID]) instead",
+                new Throwable("new Range(ID[, ID]) construction stacktrace"));
         Range<ID> range = create(min, max);
         this.type = range.getType();
         this.eqMap = range.getEqMap();

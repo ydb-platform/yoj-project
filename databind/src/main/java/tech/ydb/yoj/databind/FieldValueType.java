@@ -134,12 +134,10 @@ public enum FieldValueType {
     @Deprecated(forRemoval = true)
     @ExperimentalApi(issue = "https://github.com/ydb-platform/yoj-project/issues/24")
     public static void registerStringValueType(@NonNull Class<?> clazz) {
-        log.error(
-                """
-                You are using FieldValueType.registerStringValueType({}.class) which is deprecated for removal in YOJ 3.0.0.
-                Please use @StringColumn annotation on the Entity field or a @StringValueType annotation on the string-valued type
-                """,
-                clazz.getCanonicalName()
+        log.error("You are using FieldValueType.registerStringValueType({}.class) which is deprecated for removal in YOJ 3.0.0. "
+                        + "Please use @StringColumn annotation on the Entity field or a @StringValueType annotation on the string-valued type",
+                clazz.getCanonicalName(),
+                new Throwable("FieldValueType.registerStringValueType(Class) call stack trace")
         );
 
         boolean isFinal = isFinal(clazz.getModifiers());
@@ -157,10 +155,8 @@ public enum FieldValueType {
      * Detects the data binding type appropriate for the specified Schema field.
      *
      * @param schemaField schema field
-     *
      * @return database value type
      * @throws IllegalArgumentException if object of this type cannot be mapped to a database value
-     *
      * @see JavaField#getType()
      * @see #forJavaType(Type, ReflectField)
      */
@@ -257,7 +253,7 @@ public enum FieldValueType {
      * @return {@code true} if this class is a custom string value type registered by {@link #registerStringValueType(Class)};
      * {@code false} otherwise
      */
-    @Deprecated
+    @Deprecated(forRemoval = true)
     @ExperimentalApi(issue = "https://github.com/ydb-platform/yoj-project/issues/24")
     public static boolean isCustomStringValueType(Class<?> clazz) {
         return CUSTOM_STRING_VALUE_TYPES.contains(clazz);
@@ -282,7 +278,8 @@ public enum FieldValueType {
      */
     @Deprecated(forRemoval = true)
     public static boolean isComposite(@NonNull Type type) {
-        log.error("You are using FieldValueType.isComposite(Type) which is deprecated for removal in YOJ 3.0.0. Please update your code accordingly");
+        log.error("You are using FieldValueType.isComposite(Type) which is deprecated for removal in YOJ 3.0.0. Please update your code accordingly",
+                new Throwable("FieldValueType.isComposite(Type) call stack trace"));
         return forJavaType(type).isComposite();
     }
 
@@ -300,7 +297,8 @@ public enum FieldValueType {
      */
     @Deprecated(forRemoval = true)
     public boolean isUnknown() {
-        log.error("You are using FieldValueType.isUnknown() which is deprecated for removal in YOJ 3.0.0. Please update your code accordingly");
+        log.error("You are using FieldValueType.isUnknown() which is deprecated for removal in YOJ 3.0.0. Please update your code accordingly",
+                new Throwable("FieldValueType.isUnknown() call stack trace"));
         return this == UNKNOWN;
     }
 
@@ -318,7 +316,8 @@ public enum FieldValueType {
      */
     @Deprecated(forRemoval = true)
     public boolean isSortable() {
-        log.error("You are using FieldValueType.isSortable() which is deprecated for removal in YOJ 3.0.0. Please update your code accordingly");
+        log.error("You are using FieldValueType.isSortable() which is deprecated for removal in YOJ 3.0.0. Please update your code accordingly",
+                new Throwable("FieldValueType.isSortable() call stack trace"));
         return SORTABLE_VALUE_TYPES.contains(this);
     }
 }

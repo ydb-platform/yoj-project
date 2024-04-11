@@ -12,6 +12,8 @@ import lombok.AllArgsConstructor;
 import lombok.NonNull;
 import lombok.Value;
 import lombok.With;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import tech.ydb.yoj.databind.ByteArray;
 import tech.ydb.yoj.databind.CustomValueType;
 import tech.ydb.yoj.databind.CustomValueTypes;
@@ -48,6 +50,8 @@ import static tech.ydb.yoj.repository.db.common.CommonConverters.opaqueObjectVal
 @Value
 @AllArgsConstructor(access = PRIVATE)
 public class YqlPrimitiveType implements YqlType {
+    private static final Logger log = LoggerFactory.getLogger(YqlPrimitiveType.class);
+
     // Only table column data types. See https://ydb.tech/en/docs/yql/reference/types/
     private static final Map<PrimitiveTypeId, String> YQL_TYPE_NAMES = Map.ofEntries(
             Map.entry(PrimitiveTypeId.BOOL, "Bool"),
@@ -333,7 +337,7 @@ public class YqlPrimitiveType implements YqlType {
     }
 
     /**
-     * @deprecated Nothing in YOJ calls {@code YqlPrimitiveType.of(Type)} any more.
+     * @deprecated This method will be removed in YOJ 3.0.0. Nothing in YOJ calls {@code YqlPrimitiveType.of(Type)} any more.
      * <p>Please use {@link #of(JavaField) YqlPrimitiveType.of(JavaField)} because it correcly
      * respects the customizations specified in the {@link Column &#64;Column} and
      * {@link CustomValueType &#64;CustomValueType} annotations.
@@ -341,6 +345,8 @@ public class YqlPrimitiveType implements YqlType {
     @NonNull
     @Deprecated(forRemoval = true)
     public static YqlPrimitiveType of(Type javaType) {
+        log.error("You are using YqlPrimitiveType.of(Type) which will be removed in YOJ 3.0.0. Please use YqlPrimitiveType.of(JavaField)",
+                new Throwable("YqlPrimitiveType.of(Type) call stack trace"));
         var valueType = FieldValueType.forJavaType(javaType, null, null);
         return resolveYqlType(javaType, valueType, null, null);
     }

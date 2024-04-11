@@ -5,6 +5,8 @@ import com.google.common.collect.ImmutableList;
 import lombok.AllArgsConstructor;
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import tech.ydb.yoj.repository.db.Entity;
 import tech.ydb.yoj.repository.db.EntitySchema;
 import tech.ydb.yoj.repository.ydb.statement.PredicateStatement;
@@ -54,13 +56,26 @@ public abstract class YqlPredicate implements YqlStatementPart<YqlPredicate> {
     public static final String TYPE = "Predicate";
     private static final AtomicBoolean useLegacyIn = new AtomicBoolean(false);
     private static final AtomicBoolean useLegacyRel = new AtomicBoolean(false);
+    private static final Logger log = LoggerFactory.getLogger(YqlPredicate.class);
 
-    public static void setUseLegacyIn(boolean useLegacyIn) {
-        YqlPredicate.useLegacyIn.set(useLegacyIn);
+    /**
+     * @deprecated This method will be removed in YOJ 3.0.0. There is no alternative, just stop calling it.
+     */
+    @Deprecated(forRemoval = true)
+    public static void setUseLegacyIn(boolean value) {
+        log.error("You are using YqlPredicate.setUseLegacyIn(boolean) which is deprecated for removal in YOJ 3.0.0. Please stop calling this method",
+                new Throwable("YqlPredicate.setUseLegacyIn(boolean) call stack trace"));
+        YqlPredicate.useLegacyIn.set(value);
     }
 
-    public static void setUseLegacyRel(boolean useLegacyRel) {
-        YqlPredicate.useLegacyRel.set(useLegacyRel);
+    /**
+     * @deprecated This method will be removed in YOJ 3.0.0. There is no alternative, just stop calling it.
+     */
+    @Deprecated(forRemoval = true)
+    public static void setUseLegacyRel(boolean value) {
+        log.error("You are using YqlPredicate.setUseLegacyRel(boolean) which is deprecated for removal in YOJ 3.0.0. Please stop calling this method",
+                new Throwable("YqlPredicate.setUseLegacyRel(boolean) call stack trace"));
+        YqlPredicate.useLegacyRel.set(value);
     }
 
     public static FieldPredicateBuilder where(@NonNull String fieldPath) {
@@ -362,7 +377,6 @@ public abstract class YqlPredicate implements YqlStatementPart<YqlPredicate> {
         }
     }
 
-    @Deprecated(forRemoval = true)
     /*package*/ static final class RelPredicate<V> extends YqlPredicate {
         private final Rel rel;
         private final String fieldPath;
@@ -450,7 +464,10 @@ public abstract class YqlPredicate implements YqlStatementPart<YqlPredicate> {
             return Rel.valueOf(negation);
         }
 
-        @Deprecated
+        /**
+         * @deprecated Will be removed in YOJ 3.0.0 because combining relational predicates is no longer needed.
+         */
+        @Deprecated(forRemoval = true)
         public final String combine(String result, String element) {
             return result == null ? element : exprCombiner.apply(result, element);
         }
@@ -556,7 +573,7 @@ public abstract class YqlPredicate implements YqlStatementPart<YqlPredicate> {
     }
 
     @AllArgsConstructor(access = PRIVATE)
-    @Deprecated
+    @Deprecated(forRemoval = true)
     /*package*/ static final class InLegacyPredicate<V> extends YqlPredicate {
         private final YqlPredicateParam<Collection<V>> param;
         private final String fieldPath;

@@ -339,18 +339,26 @@ public class YqlPrimitiveType implements YqlType {
     }
 
     /**
-     * @deprecated Call {@link #useRecommendedMappingFor(FieldValueType[]) useNewMappingFor(STRING, ENUM)} instead.
+     * @deprecated This method will be removed in YOJ 3.0.0.
+     * Call {@link #useRecommendedMappingFor(FieldValueType[]) useNewMappingFor(STRING, ENUM)} instead.
      */
     @Deprecated(forRemoval = true)
     public static void changeStringDefaultTypeToUtf8() {
+        log.error("You are using YqlPrimitiveType.changeStringDefaultTypeToUtf8() which will be removed in YOJ 3.0.0. "
+                        + "Please use YqlPrimitiveType.useNewMappingFor(STRING, ENUM)",
+                new Throwable("YqlPrimitiveType.changeStringDefaultTypeToUtf8() call stack trace"));
         useRecommendedMappingFor(FieldValueType.STRING, FieldValueType.ENUM);
     }
 
     /**
-     * @deprecated This method has a misleading name. Call {@link #useLegacyMappingFor(FieldValueType[]) useLegacyMappingFor(STRING, ENUM)} instead.
+     * @deprecated This method has a misleading name and will be removed in YOJ 3.0.0.
+     * Call {@link #useLegacyMappingFor(FieldValueType[]) useLegacyMappingFor(STRING, ENUM)} instead.
      */
     @Deprecated(forRemoval = true)
     public static void resetStringDefaultTypeToDefaults() {
+        log.error("You are using YqlPrimitiveType.resetStringDefaultTypeToDefaults() which will be removed in YOJ 3.0.0. "
+                + "Please use YqlPrimitiveType.useLegacyMappingFor(STRING, ENUM)",
+                new Throwable("YqlPrimitiveType.resetStringDefaultTypeToDefaults() call stack trace"));
         useLegacyMappingFor(FieldValueType.STRING, FieldValueType.ENUM);
     }
 
@@ -406,7 +414,7 @@ public class YqlPrimitiveType implements YqlType {
     }
 
     /**
-     * @deprecated Nothing in YOJ calls {@code YqlPrimitiveType.of(Type)} any more.
+     * @deprecated This method will be removed in YOJ 3.0.0. Nothing in YOJ calls {@code YqlPrimitiveType.of(Type)} any more.
      * <p>Please use {@link #of(JavaField) YqlPrimitiveType.of(JavaField)} because it correcly
      * respects the customizations specified in the {@link Column &#64;Column} and
      * {@link CustomValueType &#64;CustomValueType} annotations.
@@ -414,6 +422,8 @@ public class YqlPrimitiveType implements YqlType {
     @NonNull
     @Deprecated(forRemoval = true)
     public static YqlPrimitiveType of(Type javaType) {
+        log.error("You are using YqlPrimitiveType.of(Type) which will be removed in YOJ 3.0.0. Please use YqlPrimitiveType.of(JavaField) instead",
+                new Throwable("YqlPrimitiveType.of(Type) call stack trace"));
         var valueType = FieldValueType.forJavaType(javaType, null, null);
         return resolveYqlType(javaType, valueType, null, null);
     }
