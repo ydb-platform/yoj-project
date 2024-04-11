@@ -886,6 +886,17 @@ public class YdbRepositoryIntegrationTest extends RepositoryTest {
         repository.schema(HintAutoPartitioningByLoad.class).create();
     }
 
+    @Test
+    public void creatingRepositoryDoesNotConnect() {
+        YdbConfig intentionallyBadConfig = YdbConfig
+                .createForTesting("must-not-connect", 44444, "/nothing/here/", "/nothing")
+                // This forces YDB SDK to connect at GrpcTransport creation
+                .withUseSingleChannelTransport(false);
+
+        YdbRepository repository = new TestYdbRepository(intentionallyBadConfig);
+        repository.shutdown();
+    }
+
     @AllArgsConstructor
     private static class DelegateSchemeServiceImplBase extends SchemeServiceGrpc.SchemeServiceImplBase {
         @Delegate

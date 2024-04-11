@@ -2,7 +2,7 @@ package tech.ydb.yoj.repository.ydb.client;
 
 import tech.ydb.table.Session;
 
-public interface SessionManager {
+public interface SessionManager extends AutoCloseable {
     Session getSession();
 
     void release(Session session);
@@ -12,6 +12,11 @@ public interface SessionManager {
     void invalidateAllSessions();
 
     void shutdown();
+
+    @Override
+    default void close() {
+        shutdown();
+    }
 
     default boolean healthCheck() {
         return true;
