@@ -39,4 +39,6 @@ spinning containers or accessing a real YDB installation. **Highly recommended.*
 - `repository-ydb-common`: Common Logic for all YDB Repository implementations, regardless of the YDB SDK version used.
 - `repository-test`: Basic tests which all Repository implementations must pass.
 - `json-jackson-v2`: Support for JSON serialization and deserialization of entity fields, using Jackson 2.x.
+- `aspect`: AspectJ aspect and `@YojTransactional` annotation for usage with AspectJ and Spring AOP. Allows a Spring `@Transactional`-like experience for your methods that need to initiate or continue a YDB transaction.
+- `ext-meta-generator`: Annotation processor that generates field paths for each of your `Entity` fields, to be used with `TableQueryBuilder` (`Table.query()` DSL) and `YqlPredicate`.
 - `util`: Utility classes used in YOJ implementation.
