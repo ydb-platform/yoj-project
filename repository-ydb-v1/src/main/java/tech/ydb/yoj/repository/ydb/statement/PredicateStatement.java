@@ -6,7 +6,6 @@ import com.google.common.collect.Streams;
 import com.yandex.ydb.ValueProtos;
 import lombok.Getter;
 import lombok.NonNull;
-import tech.ydb.yoj.databind.FieldValueType;
 import tech.ydb.yoj.databind.schema.Schema;
 import tech.ydb.yoj.databind.schema.Schema.JavaField;
 import tech.ydb.yoj.repository.db.Entity;
@@ -186,10 +185,15 @@ public abstract class PredicateStatement<PARAMS, ENTITY extends Entity<ENTITY>, 
         }
 
         private Object getValueForField(JavaField rootField, String fieldName, boolean compositeYqlType, Object paramValue) {
-            if (!compositeYqlType && FieldValueType.forJavaType(paramValue.getClass(), rootField.getField()).isComposite()) {
-                Map<String, Object> m = new LinkedHashMap<>();
-                rootField.collectValueTo(paramValue, m);
-                return m.get(fieldName);
+            if (!compositeYqlType) {
+                if (rootField.getValueType().isComposite() && paramValue.getClass().equals(rootField.getRawType())) {
+                    // We got ourselves a wrapper, my friends
+                    Map<String, Object> m = new LinkedHashMap<>();
+                    rootField.collectValueTo(paramValue, m);
+                    return m.get(fieldName);
+                } else {
+                    return paramValue;
+                }
             } else {
                 return fieldName.equals(rootField.getName()) ? paramValue : null;
             }

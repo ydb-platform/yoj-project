@@ -12,6 +12,7 @@ import tech.ydb.yoj.repository.test.sample.model.DetachedEntity;
 import tech.ydb.yoj.repository.test.sample.model.EntityWithValidation;
 import tech.ydb.yoj.repository.test.sample.model.IndexedEntity;
 import tech.ydb.yoj.repository.test.sample.model.LogEntry;
+import tech.ydb.yoj.repository.test.sample.model.MultiWrappedEntity;
 import tech.ydb.yoj.repository.test.sample.model.NetworkAppliance;
 import tech.ydb.yoj.repository.test.sample.model.NonDeserializableEntity;
 import tech.ydb.yoj.repository.test.sample.model.Primitive;
@@ -50,7 +51,8 @@ public final class TestEntities {
             NetworkAppliance.class,
             VersionedEntity.class,
             VersionedAliasedEntity.class,
-            DetachedEntity.class
+            DetachedEntity.class,
+            MultiWrappedEntity.class
     );
 
     @SuppressWarnings("unchecked")

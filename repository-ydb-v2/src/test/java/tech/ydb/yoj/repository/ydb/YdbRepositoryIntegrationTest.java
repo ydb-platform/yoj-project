@@ -49,6 +49,7 @@ import tech.ydb.yoj.repository.test.sample.TestDbImpl;
 import tech.ydb.yoj.repository.test.sample.model.Bubble;
 import tech.ydb.yoj.repository.test.sample.model.ChangefeedEntity;
 import tech.ydb.yoj.repository.test.sample.model.IndexedEntity;
+import tech.ydb.yoj.repository.test.sample.model.MultiWrappedEntity;
 import tech.ydb.yoj.repository.test.sample.model.Project;
 import tech.ydb.yoj.repository.test.sample.model.Supabubble2;
 import tech.ydb.yoj.repository.test.sample.model.TtlEntity;
@@ -483,6 +484,46 @@ public class YdbRepositoryIntegrationTest extends RepositoryTest {
             assertThat(res)
                     .hasSize(1)
                     .contains(p);
+        });
+    }
+
+    @Test
+    public void predicateWithMultipleBoxedId() {
+        var m = new MultiWrappedEntity(new MultiWrappedEntity.Id(new MultiWrappedEntity.StringWrapper("string-id")), "payload", null);
+        db.tx(() -> {
+            db.multiWrappedIdEntities().save(m);
+        });
+        db.tx(() -> {
+            assertThat(db.multiWrappedIdEntities().query().where("id").eq(m.id()).findOne()).isEqualTo(m);
+            assertThat(db.multiWrappedIdEntities().query().where("id").eq(m.id().itIsReallyString()).findOne()).isEqualTo(m);
+            assertThat(db.multiWrappedIdEntities().query().where("id").eq(m.id().itIsReallyString().value()).findOne()).isEqualTo(m);
+
+            var table = (YdbTable<MultiWrappedEntity>) db.table(MultiWrappedEntity.class);
+            assertThat(table.find(YqlPredicate.where("id").eq(m.id()))).singleElement().isEqualTo(m);
+            assertThat(table.find(YqlPredicate.where("id").eq(m.id().itIsReallyString()))).singleElement().isEqualTo(m);
+            assertThat(table.find(YqlPredicate.where("id").eq(m.id().itIsReallyString().value()))).singleElement().isEqualTo(m);
+        });
+    }
+
+    @Test
+    public void predicateWithMultipleBoxedPayload() {
+        var m = new MultiWrappedEntity(
+                new MultiWrappedEntity.Id(new MultiWrappedEntity.StringWrapper("string-id")),
+                "fakefakefake",
+                new MultiWrappedEntity.OptionalPayload(new MultiWrappedEntity.StringWrapper("real-payload"))
+        );
+        db.tx(() -> {
+            db.multiWrappedIdEntities().save(m);
+        });
+        db.tx(() -> {
+            assertThat(db.multiWrappedIdEntities().query().where("optionalPayload").eq(m.optionalPayload()).findOne()).isEqualTo(m);
+            assertThat(db.multiWrappedIdEntities().query().where("optionalPayload").eq(m.optionalPayload().wrapper()).findOne()).isEqualTo(m);
+            assertThat(db.multiWrappedIdEntities().query().where("optionalPayload").eq(m.optionalPayload().wrapper().value()).findOne()).isEqualTo(m);
+
+            var table = (YdbTable<MultiWrappedEntity>) db.table(MultiWrappedEntity.class);
+            assertThat(table.find(YqlPredicate.where("optionalPayload").eq(m.optionalPayload()))).singleElement().isEqualTo(m);
+            assertThat(table.find(YqlPredicate.where("optionalPayload").eq(m.optionalPayload().wrapper()))).singleElement().isEqualTo(m);
+            assertThat(table.find(YqlPredicate.where("optionalPayload").eq(m.optionalPayload().wrapper().value()))).singleElement().isEqualTo(m);
         });
     }
 

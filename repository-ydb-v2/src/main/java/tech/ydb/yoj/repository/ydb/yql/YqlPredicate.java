@@ -421,7 +421,7 @@ public abstract class YqlPredicate implements YqlStatementPart<YqlPredicate> {
         public <T extends Entity<T>> String toYql(@NonNull EntitySchema<T> schema) {
             EntitySchema.JavaField field = schema.getField(fieldPath);
             if (field.isFlat()) {
-                return format("`%s` %s ?", field.getName(), rel.yql);
+                return format("`%s` %s ?", field.toFlatField().getName(), rel.yql);
             } else {
                 return format("(%s) %s ?", field.flatten()
                                 .map(f -> "`" + f.getName() + "`").collect(joining(", ")),
@@ -661,7 +661,7 @@ public abstract class YqlPredicate implements YqlStatementPart<YqlPredicate> {
 
             EntitySchema.JavaField field = schema.getField(fieldPath);
             if (field.isFlat()) {
-                return format("`%s` %s ?", field.getName(), inType.yql);
+                return format("`%s` %s ?", field.toFlatField().getName(), inType.yql);
             } else {
                 return format("(%s) %s ?", field.flatten()
                                 .map(f -> "`" + f.getName() + "`").collect(joining(", ")),
