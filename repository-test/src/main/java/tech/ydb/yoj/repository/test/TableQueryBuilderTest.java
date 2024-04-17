@@ -443,6 +443,76 @@ public abstract class TableQueryBuilderTest extends RepositoryTestSupport {
         });
     }
 
+    @Test
+    public void whereAndEquivalence1() {
+        Project p1 = new Project(new Project.Id("uuid002"), "AAA");
+        Project inOutput = new Project(new Project.Id("uuid333"), "WWW");
+        Project p2 = new Project(new Project.Id("uuid777"), "XXX");
+        db.tx(() -> db.projects().insert(p1, p2, inOutput));
+
+        assertThat(db.tx(() -> db.projects().query()
+                .and("id").in(p1.getId(), inOutput.getId())
+                .where("name").in(p2.getName())
+                .find()
+        )).isEmpty();
+    }
+
+    @Test
+    public void whereAndEquivalence2() {
+        Project p1 = new Project(new Project.Id("uuid002"), "AAA");
+        Project inOutput = new Project(new Project.Id("uuid333"), "WWW");
+        Project p2 = new Project(new Project.Id("uuid777"), "XXX");
+        db.tx(() -> db.projects().insert(p1, p2, inOutput));
+
+        assertThat(db.tx(() -> db.projects().query()
+                .where("id").in(p1.getId(), inOutput.getId())
+                .where("name").in(p2.getName())
+                .find()
+        )).isEmpty();
+    }
+
+    @Test
+    public void whereAndEquivalence3() {
+        Project p1 = new Project(new Project.Id("uuid002"), "AAA");
+        Project inOutput = new Project(new Project.Id("uuid333"), "WWW");
+        Project p2 = new Project(new Project.Id("uuid777"), "XXX");
+        db.tx(() -> db.projects().insert(p1, p2, inOutput));
+
+        assertThat(db.tx(() -> db.projects().query()
+                .and("id").in(p1.getId(), inOutput.getId())
+                .and("name").in(p2.getName())
+                .find()
+        )).isEmpty();
+    }
+
+    @Test
+    public void whereAndEquivalenceWithOr1() {
+        Project p1 = new Project(new Project.Id("uuid002"), "AAA");
+        Project inOutput = new Project(new Project.Id("uuid333"), "WWW");
+        Project p2 = new Project(new Project.Id("uuid777"), "XXX");
+        db.tx(() -> db.projects().insert(p1, p2, inOutput));
+
+        assertThat(db.tx(() -> db.projects().query()
+                .or("name").eq(p1.getName()) // funny way to write WHERE name='...'
+                .where("id").eq(p2.getId())  // funny way to write ...AND id='...'
+                .find()
+        )).isEmpty();
+    }
+
+    @Test
+    public void whereAndEquivalenceWithOr2() {
+        Project p1 = new Project(new Project.Id("uuid002"), "AAA");
+        Project inOutput = new Project(new Project.Id("uuid333"), "WWW");
+        Project p2 = new Project(new Project.Id("uuid777"), "XXX");
+        db.tx(() -> db.projects().insert(p1, p2, inOutput));
+
+        assertThat(db.tx(() -> db.projects().query()
+                .or("name").eq(p1.getName()) // funny way to write WHERE name='...'
+                .and("id").eq(p2.getId())    // funny way to write ...AND id='...'
+                .find()
+        )).isEmpty();
+    }
+
     protected <T extends Entity<T>> TableQueryBuilder<T> getQueryBuilder(@NonNull Table<T> table) {
         return new TableQueryBuilder<>(table);
     }
