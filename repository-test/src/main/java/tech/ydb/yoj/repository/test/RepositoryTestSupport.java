@@ -15,7 +15,10 @@ public abstract class RepositoryTestSupport {
     protected Repository repository;
 
     static {
-        Runtime.getRuntime().addShutdownHook(new Thread(() -> repositoryMap.values().forEach(Repository::dropDb)));
+        Runtime.getRuntime().addShutdownHook(new Thread(() -> repositoryMap.values().forEach(repo -> {
+            repo.dropDb();
+            repo.shutdown();
+        })));
     }
 
     protected abstract Repository createRepository();

@@ -1,7 +1,6 @@
 package tech.ydb.yoj.repository.ydb;
 
 import com.google.common.base.Strings;
-import com.google.common.base.Suppliers;
 import io.grpc.ClientInterceptor;
 import io.grpc.netty.shaded.io.grpc.netty.NettyChannelBuilder;
 import lombok.Getter;
@@ -82,7 +81,7 @@ public class YdbRepository implements Repository {
         CloseableMemoizer<SessionManager> sessionManager = MoreSuppliers.memoizeCloseable(() -> new YdbSessionManager(config, transport));
         this.sessionManager = sessionManager;
 
-        this.schemaOperations = Suppliers.memoize(() -> buildSchemaOperations(config.getTablespace(), transport, sessionManager.get()));
+        this.schemaOperations = MoreSuppliers.memoize(() -> buildSchemaOperations(config.getTablespace(), transport, sessionManager.get()));
     }
 
     private static GrpcTransport makeGrpcTransport(
