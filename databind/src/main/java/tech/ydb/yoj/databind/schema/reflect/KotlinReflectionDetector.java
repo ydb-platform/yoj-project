@@ -24,7 +24,7 @@ final class KotlinReflectionDetector {
             Class.forName("kotlin.reflect.full.KClasses", false, cl);
             return true;
         } catch (ClassNotFoundException e) {
-            log.warn("YOJ has detected Kotlin but not kotlin-reflect. Kotlin data classes won't work as Entities.", e);
+            log.warn("YOJ has detected Kotlin but not kotlin-reflect. Kotlin data classes won't work as Entities.");
             return false;
         }
     }
