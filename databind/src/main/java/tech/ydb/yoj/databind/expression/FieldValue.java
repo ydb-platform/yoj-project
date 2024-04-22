@@ -39,37 +39,37 @@ public class FieldValue {
     ByteArray byteArray;
 
     @NonNull
-    private static FieldValue ofStr(@NonNull String str) {
+    public static FieldValue ofStr(@NonNull String str) {
         return new FieldValue(str, null, null, null, null, null, null);
     }
 
     @NonNull
-    private static FieldValue ofNum(long num) {
+    public static FieldValue ofNum(long num) {
         return new FieldValue(null, num, null, null, null, null, null);
     }
 
     @NonNull
-    private static FieldValue ofReal(double real) {
+    public static FieldValue ofReal(double real) {
         return new FieldValue(null, null, real, null, null, null, null);
     }
 
     @NonNull
-    private static FieldValue ofBool(boolean bool) {
+    public static FieldValue ofBool(boolean bool) {
         return new FieldValue(null, null, null, bool, null, null, null);
     }
 
     @NonNull
-    private static FieldValue ofTimestamp(@NonNull Instant timestamp) {
+    public static FieldValue ofTimestamp(@NonNull Instant timestamp) {
         return new FieldValue(null, null, null, null, timestamp, null, null);
     }
 
     @NonNull
-    private static FieldValue ofTuple(@NonNull Tuple tuple) {
+    public static FieldValue ofTuple(@NonNull Tuple tuple) {
         return new FieldValue(null, null, null, null, null, tuple, null);
     }
 
     @NonNull
-    private static FieldValue ofByteArray(@NonNull ByteArray byteArray) {
+    public static FieldValue ofByteArray(@NonNull ByteArray byteArray) {
         return new FieldValue(null, null, null, null, null, null, byteArray);
     }
 
