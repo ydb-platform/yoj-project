@@ -145,13 +145,14 @@
         <!-- test dependencies -->
         <junit.version>4.13.2</junit.version>
         <hamcrest-core.version>2.2</hamcrest-core.version>
-        <assertj-core.version>3.25.1</assertj-core.version>
+        <assertj-core.version>3.25.3</assertj-core.version>
         <log4j2.version>2.17.2</log4j2.version>
         <mockito.version>5.5.0</mockito.version>
         <!-- NB: testcontainers and docker-java versions are related - when bumping one, check if another needs to be bumped too -->
         <docker-java.version>3.3.3</docker-java.version>
         <testcontainers.version>1.19.1</testcontainers.version>
-        <jackson.version>2.16.1</jackson.version>
+        <jackson.version>2.17.0</jackson.version>
+        <bytebuddy.version>1.14.11</bytebuddy.version>
         <snakeyaml.version>1.33</snakeyaml.version>
         <aspectjweaver.version>1.9.21</aspectjweaver.version>
     </properties>
@@ -681,6 +682,11 @@
                 <groupId>org.aspectj</groupId>
                 <artifactId>aspectjweaver</artifactId>
                 <version>${aspectjweaver.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>net.bytebuddy</groupId>
+                <artifactId>byte-buddy</artifactId>
+                <version>${bytebuddy.version}</version>
             </dependency>
         </dependencies>
     </dependencyManagement>
