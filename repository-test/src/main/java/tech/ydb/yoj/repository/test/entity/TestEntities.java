@@ -38,6 +38,7 @@ public final class TestEntities {
     public static final List<Class<? extends Entity>> ALL = List.of(
             Project.class, TypeFreak.class, Complex.class, Referring.class, Primitive.class,
             Book.class, Book.ByAuthor.class, Book.ByTitle.class,
+            TestE.class,
             LogEntry.class, Team.class,
             BytePkEntity.class,
             EntityWithValidation.class,

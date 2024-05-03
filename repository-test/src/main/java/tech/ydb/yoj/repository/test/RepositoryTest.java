@@ -30,7 +30,9 @@ import tech.ydb.yoj.repository.db.exception.UnavailableException;
 import tech.ydb.yoj.repository.db.list.ListRequest;
 import tech.ydb.yoj.repository.db.list.ListResult;
 import tech.ydb.yoj.repository.db.readtable.ReadTableParams;
+import tech.ydb.yoj.repository.test.entity.TestE;
 import tech.ydb.yoj.repository.test.entity.TestEntities;
+import tech.ydb.yoj.repository.test.entity.Zone;
 import tech.ydb.yoj.repository.test.sample.TestDb;
 import tech.ydb.yoj.repository.test.sample.TestDbImpl;
 import tech.ydb.yoj.repository.test.sample.TestEntityOperations;
@@ -2459,6 +2461,23 @@ public abstract class RepositoryTest extends RepositoryTestSupport {
             TypeFreak.View foundView = db.typeFreaks().find(TypeFreak.View.class, tf1.getId());
             assertThat(foundView).isEqualTo(new TypeFreak.View(tf1.getId(), tf1.getEmbedded()));
         });
+    }
+
+    @Test
+    public void testStringColum() {
+        TestE t = new TestE(
+                new TestE.Id(Zone.ZONE_A),
+                Zone.ZONE_B,
+                new TestE.InternalObject(Zone.ZONE_C, Zone.ZONE_D)
+        );
+        db.tx(() -> Tx.Current.get().getRepositoryTransaction().table(TestE.class).save(t));
+
+        TestE dbT = db.tx(() -> Tx.Current.get().getRepositoryTransaction().table(TestE.class).find(t.id()));
+
+        assertSame(t.id().zone(), dbT.id().zone());
+        assertSame(t.zone(), dbT.zone());
+        assertSame(t.internal().zone(), dbT.internal().zone());
+        assertSame(t.internal().zone2(), dbT.internal().zone2());
     }
 
     @Test

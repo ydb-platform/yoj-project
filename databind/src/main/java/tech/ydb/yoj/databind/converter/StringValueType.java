@@ -22,7 +22,7 @@ import static java.lang.annotation.RetentionPolicy.RUNTIME;
  */
 @Inherited
 @Retention(RUNTIME)
-@Target({TYPE, ANNOTATION_TYPE})
+@Target({TYPE, ANNOTATION_TYPE, })
 @CustomValueType(columnClass = String.class, converter = StringValueConverter.class)
 public @interface StringValueType {
 }
