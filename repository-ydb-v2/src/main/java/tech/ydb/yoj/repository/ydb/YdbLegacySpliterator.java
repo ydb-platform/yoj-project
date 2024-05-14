@@ -1,29 +1,22 @@
 package tech.ydb.yoj.repository.ydb;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import java.util.Spliterator;
 import java.util.function.Consumer;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 
 /**
- * @deprecated Legacy implementation of {@code Spliterator} for {@code ReadTable}. Will be removed in YOJ 3.0.0.
- * <p>Please use the new {@code Spliterator} contract-conformant implementation by explicitly setting
- * {@code ReadTableParams.builder().<...>.useNewSpliterator(true)}.
+ * @deprecated Legacy implementation of {@code Spliterator} for {@code ReadTable}. Will be eventually removed in a future YOJ version.
+ * <p>To use the new {@code Spliterator} contract-conformant implementation, set {@code ReadTableParams.builder().<...>.useNewSpliterator(true)}.
+ * <p>Note that using the new implementation currently has a negative performance impact, for more information refer to
+ * <a href="https://github.com/ydb-platform/yoj-project/issues/42">GitHub Issue #42</a>.
  */
-@Deprecated(forRemoval = true)
+@Deprecated
 public class YdbLegacySpliterator<V> implements Spliterator<V> {
-    private static final Logger log = LoggerFactory.getLogger(YdbLegacySpliterator.class);
-
     private final int flags;
     private final Consumer<Consumer<? super V>> action;
 
     public YdbLegacySpliterator(boolean isOrdered, Consumer<Consumer<? super V>> action) {
-        log.error("You are using YdbLegacySpliterator which is deprecated for removal in YOJ 3.0.0. "
-                + "Please use readTable(ReadTableParams.builder().<...>.useNewSpliterator(true).build())",
-                new Throwable("YdbLegacySpliterator construction stack trace"));
         this.action = action;
         flags = (isOrdered ? ORDERED : 0) | NONNULL;
     }

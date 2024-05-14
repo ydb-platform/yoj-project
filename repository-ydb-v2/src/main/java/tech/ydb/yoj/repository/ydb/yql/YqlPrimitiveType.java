@@ -14,6 +14,7 @@ import tech.ydb.proto.ValueProtos;
 import tech.ydb.proto.ValueProtos.Type.PrimitiveTypeId;
 import tech.ydb.proto.ValueProtos.Value.ValueCase;
 import tech.ydb.table.values.proto.ProtoValue;
+import tech.ydb.yoj.DeprecationWarnings;
 import tech.ydb.yoj.ExperimentalApi;
 import tech.ydb.yoj.databind.ByteArray;
 import tech.ydb.yoj.databind.CustomValueType;
@@ -344,9 +345,9 @@ public class YqlPrimitiveType implements YqlType {
      */
     @Deprecated(forRemoval = true)
     public static void changeStringDefaultTypeToUtf8() {
-        log.error("You are using YqlPrimitiveType.changeStringDefaultTypeToUtf8() which will be removed in YOJ 3.0.0. "
-                        + "Please use YqlPrimitiveType.useNewMappingFor(STRING, ENUM)",
-                new Throwable("YqlPrimitiveType.changeStringDefaultTypeToUtf8() call stack trace"));
+        DeprecationWarnings.warnOnce("YqlPrimitiveType.changeStringDefaultTypeToUtf8()",
+                "You are using YqlPrimitiveType.changeStringDefaultTypeToUtf8() which will be removed in YOJ 3.0.0. "
+                        + "Please use YqlPrimitiveType.useNewMappingFor(STRING, ENUM)");
         useRecommendedMappingFor(FieldValueType.STRING, FieldValueType.ENUM);
     }
 
@@ -356,9 +357,9 @@ public class YqlPrimitiveType implements YqlType {
      */
     @Deprecated(forRemoval = true)
     public static void resetStringDefaultTypeToDefaults() {
-        log.error("You are using YqlPrimitiveType.resetStringDefaultTypeToDefaults() which will be removed in YOJ 3.0.0. "
-                + "Please use YqlPrimitiveType.useLegacyMappingFor(STRING, ENUM)",
-                new Throwable("YqlPrimitiveType.resetStringDefaultTypeToDefaults() call stack trace"));
+        DeprecationWarnings.warnOnce("YqlPrimitiveType.resetStringDefaultTypeToDefaults()",
+                "You are using YqlPrimitiveType.resetStringDefaultTypeToDefaults() which will be removed in YOJ 3.0.0. "
+                        + "Please use YqlPrimitiveType.useLegacyMappingFor(STRING, ENUM)");
         useLegacyMappingFor(FieldValueType.STRING, FieldValueType.ENUM);
     }
 
@@ -422,8 +423,8 @@ public class YqlPrimitiveType implements YqlType {
     @NonNull
     @Deprecated(forRemoval = true)
     public static YqlPrimitiveType of(Type javaType) {
-        log.error("You are using YqlPrimitiveType.of(Type) which will be removed in YOJ 3.0.0. Please use YqlPrimitiveType.of(JavaField) instead",
-                new Throwable("YqlPrimitiveType.of(Type) call stack trace"));
+        DeprecationWarnings.warnOnce("YqlPrimitiveType.of(Type)",
+                "You are using YqlPrimitiveType.of(Type) which will be removed in YOJ 3.0.0. Please use YqlPrimitiveType.of(JavaField) instead");
         var valueType = FieldValueType.forJavaType(javaType, null, null);
         return resolveYqlType(javaType, valueType, null, null);
     }
