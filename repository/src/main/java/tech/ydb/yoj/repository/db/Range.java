@@ -5,8 +5,7 @@ import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.NonNull;
 import lombok.Value;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import tech.ydb.yoj.DeprecationWarnings;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -20,8 +19,6 @@ import static java.util.stream.Collectors.toList;
 @Value
 @AllArgsConstructor(access = AccessLevel.PRIVATE)
 public class Range<ID extends Entity.Id<?>> {
-    private static final Logger log = LoggerFactory.getLogger(Range.class);
-
     EntityIdSchema<ID> type;
     Map<String, Object> eqMap;
     Map<String, Object> minMap;
@@ -137,8 +134,8 @@ public class Range<ID extends Entity.Id<?>> {
      */
     @Deprecated(forRemoval = true)
     public Range(@NonNull ID min, @NonNull ID max) {
-        log.warn("You are using new Range(ID[, ID]) which is deprecated for removal in YOJ 3.0.0. Please use Range.create(ID[, ID]) instead",
-                new Throwable("new Range(ID[, ID]) construction stacktrace"));
+        DeprecationWarnings.warnOnce("new Range(ID[, ID])",
+                "You are using new Range(ID[, ID]) which is deprecated for removal in YOJ 3.0.0. Please use Range.create(ID[, ID]) instead");
         Range<ID> range = create(min, max);
         this.type = range.getType();
         this.eqMap = range.getEqMap();

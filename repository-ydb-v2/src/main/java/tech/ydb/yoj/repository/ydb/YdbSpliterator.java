@@ -4,6 +4,7 @@ import com.google.common.annotations.VisibleForTesting;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import tech.ydb.core.Status;
+import tech.ydb.yoj.ExperimentalApi;
 import tech.ydb.yoj.repository.db.exception.DeadlineExceededException;
 import tech.ydb.yoj.repository.db.exception.QueryInterruptedException;
 
@@ -23,11 +24,16 @@ import java.util.stream.StreamSupport;
 import static tech.ydb.yoj.repository.ydb.client.YdbValidator.validate;
 
 /**
- * {@code YdbSpliterator} is used for read data from YDB streams.
- * It's possible to supply values from different threads, but supplier threads mustn't call onNext concurrently.
- * <p>
- * Should be closed by close() method for finish work in session.
+ * {@code YdbSpliterator} used to read data from YDB streams.
+ * It's possible to supply values from different threads, but supplier threads must not call {@code onNext()} concurrently.
+ * This Spliterator should be explicitly closed by the {@code close()} method for finish work in YDB session; when the stream returned by
+ * {@code readTable()} is used inside a YOJ transaction, {@code close()} will be called automatically at transaction end (both commit and rollback).
+ * <p>To use the new implementation, set {@link tech.ydb.yoj.repository.db.readtable.ReadTableParams.ReadTableParamsBuilder#useNewSpliterator(boolean)
+ * ReadTableParams<...>.builder().<...>.useNewSpliterator(true)}.
+ * <p>Note that using the new implementation currently has a negative performance impact, for more information refer to
+ * <a href="https://github.com/ydb-platform/yoj-project/issues/42">GitHub Issue #42</a>.
  */
+@ExperimentalApi(issue = "https://github.com/ydb-platform/yoj-project/issues/42")
 public class YdbSpliterator<V> implements Spliterator<V> {
     private static final Logger log = LoggerFactory.getLogger(YdbSpliterator.class);
 

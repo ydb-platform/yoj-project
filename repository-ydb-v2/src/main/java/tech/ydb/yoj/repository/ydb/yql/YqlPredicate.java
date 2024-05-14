@@ -5,8 +5,7 @@ import com.google.common.collect.ImmutableList;
 import lombok.AllArgsConstructor;
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import tech.ydb.yoj.DeprecationWarnings;
 import tech.ydb.yoj.repository.db.Entity;
 import tech.ydb.yoj.repository.db.EntitySchema;
 import tech.ydb.yoj.repository.ydb.statement.PredicateStatement;
@@ -54,7 +53,6 @@ import static tech.ydb.yoj.repository.ydb.yql.YqlPredicate.Rel.NEQ;
  */
 public abstract class YqlPredicate implements YqlStatementPart<YqlPredicate> {
     public static final String TYPE = "Predicate";
-    private static final Logger log = LoggerFactory.getLogger(YqlPredicate.class);
     private static final AtomicBoolean useLegacyIn = new AtomicBoolean(false);
     private static final AtomicBoolean useLegacyRel = new AtomicBoolean(false);
 
@@ -63,8 +61,8 @@ public abstract class YqlPredicate implements YqlStatementPart<YqlPredicate> {
      */
     @Deprecated(forRemoval = true)
     public static void setUseLegacyIn(boolean value) {
-        log.error("You are using YqlPredicate.setUseLegacyIn(boolean) which is deprecated for removal in YOJ 3.0.0. Please stop calling this method",
-                new Throwable("YqlPredicate.setUseLegacyIn(boolean) call stack trace"));
+        DeprecationWarnings.warnOnce("YqlPredicate.setUseLegacyIn(boolean)",
+                "You are using YqlPredicate.setUseLegacyIn(boolean) which is deprecated for removal in YOJ 3.0.0. Please stop calling this method");
         YqlPredicate.useLegacyIn.set(value);
     }
 
@@ -73,8 +71,8 @@ public abstract class YqlPredicate implements YqlStatementPart<YqlPredicate> {
      */
     @Deprecated(forRemoval = true)
     public static void setUseLegacyRel(boolean value) {
-        log.error("You are using YqlPredicate.setUseLegacyRel(boolean) which is deprecated for removal in YOJ 3.0.0. Please stop calling this method",
-                new Throwable("YqlPredicate.setUseLegacyRel(boolean) call stack trace"));
+        DeprecationWarnings.warnOnce("YqlPredicate.setUseLegacyRel(boolean)",
+                "You are using YqlPredicate.setUseLegacyRel(boolean) which is deprecated for removal in YOJ 3.0.0. Please stop calling this method");
         YqlPredicate.useLegacyRel.set(value);
     }
 
