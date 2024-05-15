@@ -5,7 +5,6 @@ import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.NonNull;
 import lombok.Value;
-import tech.ydb.yoj.DeprecationWarnings;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -119,27 +118,5 @@ public class Range<ID extends Entity.Id<?>> {
                 + ": "
                 + String.join(", ", list)
                 + ")";
-    }
-
-    /**
-     * @deprecated This method will be removed in YOJ 3.0.0. Use {@link #create(Entity.Id)} instead.
-     */
-    @Deprecated(forRemoval = true)
-    public Range(@NonNull ID partial) {
-        this(partial, partial);
-    }
-
-    /**
-     * @deprecated This method will be removed in YOJ 3.0.0. Use {@link #create(Entity.Id, Entity.Id)} instead.
-     */
-    @Deprecated(forRemoval = true)
-    public Range(@NonNull ID min, @NonNull ID max) {
-        DeprecationWarnings.warnOnce("new Range(ID[, ID])",
-                "You are using new Range(ID[, ID]) which is deprecated for removal in YOJ 3.0.0. Please use Range.create(ID[, ID]) instead");
-        Range<ID> range = create(min, max);
-        this.type = range.getType();
-        this.eqMap = range.getEqMap();
-        this.minMap = range.getMinMap();
-        this.maxMap = range.getMaxMap();
     }
 }
