@@ -1,4 +1,4 @@
-package tech.ydb.yoj.repository.ydb;
+package tech.ydb.yoj.repository.ydb.spliterator.legacy;
 
 import com.google.common.annotations.VisibleForTesting;
 import org.slf4j.Logger;
@@ -8,6 +8,8 @@ import tech.ydb.yoj.ExperimentalApi;
 import tech.ydb.yoj.InternalApi;
 import tech.ydb.yoj.repository.db.exception.DeadlineExceededException;
 import tech.ydb.yoj.repository.db.exception.QueryInterruptedException;
+import tech.ydb.yoj.repository.ydb.YdbOperations;
+import tech.ydb.yoj.repository.ydb.spliterator.ClosableSpliterator;
 
 import javax.annotation.Nullable;
 import java.time.Duration;
@@ -36,9 +38,10 @@ import static tech.ydb.yoj.repository.ydb.client.YdbValidator.validate;
  * <a href="https://github.com/ydb-platform/yoj-project/issues/42">GitHub Issue #42</a>.
  */
 @InternalApi
+@Deprecated // too slow
 @ExperimentalApi(issue = "https://github.com/ydb-platform/yoj-project/issues/42")
-public class YdbSpliterator<V> implements Spliterator<V> {
-    private static final Logger log = LoggerFactory.getLogger(YdbSpliterator.class);
+public class YdbNewLegacySpliterator<V> implements ClosableSpliterator<V> {
+    private static final Logger log = LoggerFactory.getLogger(YdbNewLegacySpliterator.class);
 
     private static final Duration DEFAULT_STREAM_WORK_TIMEOUT = Duration.ofMinutes(5);
 
@@ -57,12 +60,12 @@ public class YdbSpliterator<V> implements Spliterator<V> {
 
     private boolean endData = false;
 
-    public YdbSpliterator(String request, boolean isOrdered) {
+    public YdbNewLegacySpliterator(String request, boolean isOrdered) {
         this(request, isOrdered, DEFAULT_STREAM_WORK_TIMEOUT);
     }
 
     @VisibleForTesting
-    protected YdbSpliterator(String request, boolean isOrdered, Duration streamWorkTimeout) {
+    protected YdbNewLegacySpliterator(String request, boolean isOrdered, Duration streamWorkTimeout) {
         this.flags = (isOrdered ? ORDERED : 0) | NONNULL;
         this.streamWorkDeadlineNanos = System.nanoTime() + TimeUnit.NANOSECONDS.toNanos(saturatedToNanos(streamWorkTimeout));
         this.validateResponse = (status, error) -> {
@@ -158,6 +161,7 @@ public class YdbSpliterator<V> implements Spliterator<V> {
     }
 
     // (stream thread) close spliterator and abort supplier thread
+    @Override
     public void close() {
         // close() can be called twice by stream.close() and in the end of transaction
         if (closed) {

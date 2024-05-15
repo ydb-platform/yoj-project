@@ -15,6 +15,7 @@ import tech.ydb.common.transaction.YdbTransaction;
 import tech.ydb.core.Result;
 import tech.ydb.core.Status;
 import tech.ydb.core.StatusCode;
+import tech.ydb.core.grpc.GrpcReadStream;
 import tech.ydb.proto.ValueProtos;
 import tech.ydb.table.Session;
 import tech.ydb.table.query.DataQueryResult;
@@ -25,6 +26,7 @@ import tech.ydb.table.query.stats.QueryPhaseStats;
 import tech.ydb.table.query.stats.QueryStats;
 import tech.ydb.table.query.stats.QueryStatsCollectionMode;
 import tech.ydb.table.query.stats.TableAccessStats;
+import tech.ydb.table.query.ReadTablePart;
 import tech.ydb.table.result.ResultSetReader;
 import tech.ydb.table.settings.BulkUpsertSettings;
 import tech.ydb.table.settings.CommitTxSettings;
@@ -70,6 +72,14 @@ import tech.ydb.yoj.repository.ydb.exception.YdbOverloadedException;
 import tech.ydb.yoj.repository.ydb.exception.YdbRepositoryException;
 import tech.ydb.yoj.repository.ydb.merge.QueriesMerger;
 import tech.ydb.yoj.repository.ydb.readtable.ReadTableMapper;
+import tech.ydb.yoj.repository.ydb.spliterator.ClosableSpliterator;
+import tech.ydb.yoj.repository.ydb.spliterator.ResultSetIterator;
+import tech.ydb.yoj.repository.ydb.spliterator.YdbSpliterator;
+import tech.ydb.yoj.repository.ydb.spliterator.queue.YojQueue;
+import tech.ydb.yoj.repository.ydb.spliterator.YdbSpliteratorQueueGrpcStreamAdapter;
+import tech.ydb.yoj.repository.ydb.spliterator.legacy.YdbLegacySpliterator;
+import tech.ydb.yoj.repository.ydb.spliterator.legacy.YdbNewLegacySpliterator;
+import tech.ydb.yoj.repository.ydb.spliterator.queue.YojQueueImpl;
 import tech.ydb.yoj.repository.ydb.statement.Statement;
 import tech.ydb.yoj.repository.ydb.table.YdbTable;
 import tech.ydb.yoj.util.lang.Interrupts;
@@ -78,6 +88,7 @@ import tech.ydb.yoj.util.lang.Strings;
 import javax.annotation.Nullable;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
@@ -101,7 +112,7 @@ public class YdbRepositoryTransaction<REPO extends YdbRepository>
     private static final String PROP_TRACE_VERBOSE_OBJ_RESULTS = "tech.ydb.yoj.repository.ydb.trace.verboseObjResults";
 
     private final List<YdbRepository.Query<?>> pendingWrites = new ArrayList<>();
-    private final List<YdbSpliterator<?>> spliterators = new ArrayList<>();
+    private final List<ClosableSpliterator<?>> spliterators = new ArrayList<>();
 
     @Getter
     private final TxOptions options;
@@ -127,8 +138,8 @@ public class YdbRepositoryTransaction<REPO extends YdbRepository>
         this.tablespace = repo.getSchemaOperations().getTablespace();
     }
 
-    private <V> YdbSpliterator<V> createSpliterator(String request, boolean isOrdered) {
-        YdbSpliterator<V> spliterator = new YdbSpliterator<>(request, isOrdered);
+    private <V> YdbNewLegacySpliterator<V> createSpliterator(String request, boolean isOrdered) {
+        YdbNewLegacySpliterator<V> spliterator = new YdbNewLegacySpliterator<>(request, isOrdered);
         spliterators.add(spliterator);
         return spliterator;
     }
@@ -183,7 +194,7 @@ public class YdbRepositoryTransaction<REPO extends YdbRepository>
 
     private void closeStreams() {
         Exception summaryException = null;
-        for (YdbSpliterator<?> spliterator : spliterators) {
+        for (ClosableSpliterator<?> spliterator : spliterators) {
             try {
                 spliterator.close();
             } catch (Exception e) {
@@ -451,7 +462,7 @@ public class YdbRepositoryTransaction<REPO extends YdbRepository>
         String yql = getYql(statement);
         Params sdkParams = getSdkParams(statement, params);
 
-        YdbSpliterator<RESULT> spliterator = createSpliterator("scanQuery: " + yql, false);
+        YdbNewLegacySpliterator<RESULT> spliterator = createSpliterator("scanQuery: " + yql, false);
 
         initSession();
         session.executeScanQuery(
@@ -559,38 +570,65 @@ public class YdbRepositoryTransaction<REPO extends YdbRepository>
             settings.toKey(TupleValue.of(values), params.isToInclusive());
         }
 
-        if (params.isUseNewSpliterator()) {
-            YdbSpliterator<RESULT> spliterator = createSpliterator("readTable: " + tableName, params.isOrdered());
+        return switch (params.getSpliteratorType()) {
+            case LEGACY -> {
+                try {
+                    YdbLegacySpliterator<RESULT> spliterator = new YdbLegacySpliterator<>(params.isOrdered(), action ->
+                            doCall("read table " + mapper.getTableName(""), () -> {
+                                Status status = YdbOperations.safeJoin(
+                                        session.readTable(
+                                                tableName,
+                                                settings.build(),
+                                                rs -> new ResultSetConverter(rs).stream(mapper::mapResult).forEach(action)
+                                        ),
+                                        params.getTimeout().plusMinutes(5)
+                                );
+                                validate("readTable", status.getCode(), status.toString());
+                            })
+                    );
+                    yield spliterator.makeStream();
+                } catch (RepositoryException e) {
+                    throw e;
+                } catch (Exception e) {
+                    throw new UnexpectedException("Could not read table " + tableName, e);
+                }
+            }
+            case LEGACY_SLOW -> {
+                YdbNewLegacySpliterator<RESULT> spliterator = createSpliterator("readTable: " + tableName, params.isOrdered());
 
-            initSession();
-            session.readTable(
-                    tableName, settings.build(),
-                    resultSet -> new ResultSetConverter(resultSet).stream(mapper::mapResult).forEach(spliterator::onNext)
-            ).whenComplete(spliterator::onSupplierThreadComplete);
+                initSession();
+                session.readTable(
+                        tableName, settings.build(),
+                        resultSet -> new ResultSetConverter(resultSet).stream(mapper::mapResult).forEach(spliterator::onNext)
+                ).whenComplete(spliterator::onSupplierThreadComplete);
 
-            return spliterator.createStream();
-        }
+                yield spliterator.createStream();
+            }
+            case EXPERIMENTAL -> {
+                initSession();
 
-        try {
-            YdbLegacySpliterator<RESULT> spliterator = new YdbLegacySpliterator<>(params.isOrdered(), action ->
-                    doCall("read table " + mapper.getTableName(""), () -> {
-                        Status status = YdbOperations.safeJoin(
-                                session.readTable(
-                                        tableName,
-                                        settings.build(),
-                                        rs -> new ResultSetConverter(rs).stream(mapper::mapResult).forEach(action)
-                                ),
-                                params.getTimeout().plusMinutes(5)
-                        );
-                        validate("readTable", status.getCode(), status.toString());
-                    })
-            );
-            return spliterator.makeStream();
-        } catch (RepositoryException e) {
-            throw e;
-        } catch (Exception e) {
-            throw new UnexpectedException("Could not read table " + tableName, e);
-        }
+                // TODO: configure stream timeout
+                // TODO: configure batch count
+                YojQueue<Iterator<RESULT>> queue = YojQueueImpl.create(0, Duration.ofMinutes(5));
+
+                var adapter = new YdbSpliteratorQueueGrpcStreamAdapter<>("readTable: " + tableName, queue);
+                GrpcReadStream<ReadTablePart> grpcStream = session.executeReadTable(tableName, settings.build());
+                CompletableFuture<Status> future = grpcStream.start(readTablePart -> {
+                    ResultSetIterator<RESULT> iterator = new ResultSetIterator<>(
+                            readTablePart.getResultSetReader(),
+                            mapper::mapResult
+                    );
+                    adapter.onNext(iterator);
+                });
+                future.whenComplete(adapter::onSupplierThreadComplete);
+
+                YdbSpliterator<RESULT> spliterator = new YdbSpliterator<>(queue, params.isOrdered());
+
+                spliterators.add(spliterator);
+
+                yield spliterator.createStream();
+            }
+        };
     }
 
     /**

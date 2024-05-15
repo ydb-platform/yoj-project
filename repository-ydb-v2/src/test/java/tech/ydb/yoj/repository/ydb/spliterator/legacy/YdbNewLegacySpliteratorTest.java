@@ -1,4 +1,4 @@
-package tech.ydb.yoj.repository.ydb;
+package tech.ydb.yoj.repository.ydb.spliterator.legacy;
 
 import com.google.common.util.concurrent.Runnables;
 import com.google.common.util.concurrent.Uninterruptibles;
@@ -19,7 +19,7 @@ import java.util.stream.Stream;
 
 import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 
-public class YdbSpliteratorTest {
+public class YdbNewLegacySpliteratorTest {
     @SneakyThrows
     public static void doAfter(int millis, Runnable runnable) {
         Thread.sleep(millis);
@@ -88,7 +88,7 @@ public class YdbSpliteratorTest {
 
         private final AtomicInteger selectedValuesCount = new AtomicInteger();
 
-        private final YdbSpliterator<Integer> spliterator;
+        private final YdbNewLegacySpliterator<Integer> spliterator;
 
         private final List<Integer> bucketSizes = new ArrayList<>();
 
@@ -96,7 +96,7 @@ public class YdbSpliteratorTest {
         private Status status = Status.SUCCESS;
         private Throwable exception = null;
 
-        private ReadTableMock(YdbSpliterator<Integer> spliterator) {
+        private ReadTableMock(YdbNewLegacySpliterator<Integer> spliterator) {
             this.spliterator = spliterator;
         }
 
@@ -105,7 +105,7 @@ public class YdbSpliteratorTest {
         }
 
         public static ReadTableMock start(Duration timeout) {
-            YdbSpliterator<Integer> spliterator = new YdbSpliterator<>("stream", false, timeout);
+            YdbNewLegacySpliterator<Integer> spliterator = new YdbNewLegacySpliterator<>("stream", false, timeout);
 
             ReadTableMock mock = new ReadTableMock(spliterator);
             mock.run();
@@ -200,7 +200,7 @@ public class YdbSpliteratorTest {
     @Test
     @SneakyThrows
     public void endStreamWhenSupplerOfferValue() {
-        YdbSpliterator<Integer> spliterator = new YdbSpliterator<>("stream", false, Duration.ofMillis(500));
+        YdbNewLegacySpliterator<Integer> spliterator = new YdbNewLegacySpliterator<>("stream", false, Duration.ofMillis(500));
 
         spliterator.onNext(1);
 
@@ -209,7 +209,7 @@ public class YdbSpliteratorTest {
         thread.start();
 
         spliterator.onNext(2);
-        assertThatExceptionOfType(YdbSpliterator.ConsumerDoneException.class).isThrownBy(() ->
+        assertThatExceptionOfType(YdbNewLegacySpliterator.ConsumerDoneException.class).isThrownBy(() ->
                 spliterator.onNext(3)
         );
 
