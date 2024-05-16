@@ -2,7 +2,7 @@ package tech.ydb.yoj.repository.db;
 
 import com.google.common.reflect.TypeToken;
 import lombok.NonNull;
-import org.slf4j.LoggerFactory;
+import tech.ydb.yoj.DeprecationWarnings;
 
 import javax.annotation.CheckForNull;
 import java.util.List;
@@ -33,8 +33,10 @@ public interface Entity<E extends Entity<E>> extends Table.ViewId<E> {
         @CheckForNull
         @Deprecated(forRemoval = true)
         default E resolve() {
-            LoggerFactory.getLogger(Entity.Id.class).warn("You are using Entity.Id.resolve() which will be removed in YOJ 3.0.0. Please use Table.find(ID)",
-                    new Throwable("Entity.Id.resolve() call stack trace"));
+            DeprecationWarnings.warnOnce(
+                    "Entity.Id.resolve()",
+                    "You are using Entity.Id.resolve() which will be removed in YOJ 3.0.0. Please use Table.find(ID)"
+            );
             return Tx.Current.get().getRepositoryTransaction().table(getType()).find(this);
         }
 
@@ -46,9 +48,10 @@ public interface Entity<E extends Entity<E>> extends Table.ViewId<E> {
         default <EXCEPTION extends Exception> E resolve(
                 Supplier<? extends EXCEPTION> throwIfAbsent
         ) throws EXCEPTION {
-            LoggerFactory.getLogger(Entity.Id.class).warn("You are using Entity.Id.resolve(Supplier) which will be removed in YOJ 3.0.0. "
-                    + "Please use Table.find(ID, Supplier)",
-                    new Throwable("Entity.Id.resolve(Supplier) call stack trace"));
+            DeprecationWarnings.warnOnce(
+                    "Entity.Id.resolve()",
+                    "You are using Entity.Id.resolve(Supplier) which will be removed in YOJ 3.0.0. Please use Table.find(ID, Supplier)"
+            );
             return Tx.Current.get().getRepositoryTransaction().table(getType()).find(this, throwIfAbsent);
         }
 
