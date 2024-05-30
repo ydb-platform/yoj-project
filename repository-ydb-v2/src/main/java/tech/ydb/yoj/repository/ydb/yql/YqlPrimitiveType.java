@@ -35,6 +35,7 @@ import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.BiConsumer;
 import java.util.function.Function;
@@ -48,6 +49,8 @@ import static tech.ydb.yoj.repository.db.common.CommonConverters.enumValueGetter
 import static tech.ydb.yoj.repository.db.common.CommonConverters.enumValueSetter;
 import static tech.ydb.yoj.repository.db.common.CommonConverters.opaqueObjectValueGetter;
 import static tech.ydb.yoj.repository.db.common.CommonConverters.opaqueObjectValueSetter;
+import static tech.ydb.yoj.repository.db.common.CommonConverters.uuidValueGetter;
+import static tech.ydb.yoj.repository.db.common.CommonConverters.uuidValueSetter;
 
 @Value
 @AllArgsConstructor(access = PRIVATE)
@@ -106,6 +109,8 @@ public class YqlPrimitiveType implements YqlType {
     private static final Setter DURATION_SECOND_SETTER = (b, v) -> b.setInt32Value(Math.toIntExact(((Duration) v).toSeconds()));
     private static final Setter DURATION_SECOND_UINT_SETTER = (b, v) -> b.setUint32Value(Math.toIntExact(((Duration) v).toSeconds()));
     private static final Setter DURATION_UTF8_SETTER = (b, v) -> b.setTextValue(((Duration) v).truncatedTo(ChronoUnit.MICROS).toString());
+    private static final Setter UUID_STRING_SETTER = uuidValueSetter(STRING_SETTER)::accept;
+    private static final Setter UUID_UTF8_SETTER = uuidValueSetter(TEXT_SETTER)::accept;
 
     private static final Function<Type, Setter> ENUM_NAME_STRING_SETTERS = type -> enumValueSetter(type, STRING_SETTER)::accept;
     private static final Function<Type, Setter> ENUM_NAME_UTF8_SETTERS = type -> enumValueSetter(type, TEXT_SETTER)::accept;
@@ -146,6 +151,8 @@ public class YqlPrimitiveType implements YqlType {
     private static final Getter DURATION_SECOND_GETTER = v -> Duration.ofSeconds(v.getInt32Value());
     private static final Getter DURATION_SECOND_UINT_GETTER = v -> Duration.ofSeconds(v.getUint32Value());
     private static final Getter DURATION_UTF8_GETTER = v -> Duration.parse(v.getTextValue());
+    private static final Getter UUID_STRING_GETTER = uuidValueGetter(STRING_GETTER)::apply;
+    private static final Getter UUID_UTF8_GETTER = uuidValueGetter(TEXT_GETTER)::apply;
 
     private static final Getter CONTAINER_VALUE_GETTER = new YqlPrimitiveType.YdbContainerValueGetter();
 
@@ -199,6 +206,9 @@ public class YqlPrimitiveType implements YqlType {
         registerYqlType(Duration.class, PrimitiveTypeId.INT32, null, false, DURATION_SECOND_SETTER, DURATION_SECOND_GETTER);
         registerYqlType(Duration.class, PrimitiveTypeId.UINT32, null, false, DURATION_SECOND_UINT_SETTER, DURATION_SECOND_UINT_GETTER);
         registerYqlType(Duration.class, PrimitiveTypeId.UTF8, null, false, DURATION_UTF8_SETTER, DURATION_UTF8_GETTER);
+
+        registerYqlType(UUID.class, PrimitiveTypeId.UTF8, null, true, UUID_UTF8_SETTER, UUID_UTF8_GETTER);
+        registerYqlType(UUID.class, PrimitiveTypeId.STRING, null, false, UUID_STRING_SETTER, UUID_STRING_GETTER);
 
         registerPrimitiveTypes();
 
@@ -341,36 +351,42 @@ public class YqlPrimitiveType implements YqlType {
 
     /**
      * @deprecated This method will be removed in YOJ 3.0.0.
-     * Call {@link #useRecommendedMappingFor(FieldValueType[]) useNewMappingFor(STRING, ENUM)} instead.
+     * Call {@link #useRecommendedMappingFor(FieldValueType[]) useNewMappingFor(STRING, ENUM, UUID)} instead, if you wish to map Strings, Enums and
+     * UUIDs to {@code UTF8} ({@code TEXT}) YDB column type (i.e., UTF-8 encoded text).
      */
     @Deprecated(forRemoval = true)
     public static void changeStringDefaultTypeToUtf8() {
         DeprecationWarnings.warnOnce("YqlPrimitiveType.changeStringDefaultTypeToUtf8()",
-                "You are using YqlPrimitiveType.changeStringDefaultTypeToUtf8() which will be removed in YOJ 3.0.0. "
-                        + "Please use YqlPrimitiveType.useNewMappingFor(STRING, ENUM)");
-        useRecommendedMappingFor(FieldValueType.STRING, FieldValueType.ENUM);
+                "You are using YqlPrimitiveType.changeStringDefaultTypeToUtf8() which will be removed in YOJ 3.0.0."
+                        + "Please use YqlPrimitiveType.useNewMappingFor(STRING, ENUM, UUID) if you wish to use to map Strings, Enums and UUIDs "
+                        + "to `UTF8` (`TEXT`) YDB column type (i.e., UTF-8 encoded text).");
+        useRecommendedMappingFor(FieldValueType.STRING, FieldValueType.ENUM, FieldValueType.UUID);
     }
 
     /**
      * @deprecated This method has a misleading name and will be removed in YOJ 3.0.0.
-     * Call {@link #useLegacyMappingFor(FieldValueType[]) useLegacyMappingFor(STRING, ENUM)} instead.
+     * Call {@link #useLegacyMappingFor(FieldValueType[]) useLegacyMappingFor(STRING, ENUM, UUID)} instead, if you wish to map Strings, Enums and
+     * UUIDs to {@code STRING} ({@code BYTES}) YDB column type (i.e., a byte array).
      */
     @Deprecated(forRemoval = true)
     public static void resetStringDefaultTypeToDefaults() {
         DeprecationWarnings.warnOnce("YqlPrimitiveType.resetStringDefaultTypeToDefaults()",
                 "You are using YqlPrimitiveType.resetStringDefaultTypeToDefaults() which will be removed in YOJ 3.0.0. "
-                        + "Please use YqlPrimitiveType.useLegacyMappingFor(STRING, ENUM)");
-        useLegacyMappingFor(FieldValueType.STRING, FieldValueType.ENUM);
+                        + "Please use YqlPrimitiveType.useLegacyMappingFor(STRING, ENUM, UUID) if you wish to use to map Strings, Enums and UUIDs "
+                        + "to `STRING` (`BYTES`) YDB column type (i.e., byte array).");
+        useLegacyMappingFor(FieldValueType.STRING, FieldValueType.ENUM, FieldValueType.UUID);
     }
 
     /**
      * Uses the legacy (YOJ 1.0.x) field value type &harr; YDB column type mapping for the specified field value type(s).
-     * If you need to support legacy applications, call {@code useLegacyMappingFor(STRING, ENUM, TIMESTAMP)} before using
+     * <p>If you need to support a wide range of legacy applications, call {@code useLegacyMappingFor(FieldValueType.values())} before using
      * any YOJ features.
+     * <p>You can apply the legacy mapping partially, <em>e.g.</em> {@code useLegacyMappingFor(STRING, ENUM, UUID)} to map String, Enums and UUIDs
+     * to {@code STRING} ({@code BYTES}) YDB column type (i.e., a byte array).
      *
      * @param fieldValueTypes field value types to use legacy mapping for
      * @deprecated We <strong>STRONGLY</strong> advise against using the legacy mapping in new projects.
-     * Please call {@link #useRecommendedMappingFor(FieldValueType...) useNewMappingFor(STRING, ENUM, TIMESTAMP)} instead,
+     * Please call {@link #useRecommendedMappingFor(FieldValueType...) useNewMappingFor(FieldValueType.values())} instead,
      * and annotate custom-mapped columns with {@link Column &#64;Column} where a different mapping is desired.
      */
     @Deprecated
@@ -379,12 +395,16 @@ public class YqlPrimitiveType implements YqlType {
         for (var fvt : fieldValueTypes) {
             switch (fvt) {
                 case STRING, ENUM -> VALUE_DEFAULT_YQL_TYPES.put(fvt, new ValueYqlTypeSelector(fvt, PrimitiveTypeId.STRING, null));
+                case UUID -> {
+                    var selector = new YqlTypeSelector(Instant.class, PrimitiveTypeId.STRING, null);
+                    JAVA_DEFAULT_YQL_TYPES.put(UUID.class, selector);
+                    YQL_TYPES.put(selector, new YqlPrimitiveType(UUID.class, PrimitiveTypeId.STRING, UUID_STRING_SETTER, UUID_STRING_GETTER));
+                }
                 case TIMESTAMP -> {
                     var selector = new YqlTypeSelector(Instant.class, PrimitiveTypeId.INT64, null);
                     JAVA_DEFAULT_YQL_TYPES.put(Instant.class, selector);
                     YQL_TYPES.put(selector, new YqlPrimitiveType(Instant.class, PrimitiveTypeId.INT64, INSTANT_SETTER, INSTANT_GETTER));
                 }
-                default -> throw new IllegalArgumentException("There is no legacy mapping for field value type: " + fvt);
             }
         }
     }
@@ -392,9 +412,11 @@ public class YqlPrimitiveType implements YqlType {
     /**
      * Uses the recommended field value type &harr; YDB column type mapping for the specified field value type(s).
      * <p>
-     * In new projects, we <strong>STRONGLY</strong> advise that you call {@code useNewMappingFor(STRING, ENUM, TIMESTAMP)}
-     * before using any YOJ features. This will eventually become the default mapping, and the call will become a no-op and
-     * mighe even be removed.
+     * In new projects, we <strong>STRONGLY</strong> advise you to call {@code useNewMappingFor(FieldValueType.values())} before using
+     * any YOJ features. This will eventually become the default mapping, and this call will become a no-op and might even be removed
+     * in a future version of YOJ.
+     * <p>You can apply the new mapping partially, <em>e.g.</em> {@code useNewMappingFor(STRING, ENUM, UUID)} to map String, Enums and UUIDs
+     * to {@code UTF8} ({@code TEXT}) YDB column type (i.e., UTF-8 encoded text).
      *
      * @param fieldValueTypes field value types to use the new mapping for
      */
@@ -404,12 +426,16 @@ public class YqlPrimitiveType implements YqlType {
         for (var fvt : fieldValueTypes) {
             switch (fvt) {
                 case STRING, ENUM -> VALUE_DEFAULT_YQL_TYPES.put(fvt, new ValueYqlTypeSelector(fvt, PrimitiveTypeId.UTF8, null));
+                case UUID -> {
+                    var selector = new YqlTypeSelector(Instant.class, PrimitiveTypeId.UTF8, null);
+                    JAVA_DEFAULT_YQL_TYPES.put(UUID.class, selector);
+                    YQL_TYPES.put(selector, new YqlPrimitiveType(UUID.class, PrimitiveTypeId.UTF8, UUID_UTF8_SETTER, UUID_UTF8_GETTER));
+                }
                 case TIMESTAMP -> {
                     var selector = new YqlTypeSelector(Instant.class, PrimitiveTypeId.TIMESTAMP, null);
                     JAVA_DEFAULT_YQL_TYPES.put(Instant.class, selector);
                     YQL_TYPES.put(selector, new YqlPrimitiveType(Instant.class, PrimitiveTypeId.TIMESTAMP, TIMESTAMP_SETTER, TIMESTAMP_GETTER));
                 }
-                default -> throw new IllegalArgumentException("There is no new mapping for field value type: " + fvt);
             }
         }
     }

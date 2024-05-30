@@ -77,14 +77,14 @@ final class Columns {
             value = CustomValueTypes.preconvert(field, value);
 
             return switch (field.getValueType()) {
-                case STRING -> value;
+                case STRING, BOOLEAN, INTEGER, REAL -> value;
+                case UUID -> CommonConverters.serializeUuidValue(value);
                 case ENUM -> DbTypeQualifier.ENUM_TO_STRING.equals(qualifier)
                         ? CommonConverters.serializeEnumToStringValue(serializedType, value)
                         : CommonConverters.serializeEnumValue(serializedType, value);
                 case OBJECT -> CommonConverters.serializeOpaqueObjectValue(serializedType, value);
                 case BINARY -> ((byte[]) value).clone();
                 case BYTE_ARRAY -> ((ByteArray) value).copy().getArray();
-                case BOOLEAN, INTEGER, REAL -> value;
                 // TODO: Unify Instant and Duration handling in InMemory and YDB Repository
                 case INTERVAL, TIMESTAMP -> value;
                 default -> throw new IllegalStateException("Don't know how to serialize field: " + field);
@@ -105,14 +105,14 @@ final class Columns {
             Preconditions.checkState(field.isSimple(), "Trying to deserialize a non-simple field: %s", field);
 
             var deserialized = switch (field.getValueType()) {
-                case STRING -> value;
+                case STRING, BOOLEAN, INTEGER, REAL -> value;
+                case UUID -> CommonConverters.deserializeUuidValue(value);
                 case ENUM -> DbTypeQualifier.ENUM_TO_STRING.equals(qualifier)
                         ? CommonConverters.deserializeEnumToStringValue(serializedType, value)
                         : CommonConverters.deserializeEnumValue(serializedType, value);
                 case OBJECT -> CommonConverters.deserializeOpaqueObjectValue(serializedType, value);
                 case BINARY -> ((byte[]) value).clone();
                 case BYTE_ARRAY -> ByteArray.copy((byte[]) value);
-                case BOOLEAN, INTEGER, REAL -> value;
                 // TODO: Unify Instant and Duration handling in InMemory and YDB Repository
                 case INTERVAL, TIMESTAMP -> value;
                 default -> throw new IllegalStateException("Don't know how to deserialize field: " + field);

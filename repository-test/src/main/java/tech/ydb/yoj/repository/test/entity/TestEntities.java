@@ -1,7 +1,6 @@
 package tech.ydb.yoj.repository.test.entity;
 
 import lombok.NonNull;
-import tech.ydb.yoj.databind.FieldValueType;
 import tech.ydb.yoj.repository.db.Entity;
 import tech.ydb.yoj.repository.db.Repository;
 import tech.ydb.yoj.repository.test.sample.model.Book;
@@ -28,7 +27,6 @@ import tech.ydb.yoj.repository.test.sample.model.VersionedEntity;
 import tech.ydb.yoj.repository.test.sample.model.WithUnflattenableField;
 
 import java.util.List;
-import java.util.UUID;
 
 public final class TestEntities {
     private TestEntities() {
@@ -57,9 +55,6 @@ public final class TestEntities {
 
     @SuppressWarnings("unchecked")
     public static Repository init(@NonNull Repository repository) {
-        // Intentional Legacy registration. Used in e.g. UniqueEntity
-        FieldValueType.registerStringValueType(UUID.class);
-
         repository.createTablespace();
         ALL.forEach(entityClass -> repository.schema(entityClass).create());
 
