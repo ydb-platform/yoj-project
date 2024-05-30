@@ -67,5 +67,11 @@ public abstract class IllegalExpressionException extends IllegalArgumentExceptio
                 super(field, "Type mismatch: cannot compare field \"%s\" with a date-time value"::formatted);
             }
         }
+
+        static final class UuidFieldExpected extends FieldTypeError {
+            UuidFieldExpected(String field) {
+                super(field, "Type mismatch: cannot compare field \"%s\" with an UUID value"::formatted);
+            }
+        }
     }
 }

@@ -11,20 +11,21 @@ import tech.ydb.yoj.databind.CustomValueTypes;
 import tech.ydb.yoj.databind.FieldValueType;
 import tech.ydb.yoj.databind.schema.ObjectSchema;
 import tech.ydb.yoj.databind.schema.Schema.JavaField;
-import tech.ydb.yoj.databind.schema.Schema.JavaFieldValue;
 
 import javax.annotation.Nullable;
 import java.lang.reflect.Type;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.UUID;
 import java.util.stream.Stream;
 
 import static java.util.stream.Collectors.collectingAndThen;
 import static java.util.stream.Collectors.joining;
-import static java.util.stream.Collectors.toList;
+import static java.util.stream.Collectors.toCollection;
 import static lombok.AccessLevel.PRIVATE;
 
 @Value
@@ -37,40 +38,46 @@ public class FieldValue {
     Instant timestamp;
     Tuple tuple;
     ByteArray byteArray;
+    UUID uuid;
 
     @NonNull
     public static FieldValue ofStr(@NonNull String str) {
-        return new FieldValue(str, null, null, null, null, null, null);
+        return new FieldValue(str, null, null, null, null, null, null, null);
     }
 
     @NonNull
     public static FieldValue ofNum(long num) {
-        return new FieldValue(null, num, null, null, null, null, null);
+        return new FieldValue(null, num, null, null, null, null, null, null);
     }
 
     @NonNull
     public static FieldValue ofReal(double real) {
-        return new FieldValue(null, null, real, null, null, null, null);
+        return new FieldValue(null, null, real, null, null, null, null, null);
     }
 
     @NonNull
     public static FieldValue ofBool(boolean bool) {
-        return new FieldValue(null, null, null, bool, null, null, null);
+        return new FieldValue(null, null, null, bool, null, null, null, null);
     }
 
     @NonNull
     public static FieldValue ofTimestamp(@NonNull Instant timestamp) {
-        return new FieldValue(null, null, null, null, timestamp, null, null);
+        return new FieldValue(null, null, null, null, timestamp, null, null, null);
     }
 
     @NonNull
     public static FieldValue ofTuple(@NonNull Tuple tuple) {
-        return new FieldValue(null, null, null, null, null, tuple, null);
+        return new FieldValue(null, null, null, null, null, tuple, null, null);
     }
 
     @NonNull
     public static FieldValue ofByteArray(@NonNull ByteArray byteArray) {
-        return new FieldValue(null, null, null, null, null, null, byteArray);
+        return new FieldValue(null, null, null, null, null, null, byteArray, null);
+    }
+
+    @NonNull
+    public static FieldValue ofUuid(@NonNull UUID uuid) {
+        return new FieldValue(null, null, null, null, null, null, null, uuid);
     }
 
     @NonNull
@@ -100,26 +107,34 @@ public class FieldValue {
             case TIMESTAMP -> {
                 return ofTimestamp((Instant) obj);
             }
+            case UUID -> {
+                return ofUuid((UUID) obj);
+            }
             case COMPOSITE -> {
-                ObjectSchema schema = ObjectSchema.of(obj.getClass());
+                ObjectSchema<?> schema = ObjectSchema.of(obj.getClass());
                 List<JavaField> flatFields = schema.flattenFields();
-                Map<String, Object> flattenedObj = schema.flatten(obj);
 
-                List<JavaFieldValue> allFieldValues = flatFields.stream()
-                        .map(jf -> new JavaFieldValue(jf, flattenedObj.get(jf.getName())))
-                        .collect(collectingAndThen(toList(), Collections::unmodifiableList));
+                @SuppressWarnings({"rawtypes", "unchecked"})
+                Map<String, Object> flattenedObj = ((ObjectSchema) schema).flatten(obj);
+
+                List<FieldAndValue> allFieldValues = tupleValues(flatFields, flattenedObj);
                 if (allFieldValues.size() == 1) {
-                    JavaFieldValue singleValue = allFieldValues.iterator().next();
-                    Preconditions.checkArgument(singleValue.getValue() != null, "Wrappers must have a non-null value inside them");
-                    return ofObj(singleValue.getValue(), singleValue.getField());
+                    FieldValue singleValue = allFieldValues.iterator().next().value();
+                    Preconditions.checkArgument(singleValue != null, "Wrappers must have a non-null value inside them");
+                    return singleValue;
                 }
                 return ofTuple(new Tuple(obj, allFieldValues));
             }
-            default -> throw new UnsupportedOperationException(
-                    "Unsupported value type: not a string, integer, timestamp, enum, "
-                            + "floating-point number, byte array, tuple or wrapper of the above"
-            );
+            default -> throw new UnsupportedOperationException("Unsupported value type: not a string, integer, timestamp, UUID, enum, "
+                    + "floating-point number, byte array, tuple or wrapper of the above");
         }
+    }
+
+    private static @NonNull List<FieldAndValue> tupleValues(List<JavaField> flatFields, Map<String, Object> flattenedObj) {
+        return flatFields.stream()
+                .map(jf -> new FieldAndValue(jf, flattenedObj))
+                // Tuple values are allowed to be null, so we explicitly use ArrayList, just make it unmodifiable
+                .collect(collectingAndThen(toCollection(ArrayList::new), Collections::unmodifiableList));
     }
 
     public boolean isNumber() {
@@ -150,6 +165,10 @@ public class FieldValue {
         return byteArray != null;
     }
 
+    public boolean isUuid() {
+        return uuid != null;
+    }
+
     @Nullable
     public static Comparable<?> getComparable(@NonNull Map<String, Object> values,
                                               @NonNull JavaField field) {
@@ -157,10 +176,7 @@ public class FieldValue {
             Object rawValue = values.get(field.getName());
             return rawValue == null ? null : ofObj(rawValue, field.toFlatField()).getComparable(field);
         } else {
-            List<JavaFieldValue> components = field.flatten()
-                    .map(jf -> new JavaFieldValue(jf, values.get(jf.getName())))
-                    .toList();
-            return new Tuple(null, components);
+            return new Tuple(null, tupleValues(field.flatten().toList(), values));
         }
     }
 
@@ -221,6 +237,21 @@ public class FieldValue {
                 }
                 throw new IllegalStateException("Value cannot be converted to timestamp: " + this);
             }
+            case UUID -> {
+                // Compare UUIDs as String representations
+                // Rationale: @see https://devblogs.microsoft.com/oldnewthing/20190913-00/?p=102859
+                if (isUuid()) {
+                    return uuid.toString();
+                } else if (isString()) {
+                    try {
+                        UUID.fromString(str);
+                        return str;
+                    } catch (IllegalArgumentException ignored) {
+                        // ...no-op here because we will throw IllegalStateException right after the try() and if (isString())
+                    }
+                }
+                throw new IllegalStateException("Value cannot be converted to UUID: " + this);
+            }
             case BOOLEAN -> {
                 Preconditions.checkState(isBool(), "Value is not a boolean: %s", this);
                 return bool;
@@ -252,8 +283,14 @@ public class FieldValue {
             return bool.toString();
         } else if (isTimestamp()) {
             return "#" + timestamp + "#";
-        } else {
+        } else if (isByteArray()) {
+            return byteArray.toString();
+        } else if (isTuple()) {
             return tuple.toString();
+        } else if (isUuid()) {
+            return "uuid(" + uuid + ")";
+        } else {
+            return "???";
         }
     }
 
@@ -272,7 +309,9 @@ public class FieldValue {
                 && Objects.equals(bool, that.bool)
                 && Objects.equals(timestamp, that.timestamp)
                 && Objects.equals(real, that.real)
-                && Objects.equals(tuple, that.tuple);
+                && Objects.equals(tuple, that.tuple)
+                && Objects.equals(byteArray, that.byteArray)
+                && Objects.equals(uuid, that.uuid);
     }
 
     @Override
@@ -291,8 +330,42 @@ public class FieldValue {
         if (tuple != null) {
             result = result * 59 + tuple.hashCode();
         }
+        if (byteArray != null) {
+            result = result * 59 + byteArray.hashCode();
+        }
+        if (uuid != null) {
+            result = result * 59 + uuid.hashCode();
+        }
 
         return result;
+    }
+
+    public record FieldAndValue(
+            @NonNull JavaField field,
+            @Nullable FieldValue value
+    ) {
+        public FieldAndValue(@NonNull JavaField jf, @NonNull Map<String, Object> flattenedObj) {
+            this(jf, getValue(jf, flattenedObj));
+        }
+
+        @Nullable
+        private static FieldValue getValue(@NonNull JavaField jf, @NonNull Map<String, Object> flattenedObj) {
+            String name = jf.getName();
+            return flattenedObj.containsKey(name) ? FieldValue.ofObj(flattenedObj.get(name), jf) : null;
+        }
+
+        @Nullable
+        public Comparable<?> toComparable() {
+            return value == null ? null : value.getComparable(field);
+        }
+
+        public Type fieldType() {
+            return field.getType();
+        }
+
+        public String fieldPath() {
+            return field.getPath();
+        }
     }
 
     @Value
@@ -302,7 +375,7 @@ public class FieldValue {
         Object composite;
 
         @NonNull
-        List<JavaFieldValue> components;
+        List<FieldAndValue> components;
 
         @NonNull
         public Type getType() {
@@ -317,13 +390,13 @@ public class FieldValue {
         }
 
         @NonNull
-        public Stream<JavaFieldValue> streamComponents() {
+        public Stream<FieldAndValue> streamComponents() {
             return components.stream();
         }
 
         @NonNull
         public String toString() {
-            return components.stream().map(c -> String.valueOf(c.getValue())).collect(joining(", ", "<", ">"));
+            return components.stream().map(fv -> String.valueOf(fv.value())).collect(joining(", ", "<", ">"));
         }
 
         @Override
@@ -340,11 +413,11 @@ public class FieldValue {
             var thisIter = components.iterator();
             var otherIter = other.components.iterator();
             while (thisIter.hasNext()) {
-                JavaFieldValue thisComponent = thisIter.next();
-                JavaFieldValue otherComponent = otherIter.next();
+                FieldAndValue thisComponent = thisIter.next();
+                FieldAndValue otherComponent = otherIter.next();
 
-                Object thisValue = thisComponent.getValue();
-                Object otherValue = otherComponent.getValue();
+                Comparable<?> thisValue = thisComponent.toComparable();
+                Comparable<?> otherValue = otherComponent.toComparable();
                 // sort null first
                 if (thisValue == null && otherValue == null) {
                     continue;
@@ -357,9 +430,9 @@ public class FieldValue {
                 }
 
                 Preconditions.checkState(
-                        thisComponent.getFieldType().equals(otherComponent.getFieldType()),
+                        thisComponent.fieldType().equals(otherComponent.fieldType()),
                         "Different tuple component types at [%s](%s): %s and %s",
-                        i, thisComponent.getFieldPath(), thisComponent.getFieldType(), otherComponent.getFieldType()
+                        i, thisComponent.fieldPath(), thisComponent.fieldType(), otherComponent.fieldType()
                 );
 
                 @SuppressWarnings({"rawtypes", "unchecked"})

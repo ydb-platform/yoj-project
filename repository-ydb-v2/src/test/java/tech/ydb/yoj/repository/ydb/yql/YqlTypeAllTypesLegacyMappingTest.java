@@ -26,9 +26,6 @@ import java.util.Map;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static tech.ydb.yoj.databind.FieldValueType.ENUM;
-import static tech.ydb.yoj.databind.FieldValueType.STRING;
-import static tech.ydb.yoj.databind.FieldValueType.TIMESTAMP;
 
 @RunWith(Parameterized.class)
 public class YqlTypeAllTypesLegacyMappingTest {
@@ -42,7 +39,7 @@ public class YqlTypeAllTypesLegacyMappingTest {
 
     @BeforeClass
     public static void setUp() {
-        YqlPrimitiveType.useLegacyMappingFor(STRING, ENUM, TIMESTAMP);
+        YqlPrimitiveType.useLegacyMappingFor(FieldValueType.values());
     }
 
     @Parameters

@@ -17,6 +17,7 @@ import tech.ydb.yoj.databind.schema.Schema.JavaField;
 
 import javax.annotation.Nullable;
 import java.lang.reflect.Type;
+import java.util.UUID;
 import java.util.function.Function;
 import java.util.function.UnaryOperator;
 import java.util.stream.Stream;
@@ -68,8 +69,8 @@ public final class ModelField {
     public FieldValue validateValue(@NonNull FieldValue value) {
         if (value.isTuple()) {
             value.getTuple().streamComponents()
-                    .filter(jfv -> jfv.getValue() != null)
-                    .forEach(jfv -> new ModelField(null, jfv.getField()).validateValue(FieldValue.ofObj(jfv.getValue(), jfv.getField())));
+                    .filter(jfv -> jfv.value() != null)
+                    .forEach(jfv -> new ModelField(null, jfv.field()).validateValue(jfv.value()));
             return value;
         }
 
@@ -83,6 +84,17 @@ public final class ModelField {
                 checkArgument(enumHasConstant(clazz, enumConstant),
                         p -> new UnknownEnumConstant(p, enumConstant),
                         p -> format("Unknown enum constant for field \"%s\": \"%s\"", p, enumConstant));
+            } else if (fieldValueType == FieldValueType.UUID) {
+                String str = value.getStr();
+                try {
+                    UUID.fromString(str);
+                } catch (IllegalArgumentException e) {
+                    str = null;
+                }
+
+                checkArgument(str != null,
+                        IllegalExpressionException.FieldTypeError.UuidFieldExpected::new,
+                        p -> format("Not a valid UUID value for field \"%s\"", p));
             } else {
                 checkArgument(fieldValueType == FieldValueType.STRING,
                         StringFieldExpected::new,
@@ -110,6 +122,10 @@ public final class ModelField {
             checkArgument(fieldValueType == FieldValueType.TIMESTAMP || fieldValueType == FieldValueType.INTEGER,
                     DateTimeFieldExpected::new,
                     p -> format("Specified a timestamp value for non-timestamp field \"%s\"", p));
+        } else if (value.isUuid()) {
+            checkArgument(fieldValueType == FieldValueType.UUID || fieldValueType == FieldValueType.STRING,
+                    IllegalExpressionException.FieldTypeError.UuidFieldExpected::new,
+                    p -> format("Specified an UUID value for non-UUID/non-String field \"%s\"", p));
         } else {
             throw new UnsupportedOperationException("Unsupported field value type. This should never happen!");
         }

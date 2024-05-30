@@ -63,6 +63,10 @@ public enum FieldValueType {
      */
     INTERVAL,
     /**
+     * Universally Unique Identitifer (UUID). Java-side <strong>must</strong> be an instance of {@link java.util.UUID}.
+     */
+    UUID,
+    /**
      * Binary value: just a stream of uninterpreted bytes.
      * Java-side <strong>must</strong> be a {@code byte[]}.
      * <p>
@@ -167,11 +171,10 @@ public enum FieldValueType {
      * it allows comparing not strictly equal values in filter expressions, e.g., the String value of the ID
      * with the (flat) ID itself, which is a wrapper around String.
      *
-     * @param type Java object type. E.g., {@code String.class} for a String literal from the user
+     * @param type         Java object type. E.g., {@code String.class} for a String literal from the user
      * @param reflectField reflection information for the Schema field that the object of type {@code type}
-     * is supposed to be used with. E.g., reflection information for the (flat) ID field which the String
-     * literal is compared with.
-     *
+     *                     is supposed to be used with. E.g., reflection information for the (flat) ID field which the String
+     *                     literal is compared with.
      * @return database value type
      * @throws IllegalArgumentException if object of this type cannot be mapped to a database value
      */
@@ -185,10 +188,9 @@ public enum FieldValueType {
      * the {@link Column @Column} annotation value as well as custom value type information.
      * <p><strong>This method will most likely become package-private in YOJ 3.0.0! Please do not use it outside of YOJ code.</strong>
      *
-     * @param type Java object type
+     * @param type             Java object type
      * @param columnAnnotation {@code @Column} annotation for the field; {@code null} if absent
-     * @param cvt custom value type information; {@code null} if absent
-     *
+     * @param cvt              custom value type information; {@code null} if absent
      * @return database value type
      * @throws IllegalArgumentException if object of this type cannot be mapped to a database value
      */
@@ -210,6 +212,8 @@ public enum FieldValueType {
         } else if (type instanceof Class<?> clazz) {
             if (String.class.equals(clazz) || isCustomStringValueType(clazz)) {
                 return STRING;
+            } else if (java.util.UUID.class.equals(clazz)) {
+                return UUID;
             } else if (INTEGER_NUMERIC_TYPES.contains(clazz)) {
                 return INTEGER;
             } else if (REAL_NUMERIC_TYPES.contains(clazz)) {
