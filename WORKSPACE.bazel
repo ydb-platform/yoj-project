@@ -41,8 +41,6 @@ SNAKEYAML_VERSION = "1.33"
 
 YDB_PROTOAPI_VERSION = "1.6.0"
 
-YDB_SDK_V1_VERSION = "1.14.14"
-
 YDB_SDK_VERSION = "2.1.12"
 
 maven_install(
@@ -54,9 +52,6 @@ maven_install(
         "com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:" + JACKSON_VERSION,
         "com.google.code.findbugs:jsr305:" + FIND_BUGS_VERSION,
         "com.google.guava:guava:" + GUAVA_VERSION,
-        "com.yandex.ydb:ydb-sdk-core:" + YDB_SDK_V1_VERSION,
-        "com.yandex.ydb:ydb-sdk-proto:" + YDB_SDK_V1_VERSION,
-        "com.yandex.ydb:ydb-sdk-table:" + YDB_SDK_V1_VERSION,
         "io.grpc:grpc-bom:" + GRPC_VERSION,
         "io.grpc:grpc-netty-shaded:" + GRPC_VERSION,
         "io.grpc:grpc-netty:" + GRPC_VERSION,

@@ -129,11 +129,6 @@
             </dependency>
             <dependency>
                 <groupId>tech.ydb.yoj</groupId>
-                <artifactId>yoj-repository-ydb-v1</artifactId>
-                <version>${project.version}</version>
-            </dependency>
-            <dependency>
-                <groupId>tech.ydb.yoj</groupId>
                 <artifactId>yoj-repository-ydb-v2</artifactId>
                 <version>${project.version}</version>
             </dependency>
