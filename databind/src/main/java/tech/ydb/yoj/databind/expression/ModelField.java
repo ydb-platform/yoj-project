@@ -12,6 +12,14 @@ import tech.ydb.yoj.databind.expression.IllegalExpressionException.FieldTypeErro
 import tech.ydb.yoj.databind.expression.IllegalExpressionException.FieldTypeError.RealFieldExpected;
 import tech.ydb.yoj.databind.expression.IllegalExpressionException.FieldTypeError.StringFieldExpected;
 import tech.ydb.yoj.databind.expression.IllegalExpressionException.FieldTypeError.UnknownEnumConstant;
+import tech.ydb.yoj.databind.expression.values.BoolFieldValue;
+import tech.ydb.yoj.databind.expression.values.ByteArrayFieldValue;
+import tech.ydb.yoj.databind.expression.values.NumberFieldValue;
+import tech.ydb.yoj.databind.expression.values.RealFieldValue;
+import tech.ydb.yoj.databind.expression.values.StringFieldValue;
+import tech.ydb.yoj.databind.expression.values.TimestampFieldValue;
+import tech.ydb.yoj.databind.expression.values.TupleFieldValue;
+import tech.ydb.yoj.databind.expression.values.UuidFieldValue;
 import tech.ydb.yoj.databind.schema.Schema;
 import tech.ydb.yoj.databind.schema.Schema.JavaField;
 
@@ -67,8 +75,8 @@ public final class ModelField {
 
     @NonNull
     public FieldValue validateValue(@NonNull FieldValue value) {
-        if (value.isTuple()) {
-            value.getTuple().streamComponents()
+        if (value instanceof TupleFieldValue tupleValue) {
+            tupleValue.tuple().streamComponents()
                     .filter(jfv -> jfv.value() != null)
                     .forEach(jfv -> new ModelField(null, jfv.field()).validateValue(jfv.value()));
             return value;
@@ -76,16 +84,16 @@ public final class ModelField {
 
         JavaField flatField = toFlatField();
         FieldValueType fieldValueType = FieldValueType.forSchemaField(flatField);
-        if (value.isString()) {
+        if (value instanceof StringFieldValue stringValue) {
             if (fieldValueType == FieldValueType.ENUM) {
                 TypeToken<?> tt = TypeToken.of(flatField.getType());
-                String enumConstant = value.getStr();
+                String enumConstant = stringValue.str();
                 Class<?> clazz = tt.getRawType();
                 checkArgument(enumHasConstant(clazz, enumConstant),
                         p -> new UnknownEnumConstant(p, enumConstant),
                         p -> format("Unknown enum constant for field \"%s\": \"%s\"", p, enumConstant));
             } else if (fieldValueType == FieldValueType.UUID) {
-                String str = value.getStr();
+                String str = stringValue.str();
                 try {
                     UUID.fromString(str);
                 } catch (IllegalArgumentException e) {
@@ -100,29 +108,29 @@ public final class ModelField {
                         StringFieldExpected::new,
                         p -> format("Specified a string value for non-string field \"%s\"", p));
             }
-        } else if (value.isNumber()) {
+        } else if (value instanceof NumberFieldValue) {
             checkArgument(
                     fieldValueType == FieldValueType.INTEGER,
                     IntegerFieldExpected::new,
                     p -> format("Specified an integer value for non-integer field \"%s\"", p));
-        } else if (value.isReal()) {
+        } else if (value instanceof RealFieldValue) {
             checkArgument(
                     fieldValueType == FieldValueType.REAL,
                     RealFieldExpected::new,
                     p -> format("Specified a real value for non-real field \"%s\"", p));
-        } else if (value.isBool()) {
+        } else if (value instanceof BoolFieldValue) {
             checkArgument(fieldValueType == FieldValueType.BOOLEAN,
                     BooleanFieldExpected::new,
                     p -> format("Specified a boolean value for non-boolean field \"%s\"", p));
-        } else if (value.isByteArray()) {
+        } else if (value instanceof ByteArrayFieldValue) {
             checkArgument(fieldValueType == FieldValueType.BYTE_ARRAY,
                     ByteArrayFieldExpected::new,
                     p -> format("Specified a ByteArray value for non-ByteArray field \"%s\"", p));
-        } else if (value.isTimestamp()) {
+        } else if (value instanceof TimestampFieldValue) {
             checkArgument(fieldValueType == FieldValueType.TIMESTAMP || fieldValueType == FieldValueType.INTEGER,
                     DateTimeFieldExpected::new,
                     p -> format("Specified a timestamp value for non-timestamp field \"%s\"", p));
-        } else if (value.isUuid()) {
+        } else if (value instanceof UuidFieldValue) {
             checkArgument(fieldValueType == FieldValueType.UUID || fieldValueType == FieldValueType.STRING,
                     IllegalExpressionException.FieldTypeError.UuidFieldExpected::new,
                     p -> format("Specified an UUID value for non-UUID/non-String field \"%s\"", p));
