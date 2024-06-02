@@ -41,6 +41,8 @@ public interface TxManager {
      */
     TxManager immediateWrites();
 
+    TxManager separateProjections();
+
     /**
      * Turn off first level cache
      */
