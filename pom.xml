@@ -23,7 +23,6 @@
         <module>repository-test</module>
         <module>repository-inmemory</module>
         <module>repository-ydb-common</module>
-        <module>repository-ydb-v1</module>
         <module>repository-ydb-v2</module>
         <module>aspect</module>
         <module>util</module>
@@ -108,9 +107,6 @@
         <extra-enforcer-rules.version>1.7.0</extra-enforcer-rules.version>
         <nexus-staging-maven-plugin.version>1.6.13</nexus-staging-maven-plugin.version>
         <os-maven-plugin.version>1.7.1</os-maven-plugin.version>
-
-        <!-- YDB SDK 1.x -->
-        <ydb-sdk-v1.version>1.14.14</ydb-sdk-v1.version>
 
         <!-- YDB SDK 2.x -->
         <ydb-sdk-v2.version>2.1.10</ydb-sdk-v2.version>
@@ -587,21 +583,6 @@
                 <groupId>org.apache.commons</groupId>
                 <artifactId>commons-text</artifactId>
                 <version>${commons-text.version}</version>
-            </dependency>
-            <dependency>
-                <groupId>com.yandex.ydb</groupId>
-                <artifactId>ydb-sdk-core</artifactId>
-                <version>${ydb-sdk-v1.version}</version>
-            </dependency>
-            <dependency>
-                <groupId>com.yandex.ydb</groupId>
-                <artifactId>ydb-sdk-table</artifactId>
-                <version>${ydb-sdk-v1.version}</version>
-            </dependency>
-            <dependency>
-                <groupId>com.yandex.ydb</groupId>
-                <artifactId>ydb-sdk-proto</artifactId>
-                <version>${ydb-sdk-v1.version}</version>
             </dependency>
             <dependency>
                 <groupId>tech.ydb</groupId>
