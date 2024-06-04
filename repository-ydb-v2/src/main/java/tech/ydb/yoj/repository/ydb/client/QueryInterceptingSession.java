@@ -1,5 +1,6 @@
 package tech.ydb.yoj.repository.ydb.client;
 
+import tech.ydb.common.transaction.TxMode;
 import tech.ydb.core.Result;
 import tech.ydb.core.Status;
 import tech.ydb.core.grpc.GrpcReadStream;
@@ -9,6 +10,7 @@ import tech.ydb.table.query.DataQuery;
 import tech.ydb.table.query.DataQueryResult;
 import tech.ydb.table.query.ExplainDataQueryResult;
 import tech.ydb.table.query.Params;
+import tech.ydb.table.query.ReadRowsResult;
 import tech.ydb.table.query.ReadTablePart;
 import tech.ydb.table.result.ResultSetReader;
 import tech.ydb.table.settings.AlterTableSettings;
@@ -26,8 +28,11 @@ import tech.ydb.table.settings.ExecuteSchemeQuerySettings;
 import tech.ydb.table.settings.ExplainDataQuerySettings;
 import tech.ydb.table.settings.KeepAliveSessionSettings;
 import tech.ydb.table.settings.PrepareDataQuerySettings;
+import tech.ydb.table.settings.ReadRowsSettings;
 import tech.ydb.table.settings.ReadTableSettings;
+import tech.ydb.table.settings.RenameTablesSettings;
 import tech.ydb.table.settings.RollbackTxSettings;
+import tech.ydb.table.transaction.TableTransaction;
 import tech.ydb.table.transaction.Transaction;
 import tech.ydb.table.transaction.TxControl;
 import tech.ydb.table.values.ListValue;
@@ -44,7 +49,6 @@ import java.util.function.Function;
 public final class QueryInterceptingSession implements Session {
     private final Session delegate;
     private final QueryInterceptor interceptor;
-
 
     private QueryInterceptingSession(Session delegate, QueryInterceptor interceptor) {
         this.delegate = delegate;
@@ -160,6 +164,29 @@ public final class QueryInterceptingSession implements Session {
     @Override
     public void close() {
         delegate.close();
+    }
+
+    //////////////////////////
+    // @since: YDB SDK v2.2.0:
+
+    @Override
+    public CompletableFuture<Status> renameTables(RenameTablesSettings renameTablesSettings) {
+        return delegate.renameTables(renameTablesSettings);
+    }
+
+    @Override
+    public CompletableFuture<Result<ReadRowsResult>> readRows(String s, ReadRowsSettings readRowsSettings) {
+        return delegate.readRows(s, readRowsSettings);
+    }
+
+    @Override
+    public TableTransaction createNewTransaction(TxMode txMode) {
+        return delegate.createNewTransaction(txMode);
+    }
+
+    @Override
+    public CompletableFuture<Result<TableTransaction>> beginTransaction(TxMode txMode, BeginTxSettings beginTxSettings) {
+        return delegate.beginTransaction(txMode, beginTxSettings);
     }
 
     public enum QueryType {
