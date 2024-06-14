@@ -3,6 +3,7 @@ package tech.ydb.yoj.databind.expression;
 import lombok.AllArgsConstructor;
 import lombok.NonNull;
 import lombok.Value;
+import tech.ydb.yoj.databind.expression.values.FieldValue;
 import tech.ydb.yoj.databind.schema.Schema;
 
 import javax.annotation.Nullable;
