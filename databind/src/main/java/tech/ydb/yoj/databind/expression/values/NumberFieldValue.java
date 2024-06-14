@@ -1,7 +1,6 @@
 package tech.ydb.yoj.databind.expression.values;
 
 import tech.ydb.yoj.databind.FieldValueType;
-import tech.ydb.yoj.databind.expression.FieldValue;
 
 import java.lang.reflect.Type;
 import java.time.Instant;

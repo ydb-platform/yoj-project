@@ -14,6 +14,7 @@ import tech.ydb.yoj.databind.expression.IllegalExpressionException.FieldTypeErro
 import tech.ydb.yoj.databind.expression.IllegalExpressionException.FieldTypeError.UnknownEnumConstant;
 import tech.ydb.yoj.databind.expression.values.BoolFieldValue;
 import tech.ydb.yoj.databind.expression.values.ByteArrayFieldValue;
+import tech.ydb.yoj.databind.expression.values.FieldValue;
 import tech.ydb.yoj.databind.expression.values.NumberFieldValue;
 import tech.ydb.yoj.databind.expression.values.RealFieldValue;
 import tech.ydb.yoj.databind.expression.values.StringFieldValue;
