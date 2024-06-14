@@ -5,20 +5,19 @@ import tech.ydb.yoj.databind.expression.FieldValue;
 
 import java.lang.reflect.Type;
 import java.time.Instant;
+import java.util.Optional;
 
 public record NumberFieldValue(
         Long num
 ) implements FieldValue {
     @Override
-    public Comparable<?> getComparableByType(Type fieldType, FieldValueType valueType) {
-        return switch (valueType) {
+    public Optional<Comparable<?>> getComparableByType(Type fieldType, FieldValueType valueType) {
+        return Optional.ofNullable(switch (valueType) {
             case INTEGER -> num;
             case REAL -> num.doubleValue();
             case TIMESTAMP -> Instant.ofEpochMilli(num);
-            default -> throw new IllegalStateException("Not comparable java field %s and field value %s"
-                    .formatted(valueType, this)
-            );
-        };
+            default -> null;
+        });
     }
 
     @Override

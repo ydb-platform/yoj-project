@@ -25,6 +25,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Stream;
 
@@ -33,7 +34,7 @@ import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toCollection;
 
 public interface FieldValue {
-    Comparable<?> getComparableByType(Type fieldType, FieldValueType valueType);
+    Optional<Comparable<?>> getComparableByType(Type fieldType, FieldValueType valueType);
 
     default Object getRaw(@NonNull JavaField field) {
         Comparable<?> cmp = getComparable(field);
@@ -42,7 +43,12 @@ public interface FieldValue {
 
     default Comparable<?> getComparable(@NonNull JavaField field) {
         field = field.isFlat() ? field.toFlatField() : field;
-        return getComparableByType(field.getType(), FieldValueType.forSchemaField(field));
+        FieldValueType valueType = FieldValueType.forSchemaField(field);
+        Optional<Comparable<?>> comparableOpt = getComparableByType(field.getType(), valueType);
+
+        return comparableOpt.orElseThrow(() -> new IllegalStateException(
+                "Field of type " + valueType + " is not compatible with the value " + this
+        ));
     }
 
     static FieldValue ofObj(@NonNull Object obj, @NonNull JavaField schemaField) {

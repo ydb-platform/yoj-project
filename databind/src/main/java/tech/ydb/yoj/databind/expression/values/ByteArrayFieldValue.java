@@ -6,23 +6,22 @@ import tech.ydb.yoj.databind.expression.FieldValue;
 
 import java.lang.reflect.Type;
 import java.util.Objects;
+import java.util.Optional;
 
 public record ByteArrayFieldValue(
         ByteArray byteArray
 ) implements FieldValue {
     @Override
-    public Comparable<?> getComparableByType(Type fieldType, FieldValueType valueType) {
+    public Optional<Comparable<?>> getComparableByType(Type fieldType, FieldValueType valueType) {
         if (Objects.requireNonNull(valueType) != FieldValueType.BYTE_ARRAY) {
-            throw new IllegalStateException("Not comparable java field %s and field value %s"
-                    .formatted(valueType, this)
-            );
+            return Optional.empty();
         }
 
-        return byteArray;
+        return Optional.of(byteArray);
     }
 
     @Override
     public String toString() {
-        return "byte array with hash " + hashCode();
+        return byteArray.toString();
     }
 }
