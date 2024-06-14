@@ -6,16 +6,15 @@ import tech.ydb.yoj.databind.expression.FieldValue;
 
 import java.lang.reflect.Type;
 import java.util.Objects;
+import java.util.Optional;
 
 public record TupleFieldValue(
         Tuple tuple
 ) implements FieldValue {
     @Override
-    public Comparable<?> getComparableByType(Type fieldType, FieldValueType valueType) {
+    public Optional<Comparable<?>> getComparableByType(Type fieldType, FieldValueType valueType) {
         if (Objects.requireNonNull(valueType) != FieldValueType.COMPOSITE) {
-            throw new IllegalStateException("Not comparable java field %s and field value %s"
-                    .formatted(valueType, this)
-            );
+            return Optional.empty();
         }
 
         Preconditions.checkState(
@@ -24,7 +23,7 @@ public record TupleFieldValue(
                 fieldType,
                 this
         );
-        return tuple;
+        return Optional.of(tuple);
     }
 
     @Override
