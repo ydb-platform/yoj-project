@@ -4,6 +4,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
+import tech.ydb.yoj.databind.expression.values.FieldValue;
 import tech.ydb.yoj.databind.schema.Schema;
 
 import javax.annotation.Nullable;

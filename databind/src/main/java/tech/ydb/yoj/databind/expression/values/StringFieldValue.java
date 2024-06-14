@@ -3,7 +3,6 @@ package tech.ydb.yoj.databind.expression.values;
 import com.google.common.reflect.TypeToken;
 import lombok.NonNull;
 import tech.ydb.yoj.databind.FieldValueType;
-import tech.ydb.yoj.databind.expression.FieldValue;
 
 import java.lang.reflect.Type;
 import java.util.Optional;

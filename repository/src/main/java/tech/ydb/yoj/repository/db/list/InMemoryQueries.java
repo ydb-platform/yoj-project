@@ -2,7 +2,6 @@ package tech.ydb.yoj.repository.db.list;
 
 import lombok.NonNull;
 import tech.ydb.yoj.databind.expression.AndExpr;
-import tech.ydb.yoj.databind.expression.FieldValue;
 import tech.ydb.yoj.databind.expression.FilterExpression;
 import tech.ydb.yoj.databind.expression.ListExpr;
 import tech.ydb.yoj.databind.expression.NotExpr;
@@ -10,6 +9,7 @@ import tech.ydb.yoj.databind.expression.NullExpr;
 import tech.ydb.yoj.databind.expression.OrExpr;
 import tech.ydb.yoj.databind.expression.OrderExpression;
 import tech.ydb.yoj.databind.expression.ScalarExpr;
+import tech.ydb.yoj.databind.expression.values.FieldValue;
 import tech.ydb.yoj.databind.schema.Schema;
 import tech.ydb.yoj.databind.schema.Schema.JavaField;
 import tech.ydb.yoj.repository.db.Entity;

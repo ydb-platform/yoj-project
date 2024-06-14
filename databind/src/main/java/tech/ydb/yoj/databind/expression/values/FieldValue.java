@@ -1,4 +1,4 @@
-package tech.ydb.yoj.databind.expression;
+package tech.ydb.yoj.databind.expression.values;
 
 import com.google.common.base.Preconditions;
 import lombok.EqualsAndHashCode;
@@ -7,14 +7,6 @@ import lombok.Value;
 import tech.ydb.yoj.databind.ByteArray;
 import tech.ydb.yoj.databind.CustomValueTypes;
 import tech.ydb.yoj.databind.FieldValueType;
-import tech.ydb.yoj.databind.expression.values.BoolFieldValue;
-import tech.ydb.yoj.databind.expression.values.ByteArrayFieldValue;
-import tech.ydb.yoj.databind.expression.values.NumberFieldValue;
-import tech.ydb.yoj.databind.expression.values.RealFieldValue;
-import tech.ydb.yoj.databind.expression.values.StringFieldValue;
-import tech.ydb.yoj.databind.expression.values.TimestampFieldValue;
-import tech.ydb.yoj.databind.expression.values.TupleFieldValue;
-import tech.ydb.yoj.databind.expression.values.UuidFieldValue;
 import tech.ydb.yoj.databind.schema.ObjectSchema;
 import tech.ydb.yoj.databind.schema.Schema.JavaField;
 
@@ -33,7 +25,16 @@ import static java.util.stream.Collectors.collectingAndThen;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toCollection;
 
-public interface FieldValue {
+public sealed interface FieldValue permits
+        BoolFieldValue,
+        ByteArrayFieldValue,
+        NumberFieldValue,
+        RealFieldValue,
+        StringFieldValue,
+        TimestampFieldValue,
+        TupleFieldValue,
+        UuidFieldValue
+{
     Optional<Comparable<?>> getComparableByType(Type fieldType, FieldValueType valueType);
 
     default Object getRaw(@NonNull JavaField field) {
