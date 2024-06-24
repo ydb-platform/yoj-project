@@ -98,7 +98,7 @@ public enum FieldValueType {
      */
     OBJECT,
     /**
-     * @deprecated This enum constant will be removed in YOJ 3.0.0; {@code FieldValueType.forXxx()} methods will instead
+     * @deprecated This enum constant will be removed in YOJ 2.5.0; {@code FieldValueType.forXxx()} methods will instead
      * throw an {@code IllegalArgumentException} if an unmappable type is encountered.
      * <p>
      * Value type is unknown.<br>
@@ -124,7 +124,7 @@ public enum FieldValueType {
     /**
      * @param clazz class to register as string-value. Must either be final or sealed with permissible final-only implementations.
      *              All permissible implementations of a sealed class will be registered automatically.
-     * @deprecated This method will be removed in YOJ 3.0.0.
+     * @deprecated This method will be removed in YOJ 2.5.0.
      * Use the {@link tech.ydb.yoj.databind.converter.StringColumn @StringColumn} annotation on the field or
      * {@link tech.ydb.yoj.databind.converter.StringValueType @StringValueType} annotation on the type
      * instead of calling this method.
@@ -136,7 +136,7 @@ public enum FieldValueType {
     @ExperimentalApi(issue = "https://github.com/ydb-platform/yoj-project/issues/24")
     public static void registerStringValueType(@NonNull Class<?> clazz) {
         DeprecationWarnings.warnOnce("FieldValueType.registerStringValueType(Class)",
-                "You are using FieldValueType.registerStringValueType(%s.class) which is deprecated for removal in YOJ 3.0.0. "
+                "You are using FieldValueType.registerStringValueType(%s.class) which is deprecated for removal in YOJ 2.5.0. "
                         + "Please use @StringColumn annotation on the Entity field or a @StringValueType annotation on the string-valued type",
                 clazz.getCanonicalName());
 
@@ -248,7 +248,7 @@ public enum FieldValueType {
     }
 
     /**
-     * @deprecated This method will be removed in YOJ 3.0.0.
+     * @deprecated This method will be removed in YOJ 2.5.0.
      *
      * @return {@code true} if this class is a custom string value type registered by {@link #registerStringValueType(Class)};
      * {@code false} otherwise
@@ -256,6 +256,8 @@ public enum FieldValueType {
     @Deprecated(forRemoval = true)
     @ExperimentalApi(issue = "https://github.com/ydb-platform/yoj-project/issues/24")
     public static boolean isCustomStringValueType(Class<?> clazz) {
+        DeprecationWarnings.warnOnce("FieldValueType.isCustomStringValueType(Class)",
+                "You are using FieldValueType.isCustomStringValueType(Class) which is deprecated for removal in YOJ 2.5.0. Please update your code accordingly");
         return CUSTOM_STRING_VALUE_TYPES.contains(clazz);
     }
 
@@ -263,7 +265,7 @@ public enum FieldValueType {
      * Checks whether Java object of type {@code type} is mapped to a composite database value
      * (i.e., > 1 database field).
      *
-     * @deprecated This method will be removed in YOJ 3.0.0.
+     * @deprecated This method will be removed in YOJ 2.5.0.
      * This method returns does not properly take into account the customizations specified in the {@link Column &#64;Column}
      * annotation on the field, as well as the {@link CustomValueType @CustomValueType} annotation on the field's type.
      * <br>Please use {@link #forSchemaField(JavaField) FieldValueType.forSchemaField(schemaField).isComposite()} or
@@ -279,7 +281,7 @@ public enum FieldValueType {
     @Deprecated(forRemoval = true)
     public static boolean isComposite(@NonNull Type type) {
         DeprecationWarnings.warnOnce("FieldValueType.isComposite(Type)",
-                "You are using FieldValueType.isComposite(Type) which is deprecated for removal in YOJ 3.0.0. Please update your code accordingly");
+                "You are using FieldValueType.isComposite(Type) which is deprecated for removal in YOJ 2.5.0. Please update your code accordingly");
         return forJavaType(type).isComposite();
     }
 
@@ -291,19 +293,19 @@ public enum FieldValueType {
     }
 
     /**
-     * @deprecated This method will be removed in YOJ 3.0.0 along with the {@link #UNKNOWN} enum constant.
+     * @deprecated This method will be removed in YOJ 2.5.0 along with the {@link #UNKNOWN} enum constant.
      *
      * @return {@code true} if there is no fitting database value type for the type provided; {@code false} otherwise
      */
     @Deprecated(forRemoval = true)
     public boolean isUnknown() {
         DeprecationWarnings.warnOnce("FieldValueType.isUnknown()",
-                "You are using FieldValueType.isUnknown() which is deprecated for removal in YOJ 3.0.0. Please update your code accordingly");
+                "You are using FieldValueType.isUnknown() which is deprecated for removal in YOJ 2.5.0. Please update your code accordingly");
         return this == UNKNOWN;
     }
 
     /**
-     * @deprecated This method will be removed in YOJ 3.0.0. This method is misleadingly named and is not generally useful.
+     * @deprecated This method will be removed in YOJ 2.5.0. This method is misleadingly named and is not generally useful.
      * <ul>
      * <li>It does not return the list of all Comparable single-column value types (INTERVAL and BOOLEAN are missing).
      * In fact, all single-column value types except for BINARY are Comparable.</li>
@@ -317,7 +319,7 @@ public enum FieldValueType {
     @Deprecated(forRemoval = true)
     public boolean isSortable() {
         DeprecationWarnings.warnOnce("FieldValueType.isSortable()",
-                "You are using FieldValueType.isSortable() which is deprecated for removal in YOJ 3.0.0. Please update your code accordingly");
+                "You are using FieldValueType.isSortable() which is deprecated for removal in YOJ 2.5.0. Please update your code accordingly");
         return SORTABLE_VALUE_TYPES.contains(this);
     }
 }
