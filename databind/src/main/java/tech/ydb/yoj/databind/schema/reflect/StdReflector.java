@@ -49,11 +49,6 @@ public final class StdReflector implements Reflector {
     }
 
     private ReflectType<?> reflectFor(Type type, FieldValueType fvt) {
-        // TODO(entropia@): This won't be necessary when we remove FieldValueType.UNKNOWN in YOJ 3.0.0
-        if (fvt == FieldValueType.UNKNOWN) {
-            throw new IllegalArgumentException("Unknown field value type for: " + type);
-        }
-
         Class<?> rawType = TypeToken.of(type).getRawType();
         for (TypeFactory m : matchers) {
             if (m.matches(rawType, fvt)) {

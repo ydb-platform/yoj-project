@@ -1,8 +1,6 @@
 package tech.ydb.yoj.databind;
 
-import com.google.common.base.Preconditions;
 import lombok.NonNull;
-import tech.ydb.yoj.DeprecationWarnings;
 import tech.ydb.yoj.ExperimentalApi;
 import tech.ydb.yoj.databind.schema.Column;
 import tech.ydb.yoj.databind.schema.CustomValueTypeInfo;
@@ -15,13 +13,10 @@ import java.lang.reflect.Type;
 import java.lang.reflect.TypeVariable;
 import java.time.Duration;
 import java.time.Instant;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.Set;
-import java.util.concurrent.CopyOnWriteArraySet;
 
 import static java.lang.reflect.Modifier.isAbstract;
-import static java.lang.reflect.Modifier.isFinal;
 
 /**
  * Field value type for data binding.
@@ -96,20 +91,7 @@ public enum FieldValueType {
      * {@code CommonConverter.defineJsonConverter()} (in {@code yoj-repository} module).
      * YOJ offers a reasonably configured Jackson-based {@code JacksonJsonConverter} in the {@code yoj-json-jackson-v2} module.
      */
-    OBJECT,
-    /**
-     * @deprecated This enum constant will be removed in YOJ 2.5.0; {@code FieldValueType.forXxx()} methods will instead
-     * throw an {@code IllegalArgumentException} if an unmappable type is encountered.
-     * <p>
-     * Value type is unknown.<br>
-     * It <em>might</em> be supported by the data binding implementation, but relying on that fact is not recommended.
-     */
-    @Deprecated(forRemoval = true)
-    UNKNOWN;
-
-    private static final Set<FieldValueType> SORTABLE_VALUE_TYPES = Set.of(
-            INTEGER, STRING, ENUM, TIMESTAMP, BYTE_ARRAY
-    );
+    OBJECT;
 
     private static final Set<Type> INTEGER_NUMERIC_TYPES = Set.of(
             byte.class, short.class, int.class, long.class,
@@ -118,38 +100,6 @@ public enum FieldValueType {
     private static final Set<Type> REAL_NUMERIC_TYPES = Set.of(
             float.class, double.class,
             Float.class, Double.class);
-
-    private static final Set<Type> CUSTOM_STRING_VALUE_TYPES = new CopyOnWriteArraySet<>();
-
-    /**
-     * @param clazz class to register as string-value. Must either be final or sealed with permissible final-only implementations.
-     *              All permissible implementations of a sealed class will be registered automatically.
-     * @deprecated This method will be removed in YOJ 2.5.0.
-     * Use the {@link tech.ydb.yoj.databind.converter.StringColumn @StringColumn} annotation on the field or
-     * {@link tech.ydb.yoj.databind.converter.StringValueType @StringValueType} annotation on the type
-     * instead of calling this method.
-     * <p>
-     * To register a class <em>not in your code</em> (e.g., {@code UUID} from the JDK) as a string-value type, use
-     * the {@link tech.ydb.yoj.databind.converter.StringColumn @StringColumn} annotation on a specific field.
-     */
-    @Deprecated(forRemoval = true)
-    @ExperimentalApi(issue = "https://github.com/ydb-platform/yoj-project/issues/24")
-    public static void registerStringValueType(@NonNull Class<?> clazz) {
-        DeprecationWarnings.warnOnce("FieldValueType.registerStringValueType(Class)",
-                "You are using FieldValueType.registerStringValueType(%s.class) which is deprecated for removal in YOJ 2.5.0. "
-                        + "Please use @StringColumn annotation on the Entity field or a @StringValueType annotation on the string-valued type",
-                clazz.getCanonicalName());
-
-        boolean isFinal = isFinal(clazz.getModifiers());
-        boolean isSealed = clazz.isSealed();
-        Preconditions.checkArgument(isFinal || isSealed,
-                "String-value type must either be final or sealed, but got: %s", clazz);
-
-        CUSTOM_STRING_VALUE_TYPES.add(clazz);
-        if (isSealed) {
-            Arrays.stream(clazz.getPermittedSubclasses()).forEach(FieldValueType::registerStringValueType);
-        }
-    }
 
     /**
      * Detects the data binding type appropriate for the specified Schema field.
@@ -210,7 +160,7 @@ public enum FieldValueType {
         if (type instanceof ParameterizedType || type instanceof TypeVariable) {
             return OBJECT;
         } else if (type instanceof Class<?> clazz) {
-            if (String.class.equals(clazz) || isCustomStringValueType(clazz)) {
+            if (String.class.equals(clazz)) {
                 return STRING;
             } else if (java.util.UUID.class.equals(clazz)) {
                 return UUID;
@@ -243,46 +193,8 @@ public enum FieldValueType {
                 return COMPOSITE;
             }
         } else {
-            return UNKNOWN;
+            throw new IllegalArgumentException("Unknown FieldValueType for: " + type);
         }
-    }
-
-    /**
-     * @deprecated This method will be removed in YOJ 2.5.0.
-     *
-     * @return {@code true} if this class is a custom string value type registered by {@link #registerStringValueType(Class)};
-     * {@code false} otherwise
-     */
-    @Deprecated(forRemoval = true)
-    @ExperimentalApi(issue = "https://github.com/ydb-platform/yoj-project/issues/24")
-    public static boolean isCustomStringValueType(Class<?> clazz) {
-        DeprecationWarnings.warnOnce("FieldValueType.isCustomStringValueType(Class)",
-                "You are using FieldValueType.isCustomStringValueType(Class) which is deprecated for removal in YOJ 2.5.0. Please update your code accordingly");
-        return CUSTOM_STRING_VALUE_TYPES.contains(clazz);
-    }
-
-    /**
-     * Checks whether Java object of type {@code type} is mapped to a composite database value
-     * (i.e., > 1 database field).
-     *
-     * @deprecated This method will be removed in YOJ 2.5.0.
-     * This method returns does not properly take into account the customizations specified in the {@link Column &#64;Column}
-     * annotation on the field, as well as the {@link CustomValueType @CustomValueType} annotation on the field's type.
-     * <br>Please use {@link #forSchemaField(JavaField) FieldValueType.forSchemaField(schemaField).isComposite()} or
-     * {@link #forJavaType(Type, ReflectField) FieldValueType.forJavaType(type, reflectField).isComposite()}
-     * instead, where {@code schemaField} is the schema field, and {@code reflectField} is the {@link ReflectField reflection information}
-     * for the schema field obtainable via the {@code schemaField.getField()} call.
-     *
-     * @param type Java object type
-     * @return {@code true} if {@code type} maps to a composite database value; {@code false} otherwise
-     * @throws IllegalArgumentException if object of this type cannot be mapped to a database value
-     * @see #isComposite()
-     */
-    @Deprecated(forRemoval = true)
-    public static boolean isComposite(@NonNull Type type) {
-        DeprecationWarnings.warnOnce("FieldValueType.isComposite(Type)",
-                "You are using FieldValueType.isComposite(Type) which is deprecated for removal in YOJ 2.5.0. Please update your code accordingly");
-        return forJavaType(type).isComposite();
     }
 
     /**
@@ -290,36 +202,5 @@ public enum FieldValueType {
      */
     public boolean isComposite() {
         return this == COMPOSITE;
-    }
-
-    /**
-     * @deprecated This method will be removed in YOJ 2.5.0 along with the {@link #UNKNOWN} enum constant.
-     *
-     * @return {@code true} if there is no fitting database value type for the type provided; {@code false} otherwise
-     */
-    @Deprecated(forRemoval = true)
-    public boolean isUnknown() {
-        DeprecationWarnings.warnOnce("FieldValueType.isUnknown()",
-                "You are using FieldValueType.isUnknown() which is deprecated for removal in YOJ 2.5.0. Please update your code accordingly");
-        return this == UNKNOWN;
-    }
-
-    /**
-     * @deprecated This method will be removed in YOJ 2.5.0. This method is misleadingly named and is not generally useful.
-     * <ul>
-     * <li>It does not return the list of all Comparable single-column value types (INTERVAL and BOOLEAN are missing).
-     * In fact, all single-column value types except for BINARY are Comparable.</li>
-     * <li>What is considered <em>sortable</em> generally depends on your business logic.
-     * <br>E.g.: Are boolean values sortable or not? They're certainly Comparable.
-     * <br>E.g.: How do you sort columns with FieldValueType.STRING? Depends on your Locale for in-memory DB and your locale+collation+phase of the moon
-     * for a real database
-     * <br><em>etc.</em></li>
-     * </ul>
-     */
-    @Deprecated(forRemoval = true)
-    public boolean isSortable() {
-        DeprecationWarnings.warnOnce("FieldValueType.isSortable()",
-                "You are using FieldValueType.isSortable() which is deprecated for removal in YOJ 2.5.0. Please update your code accordingly");
-        return SORTABLE_VALUE_TYPES.contains(this);
     }
 }

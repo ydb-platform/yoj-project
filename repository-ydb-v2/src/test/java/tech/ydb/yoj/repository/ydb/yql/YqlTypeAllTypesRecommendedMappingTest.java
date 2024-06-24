@@ -31,7 +31,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 @RunWith(Parameterized.class)
 public class YqlTypeAllTypesRecommendedMappingTest {
     static {
-        FieldValueType.registerStringValueType(UUID.class);
         CommonConverters.defineJsonConverter(JacksonJsonConverter.getDefault());
     }
 

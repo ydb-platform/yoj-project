@@ -30,7 +30,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 @RunWith(Parameterized.class)
 public class YqlTypeAllTypesLegacyMappingTest {
     static {
-        FieldValueType.registerStringValueType(UUID.class);
         CommonConverters.defineJsonConverter(JacksonJsonConverter.getDefault());
     }
 

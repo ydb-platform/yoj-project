@@ -4,7 +4,6 @@ import com.google.common.base.Preconditions;
 import com.google.common.reflect.TypeToken;
 import lombok.NonNull;
 import tech.ydb.yoj.ExperimentalApi;
-import tech.ydb.yoj.databind.converter.StringValueConverter;
 import tech.ydb.yoj.databind.converter.ValueConverter;
 import tech.ydb.yoj.databind.schema.Column;
 import tech.ydb.yoj.databind.schema.CustomConverterException;
@@ -74,13 +73,6 @@ public final class CustomValueTypes {
         Class<?> rawType = type instanceof Class<?> ? (Class<?>) type : TypeToken.of(type).getRawType();
         CustomValueType cvt = getCustomValueType(rawType, columnAnnotation);
         if (cvt == null) {
-            if (FieldValueType.isCustomStringValueType(rawType)) {
-                @SuppressWarnings("unchecked")
-                var legacyStringVtInfo = (CustomValueTypeInfo<J, C>) new CustomValueTypeInfo<>(String.class, new StringValueConverter<J>());
-
-                return legacyStringVtInfo;
-            }
-
             return null;
         }
 
@@ -113,10 +105,6 @@ public final class CustomValueTypes {
             var fvt = FieldValueType.forJavaType(columnClass);
             Preconditions.checkArgument(!fvt.isComposite(),
                     "@CustomValueType.columnClass=%s must not map to FieldValueType.COMPOSITE", columnClass.getCanonicalName());
-
-            // TODO(entropia@): This won't be necessary when we remove FieldValueType.UNKNOWN in YOJ 3.0.0
-            Preconditions.checkArgument(fvt != FieldValueType.UNKNOWN,
-                    "@CustomValueType.columnClass=%s must not map to FieldValueType.UNKNOWN", columnClass.getCanonicalName());
 
             var converterClass = cvt.converter();
             Preconditions.checkArgument(
