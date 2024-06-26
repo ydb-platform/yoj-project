@@ -233,6 +233,10 @@ public class YdbRepositoryTransaction<REPO extends YdbRepository>
             case ONLINE_CONSISTENT_READ_ONLY -> TxControl.onlineRo().setAllowInconsistentReads(false);
             case ONLINE_INCONSISTENT_READ_ONLY -> TxControl.onlineRo().setAllowInconsistentReads(true);
             case STALE_CONSISTENT_READ_ONLY -> TxControl.staleRo();
+            case SNAPSHOT -> {
+                TxControl<?> txControl = (txId != null ? TxControl.id(txId) : TxControl.snapshotRo());
+                yield txControl.setCommitTx(false);
+            }
         };
     }
 
