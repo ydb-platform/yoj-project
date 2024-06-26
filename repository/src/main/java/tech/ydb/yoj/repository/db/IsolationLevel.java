@@ -32,7 +32,14 @@ public enum IsolationLevel {
      * An <em>almost</em> recent consistent state of the database. Read only.
      * This level is faster then {@code ONLINE_CONSISTENT_READ_ONLY}, but may return stale data.
      */
-    STALE_CONSISTENT_READ_ONLY("SC");
+    STALE_CONSISTENT_READ_ONLY("SC"),
+
+    /**
+     * All the read operations within a transaction access the database snapshot. Read only.
+     * All the data reads are consistent. The snapshot is taken when the transaction begins,
+     * meaning the transaction sees all changes committed before it began.
+     */
+    SNAPSHOT("SP");
 
     @Getter
     private final String txIdSuffix;

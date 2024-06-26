@@ -33,6 +33,7 @@ import tech.ydb.table.TableClient;
 import tech.ydb.yoj.databind.schema.Column;
 import tech.ydb.yoj.databind.schema.ObjectSchema;
 import tech.ydb.yoj.repository.db.EntitySchema;
+import tech.ydb.yoj.repository.db.IsolationLevel;
 import tech.ydb.yoj.repository.db.Repository;
 import tech.ydb.yoj.repository.db.RepositoryTransaction;
 import tech.ydb.yoj.repository.db.Tx;
@@ -302,6 +303,30 @@ public class YdbRepositoryIntegrationTest extends RepositoryTest {
 
         assertThat(actual).isEqualTo(expected);
         checkSession(sessionManager, firstSession);
+    }
+
+    @Test
+    public void snapshotTransactionLevel() {
+        Project expected1 = new Project(new Project.Id("SP1"), "snapshot1");
+        Project expected2 = new Project(new Project.Id("SP2"), "snapshot2");
+
+        db.tx(() -> db.projects().save(expected1));
+        db.tx(() -> db.projects().save(expected2));
+
+        Project actual1 = db.tx(() -> db.projects().find(expected1.getId()));
+        assertThat(actual1).isEqualTo(expected1);
+        Project actual2 = db.readOnly().run(() -> db.projects().find(expected2.getId()));
+        assertThat(actual2).isEqualTo(expected2);
+
+        db.readOnly()
+            .withStatementIsolationLevel(IsolationLevel.SNAPSHOT)
+            .run(() ->  {
+                Project actualSnapshot1 = db.projects().find(expected1.getId());
+                assertThat(actualSnapshot1).isEqualTo(expected1);
+
+                Project actualSnapshot2 = db.projects().find(expected2.getId());
+                assertThat(actualSnapshot2).isEqualTo(expected2);
+            });
     }
 
     @SneakyThrows
