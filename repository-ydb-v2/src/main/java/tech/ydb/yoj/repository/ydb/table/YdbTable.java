@@ -13,13 +13,13 @@ import tech.ydb.yoj.repository.db.EntityIdSchema;
 import tech.ydb.yoj.repository.db.EntitySchema;
 import tech.ydb.yoj.repository.db.Range;
 import tech.ydb.yoj.repository.db.Table;
-import tech.ydb.yoj.repository.db.Tx;
 import tech.ydb.yoj.repository.db.ViewSchema;
 import tech.ydb.yoj.repository.db.bulk.BulkParams;
 import tech.ydb.yoj.repository.db.cache.FirstLevelCache;
 import tech.ydb.yoj.repository.db.cache.TransactionLocal;
 import tech.ydb.yoj.repository.db.readtable.ReadTableParams;
 import tech.ydb.yoj.repository.db.statement.Changeset;
+import tech.ydb.yoj.repository.ydb.YdbRepositoryTransaction;
 import tech.ydb.yoj.repository.ydb.bulk.BulkMapper;
 import tech.ydb.yoj.repository.ydb.bulk.BulkMapperImpl;
 import tech.ydb.yoj.repository.ydb.readtable.EntityIdKeyMapper;
@@ -54,17 +54,17 @@ import static java.util.stream.Stream.concat;
 import static tech.ydb.yoj.repository.db.EntityExpressions.defaultOrder;
 
 public class YdbTable<T extends Entity<T>> implements Table<T> {
-    private final QueryExecutor executor;
+    private final YdbRepositoryTransaction<?> executor;
     @Getter
     private final Class<T> type;
 
-    public YdbTable(Class<T> type, QueryExecutor executor) {
+    public YdbTable(Class<T> type, YdbRepositoryTransaction<?> executor) {
         this.type = type;
-        this.executor = new CheckingQueryExecutor(executor);
+        this.executor = executor;
     }
 
     protected YdbTable(QueryExecutor executor) {
-        this.executor = new CheckingQueryExecutor(executor);
+        this.executor = (YdbRepositoryTransaction<?>) executor;
         this.type = resolveEntityType();
     }
 
@@ -421,7 +421,7 @@ public class YdbTable<T extends Entity<T>> implements Table<T> {
         T entityToSave = t.preSave();
         executor.pendingExecute(YqlStatement.insert(type), entityToSave);
         executor.getTransactionLocal().firstLevelCache().put(entityToSave);
-        executor.getTransactionLocal().projectionCache().save(entityToSave);
+        executor.getTransactionLocal().projectionCache().save(executor, entityToSave);
         return t;
     }
 
@@ -430,7 +430,7 @@ public class YdbTable<T extends Entity<T>> implements Table<T> {
         T entityToSave = t.preSave();
         executor.pendingExecute(YqlStatement.save(type), entityToSave);
         executor.getTransactionLocal().firstLevelCache().put(entityToSave);
-        executor.getTransactionLocal().projectionCache().save(entityToSave);
+        executor.getTransactionLocal().projectionCache().save(executor, entityToSave);
         return t;
     }
 
@@ -438,7 +438,7 @@ public class YdbTable<T extends Entity<T>> implements Table<T> {
     public void delete(Entity.Id<T> id) {
         executor.pendingExecute(YqlStatement.delete(type), id);
         executor.getTransactionLocal().firstLevelCache().putEmpty(id);
-        executor.getTransactionLocal().projectionCache().delete(id);
+        executor.getTransactionLocal().projectionCache().delete(executor, id);
     }
 
     /**
@@ -458,7 +458,7 @@ public class YdbTable<T extends Entity<T>> implements Table<T> {
         T rawEntity = foundRaw.get(0);
         T entityToSave = rawEntity.postLoad().preSave();
         executor.pendingExecute(YqlStatement.save(type), entityToSave);
-        executor.getTransactionLocal().projectionCache().save(entityToSave);
+        executor.getTransactionLocal().projectionCache().save(executor, entityToSave);
     }
 
     @Override
@@ -492,55 +492,6 @@ public class YdbTable<T extends Entity<T>> implements Table<T> {
         <IN, OUT> Stream<OUT> readTable(ReadTableMapper<IN, OUT> mapper, ReadTableParams<IN> params);
 
         TransactionLocal getTransactionLocal();
-    }
-
-    public static class CheckingQueryExecutor implements QueryExecutor {
-        private final QueryExecutor delegate;
-        private final Tx originTx;
-
-        public CheckingQueryExecutor(QueryExecutor delegate) {
-            this.delegate = delegate;
-            this.originTx = Tx.Current.exists() ? Tx.Current.get() : null;
-        }
-
-        private void check() {
-            Tx.checkSameTx(originTx);
-        }
-
-        @Override
-        public <PARAMS, RESULT> List<RESULT> execute(Statement<PARAMS, RESULT> statement, PARAMS params) {
-            check();
-            return delegate.execute(statement, params);
-        }
-
-        @Override
-        public <PARAMS, RESULT> Stream<RESULT> executeScanQuery(Statement<PARAMS, RESULT> statement, PARAMS params) {
-            return delegate.executeScanQuery(statement, params);
-        }
-
-        @Override
-        public <PARAMS> void pendingExecute(Statement<PARAMS, ?> statement, PARAMS value) {
-            check();
-            delegate.pendingExecute(statement, value);
-        }
-
-        @Override
-        public <IN> void bulkUpsert(BulkMapper<IN> mapper, List<IN> input, BulkParams params) {
-            check();
-            delegate.bulkUpsert(mapper, input, params);
-        }
-
-        @Override
-        public <IN, OUT> Stream<OUT> readTable(ReadTableMapper<IN, OUT> mapper, ReadTableParams<IN> params) {
-            check();
-            return delegate.readTable(mapper, params);
-        }
-
-        @Override
-        public TransactionLocal getTransactionLocal() {
-            check();
-            return delegate.getTransactionLocal();
-        }
     }
 
     public <ID extends Id<T>> void updateIn(Collection<ID> ids, Changeset changeset) {

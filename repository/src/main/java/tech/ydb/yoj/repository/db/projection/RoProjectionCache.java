@@ -9,12 +9,12 @@ public class RoProjectionCache implements ProjectionCache {
     }
 
     @Override
-    public void save(Entity<?> entity) {
+    public void save(RepositoryTransaction transaction, Entity<?> entity) {
         throw new UnsupportedOperationException("Should not be invoked in RO");
     }
 
     @Override
-    public void delete(Entity.Id<?> id) {
+    public void delete(RepositoryTransaction transaction, Entity.Id<?> id) {
         throw new UnsupportedOperationException("Should not be invoked in RO");
     }
 

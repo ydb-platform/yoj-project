@@ -7,9 +7,9 @@ import tech.ydb.yoj.repository.db.RepositoryTransaction;
 public interface ProjectionCache {
     void load(Entity<?> entity);
 
-    void save(Entity<?> entity);
+    void save(RepositoryTransaction transaction, Entity<?> entity);
 
-    void delete(Entity.Id<?> id);
+    void delete(RepositoryTransaction transaction, Entity.Id<?> id);
 
     void applyProjectionChanges(RepositoryTransaction transaction);
 }
