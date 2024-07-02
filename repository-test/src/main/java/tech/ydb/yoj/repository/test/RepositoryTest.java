@@ -357,13 +357,13 @@ public abstract class RepositoryTest extends RepositoryTestSupport {
         assertThatExceptionOfType(IllegalArgumentException.class)
                 .isThrownBy(() -> db.tx(() -> db.projects().streamAll(5001)));
     }
-    
+
     private static <ID extends Entity.Id<?>> ReadTableParams<ID> defaultReadTableParamsNonLegacy() {
         return RepositoryTest.<ID>buildReadTableParamsNonLegacy().build();
     }
 
     private static <ID extends Entity.Id<?>> ReadTableParams.ReadTableParamsBuilder<ID> buildReadTableParamsNonLegacy() {
-        return ReadTableParams.<ID>builder().useNewSpliterator(true);
+        return ReadTableParams.<ID>builder().useNewSpliterator2(true);
     }
 
     @Test
