@@ -7,6 +7,7 @@ import org.junit.Assert;
 import org.junit.Test;
 import tech.ydb.proto.ValueProtos;
 import tech.ydb.yoj.databind.DbType;
+import tech.ydb.yoj.databind.FieldValueType;
 import tech.ydb.yoj.databind.schema.Column;
 import tech.ydb.yoj.databind.schema.GlobalIndex;
 import tech.ydb.yoj.databind.schema.ObjectSchema;
@@ -27,9 +28,10 @@ import java.util.stream.Collectors;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 
-public class YqlTypeTest {
+public class YqlTypeLegacyTest {
     static {
         CommonConverters.defineJsonConverter(JacksonJsonConverter.getDefault());
+        YqlPrimitiveType.useLegacyMappingFor(FieldValueType.values());
     }
 
     @Test
@@ -179,7 +181,7 @@ public class YqlTypeTest {
                         ValueProtos.Type.PrimitiveTypeId.STRING,
                         ValueProtos.Type.PrimitiveTypeId.STRING,
                         ValueProtos.Type.PrimitiveTypeId.UTF8,
-                        ValueProtos.Type.PrimitiveTypeId.UTF8,
+                        ValueProtos.Type.PrimitiveTypeId.STRING,
                         ValueProtos.Type.PrimitiveTypeId.STRING,
                         ValueProtos.Type.PrimitiveTypeId.UTF8,
                         // columns
@@ -189,7 +191,7 @@ public class YqlTypeTest {
                         ValueProtos.Type.PrimitiveTypeId.STRING,
                         ValueProtos.Type.PrimitiveTypeId.STRING,
                         ValueProtos.Type.PrimitiveTypeId.UTF8,
-                        ValueProtos.Type.PrimitiveTypeId.UTF8,
+                        ValueProtos.Type.PrimitiveTypeId.STRING,
                         ValueProtos.Type.PrimitiveTypeId.STRING,
                         ValueProtos.Type.PrimitiveTypeId.UTF8),
                 schema.flattenFields().stream()
