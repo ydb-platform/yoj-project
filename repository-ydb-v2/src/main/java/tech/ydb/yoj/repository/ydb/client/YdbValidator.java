@@ -135,7 +135,8 @@ public final class YdbValidator {
                     CLIENT_DEADLINE_EXPIRED,
                     CLIENT_DISCOVERY_FAILED,
                     CLIENT_LIMITS_REACHED,
-                    CLIENT_RESOURCE_EXHAUSTED -> false;
+                    CLIENT_RESOURCE_EXHAUSTED,
+                    CLIENT_GRPC_ERROR -> false;
         };
     }
 
