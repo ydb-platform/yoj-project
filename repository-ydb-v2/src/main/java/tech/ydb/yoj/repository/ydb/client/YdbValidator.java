@@ -61,6 +61,7 @@ public final class YdbValidator {
                 throw new YdbOverloadedException(request, response);
 
             case CLIENT_CANCELLED:
+            case CLIENT_GRPC_ERROR:
             case CLIENT_INTERNAL_ERROR: // неизвестная ошибка на клиентской стороне (чаще всего транспортного уровня)
                 checkGrpcContextStatus(response, null);
 
