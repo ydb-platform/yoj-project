@@ -29,6 +29,7 @@ import tech.ydb.table.values.TupleValue;
 import tech.ydb.table.values.Value;
 import tech.ydb.yoj.repository.BaseDb;
 import tech.ydb.yoj.repository.db.Entity;
+import tech.ydb.yoj.repository.db.IsolationLevel;
 import tech.ydb.yoj.repository.db.RepositoryTransaction;
 import tech.ydb.yoj.repository.db.Table;
 import tech.ydb.yoj.repository.db.TxOptions;
@@ -191,7 +192,7 @@ public class YdbRepositoryTransaction<REPO extends YdbRepository>
             transactionLocal.log().info("No-op %s: scan tx", actionName);
             return false;
         }
-        if (options.isReadOnly()) {
+        if (options.isReadOnly() && options.getIsolationLevel() != IsolationLevel.SNAPSHOT) {
             transactionLocal.log().info("No-op %s: read-only tx @%s", actionName, options.getIsolationLevel());
             return false;
         }
