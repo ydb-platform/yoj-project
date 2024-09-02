@@ -15,7 +15,7 @@ import tech.ydb.yoj.databind.expression.IllegalExpressionException.FieldTypeErro
 import tech.ydb.yoj.databind.expression.values.BoolFieldValue;
 import tech.ydb.yoj.databind.expression.values.ByteArrayFieldValue;
 import tech.ydb.yoj.databind.expression.values.FieldValue;
-import tech.ydb.yoj.databind.expression.values.NumberFieldValue;
+import tech.ydb.yoj.databind.expression.values.IntegerFieldValue;
 import tech.ydb.yoj.databind.expression.values.RealFieldValue;
 import tech.ydb.yoj.databind.expression.values.StringFieldValue;
 import tech.ydb.yoj.databind.expression.values.TimestampFieldValue;
@@ -109,7 +109,7 @@ public final class ModelField {
                         StringFieldExpected::new,
                         p -> format("Specified a string value for non-string field \"%s\"", p));
             }
-        } else if (value instanceof NumberFieldValue) {
+        } else if (value instanceof IntegerFieldValue) {
             checkArgument(
                     fieldValueType == FieldValueType.INTEGER,
                     IntegerFieldExpected::new,
