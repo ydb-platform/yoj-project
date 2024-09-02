@@ -5,7 +5,7 @@ import tech.ydb.yoj.databind.FieldValueType;
 import java.lang.reflect.Type;
 import java.util.Optional;
 
-public record BoolFieldValue(boolean bool) implements FieldValue {
+public record BooleanFieldValue(boolean bool) implements FieldValue {
     @Override
     public Optional<Comparable<?>> getComparableByType(Type fieldType, FieldValueType valueType) {
         if (valueType != FieldValueType.BOOLEAN) {

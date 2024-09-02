@@ -12,7 +12,7 @@ import tech.ydb.yoj.databind.expression.IllegalExpressionException.FieldTypeErro
 import tech.ydb.yoj.databind.expression.IllegalExpressionException.FieldTypeError.RealFieldExpected;
 import tech.ydb.yoj.databind.expression.IllegalExpressionException.FieldTypeError.StringFieldExpected;
 import tech.ydb.yoj.databind.expression.IllegalExpressionException.FieldTypeError.UnknownEnumConstant;
-import tech.ydb.yoj.databind.expression.values.BoolFieldValue;
+import tech.ydb.yoj.databind.expression.values.BooleanFieldValue;
 import tech.ydb.yoj.databind.expression.values.ByteArrayFieldValue;
 import tech.ydb.yoj.databind.expression.values.FieldValue;
 import tech.ydb.yoj.databind.expression.values.IntegerFieldValue;
@@ -119,7 +119,7 @@ public final class ModelField {
                     fieldValueType == FieldValueType.REAL,
                     RealFieldExpected::new,
                     p -> format("Specified a real value for non-real field \"%s\"", p));
-        } else if (value instanceof BoolFieldValue) {
+        } else if (value instanceof BooleanFieldValue) {
             checkArgument(fieldValueType == FieldValueType.BOOLEAN,
                     BooleanFieldExpected::new,
                     p -> format("Specified a boolean value for non-boolean field \"%s\"", p));
