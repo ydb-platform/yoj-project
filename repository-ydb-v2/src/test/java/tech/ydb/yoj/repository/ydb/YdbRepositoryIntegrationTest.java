@@ -19,6 +19,7 @@ import org.assertj.core.api.Assertions;
 import org.junit.Assert;
 import org.junit.Ignore;
 import org.junit.Test;
+import tech.ydb.common.transaction.TxMode;
 import tech.ydb.core.grpc.YdbHeaders;
 import tech.ydb.core.utils.Version;
 import tech.ydb.proto.OperationProtos;
@@ -96,6 +97,7 @@ import java.util.stream.Stream;
 import static java.util.stream.Collectors.toList;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
+import static org.assertj.core.api.Assertions.assertThatIllegalStateException;
 import static org.junit.Assert.assertEquals;
 import static tech.ydb.yoj.repository.db.EntityExpressions.newFilterBuilder;
 import static tech.ydb.yoj.repository.db.EntityExpressions.newOrderBuilder;
@@ -961,6 +963,53 @@ public class YdbRepositoryIntegrationTest extends RepositoryTest {
 
         YdbRepository repository = new TestYdbRepository(intentionallyBadConfig);
         repository.shutdown();
+    }
+
+    @Test
+    public void ydbTransactionCompatibility() {
+        db.tx(() -> {
+            // No db tx or session yet!
+            var sdkTx = ((YdbRepositoryTransaction<?>) Tx.Current.get().getRepositoryTransaction()).toSdkTransaction();
+            assertThatIllegalStateException().isThrownBy(sdkTx::getSessionId);
+            assertThat(sdkTx.getId()).isNull();
+            assertThat(sdkTx.getTxMode()).isEqualTo(TxMode.SERIALIZABLE_RW);
+            assertThatExceptionOfType(UnsupportedOperationException.class).isThrownBy(sdkTx::getStatusFuture);
+
+            // Perform any read - session and tx ID appear
+            db.projects().countAll();
+            sdkTx = ((YdbRepositoryTransaction<?>) Tx.Current.get().getRepositoryTransaction()).toSdkTransaction();
+            assertThat(sdkTx.getSessionId()).isNotNull();
+            assertThat(sdkTx.getId()).isNotNull();
+            assertThat(sdkTx.getTxMode()).isEqualTo(TxMode.SERIALIZABLE_RW);
+            assertThatExceptionOfType(UnsupportedOperationException.class).isThrownBy(sdkTx::getStatusFuture);
+        });
+
+        for (var entry : Map.of(
+                IsolationLevel.ONLINE_CONSISTENT_READ_ONLY, TxMode.ONLINE_RO,
+                IsolationLevel.ONLINE_INCONSISTENT_READ_ONLY, TxMode.ONLINE_INCONSISTENT_RO,
+                IsolationLevel.STALE_CONSISTENT_READ_ONLY, TxMode.STALE_RO,
+                IsolationLevel.SNAPSHOT, TxMode.SNAPSHOT_RO
+        ).entrySet()) {
+            var isolationLevel = entry.getKey();
+            var txMode = entry.getValue();
+
+            db.readOnly().withStatementIsolationLevel(isolationLevel).run(() -> {
+                // No db tx or session yet!
+                var sdkTx = ((YdbRepositoryTransaction<?>) Tx.Current.get().getRepositoryTransaction()).toSdkTransaction();
+                assertThatIllegalStateException().isThrownBy(sdkTx::getSessionId);
+                assertThat(sdkTx.getId()).isNull();
+                assertThat(sdkTx.getTxMode()).isEqualTo(txMode);
+                assertThatExceptionOfType(UnsupportedOperationException.class).isThrownBy(sdkTx::getStatusFuture);
+
+                // Perform any read - session and tx ID appear
+                db.projects().countAll();
+                sdkTx = ((YdbRepositoryTransaction<?>) Tx.Current.get().getRepositoryTransaction()).toSdkTransaction();
+                assertThat(sdkTx.getSessionId()).isNotNull();
+                assertThat(sdkTx.getId()).isNull(); // Read transactions have no ID (that's what YDB returns, folks!)
+                assertThat(sdkTx.getTxMode()).isEqualTo(txMode);
+                assertThatExceptionOfType(UnsupportedOperationException.class).isThrownBy(sdkTx::getStatusFuture);
+            });
+        }
     }
 
     @AllArgsConstructor
