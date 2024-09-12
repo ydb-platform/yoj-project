@@ -1,5 +1,6 @@
 package tech.ydb.yoj.repository.ydb;
 
+import com.google.common.base.Preconditions;
 import com.google.common.base.Stopwatch;
 import com.google.common.collect.Iterables;
 import io.grpc.Context;
@@ -8,6 +9,8 @@ import lombok.Getter;
 import lombok.NonNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import tech.ydb.common.transaction.TxMode;
+import tech.ydb.common.transaction.YdbTransaction;
 import tech.ydb.core.Result;
 import tech.ydb.core.Status;
 import tech.ydb.core.StatusCode;
@@ -27,6 +30,7 @@ import tech.ydb.table.values.ListValue;
 import tech.ydb.table.values.StructValue;
 import tech.ydb.table.values.TupleValue;
 import tech.ydb.table.values.Value;
+import tech.ydb.yoj.ExperimentalApi;
 import tech.ydb.yoj.repository.BaseDb;
 import tech.ydb.yoj.repository.db.Entity;
 import tech.ydb.yoj.repository.db.IsolationLevel;
@@ -59,10 +63,12 @@ import tech.ydb.yoj.repository.ydb.statement.Statement;
 import tech.ydb.yoj.repository.ydb.table.YdbTable;
 import tech.ydb.yoj.util.lang.Interrupts;
 
+import javax.annotation.Nullable;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
@@ -574,5 +580,43 @@ public class YdbRepositoryTransaction<REPO extends YdbRepository>
                 return format("[txId=%s,sessionId=%s] %s%s", firstNonNullTxId, session.getId(), statement, debugResult(results));
             }
         });
+    }
+
+    /**
+     * @return YDB SDK {@link YdbTransaction} wrapping this {@code YdbRepositoryTransaction}
+     */
+    @ExperimentalApi(issue = "https://github.com/ydb-platform/yoj-project/issues/80")
+    public YdbTransaction toSdkTransaction() {
+        return new YdbTransaction() {
+            @Nullable
+            @Override
+            public String getId() {
+                return txId;
+            }
+
+            @Override
+            public TxMode getTxMode() {
+                return switch (options.getIsolationLevel()) {
+                    case SERIALIZABLE_READ_WRITE -> TxMode.SERIALIZABLE_RW;
+                    case ONLINE_CONSISTENT_READ_ONLY -> TxMode.ONLINE_RO;
+                    case ONLINE_INCONSISTENT_READ_ONLY -> TxMode.ONLINE_INCONSISTENT_RO;
+                    case STALE_CONSISTENT_READ_ONLY -> TxMode.STALE_RO;
+                    case SNAPSHOT -> TxMode.SNAPSHOT_RO;
+                    // TxMode.NONE corresponds to DDL statements, and we have no DDL statements in YOJ transactions
+                };
+            }
+
+            @Override
+            public String getSessionId() {
+                Preconditions.checkState(!isBadSession, "No active YDB session (tx closed by YDB side)");
+                Preconditions.checkState(session != null, "No active YDB session");
+                return session.getId();
+            }
+
+            @Override
+            public CompletableFuture<Status> getStatusFuture() {
+                throw new UnsupportedOperationException();
+            }
+        };
     }
 }
