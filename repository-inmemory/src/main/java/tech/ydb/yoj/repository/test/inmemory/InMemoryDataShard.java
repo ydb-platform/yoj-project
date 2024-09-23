@@ -156,7 +156,7 @@ final class InMemoryDataShard<T extends Entity<T>> {
         entityLine.put(txId, Columns.fromEntity(schema, entity));
     }
 
-    private void validateUniqueness(long txId,  long version, T entity) {
+    private void validateUniqueness(long txId, long version, T entity) {
         List<Schema.Index> indexes = schema.getGlobalIndexes().stream()
                 .filter(Schema.Index::isUnique)
                 .toList();
@@ -164,7 +164,7 @@ final class InMemoryDataShard<T extends Entity<T>> {
             Object[] entityIndexValues = buildIndexValues(index, entity);
             for (InMemoryEntityLine line : entityLines.values()) {
                 Columns columns = line.get(txId, version);
-                if (columns != null && Objects.deepEquals(entityIndexValues,  buildIndexValues(index, columns.toSchema(schema)))) {
+                if (columns != null && Objects.deepEquals(entityIndexValues, buildIndexValues(index, columns.toSchema(schema)))) {
                     throw new EntityAlreadyExistsException("Entity " + entity.getId() + " already exists");
                 }
             }
