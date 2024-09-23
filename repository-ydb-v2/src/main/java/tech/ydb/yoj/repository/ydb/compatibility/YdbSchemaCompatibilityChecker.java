@@ -401,7 +401,7 @@ public final class YdbSchemaCompatibilityChecker {
                 .collect(toMap(YdbSchemaOperations.Index::getName, Function.identity()));
 
         Function<YdbSchemaOperations.Index, String> createIndex = i ->
-                String.format("ALTER TABLE `%s` ADD INDEX `%s` GLOBAL " + (i.isUnique() ? "UNIQUE ": "") + "ON (%s);",
+                String.format("ALTER TABLE `%s` ADD INDEX `%s` GLOBAL " + (i.isUnique() ? "UNIQUE " : "") + "ON (%s);",
                         to.getName(), i.getName(), i.getColumns().stream().map(c -> "`" + c + "`").collect(joining(","))
                 );
 
