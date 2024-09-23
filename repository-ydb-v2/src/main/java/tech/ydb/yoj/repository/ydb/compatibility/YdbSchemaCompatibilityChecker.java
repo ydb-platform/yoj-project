@@ -345,7 +345,7 @@ public final class YdbSchemaCompatibilityChecker {
             return "\n";
         }
         return ",\n" + indexes.stream()
-                .map(idx -> "\tINDEX `" + idx.getName() + "` GLOBAL ON (" + indexColumns(idx.getColumns()) + ")")
+                .map(idx -> "\tINDEX `" + idx.getName() + "` GLOBAL " + (idx.isUnique() ? "UNIQUE " : "") + "ON (" + indexColumns(idx.getColumns()) + ")")
                 .collect(Collectors.joining(",\n")) + "\n";
     }
 
@@ -401,7 +401,7 @@ public final class YdbSchemaCompatibilityChecker {
                 .collect(toMap(YdbSchemaOperations.Index::getName, Function.identity()));
 
         Function<YdbSchemaOperations.Index, String> createIndex = i ->
-                String.format("ALTER TABLE `%s` ADD INDEX `%s` GLOBAL ON (%s);",
+                String.format("ALTER TABLE `%s` ADD INDEX `%s` GLOBAL " + (i.isUnique() ? "UNIQUE ": "") + "ON (%s);",
                         to.getName(), i.getName(), i.getColumns().stream().map(c -> "`" + c + "`").collect(joining(","))
                 );
 

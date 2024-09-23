@@ -3,6 +3,7 @@ package tech.ydb.yoj.databind.schema;
 import com.google.common.annotations.Beta;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Lists;
+import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NonNull;
 import lombok.SneakyThrows;
@@ -147,7 +148,7 @@ public abstract class Schema<T> {
                 }
                 columns.add(field.getName());
             }
-            outputIndexes.add(new Index(name, List.copyOf(columns)));
+            outputIndexes.add(new Index(name, List.copyOf(columns), index.unique()));
         }
         return outputIndexes;
     }
@@ -773,13 +774,20 @@ public abstract class Schema<T> {
     }
 
     @Value
+    @AllArgsConstructor
     public static class Index {
+        public Index (@NonNull String indexName, @NonNull List<String> fieldNames) {
+            this(indexName, fieldNames, false);
+        }
+
         @NonNull
         String indexName;
 
         @With
         @NonNull
         List<String> fieldNames;
+
+        boolean unique;
     }
 
     @Value

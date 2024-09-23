@@ -14,6 +14,7 @@ java_library(
         "@java_contribs_stable//:com_fasterxml_jackson_core_jackson_databind",
         "@java_contribs_stable//:com_fasterxml_jackson_datatype_jackson_datatype_jdk8",
         "@java_contribs_stable//:com_fasterxml_jackson_datatype_jackson_datatype_jsr310",
+        "@java_contribs_stable//:com_google_code_findbugs_jsr305",
         "@java_contribs_stable//:com_google_guava_guava",
         "@java_contribs_stable//:javax_annotation_javax_annotation_api",
         "@java_contribs_stable//:junit_junit",

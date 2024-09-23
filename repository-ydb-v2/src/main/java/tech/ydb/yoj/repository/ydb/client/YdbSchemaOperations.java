@@ -17,6 +17,7 @@ import tech.ydb.scheme.SchemeClient;
 import tech.ydb.scheme.description.ListDirectoryResult;
 import tech.ydb.table.Session;
 import tech.ydb.table.description.TableDescription;
+import tech.ydb.table.description.TableIndex;
 import tech.ydb.table.description.TableTtl;
 import tech.ydb.table.settings.AlterTableSettings;
 import tech.ydb.table.settings.Changefeed;
@@ -90,7 +91,13 @@ public class YdbSchemaOperations {
         });
         List<String> primaryKeysNames = primaryKeys.stream().map(Schema.JavaField::getName).collect(toList());
         builder.setPrimaryKeys(primaryKeysNames);
-        globalIndexes.forEach(index -> builder.addGlobalIndex(index.getIndexName(), index.getFieldNames()));
+        globalIndexes.forEach(index -> {
+            if (index.isUnique()) {
+                builder.addGlobalUniqueIndex(index.getIndexName(), index.getFieldNames());
+            } else {
+                builder.addGlobalIndex(index.getIndexName(), index.getFieldNames());
+            }
+        });
 
         Session session = sessionManager.getSession();
         try {
@@ -163,7 +170,7 @@ public class YdbSchemaOperations {
                 })
                 .toList();
         List<Index> ydbIndexes = indexes.stream()
-                .map(i -> new Index(i.getIndexName(), i.getFieldNames()))
+                .map(i -> new Index(i.getIndexName(), i.getFieldNames(), i.isUnique()))
                 .toList();
         TtlModifier tableTtl = ttlModifier == null
                 ? null
@@ -282,7 +289,7 @@ public class YdbSchemaOperations {
                         })
                         .toList(),
                 table.getIndexes().stream()
-                        .map(i -> new Index(i.getName(), i.getColumns()))
+                        .map(i -> new Index(i.getName(), i.getColumns(), i.getType() == TableIndex.Type.GLOBAL_UNIQUE))
                         .toList(),
                 table.getTableTtl() == null || table.getTableTtl().getTtlMode() == TableTtl.TtlMode.NOT_SET
                         ? null
@@ -428,6 +435,7 @@ public class YdbSchemaOperations {
     public static class Index {
         String name;
         List<String> columns;
+        boolean unique;
     }
 
     @Value

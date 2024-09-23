@@ -30,4 +30,9 @@ public @interface GlobalIndex {
      * List of annotated class fields representing index columns.
      */
     String[] fields();
+
+    /**
+     * Is unique index type
+     */
+    boolean unique() default false;
 }

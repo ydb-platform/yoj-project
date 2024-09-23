@@ -1,5 +1,6 @@
 package tech.ydb.yoj.repository.test.inmemory;
 
+import tech.ydb.yoj.databind.schema.Schema;
 import tech.ydb.yoj.repository.db.Entity;
 import tech.ydb.yoj.repository.db.EntityIdSchema;
 import tech.ydb.yoj.repository.db.EntitySchema;
@@ -15,6 +16,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.TreeMap;
 
@@ -142,14 +144,40 @@ final class InMemoryDataShard<T extends Entity<T>> {
             throw new EntityAlreadyExistsException("Entity " + entity.getId() + " already exists");
         }
 
-        save(txId, entity);
+        save(txId, version, entity);
     }
 
-    public synchronized void save(long txId, T entity) {
+    public synchronized void save(long txId, long version, T entity) {
         InMemoryEntityLine entityLine = entityLines.computeIfAbsent(entity.getId(), __ -> new InMemoryEntityLine());
 
+        validateUniqueness(txId, version, entity);
         uncommited.computeIfAbsent(txId, __ -> new HashSet<>()).add(entity.getId());
+
         entityLine.put(txId, Columns.fromEntity(schema, entity));
+    }
+
+    private void validateUniqueness(long txId,  long version, T entity) {
+        List<Schema.Index> indexes = schema.getGlobalIndexes().stream()
+                .filter(Schema.Index::isUnique)
+                .toList();
+        for (Schema.Index index : indexes) {
+            Object[] entityIndexValues = buildIndexValues(index, entity);
+            for (InMemoryEntityLine line : entityLines.values()) {
+                Columns columns = line.get(txId, version);
+                if (columns != null && Objects.deepEquals(entityIndexValues,  buildIndexValues(index, columns.toSchema(schema)))) {
+                    throw new EntityAlreadyExistsException("Entity " + entity.getId() + " already exists");
+                }
+            }
+        }
+    }
+
+    private Object[] buildIndexValues(Schema.Index index, T entity) {
+        Object[] objects = new Object[index.getFieldNames().size()];
+        Map<String, Object> cells = schema.flatten(entity);
+        for (int i = 0; i < index.getFieldNames().size(); i++) {
+            objects[i] = cells.get(index.getFieldNames().get(i));
+        }
+        return objects;
     }
 
     public synchronized void delete(long txId, Entity.Id<T> id) {

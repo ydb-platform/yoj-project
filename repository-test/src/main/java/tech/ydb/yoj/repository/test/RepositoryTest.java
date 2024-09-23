@@ -56,6 +56,7 @@ import tech.ydb.yoj.repository.test.sample.model.TypeFreak;
 import tech.ydb.yoj.repository.test.sample.model.TypeFreak.A;
 import tech.ydb.yoj.repository.test.sample.model.TypeFreak.B;
 import tech.ydb.yoj.repository.test.sample.model.TypeFreak.Embedded;
+import tech.ydb.yoj.repository.test.sample.model.UniqueProject;
 import tech.ydb.yoj.repository.test.sample.model.UpdateFeedEntry;
 import tech.ydb.yoj.repository.test.sample.model.Version;
 import tech.ydb.yoj.repository.test.sample.model.VersionedAliasedEntity;
@@ -101,6 +102,7 @@ import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNotSame;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertSame;
+import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
 import static tech.ydb.yoj.repository.db.EntityExpressions.newFilterBuilder;
 
@@ -1349,6 +1351,14 @@ public abstract class RepositoryTest extends RepositoryTestSupport {
                         .mapToObj(i -> new IndexedEntity.View(getIndexedEntityId(i)))
                         .toList()
         );
+    }
+
+    @Test
+    public void testUniqueIndex() {
+        UniqueProject ue1 = new UniqueProject(new UniqueProject.Id("id1"), "valuableName");
+        db.tx(() -> db.table(UniqueProject.class).save(ue1));
+        UniqueProject ue2 = new UniqueProject(new UniqueProject.Id("id2"), "valuableName");
+        assertThrows(EntityAlreadyExistsException.class, () -> db.tx(() -> db.table(UniqueProject.class).insert(ue2)));
     }
 
     @Test

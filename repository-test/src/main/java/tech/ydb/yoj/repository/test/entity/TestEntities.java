@@ -21,6 +21,7 @@ import tech.ydb.yoj.repository.test.sample.model.Supabubble;
 import tech.ydb.yoj.repository.test.sample.model.Supabubble2;
 import tech.ydb.yoj.repository.test.sample.model.Team;
 import tech.ydb.yoj.repository.test.sample.model.TypeFreak;
+import tech.ydb.yoj.repository.test.sample.model.UniqueProject;
 import tech.ydb.yoj.repository.test.sample.model.UpdateFeedEntry;
 import tech.ydb.yoj.repository.test.sample.model.VersionedAliasedEntity;
 import tech.ydb.yoj.repository.test.sample.model.VersionedEntity;
@@ -34,7 +35,7 @@ public final class TestEntities {
 
     @SuppressWarnings("rawtypes")
     public static final List<Class<? extends Entity>> ALL = List.of(
-            Project.class, TypeFreak.class, Complex.class, Referring.class, Primitive.class,
+            Project.class, UniqueProject.class, TypeFreak.class, Complex.class, Referring.class, Primitive.class,
             Book.class, Book.ByAuthor.class, Book.ByTitle.class,
             LogEntry.class, Team.class,
             BytePkEntity.class,
