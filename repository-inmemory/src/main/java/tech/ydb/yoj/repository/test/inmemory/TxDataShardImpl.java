@@ -38,7 +38,7 @@ final class TxDataShardImpl<T extends Entity<T>> implements ReadOnlyTxDataShard<
 
     @Override
     public void save(T entity) {
-        shard.save(txId, entity);
+        shard.save(txId, version, entity);
     }
 
     @Override

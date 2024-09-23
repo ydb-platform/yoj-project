@@ -39,9 +39,9 @@ SLF4J_VERSION = "2.0.11"
 
 SNAKEYAML_VERSION = "1.33"
 
-YDB_PROTOAPI_VERSION = "1.6.0"
+YDB_PROTOAPI_VERSION = "1.6.2"
 
-YDB_SDK_VERSION = "2.1.12"
+YDB_SDK_VERSION = "2.2.11"
 
 maven_install(
     name = "java_contribs_stable",

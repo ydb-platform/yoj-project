@@ -21,6 +21,7 @@ java_library(
         "@java_contribs_stable//:tech_ydb_ydb_auth_api",
         "@java_contribs_stable//:tech_ydb_ydb_proto_api",
         "@java_contribs_stable//:tech_ydb_ydb_sdk_bom",
+        "@java_contribs_stable//:tech_ydb_ydb_sdk_common",
         "@java_contribs_stable//:tech_ydb_ydb_sdk_core",
         "@java_contribs_stable//:tech_ydb_ydb_sdk_scheme",
         "@java_contribs_stable//:tech_ydb_ydb_sdk_table",

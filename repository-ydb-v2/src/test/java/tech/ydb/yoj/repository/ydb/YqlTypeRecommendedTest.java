@@ -213,7 +213,7 @@ public class YqlTypeRecommendedTest {
         var schema = ObjectSchema.of(GlobalIndexMultiIndex.class);
         Assert.assertEquals(List.of(
                         new Schema.Index("idx1", List.of("id_id1", "id_3")),
-                        new Schema.Index("idx2", List.of("id_2", "id_3"))),
+                        new Schema.Index("idx2", List.of("id_2", "id_3"), true)),
                 schema.getGlobalIndexes());
     }
 
@@ -366,7 +366,7 @@ public class YqlTypeRecommendedTest {
     }
 
     @GlobalIndex(name = "idx1", fields = {"id.id1", "id3"})
-    @GlobalIndex(name = "idx2", fields = {"id.id2", "id3"})
+    @GlobalIndex(name = "idx2", fields = {"id.id2", "id3"}, unique = true)
     @AllArgsConstructor
     public static class GlobalIndexMultiIndex implements Entity<GlobalIndexMultiIndex> {
         Id id;
