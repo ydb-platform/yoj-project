@@ -776,7 +776,7 @@ public abstract class Schema<T> {
     @Value
     @AllArgsConstructor
     public static class Index {
-        public Index (@NonNull String indexName, @NonNull List<String> fieldNames) {
+        public Index(@NonNull String indexName, @NonNull List<String> fieldNames) {
             this(indexName, fieldNames, false);
         }
 
