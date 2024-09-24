@@ -16,7 +16,6 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Set;
 import java.util.TreeMap;
 
@@ -156,28 +155,25 @@ final class InMemoryDataShard<T extends Entity<T>> {
         entityLine.put(txId, Columns.fromEntity(schema, entity));
     }
 
-    private void validateUniqueness(long txId, long version, T entity) {
+    private void validateUniqueness(long txId,  long version, T entity) {
         List<Schema.Index> indexes = schema.getGlobalIndexes().stream()
                 .filter(Schema.Index::isUnique)
                 .toList();
         for (Schema.Index index : indexes) {
-            Object[] entityIndexValues = buildIndexValues(index, entity);
+            Map<String, Object> entityIndexValues = buildIndexValues(index, entity);
             for (InMemoryEntityLine line : entityLines.values()) {
                 Columns columns = line.get(txId, version);
-                if (columns != null && Objects.deepEquals(entityIndexValues, buildIndexValues(index, columns.toSchema(schema)))) {
+                if (columns != null && entityIndexValues.equals(buildIndexValues(index, columns.toSchema(schema)))) {
                     throw new EntityAlreadyExistsException("Entity " + entity.getId() + " already exists");
                 }
             }
         }
     }
 
-    private Object[] buildIndexValues(Schema.Index index, T entity) {
-        Object[] objects = new Object[index.getFieldNames().size()];
+    private Map<String, Object> buildIndexValues(Schema.Index index, T entity) {
         Map<String, Object> cells = schema.flatten(entity);
-        for (int i = 0; i < index.getFieldNames().size(); i++) {
-            objects[i] = cells.get(index.getFieldNames().get(i));
-        }
-        return objects;
+        cells.keySet().retainAll(index.getFieldNames());
+        return cells;
     }
 
     public synchronized void delete(long txId, Entity.Id<T> id) {
