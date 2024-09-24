@@ -155,7 +155,7 @@ final class InMemoryDataShard<T extends Entity<T>> {
         entityLine.put(txId, Columns.fromEntity(schema, entity));
     }
 
-    private void validateUniqueness(long txId,  long version, T entity) {
+    private void validateUniqueness(long txId, long version, T entity) {
         List<Schema.Index> indexes = schema.getGlobalIndexes().stream()
                 .filter(Schema.Index::isUnique)
                 .toList();
