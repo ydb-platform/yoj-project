@@ -366,7 +366,7 @@ public class YqlTypeRecommendedTest {
     }
 
     @GlobalIndex(name = "idx1", fields = {"id.id1", "id3"})
-    @GlobalIndex(name = "idx2", fields = {"id.id2", "id3"}, unique = true)
+    @GlobalIndex(name = "idx2", fields = {"id.id2", "id3"}, type = GlobalIndex.Type.UNIQUE)
     @AllArgsConstructor
     public static class GlobalIndexMultiIndex implements Entity<GlobalIndexMultiIndex> {
         Id id;

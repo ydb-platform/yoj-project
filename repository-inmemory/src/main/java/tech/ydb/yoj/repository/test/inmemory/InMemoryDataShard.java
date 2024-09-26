@@ -171,7 +171,7 @@ final class InMemoryDataShard<T extends Entity<T>> {
     }
 
     private Map<String, Object> buildIndexValues(Schema.Index index, T entity) {
-        Map<String, Object> cells = schema.flatten(entity);
+        Map<String, Object> cells = new HashMap<>(schema.flatten(entity));
         cells.keySet().retainAll(index.getFieldNames());
         return cells;
     }

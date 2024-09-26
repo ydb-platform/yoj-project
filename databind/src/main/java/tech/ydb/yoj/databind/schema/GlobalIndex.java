@@ -32,7 +32,12 @@ public @interface GlobalIndex {
     String[] fields();
 
     /**
-     * Is unique index type
+     * Index type
      */
-    boolean unique() default false;
+    Type type() default Type.GLOBAL;
+
+    enum Type {
+        GLOBAL,
+        UNIQUE
+    }
 }
