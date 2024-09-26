@@ -91,6 +91,8 @@ public final class InMemoryQueries {
                     case LTE -> obj -> compare(getActual.apply(obj), expected) <= 0;
                     case CONTAINS -> obj -> contains((String) getActual.apply(obj), (String) expected);
                     case NOT_CONTAINS -> obj -> !contains((String) getActual.apply(obj), (String) expected);
+                    case STARTS_WITH -> obj -> startsWith((String) getActual.apply(obj), (String) expected);
+                    case ENDS_WITH -> obj -> endsWith((String) getActual.apply(obj), (String) expected);
                 };
             }
 
@@ -193,5 +195,19 @@ public final class InMemoryQueries {
             return false;
         }
         return input.contains(substring);
+    }
+
+    private static boolean startsWith(@Nullable String input, @Nullable String substring) {
+        if (input == null || substring == null) {
+            return false;
+        }
+        return input.startsWith(substring);
+    }
+
+    private static boolean endsWith(@Nullable String input, @Nullable String substring) {
+        if (input == null || substring == null) {
+            return false;
+        }
+        return input.endsWith(substring);
     }
 }

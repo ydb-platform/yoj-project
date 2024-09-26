@@ -21,6 +21,7 @@ import static tech.ydb.yoj.databind.expression.ListExpr.Operator.NOT_IN;
 import static tech.ydb.yoj.databind.expression.NullExpr.Operator.IS_NOT_NULL;
 import static tech.ydb.yoj.databind.expression.NullExpr.Operator.IS_NULL;
 import static tech.ydb.yoj.databind.expression.ScalarExpr.Operator.CONTAINS;
+import static tech.ydb.yoj.databind.expression.ScalarExpr.Operator.ENDS_WITH;
 import static tech.ydb.yoj.databind.expression.ScalarExpr.Operator.EQ;
 import static tech.ydb.yoj.databind.expression.ScalarExpr.Operator.GT;
 import static tech.ydb.yoj.databind.expression.ScalarExpr.Operator.GTE;
@@ -28,6 +29,7 @@ import static tech.ydb.yoj.databind.expression.ScalarExpr.Operator.LT;
 import static tech.ydb.yoj.databind.expression.ScalarExpr.Operator.LTE;
 import static tech.ydb.yoj.databind.expression.ScalarExpr.Operator.NEQ;
 import static tech.ydb.yoj.databind.expression.ScalarExpr.Operator.NOT_CONTAINS;
+import static tech.ydb.yoj.databind.expression.ScalarExpr.Operator.STARTS_WITH;
 
 @RequiredArgsConstructor(access = PRIVATE)
 public final class FilterBuilder<T> {
@@ -255,6 +257,18 @@ public final class FilterBuilder<T> {
         @NonNull
         public FilterBuilder<T> doesNotContain(@NonNull String value) {
             current = finisher.apply(new ScalarExpr<>(schema, generated, field, NOT_CONTAINS, fieldValue(value)));
+            return FilterBuilder.this;
+        }
+
+        @NonNull
+        public FilterBuilder<T> startsWith(@NonNull String value) {
+            current = finisher.apply(new ScalarExpr<>(schema, generated, field, STARTS_WITH, fieldValue(value)));
+            return FilterBuilder.this;
+        }
+
+        @NonNull
+        public FilterBuilder<T> endsWith(@NonNull String value) {
+            current = finisher.apply(new ScalarExpr<>(schema, generated, field, ENDS_WITH, fieldValue(value)));
             return FilterBuilder.this;
         }
 

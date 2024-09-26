@@ -51,7 +51,8 @@ public class ScalarExpr<T> extends LeafExpression<T> {
 
     @Override
     public FilterExpression<T> negate() {
-        return new ScalarExpr<>(schema, generated, operator.negate(), field, value);
+        Operator negation = operator.negate();
+        return negation != null ? new ScalarExpr<>(schema, generated, negation, field, value) : super.negate();
     }
 
     @Override
@@ -189,6 +190,36 @@ public class ScalarExpr<T> extends LeafExpression<T> {
             }
         },
         /**
+         * "Starts with" is case-sensitive match to check if a string starts with the specified substring.
+         * E.g., {@code name startswith "Al"}
+         */
+        STARTS_WITH {
+            @Override
+            public Operator negate() {
+                return null;
+            }
+
+            @Override
+            public String toString() {
+                return "startswith";
+            }
+        },
+        /**
+         * "Ends with" is case-sensitive match to check if a string ends with the specified substring.
+         * E.g., {@code name endswith "exey"}
+         */
+        ENDS_WITH {
+            @Override
+            public Operator negate() {
+                return null;
+            }
+
+            @Override
+            public String toString() {
+                return "endswith";
+            }
+        },
+        /**
          * "Contains" case-sensitive match for a substring in a string
          * E.g., {@code name contains "abc"}
          */
@@ -219,6 +250,7 @@ public class ScalarExpr<T> extends LeafExpression<T> {
             }
         };
 
+        @Nullable
         public abstract Operator negate();
     }
 }
