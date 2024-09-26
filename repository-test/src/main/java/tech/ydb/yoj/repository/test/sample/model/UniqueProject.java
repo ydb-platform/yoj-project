@@ -11,6 +11,8 @@ public class UniqueProject implements Entity<UniqueProject> {
     Id id;
     @With
     String name;
+    @With
+    int version;
 
     @Value
     public static class Id implements Entity.Id<UniqueProject> {
