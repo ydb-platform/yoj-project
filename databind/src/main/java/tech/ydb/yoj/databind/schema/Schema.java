@@ -148,7 +148,7 @@ public abstract class Schema<T> {
                 }
                 columns.add(field.getName());
             }
-            outputIndexes.add(new Index(name, List.copyOf(columns), index.unique()));
+            outputIndexes.add(new Index(name, List.copyOf(columns), index.type() == GlobalIndex.Type.UNIQUE));
         }
         return outputIndexes;
     }

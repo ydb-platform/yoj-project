@@ -6,7 +6,7 @@ import tech.ydb.yoj.databind.schema.GlobalIndex;
 import tech.ydb.yoj.repository.db.Entity;
 
 @Value
-@GlobalIndex(name = "unique_name", fields = {"name"}, unique = true)
+@GlobalIndex(name = "unique_name", fields = {"name"}, type = GlobalIndex.Type.UNIQUE)
 public class UniqueProject implements Entity<UniqueProject> {
     Id id;
     @With
