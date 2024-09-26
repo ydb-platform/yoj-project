@@ -66,6 +66,8 @@ public final class YqlListingQuery {
                     case GTE -> pred.gte(expected);
                     case CONTAINS -> pred.like(likePatternForContains((String) expected), LIKE_ESCAPE_CHAR);
                     case NOT_CONTAINS -> pred.notLike(likePatternForContains((String) expected), LIKE_ESCAPE_CHAR);
+                    case STARTS_WITH -> pred.like(likePatternForStartsWith((String) expected), LIKE_ESCAPE_CHAR);
+                    case ENDS_WITH -> pred.like(likePatternForEndsWith((String) expected), LIKE_ESCAPE_CHAR);
                 };
             }
 
@@ -74,14 +76,10 @@ public final class YqlListingQuery {
                 String fieldPath = nullExpr.getFieldPath();
 
                 YqlPredicate.FieldPredicateBuilder pred = YqlPredicate.where(fieldPath);
-                switch (nullExpr.getOperator()) {
-                    case IS_NULL:
-                        return pred.isNull();
-                    case IS_NOT_NULL:
-                        return pred.isNotNull();
-                    default:
-                        throw new UnsupportedOperationException("Unknown relation in nullability expression: " + nullExpr.getOperator());
-                }
+                return switch (nullExpr.getOperator()) {
+                    case IS_NULL -> pred.isNull();
+                    case IS_NOT_NULL -> pred.isNotNull();
+                };
             }
 
             @Override
@@ -89,14 +87,10 @@ public final class YqlListingQuery {
                 String fieldPath = listExpr.getFieldPath();
                 JavaField field = listExpr.getField();
                 List<?> expected = listExpr.getValues().stream().map(v -> v.getRaw(field)).collect(toList());
-                switch (listExpr.getOperator()) {
-                    case IN:
-                        return YqlPredicate.where(fieldPath).in(expected);
-                    case NOT_IN:
-                        return YqlPredicate.where(fieldPath).notIn(expected);
-                    default:
-                        throw new UnsupportedOperationException("Unknown relation in filter expression: " + listExpr.getOperator());
-                }
+                return switch (listExpr.getOperator()) {
+                    case IN -> YqlPredicate.where(fieldPath).in(expected);
+                    case NOT_IN -> YqlPredicate.where(fieldPath).notIn(expected);
+                };
             }
 
             @Override
@@ -120,6 +114,7 @@ public final class YqlListingQuery {
         });
     }
 
+    // %<str>%
     @NonNull
     private static String likePatternForContains(@NonNull String str) {
         StringBuilder sb = new StringBuilder(str.length() + 2);
@@ -130,6 +125,32 @@ public final class YqlListingQuery {
             escapeLikePatternToSb(str, sb);
         }
         sb.append('%');
+        return sb.toString();
+    }
+
+    // <str>%
+    @NonNull
+    private static String likePatternForStartsWith(@NonNull String str) {
+        StringBuilder sb = new StringBuilder(str.length() + 1);
+        if (LIKE_PATTERN_CHARS.matchesNoneOf(str)) {
+            sb.append(str);
+        } else {
+            escapeLikePatternToSb(str, sb);
+        }
+        sb.append('%');
+        return sb.toString();
+    }
+
+    // %<str>
+    @NonNull
+    private static String likePatternForEndsWith(@NonNull String str) {
+        StringBuilder sb = new StringBuilder(str.length() + 1);
+        sb.append('%');
+        if (LIKE_PATTERN_CHARS.matchesNoneOf(str)) {
+            sb.append(str);
+        } else {
+            escapeLikePatternToSb(str, sb);
+        }
         return sb.toString();
     }
 

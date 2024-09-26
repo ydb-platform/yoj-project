@@ -579,6 +579,78 @@ public abstract class ListingTest extends RepositoryTestSupport {
         });
     }
 
+    @Test
+    public void startsWith() {
+        LogEntry e1 = new LogEntry(new LogEntry.Id("log1", 1L), LogEntry.Level.ERROR, "#tag earliest msg");
+        LogEntry notInOutput = new LogEntry(new LogEntry.Id("log2", 2L), LogEntry.Level.DEBUG, "will be ignored");
+        LogEntry e2 = new LogEntry(new LogEntry.Id("log1", 4L), LogEntry.Level.WARN, "#tag middle msg");
+        LogEntry e3 = new LogEntry(new LogEntry.Id("log1", 5L), LogEntry.Level.INFO, "#tag latest msg");
+        db.tx(() -> db.logEntries().insert(e1, e2, notInOutput, e3));
+
+        db.tx(() -> {
+            ListResult<LogEntry> page = listLogEntries(ListRequest.builder(LogEntry.class)
+                    .pageSize(100)
+                    .filter(fb -> fb.where("message").startsWith("#tag"))
+                    .build());
+            assertThat(page).containsExactly(e1, e2, e3);
+            assertThat(page.isLastPage()).isTrue();
+        });
+    }
+
+    @Test
+    public void startsWithEscaped() {
+        LogEntry e1 = new LogEntry(new LogEntry.Id("log1", 1L), LogEntry.Level.ERROR, "%_acme-challenge.blahblahblah.");
+        LogEntry notInOutput = new LogEntry(new LogEntry.Id("log2", 2L), LogEntry.Level.DEBUG, "will be ignored");
+        LogEntry e2 = new LogEntry(new LogEntry.Id("log1", 4L), LogEntry.Level.WARN, "__hi%_there_");
+        LogEntry e3 = new LogEntry(new LogEntry.Id("log1", 5L), LogEntry.Level.INFO, "%_");
+        db.tx(() -> db.logEntries().insert(e1, e2, notInOutput, e3));
+
+        db.tx(() -> {
+            ListResult<LogEntry> page = listLogEntries(ListRequest.builder(LogEntry.class)
+                    .pageSize(100)
+                    .filter(fb -> fb.where("message").startsWith("%_"))
+                    .build());
+            assertThat(page).containsExactly(e1, e3);
+            assertThat(page.isLastPage()).isTrue();
+        });
+    }
+
+    @Test
+    public void endsWith() {
+        LogEntry e1 = new LogEntry(new LogEntry.Id("log1", 1L), LogEntry.Level.ERROR, "earliest msg #tag");
+        LogEntry inOutput = new LogEntry(new LogEntry.Id("log2", 2L), LogEntry.Level.DEBUG, "will be ignored");
+        LogEntry e2 = new LogEntry(new LogEntry.Id("log1", 4L), LogEntry.Level.WARN, "middle msg #tag");
+        LogEntry e3 = new LogEntry(new LogEntry.Id("log1", 5L), LogEntry.Level.INFO, "latest msg #tag");
+        db.tx(() -> db.logEntries().insert(e1, e2, inOutput, e3));
+
+        db.tx(() -> {
+            ListResult<LogEntry> page = listLogEntries(ListRequest.builder(LogEntry.class)
+                    .pageSize(100)
+                    .filter(fb -> fb.where("message").endsWith(" #tag"))
+                    .build());
+            assertThat(page).containsExactly(e1, e2, e3);
+            assertThat(page.isLastPage()).isTrue();
+        });
+    }
+
+    @Test
+    public void endsWithEscaped() {
+        LogEntry e1 = new LogEntry(new LogEntry.Id("log1", 1L), LogEntry.Level.ERROR, "acme-challenge.blahblahblah.%_");
+        LogEntry notInOutput = new LogEntry(new LogEntry.Id("log2", 2L), LogEntry.Level.DEBUG, "will be ignored");
+        LogEntry e2 = new LogEntry(new LogEntry.Id("log1", 4L), LogEntry.Level.WARN, "__hi%_there_");
+        LogEntry e3 = new LogEntry(new LogEntry.Id("log1", 5L), LogEntry.Level.INFO, "%_");
+        db.tx(() -> db.logEntries().insert(e1, e2, notInOutput, e3));
+
+        db.tx(() -> {
+            ListResult<LogEntry> page = listLogEntries(ListRequest.builder(LogEntry.class)
+                    .pageSize(100)
+                    .filter(fb -> fb.where("message").endsWith("%_"))
+                    .build());
+            assertThat(page).containsExactly(e1, e3);
+            assertThat(page.isLastPage()).isTrue();
+        });
+    }
+
     protected final ListResult<Project> listProjects(ListRequest<Project> request) {
         return db.projects().list(request);
     }
