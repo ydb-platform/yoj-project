@@ -161,12 +161,13 @@ final class InMemoryDataShard<T extends Entity<T>> {
                 .toList();
         for (Schema.Index index : indexes) {
             Map<String, Object> entityIndexValues = buildIndexValues(index, entity);
-            for (InMemoryEntityLine line : entityLines.values()) {
+            entityLines.forEach((id, line) -> {
                 Columns columns = line.get(txId, version);
-                if (columns != null && entityIndexValues.equals(buildIndexValues(index, columns.toSchema(schema)))) {
+                if (columns != null && !id.equals(entity.getId())
+                        && entityIndexValues.equals(buildIndexValues(index, columns.toSchema(schema)))) {
                     throw new EntityAlreadyExistsException("Entity " + entity.getId() + " already exists");
                 }
-            }
+            });
         }
     }
 

@@ -1355,10 +1355,12 @@ public abstract class RepositoryTest extends RepositoryTestSupport {
 
     @Test
     public void testUniqueIndex() {
-        UniqueProject ue1 = new UniqueProject(new UniqueProject.Id("id1"), "valuableName");
+        String verySameName = "valuableName";
+        UniqueProject ue1 = new UniqueProject(new UniqueProject.Id("id1"), verySameName, 1);
         db.tx(() -> db.table(UniqueProject.class).save(ue1));
-        UniqueProject ue2 = new UniqueProject(new UniqueProject.Id("id2"), "valuableName");
-        assertThrows(EntityAlreadyExistsException.class, () -> db.tx(() -> db.table(UniqueProject.class).insert(ue2)));
+        db.tx(() -> db.table(UniqueProject.class).save(ue1).withVersion(2)); // no exception
+        UniqueProject ue2 = new UniqueProject(new UniqueProject.Id("id2"), verySameName, 1);
+        assertThrows(EntityAlreadyExistsException.class, () -> db.tx(() -> db.table(UniqueProject.class).save(ue2)));
     }
 
     @Test
