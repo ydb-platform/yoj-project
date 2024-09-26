@@ -110,7 +110,7 @@
 
         <!-- YDB SDK 2.x -->
         <ydb-sdk-v2.version>2.2.11</ydb-sdk-v2.version>
-        <ydb-proto-api.version>1.6.2</ydb-proto-api.version>
+        <ydb-proto-api.version>1.6.4</ydb-proto-api.version>
 
         <!-- build-only dependencies (provided) -->
         <lombok.version>1.18.30</lombok.version>
