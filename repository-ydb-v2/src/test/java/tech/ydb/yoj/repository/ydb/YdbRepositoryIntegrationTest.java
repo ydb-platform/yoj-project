@@ -1005,7 +1005,7 @@ public class YdbRepositoryIntegrationTest extends RepositoryTest {
                 db.projects().countAll();
                 sdkTx = ((YdbRepositoryTransaction<?>) Tx.Current.get().getRepositoryTransaction()).toSdkTransaction();
                 assertThat(sdkTx.getSessionId()).isNotNull();
-                assertThat(sdkTx.getId()).isNull(); // Read transactions have no ID (that's what YDB returns, folks!)
+                // Read transactions might have no ID or might have an ID, depending on your YDB version (that's what YDB returns, folks!)
                 assertThat(sdkTx.getTxMode()).isEqualTo(txMode);
                 assertThatExceptionOfType(UnsupportedOperationException.class).isThrownBy(sdkTx::getStatusFuture);
             });
