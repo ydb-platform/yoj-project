@@ -3,11 +3,14 @@ package tech.ydb.yoj.databind.expression.values;
 import com.google.common.base.Preconditions;
 import lombok.NonNull;
 import tech.ydb.yoj.databind.FieldValueType;
+import tech.ydb.yoj.databind.expression.IllegalExpressionException.FieldTypeError.TupleFieldExpected;
 import tech.ydb.yoj.databind.schema.Schema;
 
 import java.lang.reflect.Type;
 import java.util.Objects;
 import java.util.Optional;
+
+import static java.lang.String.format;
 
 public record TupleFieldValue(@NonNull Tuple tuple) implements FieldValue {
     @Override
@@ -38,6 +41,20 @@ public record TupleFieldValue(@NonNull Tuple tuple) implements FieldValue {
         }
 
         return FieldValue.super.getRaw(field);
+    }
+
+    @Override
+    public ValidationResult isValidValueOfType(Type fieldType, FieldValueType valueType) {
+        if (valueType != FieldValueType.COMPOSITE) {
+            return ValidationResult.invalidFieldValue(TupleFieldExpected::new, p -> format("Specified a tuple value for non-tuple field \"%s\"", p));
+        }
+
+        return tuple.streamComponents()
+                .filter(jfv -> jfv.value() != null)
+                .map(jfv -> jfv.value().isValidValueOfType(jfv.field().getType(), jfv.field().getValueType()))
+                .filter(ValidationResult::invalid)
+                .findFirst()
+                .orElse(ValidationResult.validFieldValue());
     }
 
     @Override

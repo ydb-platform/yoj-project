@@ -103,6 +103,10 @@ public class Tuple implements Comparable<Tuple> {
             this(jf, getValue(jf, flattenedObj));
         }
 
+        public FieldAndValue {
+            Preconditions.checkArgument(field.isFlat(), "field must be flat");
+        }
+
         @Nullable
         private static FieldValue getValue(@NonNull Schema.JavaField jf, @NonNull Map<String, Object> flattenedObj) {
             String name = jf.getName();

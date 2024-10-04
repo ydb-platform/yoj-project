@@ -26,51 +26,75 @@ public abstract class IllegalExpressionException extends IllegalArgumentExceptio
             }
         }
 
-        static final class UnknownEnumConstant extends FieldTypeError {
-            UnknownEnumConstant(String field, String enumConstant) {
+        public static final class UnknownEnumConstant extends FieldTypeError {
+            public UnknownEnumConstant(String field, String enumConstant) {
                 super(field, f -> "Unknown enum constant for field \"%s\": \"%s\"".formatted(f, enumConstant));
             }
         }
 
-        static final class StringFieldExpected extends FieldTypeError {
-            StringFieldExpected(String field) {
+        public static final class StringFieldExpected extends FieldTypeError {
+            public StringFieldExpected(String field) {
                 super(field, "Type mismatch: cannot compare field \"%s\" with a string value"::formatted);
             }
         }
 
-        static final class IntegerFieldExpected extends FieldTypeError {
-            IntegerFieldExpected(String field) {
+        public static final class IntegerFieldExpected extends FieldTypeError {
+            public IntegerFieldExpected(String field) {
                 super(field, "Type mismatch: cannot compare field \"%s\" with an integer value"::formatted);
             }
         }
 
-        static final class RealFieldExpected extends FieldTypeError {
-            RealFieldExpected(String field) {
+        public static final class IntegerBadTimestamp extends FieldTypeError {
+            public IntegerBadTimestamp(String field) {
+                super(field, "Negative integer value for timestamp field \"%s\", not a valid UNIX epoch timestamp"::formatted);
+            }
+        }
+
+        public static final class RealFieldExpected extends FieldTypeError {
+            public RealFieldExpected(String field) {
                 super(field, "Type mismatch: cannot compare field \"%s\" with a floating-point value"::formatted);
             }
         }
 
-        static final class BooleanFieldExpected extends FieldTypeError {
-            BooleanFieldExpected(String field) {
+        public static final class IntegerToRealInexact extends FieldTypeError {
+            public IntegerToRealInexact(String field) {
+                super(field, "Integer value magnitude is too large for floating-point field \"%s\""::formatted);
+            }
+        }
+
+        public static final class BooleanFieldExpected extends FieldTypeError {
+            public BooleanFieldExpected(String field) {
                 super(field, "Type mismatch: cannot compare field \"%s\" with a boolean value"::formatted);
             }
         }
 
-        static final class ByteArrayFieldExpected extends FieldTypeError {
-            ByteArrayFieldExpected(String field) {
+        public static final class ByteArrayFieldExpected extends FieldTypeError {
+            public ByteArrayFieldExpected(String field) {
                 super(field, "Type mismatch: cannot compare field \"%s\" with a ByteArray value"::formatted);
             }
         }
 
-        static final class DateTimeFieldExpected extends FieldTypeError {
-            DateTimeFieldExpected(String field) {
-                super(field, "Type mismatch: cannot compare field \"%s\" with a date-time value"::formatted);
+        public static final class TimestampFieldExpected extends FieldTypeError {
+            public TimestampFieldExpected(String field) {
+                super(field, "Type mismatch: cannot compare field \"%s\" with a timestamp value"::formatted);
             }
         }
 
-        static final class UuidFieldExpected extends FieldTypeError {
-            UuidFieldExpected(String field) {
+        public static final class TimestampToIntegerInexact extends FieldTypeError {
+            public TimestampToIntegerInexact(String field) {
+                super(field, "Timestamp value is too large for integer field \"%s\""::formatted);
+            }
+        }
+
+        public static final class UuidFieldExpected extends FieldTypeError {
+            public UuidFieldExpected(String field) {
                 super(field, "Type mismatch: cannot compare field \"%s\" with an UUID value"::formatted);
+            }
+        }
+
+        public static final class TupleFieldExpected extends FieldTypeError {
+            public TupleFieldExpected(String field) {
+                super(field, "Type mismatch: cannot compare field \"%s\" with a tuple value"::formatted);
             }
         }
     }
