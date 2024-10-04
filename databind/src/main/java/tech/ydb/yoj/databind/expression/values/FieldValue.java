@@ -5,6 +5,7 @@ import lombok.NonNull;
 import tech.ydb.yoj.databind.ByteArray;
 import tech.ydb.yoj.databind.CustomValueTypes;
 import tech.ydb.yoj.databind.FieldValueType;
+import tech.ydb.yoj.databind.expression.IllegalExpressionException;
 import tech.ydb.yoj.databind.schema.ObjectSchema;
 import tech.ydb.yoj.databind.schema.Schema.JavaField;
 
@@ -17,6 +18,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.function.Function;
 
 import static java.util.stream.Collectors.collectingAndThen;
 import static java.util.stream.Collectors.toCollection;
@@ -26,6 +28,8 @@ public sealed interface FieldValue extends tech.ydb.yoj.databind.expression.Fiel
         RealFieldValue, StringFieldValue, TimestampFieldValue, TupleFieldValue, UuidFieldValue {
 
     Optional<Comparable<?>> getComparableByType(Type fieldType, FieldValueType valueType);
+
+    ValidationResult isValidValueOfType(Type fieldType, FieldValueType valueType);
 
     @Override
     default Object getRaw(@NonNull JavaField field) {
@@ -91,6 +95,37 @@ public sealed interface FieldValue extends tech.ydb.yoj.databind.expression.Fiel
             return rawValue == null ? null : ofObj(rawValue, field.toFlatField()).getComparable(field);
         } else {
             return new Tuple(null, tupleValues(field.flatten().toList(), values));
+        }
+    }
+
+    record ValidationResult(
+            boolean valid,
+            Function<String, ? extends IllegalExpressionException> userException,
+            Function<String, String> internalErrorMessage
+    ) {
+        private static final ValidationResult VALID = new ValidationResult(true, null, null);
+
+        public static ValidationResult validFieldValue() {
+            return VALID;
+        }
+
+        public static ValidationResult invalidFieldValue(Function<String, ? extends IllegalExpressionException> userException,
+                                                         Function<String, String> internalError) {
+            return new ValidationResult(false, userException, internalError);
+        }
+
+        public IllegalExpressionException throwUserException(String userFieldPath) throws IllegalExpressionException {
+            Preconditions.checkState(invalid(), "Cannot call ValidationResult.throwUserException() on a valid ValidationResult");
+            throw userException.apply(userFieldPath);
+        }
+
+        public RuntimeException throwInternalError(String fieldPath) throws RuntimeException {
+            Preconditions.checkState(invalid(), "Cannot call ValidationResult.throwInternalError() on a valid ValidationResult");
+            throw new IllegalArgumentException(internalErrorMessage.apply(fieldPath));
+        }
+
+        public boolean invalid() {
+            return !valid;
         }
     }
 }
