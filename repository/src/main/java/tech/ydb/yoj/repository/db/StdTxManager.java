@@ -134,6 +134,11 @@ public final class StdTxManager implements TxManager, TxManagerState {
     }
 
     @Override
+    public TxManager separateProjections() {
+        return withOptions(this.options.withSeparateProjections(true));
+    }
+
+    @Override
     public TxManager noFirstLevelCache() {
         return withOptions(this.options.withFirstLevelCache(false));
     }

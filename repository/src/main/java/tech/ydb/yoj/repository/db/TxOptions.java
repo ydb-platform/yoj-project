@@ -33,6 +33,8 @@ public class TxOptions {
 
     boolean immediateWrites;
 
+    boolean separateProjections;
+
     public static TxOptions create(@NonNull IsolationLevel isolationLevel) {
         return builder()
                 .isolationLevel(isolationLevel)

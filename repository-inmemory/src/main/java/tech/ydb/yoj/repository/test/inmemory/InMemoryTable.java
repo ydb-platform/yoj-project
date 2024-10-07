@@ -405,8 +405,8 @@ public class InMemoryTable<T extends Entity<T>> implements Table<T> {
         T t = tt.preSave();
         transaction.getWatcher().markRowRead(type, t.getId());
         transaction.doInWriteTransaction("insert(" + t + ")", type, shard -> shard.insert(t));
+        transaction.getTransactionLocal().projectionCache().save(transaction, t);
         transaction.getTransactionLocal().firstLevelCache().put(t);
-        transaction.getTransactionLocal().projectionCache().save(t);
         return t;
     }
 
@@ -414,16 +414,16 @@ public class InMemoryTable<T extends Entity<T>> implements Table<T> {
     public T save(T tt) {
         T t = tt.preSave();
         transaction.doInWriteTransaction("save(" + t + ")", type, shard -> shard.save(t));
+        transaction.getTransactionLocal().projectionCache().save(transaction, t);
         transaction.getTransactionLocal().firstLevelCache().put(t);
-        transaction.getTransactionLocal().projectionCache().save(t);
         return t;
     }
 
     @Override
     public void delete(Entity.Id<T> id) {
         transaction.doInWriteTransaction("delete(" + id + ")", type, shard -> shard.delete(id));
+        transaction.getTransactionLocal().projectionCache().delete(transaction, id);
         transaction.getTransactionLocal().firstLevelCache().putEmpty(id);
-        transaction.getTransactionLocal().projectionCache().delete(id);
     }
 
     @Override
