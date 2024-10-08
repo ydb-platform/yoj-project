@@ -41,7 +41,7 @@ SNAKEYAML_VERSION = "1.33"
 
 YDB_PROTOAPI_VERSION = "1.6.4"
 
-YDB_SDK_VERSION = "2.2.11"
+YDB_SDK_VERSION = "2.3.2"
 
 maven_install(
     name = "java_contribs_stable",
