@@ -13,11 +13,12 @@ import java.util.Optional;
 @Builder
 public class YdbConfig {
     private static final Duration SESSION_KEEP_ALIVE_TIME_DEFAULT = Duration.ofMinutes(5);
-    private static final Duration SESSION_MAX_IDLE_TIME_DEFAULT = Duration.ofMinutes(5);
+    private static final Duration SESSION_MAX_IDLE_TIME_DEFAULT = Duration.ofMinutes(1);
     private static final Duration TCP_KEEP_ALIVE_TIME_DEFAULT = Duration.ofSeconds(5);
     private static final Duration TCP_KEEP_ALIVE_TIMEOUT_DEFAULT = Duration.ofSeconds(1);
     private static final Duration SESSION_CREATE_TIMEOUT_DEFAULT = Duration.ofSeconds(1);
-    private static final int SESSION_POOL_SIZE_DEFAULT = 100;
+    private static final int SESSION_POOL_SIZE_MAX_DEFAULT = 50;
+    private static final int SESSION_POOL_SIZE_MIN_DEFAULT = 10;
     private static final int SESSION_CREATE_RETRY_COUNT_DEFAULT = 3;
 
     public static YdbConfig createForTesting(String host, int port, String tablespace, String database) {
@@ -30,8 +31,8 @@ public class YdbConfig {
                 SESSION_CREATE_RETRY_COUNT_DEFAULT,
                 SESSION_KEEP_ALIVE_TIME_DEFAULT,
                 SESSION_MAX_IDLE_TIME_DEFAULT,
-                SESSION_POOL_SIZE_DEFAULT,
-                SESSION_POOL_SIZE_DEFAULT,
+                SESSION_POOL_SIZE_MIN_DEFAULT,
+                SESSION_POOL_SIZE_MAX_DEFAULT,
                 TCP_KEEP_ALIVE_TIME_DEFAULT,
                 TCP_KEEP_ALIVE_TIMEOUT_DEFAULT,
                 false,
@@ -118,11 +119,11 @@ public class YdbConfig {
     }
 
     public Integer getSessionPoolMin() {
-        return Optional.ofNullable(sessionPoolMin).orElse(SESSION_POOL_SIZE_DEFAULT);
+        return Optional.ofNullable(sessionPoolMin).orElse(SESSION_POOL_SIZE_MIN_DEFAULT);
     }
 
     public Integer getSessionPoolMax() {
-        return Optional.ofNullable(sessionPoolMax).orElse(SESSION_POOL_SIZE_DEFAULT);
+        return Optional.ofNullable(sessionPoolMax).orElse(SESSION_POOL_SIZE_MAX_DEFAULT);
     }
 
     public Duration getTcpKeepaliveTime() {
