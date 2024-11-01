@@ -22,12 +22,12 @@ public class RwProjectionCache implements ProjectionCache {
     }
 
     @Override
-    public void save(Entity<?> entity) {
+    public void save(RepositoryTransaction transaction, Entity<?> entity) {
         row(entity.getId()).save(entity);
     }
 
     @Override
-    public void delete(Entity.Id<?> id) {
+    public void delete(RepositoryTransaction transaction, Entity.Id<?> id) {
         row(id).delete();
     }
 
