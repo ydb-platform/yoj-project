@@ -23,12 +23,11 @@ import static org.mockito.Mockito.when;
  */
 @RequiredArgsConstructor
 public class TestDbTxCaller {
-    private final boolean useNewTxNameGeneration;
     private final String explicitName;
     private final Set<String> skipCallerPackages;
 
-    public TestDbTxCaller(boolean useNewTxNameGeneration, String explicitName) {
-        this(useNewTxNameGeneration, explicitName, Set.of());
+    public TestDbTxCaller(String explicitName) {
+        this(explicitName, Set.of());
     }
 
     public String getTxName() {
@@ -37,16 +36,10 @@ public class TestDbTxCaller {
         when(rt.getTransactionLocal()).thenReturn(new TransactionLocal(TxOptions.create(IsolationLevel.SERIALIZABLE_READ_WRITE)));
         when(repo.startTransaction(any(TxOptions.class))).thenReturn(rt);
 
-        var txGenerationBackup = StdTxManager.useNewTxNameGeneration;
-        StdTxManager.useNewTxNameGeneration = useNewTxNameGeneration;
-        try {
-            var tx = new StdTxManager(repo).withSkipCallerPackages(skipCallerPackages);
-            if (explicitName != null) {
-                tx = tx.withName(explicitName);
-            }
-            return tx.tx(() -> Tx.Current.get().getName());
-        } finally {
-            StdTxManager.useNewTxNameGeneration = txGenerationBackup;
+        var tx = new StdTxManager(repo).withSkipCallerPackages(skipCallerPackages);
+        if (explicitName != null) {
+            tx = tx.withName(explicitName);
         }
+        return tx.tx(() -> Tx.Current.get().getName());
     }
 }

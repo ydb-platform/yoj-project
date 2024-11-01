@@ -35,68 +35,39 @@ public class StdTxManagerTest {
     private final RepositoryTransaction repositoryTransaction = mock(RepositoryTransaction.class);
 
     @Test
-    public void testDbChildPackage_FromException_Auto() {
-        var name = new TestDbTxCaller(false, null).getTxName();
-        assertThat(name).isIn(
-                // JDK 17 and below
-                "NatMetAccImp#invoke0",
-                // JDK 19
-                "DirMetHanAcc#invoke"
-        );
-    }
-
-    @Test
-    public void testDbChildPackage_FromException_User() {
-        var name = new TestDbTxCaller(false, "omg").getTxName();
-        assertThat(name).isEqualTo("omg");
-    }
-
-    @Test
     public void testDbChildPackage_FromStackWalker_Auto() {
-        var name = new TestDbTxCaller(true, null).getTxName();
+        var name = new TestDbTxCaller(null).getTxName();
         assertThat(name).isEqualTo("TesDbTxCal#getTxNam");
     }
 
     @Test
     public void testDbChildPackage_FromStackWalker_User() {
-        var name = new TestDbTxCaller(true, "qq").getTxName();
+        var name = new TestDbTxCaller("qq").getTxName();
         assertThat(name).isEqualTo("qq");
     }
 
     @Test
-    public void testNotDbChildPackage_FromException_Auto() {
-        var name = new TestTxCaller(false, null).getTxName();
-        assertThat(name).isEqualTo("TesTxCal#getTxNam");
-    }
-
-    @Test
     public void testNotDbChildPackage_FromStackWalker_Auto() {
-        var name = new TestTxCaller(true, null).getTxName();
+        var name = new TestTxCaller(null).getTxName();
         assertThat(name).isEqualTo("TesTxCal#getTxNam");
     }
 
     @Test
     public void testNotDbChildPackage_FromStackWalker_Auto_SkipCallerPackage() {
-        var name = new TestTxCaller(true, null, Set.of(TestTxCaller.class.getPackageName())).getTxName();
+        var name = new TestTxCaller(null, Set.of(TestTxCaller.class.getPackageName())).getTxName();
         assertThat(name).isEqualTo("StdTxManTes#testNotDbChiPac_FroStaWal_Aut_SkiCalPac");
     }
 
     @Test
     public void testNotDbPackage_Same() {
-        var nameOld = new TestTxCaller(false, null).getTxName();
-        var nameNew = new TestTxCaller(true, null).getTxName();
+        var nameOld = new TestTxCaller(null).getTxName();
+        var nameNew = new TestTxCaller(null).getTxName();
         assertThat(nameNew).isEqualTo(nameOld);
     }
 
     @Test
-    public void testNotDbPackage_FromException_User() {
-        var name = new TestTxCaller(false, "omg").getTxName();
-        assertThat(name).isEqualTo("omg");
-    }
-
-    @Test
     public void testNotDbPackage_FromStackWalker_User() {
-        var name = new TestTxCaller(true, "omg").getTxName();
+        var name = new TestTxCaller("omg").getTxName();
         assertThat(name).isEqualTo("omg");
     }
 
@@ -218,7 +189,7 @@ public class StdTxManagerTest {
     private static final class TestAppender extends AbstractAppender {
         private final List<String> messages = new ArrayList<>();
 
-        protected TestAppender(String name) {
+        private TestAppender(String name) {
             super(name, null, null, true, null);
         }
 

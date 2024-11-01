@@ -13,6 +13,7 @@ import lombok.With;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
+import tech.ydb.yoj.DeprecationWarnings;
 import tech.ydb.yoj.repository.db.cache.TransactionLog;
 import tech.ydb.yoj.repository.db.exception.RetryableException;
 import tech.ydb.yoj.util.lang.CallStack;
@@ -45,13 +46,18 @@ import static tech.ydb.yoj.repository.db.IsolationLevel.SERIALIZABLE_READ_WRITE;
  */
 @RequiredArgsConstructor(access = AccessLevel.PRIVATE)
 public final class StdTxManager implements TxManager, TxManagerState {
-    public static volatile boolean useNewTxNameGeneration = false;
+    /**
+     * @deprecated Please stop using the {@code StdTxManager.useNewTxNameGeneration} field.
+     * Changing this field has no effect as of YOJ 2.6.1, and it will be <strong>removed completely</strong> in YOJ 3.0.0.
+     */
+    @Deprecated(forRemoval = true)
+    public static volatile boolean useNewTxNameGeneration = true;
 
     private static final Logger log = LoggerFactory.getLogger(StdTxManager.class);
 
     private static final CallStack callStack = new CallStack();
 
-    private static final int DEFAULT_MAX_ATTEMPT_COUNT = 100;
+    private static final int DEFAULT_MAX_ATTEMPT_COUNT = 10;
     private static final double[] TX_ATTEMPTS_BUCKETS = new double[]
             {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 14, 16, 18, 20, 25, 35, 40, 45, 50, 60, 70, 80, 90, 100};
     private static final double[] DURATION_BUCKETS = {
@@ -111,11 +117,14 @@ public final class StdTxManager implements TxManager, TxManagerState {
     }
 
     /**
-     * @deprecated Low-level constructor, kept for compatibility with existing code. Not recommended.
+     * @deprecated Constructor is in YOJ 2.x for backwards compatibility, an will be removed in YOJ 3.0.0. Please construct
+     * {@link #StdTxManager(Repository)} and customize it using the {@code with<...>()} methods instead.
      */
-    @Deprecated
+    @Deprecated(forRemoval = true)
     public StdTxManager(Repository repository, int maxAttemptCount, String name, Integer logLine, String logContext, TxOptions options) {
         this(repository, maxAttemptCount, name, logLine, logContext, options, SeparatePolicy.LOG, Set.of());
+        DeprecationWarnings.warnOnce("StdTxManager(Repository, int, String, Integer, String, TxOptions)",
+                "Please use the recommended StdTxManager(Repository) constructor and customize the TxManager by using with<...>() methods");
     }
 
     @Override
@@ -267,28 +276,14 @@ public final class StdTxManager implements TxManager, TxManagerState {
     }
 
     private StdTxManager withGeneratedNameAndLine() {
-        return useNewTxNameGeneration ? withGeneratedNameAndLineNew() : withGeneratedNameAndLineOld();
-    }
-
-    private StdTxManager withGeneratedNameAndLineOld() {
-        String pkg = StdTxManager.class.getPackage().getName();
-        for (StackTraceElement ste : new Exception().getStackTrace()) {
-            if (!ste.getClassName().startsWith(pkg)) {
-                String name = ste.getClassName()
-                        .replaceFirst(".*\\.", "")
-                        .replaceFirst("\\$.*", "")
-                        .replaceAll("([A-Z][a-z]{2})[a-z]+", "$1")
-                        + "#" + ste.getMethodName()
-                        .replaceAll("([A-Z][a-z]{2})[a-z]+", "$1");
-                return withName(name).withLogLine(ste.getLineNumber());
-            }
-        }
-        throw new IllegalStateException("Stacktrace doesn't contain elements from other packages");
-    }
-
-    private StdTxManager withGeneratedNameAndLineNew() {
         record TxInfo(String name, int lineNumber) {
         }
+
+        if (!useNewTxNameGeneration) {
+            DeprecationWarnings.warnOnce("StdTxManager.useNewTxNameGeneration",
+                    "As of YOJ 2.6.1, setting StdTxManager.useNewTxNameGeneration has no effect. Please stop setting this field");
+        }
+
         var info = callStack.findCallingFrame()
                 .skipPackage(StdTxManager.class.getPackageName())
                 .skipPackages(skipCallerPackages)
