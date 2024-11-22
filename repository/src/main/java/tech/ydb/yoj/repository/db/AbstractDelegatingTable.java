@@ -3,6 +3,8 @@ package tech.ydb.yoj.repository.db;
 import com.google.common.reflect.TypeToken;
 import lombok.AccessLevel;
 import lombok.Getter;
+import lombok.NonNull;
+import tech.ydb.yoj.ExperimentalApi;
 import tech.ydb.yoj.databind.expression.FilterExpression;
 import tech.ydb.yoj.databind.expression.OrderExpression;
 import tech.ydb.yoj.repository.BaseDb;
@@ -24,6 +26,12 @@ public abstract class AbstractDelegatingTable<T extends Entity<T>> implements Ta
 
     protected AbstractDelegatingTable() {
         this.target = BaseDb.current(BaseDb.class).table(resolveEntityType());
+    }
+
+    @ExperimentalApi(issue = "https://github.com/ydb-platform/yoj-project/issues/32")
+    protected AbstractDelegatingTable(@NonNull String tableName) {
+        EntitySchema<T> schema = EntitySchema.of(resolveEntityType());
+        this.target = BaseDb.current(BaseDb.class).table(new TableDescriptor<T>(schema.getType(), tableName));
     }
 
     @SuppressWarnings("unchecked")
