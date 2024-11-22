@@ -14,6 +14,10 @@ public interface Repository {
 
     <T extends Entity<T>> SchemaOperations<T> schema(Class<T> c);
 
+    default <T extends Entity<T>> SchemaOperations<T> schema(Class<T> c, String tableName) {
+        return schema(c);
+    }
+
     /**
      * @deprecated For testing purposes only. Will only <em>reliably</em> work for tables that were created or inspected
      * using calls to {@link #schema(Class)}.

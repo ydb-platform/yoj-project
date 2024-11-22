@@ -251,10 +251,16 @@ public class YdbRepository implements Repository {
     @Override
     public <T extends Entity<T>> SchemaOperations<T> schema(Class<T> c) {
         EntitySchema<T> schema = EntitySchema.of(c);
+        String tableName = schema.getName();
+        return schema(c, tableName);
+    }
+
+    @Override
+    public <T extends Entity<T>> SchemaOperations<T> schema(Class<T> c, String tableName) {
+        EntitySchema<T> schema = EntitySchema.of(c);
         return new SchemaOperations<>() {
             @Override
             public void create() {
-                String tableName = schema.getName();
                 getSchemaOperations().createTable(tableName, schema.flattenFields(), schema.flattenId(),
                         extractHint(), schema.getGlobalIndexes(), schema.getTtlModifier(), schema.getChangefeeds());
                 if (!schema.isDynamic()) {

@@ -33,6 +33,7 @@ import tech.ydb.table.values.Value;
 import tech.ydb.yoj.ExperimentalApi;
 import tech.ydb.yoj.repository.BaseDb;
 import tech.ydb.yoj.repository.db.Entity;
+import tech.ydb.yoj.repository.db.EntityDescriptor;
 import tech.ydb.yoj.repository.db.IsolationLevel;
 import tech.ydb.yoj.repository.db.RepositoryTransaction;
 import tech.ydb.yoj.repository.db.Table;
@@ -118,6 +119,16 @@ public class YdbRepositoryTransaction<REPO extends YdbRepository>
     @Override
     public <T extends Entity<T>> Table<T> table(Class<T> c) {
         return new YdbTable<>(c, this);
+    }
+
+    /**
+     * WARNING!!! This method won't work if id's in different tables have intersections. The restriction will be eliminated in future
+     * versions
+     */
+    @Override
+    @ExperimentalApi(issue = "https://github.com/ydb-platform/yoj-project/issues/32")
+    public <T extends Entity<T>> Table<T> table(@NonNull Class<T> clazz, @NonNull String tableName) {
+        return new YdbTable<>(new EntityDescriptor<>(clazz, tableName), this);
     }
 
     @Override
