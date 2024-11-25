@@ -26,6 +26,7 @@ import tech.ydb.table.settings.PartitioningPolicy;
 import tech.ydb.table.settings.PartitioningSettings;
 import tech.ydb.table.settings.TtlSettings;
 import tech.ydb.table.values.OptionalType;
+import tech.ydb.table.values.Type;
 import tech.ydb.yoj.databind.schema.Schema;
 import tech.ydb.yoj.repository.db.EntitySchema;
 import tech.ydb.yoj.repository.db.exception.CreateTableException;
@@ -283,7 +284,7 @@ public class YdbSchemaOperations {
                 table.getColumns().stream()
                         .map(c -> {
                             String columnName = c.getName();
-                            String simpleType = ((OptionalType) c.getType()).getItemType().toPb().getTypeId().name();
+                            String simpleType = safeUnwrapOptional(c.getType()).toPb().getTypeId().name();
                             boolean isPrimaryKey = table.getPrimaryKeys().contains(columnName);
                             return new Column(columnName, simpleType, isPrimaryKey);
                         })
@@ -295,6 +296,10 @@ public class YdbSchemaOperations {
                         ? null
                         : new TtlModifier(table.getTableTtl().getDateTimeColumn(), table.getTableTtl().getExpireAfterSeconds())
         );
+    }
+
+    private Type safeUnwrapOptional(Type type) {
+        return type.getKind() == Type.Kind.OPTIONAL ? type.unwrapOptional() : type;
     }
 
     public void removeTablespace() {
