@@ -25,7 +25,6 @@ import tech.ydb.table.settings.CreateTableSettings;
 import tech.ydb.table.settings.PartitioningPolicy;
 import tech.ydb.table.settings.PartitioningSettings;
 import tech.ydb.table.settings.TtlSettings;
-import tech.ydb.table.values.OptionalType;
 import tech.ydb.table.values.Type;
 import tech.ydb.yoj.databind.schema.Schema;
 import tech.ydb.yoj.repository.db.EntitySchema;
