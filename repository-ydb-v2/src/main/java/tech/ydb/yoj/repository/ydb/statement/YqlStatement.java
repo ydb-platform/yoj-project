@@ -22,7 +22,6 @@ import tech.ydb.yoj.repository.ydb.yql.YqlType;
 
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Spliterator;
@@ -31,10 +30,8 @@ import java.util.stream.Stream;
 
 import static java.lang.String.format;
 import static java.util.Collections.emptyList;
-import static java.util.Comparator.comparing;
 import static java.util.stream.Collectors.groupingBy;
 import static java.util.stream.Collectors.joining;
-import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toMap;
 
 @SuppressWarnings({"FieldCanBeLocal", "WeakerAccess"})
@@ -97,51 +94,7 @@ public abstract class YqlStatement<PARAMS, ENTITY extends Entity<ENTITY>, RESULT
     private static <PARAMS, ENTITY extends Entity<ENTITY>, RESULT> Statement<PARAMS, RESULT> find(
             EntitySchema<ENTITY> schema,
             Schema<RESULT> resultSchema) {
-        return new YqlStatement<>(schema, resultSchema) {
-            @Override
-            public List<YqlStatementParam> getParams() {
-                return schema.flattenId().stream()
-                        .map(c -> YqlStatementParam.required(YqlType.of(c), c.getName()))
-                        .collect(toList());
-            }
-
-            @Override
-            public String getQuery(String tablespace) {
-                return declarations()
-                        + "SELECT " + outNames()
-                        + " FROM " + table(tablespace)
-                        + " WHERE " + nameEqVars();
-            }
-
-            @Override
-            public List<RESULT> readFromCache(PARAMS params, RepositoryCache cache) {
-                RepositoryCache.Key key = new RepositoryCache.Key(resultSchema.getType(), params);
-                if (!cache.contains(key)) {
-                    return null;
-                }
-
-                //noinspection unchecked
-                return cache.get(key)
-                        .map(o -> Collections.singletonList((RESULT) o))
-                        .orElse(Collections.emptyList());
-            }
-
-            @Override
-            public void storeToCache(PARAMS params, List<RESULT> result, RepositoryCache cache) {
-                RepositoryCache.Key key = new RepositoryCache.Key(resultSchema.getType(), params);
-                cache.put(key, result.stream().findFirst().orElse(null));
-            }
-
-            @Override
-            public QueryType getQueryType() {
-                return QueryType.SELECT;
-            }
-
-            @Override
-            public String toDebugString(PARAMS params) {
-                return "find(" + params + ")";
-            }
-        };
+        return new FindYqlStatement<>(schema, resultSchema);
     }
 
     public static <ENTITY extends Entity<ENTITY>, ID extends Entity.Id<ENTITY>> Statement<Range<ID>, ENTITY> findRange(
@@ -300,35 +253,23 @@ public abstract class YqlStatement<PARAMS, ENTITY extends Entity<ENTITY>, RESULT
             boolean distinct,
             Collection<? extends YqlStatementPart<?>> parts
     ) {
+        return find(schema, resultSchema, distinct, parts, schema.getName());
+    }
+
+    static <ENTITY extends Entity<ENTITY>, RESULT> Statement<Collection<? extends YqlStatementPart<?>>, RESULT> find(
+            EntitySchema<ENTITY> schema,
+            Schema<RESULT> resultSchema,
+            boolean distinct,
+            Collection<? extends YqlStatementPart<?>> parts,
+            String tableName
+    ) {
         List<YqlStatementPart<?>> partList = new ArrayList<>(parts);
         if (!distinct) {
             if (parts.stream().noneMatch(s -> s.getType().equals(YqlOrderBy.TYPE))) {
                 partList.add(ORDER_BY_ID_ASCENDING);
             }
         }
-        return new PredicateStatement<>(schema, resultSchema, parts, YqlStatement::predicateFrom) {
-            @Override
-            public String getQuery(String tablespace) {
-                return declarations()
-                        + "SELECT " + (distinct ? "DISTINCT " : "") + outNames()
-                        + " FROM " + table(tablespace)
-                        + " " + mergeParts(partList.stream())
-                        .sorted(comparing(YqlStatementPart::getPriority))
-                        .map(sp -> sp.toFullYql(schema))
-                        .map(this::resolveParamNames)
-                        .collect(joining(" "));
-            }
-
-            @Override
-            public QueryType getQueryType() {
-                return QueryType.SELECT;
-            }
-
-            @Override
-            public String toDebugString(Collection<? extends YqlStatementPart<?>> yqlStatementParts) {
-                return "find(" + yqlStatementParts + ")";
-            }
-        };
+        return new FindStatement<>(schema, resultSchema, parts, YqlStatement::predicateFrom, distinct, tableName);
     }
 
     public static <ENTITY extends Entity<ENTITY>> Statement<Collection<? extends YqlStatementPart<?>>, Count> count(
@@ -342,30 +283,7 @@ public abstract class YqlStatement<PARAMS, ENTITY extends Entity<ENTITY>, RESULT
             EntitySchema<ENTITY> schema,
             Collection<? extends YqlStatementPart<?>> parts
     ) {
-        return new PredicateStatement<>(schema, ObjectSchema.of(Count.class), parts, YqlStatement::predicateFrom) {
-
-            @Override
-            public String getQuery(String tablespace) {
-                return declarations()
-                        + "SELECT COUNT(*) AS count"
-                        + " FROM " + table(tablespace)
-                        + " " + mergeParts(parts.stream())
-                        .sorted(comparing(YqlStatementPart::getPriority))
-                        .map(sp -> sp.toFullYql(schema))
-                        .map(this::resolveParamNames)
-                        .collect(joining(" "));
-            }
-
-            @Override
-            public QueryType getQueryType() {
-                return QueryType.SELECT;
-            }
-
-            @Override
-            public String toDebugString(Collection<? extends YqlStatementPart<?>> yqlStatementParts) {
-                return "count(" + parts + ")";
-            }
-        };
+        return new CountAllStatement<>(schema, ObjectSchema.of(Count.class), parts, YqlStatement::predicateFrom);
     }
 
     protected static YqlPredicate predicateFrom(Collection<? extends YqlStatementPart<?>> parts) {
@@ -392,23 +310,7 @@ public abstract class YqlStatement<PARAMS, ENTITY extends Entity<ENTITY>, RESULT
     }
 
     public static <PARAMS, ENTITY extends Entity<ENTITY>> Statement<PARAMS, ENTITY> deleteAll(Class<ENTITY> type) {
-        return new YqlStatement.Simple<>(type) {
-
-            @Override
-            public String getQuery(String tablespace) {
-                return "DELETE FROM " + table(tablespace);
-            }
-
-            @Override
-            public QueryType getQueryType() {
-                return QueryType.DELETE_ALL;
-            }
-
-            @Override
-            public String toDebugString(PARAMS params) {
-                return "deleteAll(" + schema.getName() + ")";
-            }
-        };
+        return new DeleteAllStatement<>(type);
     }
 
     public static <PARAMS, ENTITY extends Entity<ENTITY>> Statement<PARAMS, ENTITY> delete(Class<ENTITY> type) {
@@ -438,7 +340,6 @@ public abstract class YqlStatement<PARAMS, ENTITY extends Entity<ENTITY>, RESULT
     protected ValueProtos.Type.Builder getYqlType(YqlType yqlType, boolean optional) {
         ValueProtos.Type.Builder ttype = yqlType.getYqlTypeBuilder();
         return !optional ? ttype : ValueProtos.Type.newBuilder().setOptionalType(ValueProtos.OptionalType.newBuilder().setItem(ttype));
-
     }
 
     protected ValueProtos.Value.Builder getYqlValue(YqlType type, Object value) {
@@ -509,6 +410,7 @@ public abstract class YqlStatement<PARAMS, ENTITY extends Entity<ENTITY>, RESULT
      * {@code {entity.java.field}} placeholders to DB field names.
      *
      * @param yql YQL with parameter and field name placeholders ({@code ?} and {@code {field.name}}, respectively)
+     *
      * @return YQL with real parameter names
      */
     protected String resolveParamNames(String yql) {
@@ -567,12 +469,5 @@ public abstract class YqlStatement<PARAMS, ENTITY extends Entity<ENTITY>, RESULT
         }
 
         return newYql.toString();
-    }
-
-    protected static abstract class Simple<PARAMS, ENTITY extends Entity<ENTITY>>
-            extends YqlStatement<PARAMS, ENTITY, ENTITY> {
-        public Simple(@NonNull Class<ENTITY> type) {
-            super(EntitySchema.of(type), EntitySchema.of(type));
-        }
     }
 }

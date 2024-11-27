@@ -135,7 +135,19 @@ public final class FindInStatement<IN, T extends Entity<T>, RESULT> extends Mult
             @Nullable OrderExpression<T> orderBy,
             @Nullable Integer limit
     ) {
-        super(schema, resultSchema);
+        this(schema, resultSchema, ids, filter, orderBy, limit, schema.getName());
+    }
+
+    protected FindInStatement(
+            EntitySchema<T> schema,
+            Schema<RESULT> resultSchema,
+            Iterable<? extends Entity.Id<T>> ids,
+            @Nullable FilterExpression<T> filter,
+            @Nullable OrderExpression<T> orderBy,
+            @Nullable Integer limit,
+            String tableName
+    ) {
+        super(schema, resultSchema, tableName);
 
         this.orderBy = orderBy;
         this.limit = limit;
@@ -160,7 +172,20 @@ public final class FindInStatement<IN, T extends Entity<T>, RESULT> extends Mult
             @Nullable OrderExpression<T> orderBy,
             @Nullable Integer limit
     ) {
-        super(schema, resultSchema);
+        this(schema, resultSchema, indexName, keys, filter, orderBy, limit, schema.getName());
+    }
+
+    protected <V> FindInStatement(
+            EntitySchema<T> schema,
+            Schema<RESULT> resultSchema,
+            String indexName,
+            Iterable<V> keys,
+            @Nullable FilterExpression<T> filter,
+            @Nullable OrderExpression<T> orderBy,
+            @Nullable Integer limit,
+            String tableName
+    ) {
+        super(schema, resultSchema, tableName);
 
         this.indexName = indexName;
         this.orderBy = orderBy;
