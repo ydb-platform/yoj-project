@@ -6,7 +6,7 @@ import tech.ydb.yoj.ExperimentalApi;
 import javax.annotation.Nullable;
 
 @ExperimentalApi(issue = "https://github.com/ydb-platform/yoj-project/issues/32")
-public record EntityDescriptor<E extends Entity<E>>(Class<E> clazz, @Nullable String tableName) {
+public record EntityDescriptor<E extends Entity<E>>(@NonNull Class<E> clazz, @Nullable String tableName) {
     public String getTableName(@NonNull EntitySchema<?> schema) {
         return tableName != null ? tableName : schema.getName();
     }

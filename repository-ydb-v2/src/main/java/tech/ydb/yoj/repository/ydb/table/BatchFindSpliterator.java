@@ -32,14 +32,6 @@ abstract class BatchFindSpliterator<R, T extends Entity<T>, ID extends Entity.Id
 
     protected abstract List<R> find(YqlStatementPart<?> part, YqlStatementPart<?>... otherParts);
 
-    BatchFindSpliterator(Class<T> entityType, int batchSize) {
-        this(entityType, null, batchSize);
-    }
-
-    BatchFindSpliterator(Class<T> entityType, ID partial, int batchSize) {
-        this(EntityIdSchema.ofEntity(entityType), partial, batchSize);
-    }
-
     BatchFindSpliterator(EntityIdSchema<ID> idSchema, ID partial, int batchSize) {
         this.batchSize = batchSize;
         this.idSchema = idSchema;
