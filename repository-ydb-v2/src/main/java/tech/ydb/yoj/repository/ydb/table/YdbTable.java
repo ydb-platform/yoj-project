@@ -3,7 +3,6 @@ package tech.ydb.yoj.repository.ydb.table;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Sets;
 import com.google.common.reflect.TypeToken;
-import lombok.Getter;
 import lombok.NonNull;
 import tech.ydb.yoj.DeprecationWarnings;
 import tech.ydb.yoj.databind.expression.FilterExpression;
