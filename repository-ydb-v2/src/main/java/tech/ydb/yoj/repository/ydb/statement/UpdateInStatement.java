@@ -37,7 +37,16 @@ public class UpdateInStatement<T extends Entity<T>, RESULT>
             Schema<RESULT> resultSchema,
             UpdateInStatementInput<T> in
     ) {
-        super(schema, resultSchema);
+        this(schema, resultSchema, in, schema.getName());
+    }
+
+    public UpdateInStatement(
+            EntitySchema<T> schema,
+            Schema<RESULT> resultSchema,
+            UpdateInStatementInput<T> in,
+            String tableName
+    ) {
+        super(schema, resultSchema, tableName);
 
         this.keyFields = collectKeyFields(in.ids);
         this.values = new HashMap<>(in.values.size());

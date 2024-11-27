@@ -10,6 +10,10 @@ public class InsertYqlStatement<PARAMS, ENTITY extends Entity<ENTITY>> extends M
         super(type);
     }
 
+    public InsertYqlStatement(Class<ENTITY> type, String tableName) {
+        super(type, tableName);
+    }
+
     @Override
     public QueryType getQueryType() {
         return QueryType.INSERT;
