@@ -10,6 +10,10 @@ public class DeleteByIdStatement<IN, T extends Entity<T>> extends MultipleVarsYq
         super(type);
     }
 
+    DeleteByIdStatement(Class<T> type, String tableName) {
+        super(type, tableName);
+    }
+
     @Override
     public QueryType getQueryType() {
         return QueryType.DELETE;

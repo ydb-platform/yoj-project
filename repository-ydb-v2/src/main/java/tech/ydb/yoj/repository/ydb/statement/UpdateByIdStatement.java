@@ -2,6 +2,7 @@ package tech.ydb.yoj.repository.ydb.statement;
 
 import tech.ydb.proto.ValueProtos;
 import tech.ydb.yoj.repository.db.Entity;
+import tech.ydb.yoj.repository.db.EntitySchema;
 import tech.ydb.yoj.repository.ydb.yql.YqlType;
 
 import java.util.Collection;
@@ -18,13 +19,17 @@ import static java.util.stream.Collectors.toUnmodifiableSet;
 import static java.util.stream.Stream.concat;
 
 public final class UpdateByIdStatement<ENTITY extends Entity<ENTITY>, ID extends Entity.Id<ENTITY>>
-        extends YqlStatement.Simple<UpdateModel.ById<ID>, ENTITY> {
+        extends YqlStatement<UpdateModel.ById<ID>, ENTITY, ENTITY> {
     private final Map<String, UpdateSetParam> setParams;
 
     private final Set<YqlStatementParam> idParams;
 
     public UpdateByIdStatement(Class<ENTITY> type, UpdateModel.ById<ID> model) {
-        super(type);
+        this(type, model, EntitySchema.of(type).getName());
+    }
+
+    public UpdateByIdStatement(Class<ENTITY> type, UpdateModel.ById<ID> model, String tableName) {
+        super(EntitySchema.of(type), EntitySchema.of(type), tableName);
         this.idParams = schema.flattenId().stream()
                 .map(c -> YqlStatementParam.required(YqlType.of(c), c.getName()))
                 .collect(toUnmodifiableSet());
