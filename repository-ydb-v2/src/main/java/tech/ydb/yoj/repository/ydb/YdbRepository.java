@@ -255,11 +255,16 @@ public class YdbRepository implements Repository {
             @Override
             public void create() {
                 String tableName = schema.getName();
-                getSchemaOperations().createTable(tableName, schema.flattenFields(), schema.flattenId(),
-                        extractHint(), schema.getGlobalIndexes(), schema.getTtlModifier(), schema.getChangefeeds());
-                if (!schema.isDynamic()) {
-                    entityClassesByTableName.put(tableName, c);
-                }
+                getSchemaOperations().createTable(
+                        tableName,
+                        schema.flattenFields(),
+                        schema.flattenId(),
+                        extractHint(),
+                        schema.getGlobalIndexes(),
+                        schema.getTtlModifier(),
+                        schema.getChangefeeds()
+                );
+                entityClassesByTableName.put(tableName, c);
             }
 
             private YdbTableHint extractHint() {
@@ -283,12 +288,10 @@ public class YdbRepository implements Repository {
             public boolean exists() {
                 String tableName = schema.getName();
                 boolean exists = getSchemaOperations().hasTable(tableName);
-                if (!schema.isDynamic()) {
-                    if (exists) {
-                        entityClassesByTableName.put(tableName, c);
-                    } else {
-                        entityClassesByTableName.remove(tableName);
-                    }
+                if (exists) {
+                    entityClassesByTableName.put(tableName, c);
+                } else {
+                    entityClassesByTableName.remove(tableName);
                 }
                 return exists;
             }
