@@ -20,8 +20,6 @@ import tech.ydb.yoj.databind.schema.reflect.Reflector;
 import tech.ydb.yoj.databind.schema.reflect.StdReflector;
 
 import javax.annotation.Nullable;
-import java.lang.annotation.Retention;
-import java.lang.annotation.RetentionPolicy;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Type;
 import java.time.Duration;
@@ -94,7 +92,7 @@ public abstract class Schema<T> {
         this.reflectType = reflector.reflectRootType(type);
 
         this.schemaKey = key;
-        this.staticName = type.isAnnotationPresent(Dynamic.class) ? null : namingStrategy.getNameForClass(type);
+        this.staticName = namingStrategy.getNameForClass(type);
 
         this.fields = reflectType.getFields().stream().map(this::newRootJavaField).toList();
         recurseFields(this.fields)
@@ -105,6 +103,32 @@ public abstract class Schema<T> {
         this.globalIndexes = prepareIndexes(collectIndexes(type));
         this.ttlModifier = prepareTtlModifier(extractTtlModifier(type));
         this.changefeeds = prepareChangefeeds(collectChangefeeds(type));
+    }
+    
+    protected Schema(Schema<?> schema, String subSchemaFieldPath) {
+        JavaField subSchemaField = schema.getField(subSchemaFieldPath);
+
+        @SuppressWarnings("unchecked") ReflectType<T> rt = (ReflectType<T>) subSchemaField.field.getReflectType();
+        this.reflectType = rt;
+
+        this.schemaKey = schema.schemaKey.withClazz(reflectType.getRawType());
+
+        this.staticName = schema.staticName;
+        this.globalIndexes = schema.globalIndexes;
+
+        if (subSchemaField.fields != null) {
+            this.fields = subSchemaField.fields.stream().map(this::newRootJavaField).toList();
+        } else {
+            if (subSchemaField.getCustomValueTypeInfo() != null) {
+                var dummyField = new JavaField(new DummyCustomValueSubField(subSchemaField), subSchemaField, __ -> true);
+                dummyField.setName(subSchemaField.getName());
+                this.fields = List.of(dummyField);
+            } else {
+                this.fields = List.of();
+            }
+        }
+        this.ttlModifier = schema.ttlModifier;
+        this.changefeeds = schema.changefeeds;
     }
 
     private void validateFieldNames() {
@@ -187,32 +211,6 @@ public abstract class Schema<T> {
                 .toList();
     }
 
-    protected Schema(Schema<?> schema, String subSchemaFieldPath) {
-        JavaField subSchemaField = schema.getField(subSchemaFieldPath);
-
-        @SuppressWarnings("unchecked") ReflectType<T> rt = (ReflectType<T>) subSchemaField.field.getReflectType();
-        reflectType = rt;
-
-        schemaKey = schema.schemaKey.withClazz(reflectType.getRawType());
-
-        staticName = schema.staticName;
-        globalIndexes = schema.globalIndexes;
-
-        if (subSchemaField.fields != null) {
-            fields = subSchemaField.fields.stream().map(this::newRootJavaField).toList();
-        } else {
-            if (subSchemaField.getCustomValueTypeInfo() != null) {
-                var dummyField = new JavaField(new DummyCustomValueSubField(subSchemaField), subSchemaField, __ -> true);
-                dummyField.setName(subSchemaField.getName());
-                fields = List.of(dummyField);
-            } else {
-                fields = List.of();
-            }
-        }
-        ttlModifier = schema.ttlModifier;
-        changefeeds = schema.changefeeds;
-    }
-
     private static Stream<JavaField> recurseFields(Collection<JavaField> fields) {
         return fields == null
                 ? Stream.empty()
@@ -278,11 +276,7 @@ public abstract class Schema<T> {
      * @return the table name for data binding
      */
     public final String getName() {
-        return staticName != null ? staticName : getNamingStrategy().getNameForClass(getType());
-    }
-
-    public final boolean isDynamic() {
-        return staticName == null;
+        return staticName;
     }
 
     public final List<JavaField> flattenFields() {
@@ -386,9 +380,7 @@ public abstract class Schema<T> {
             schemaName = getClass().getName();
         }
 
-        return schemaName
-                + (isDynamic() ? ", dynamic" : " \"" + staticName + "\"")
-                + " [type=" + getType().getName() + "]";
+        return schemaName + " \"" + staticName + "\" [type=" + getType().getName() + "]";
     }
 
     private static final class DummyCustomValueSubField implements ReflectField {
@@ -815,13 +807,5 @@ public abstract class Schema<T> {
         Duration retentionPeriod;
 
         boolean initialScan;
-    }
-
-    /**
-     * Annotation for schemas with dynamic names (the {@link NamingStrategy} can return different names
-     * for different invocations.)
-     */
-    @Retention(RetentionPolicy.RUNTIME)
-    public @interface Dynamic {
     }
 }
