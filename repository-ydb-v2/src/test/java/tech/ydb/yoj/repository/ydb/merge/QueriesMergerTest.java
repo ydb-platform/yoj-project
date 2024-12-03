@@ -3,11 +3,13 @@ package tech.ydb.yoj.repository.ydb.merge;
 import org.assertj.core.api.Assertions;
 import org.junit.Test;
 import tech.ydb.yoj.repository.db.Entity;
+import tech.ydb.yoj.repository.db.EntitySchema;
 import tech.ydb.yoj.repository.db.cache.RepositoryCache;
 import tech.ydb.yoj.repository.db.cache.RepositoryCacheImpl;
 import tech.ydb.yoj.repository.test.sample.model.Primitive;
 import tech.ydb.yoj.repository.test.sample.model.Project;
 import tech.ydb.yoj.repository.ydb.YdbRepository;
+import tech.ydb.yoj.repository.ydb.statement.InsertYqlStatement;
 import tech.ydb.yoj.repository.ydb.statement.Statement;
 import tech.ydb.yoj.repository.ydb.statement.YqlStatement;
 
@@ -149,7 +151,9 @@ public class QueriesMergerTest {
 
     @SuppressWarnings("unchecked")
     private <T extends Entity<T>> YdbRepository.Query<?> insert(T p) {
-        return new YdbRepository.Query<>(YqlStatement.insert((Class<T>) p.getClass()), p);
+        Class<T> type = (Class<T>) p.getClass();
+        EntitySchema<T> schema = EntitySchema.of(type);
+        return new YdbRepository.Query<>(new InsertYqlStatement<>(schema), p);
     }
 
     @SuppressWarnings("unchecked")

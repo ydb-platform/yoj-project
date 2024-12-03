@@ -58,12 +58,6 @@ public abstract class YqlStatement<PARAMS, ENTITY extends Entity<ENTITY>, RESULT
         this.tableName = tableName;
     }
 
-    public static <PARAMS, ENTITY extends Entity<ENTITY>> Statement<PARAMS, ENTITY> insert(
-            Class<ENTITY> type
-    ) {
-        return new InsertYqlStatement<>(type);
-    }
-
     public static <ENTITY extends Entity<ENTITY>, ID extends Entity.Id<ENTITY>> Statement<UpdateModel.ById<ID>, ?> update(
             Class<ENTITY> type,
             UpdateModel.ById<ID> model

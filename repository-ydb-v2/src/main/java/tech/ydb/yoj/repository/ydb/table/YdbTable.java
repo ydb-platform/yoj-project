@@ -25,6 +25,7 @@ import tech.ydb.yoj.repository.ydb.bulk.BulkMapperImpl;
 import tech.ydb.yoj.repository.ydb.readtable.EntityIdKeyMapper;
 import tech.ydb.yoj.repository.ydb.readtable.ReadTableMapper;
 import tech.ydb.yoj.repository.ydb.statement.FindAllYqlStatement;
+import tech.ydb.yoj.repository.ydb.statement.InsertYqlStatement;
 import tech.ydb.yoj.repository.ydb.statement.Statement;
 import tech.ydb.yoj.repository.ydb.statement.UpdateInStatement;
 import tech.ydb.yoj.repository.ydb.statement.UpdateModel;
@@ -421,7 +422,7 @@ public class YdbTable<T extends Entity<T>> implements Table<T> {
     @Override
     public T insert(T t) {
         T entityToSave = t.preSave();
-        executor.pendingExecute(YqlStatement.insert(type), entityToSave);
+        executor.pendingExecute(new InsertYqlStatement<>(schema), entityToSave);
         executor.getTransactionLocal().firstLevelCache().put(entityToSave);
         executor.getTransactionLocal().projectionCache().save(entityToSave);
         return t;
