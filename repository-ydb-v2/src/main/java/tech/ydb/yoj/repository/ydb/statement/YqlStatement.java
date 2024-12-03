@@ -167,27 +167,6 @@ public abstract class YqlStatement<PARAMS, ENTITY extends Entity<ENTITY>, RESULT
         return new FindInStatement<>(EntitySchema.of(type), ViewSchema.of(viewType), indexName, keys, filter, orderBy, limit);
     }
 
-    public static <PARAMS, ENTITY extends Entity<ENTITY>> Statement<PARAMS, ENTITY> findAll(
-            Class<ENTITY> type
-    ) {
-        EntitySchema<ENTITY> schema = EntitySchema.of(type);
-        return findAll(schema, schema);
-    }
-
-    public static <PARAMS, ENTITY extends Entity<ENTITY>, VIEW extends View> Statement<PARAMS, VIEW> findAll(
-            Class<ENTITY> type,
-            Class<VIEW> viewType
-    ) {
-        return findAll(EntitySchema.of(type), ViewSchema.of(viewType));
-    }
-
-    private static <PARAMS, ENTITY extends Entity<ENTITY>, RESULT> Statement<PARAMS, RESULT> findAll(
-            EntitySchema<ENTITY> schema,
-            Schema<RESULT> outSchema
-    ) {
-        return new FindAllYqlStatement<>(schema, outSchema);
-    }
-
     public static <ENTITY extends Entity<ENTITY>> Statement<Collection<? extends YqlStatementPart<?>>, ENTITY> find(
             Class<ENTITY> type,
             Collection<? extends YqlStatementPart<?>> parts

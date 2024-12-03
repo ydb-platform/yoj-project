@@ -24,6 +24,7 @@ import tech.ydb.yoj.repository.ydb.bulk.BulkMapper;
 import tech.ydb.yoj.repository.ydb.bulk.BulkMapperImpl;
 import tech.ydb.yoj.repository.ydb.readtable.EntityIdKeyMapper;
 import tech.ydb.yoj.repository.ydb.readtable.ReadTableMapper;
+import tech.ydb.yoj.repository.ydb.statement.FindAllYqlStatement;
 import tech.ydb.yoj.repository.ydb.statement.Statement;
 import tech.ydb.yoj.repository.ydb.statement.UpdateInStatement;
 import tech.ydb.yoj.repository.ydb.statement.UpdateModel;
@@ -84,7 +85,8 @@ public class YdbTable<T extends Entity<T>> implements Table<T> {
 
     @Override
     public List<T> findAll() {
-        return postLoad(executor.execute(YqlStatement.findAll(type), null));
+        var statement = new FindAllYqlStatement<>(schema, schema);
+        return postLoad(executor.execute(statement, null));
     }
 
     /**
@@ -174,7 +176,8 @@ public class YdbTable<T extends Entity<T>> implements Table<T> {
 
     @Override
     public <V extends View> List<V> findAll(Class<V> viewType) {
-        return executor.execute(YqlStatement.findAll(type, viewType), null);
+        var statement = new FindAllYqlStatement<>(schema, ViewSchema.of(viewType));
+        return executor.execute(statement, null);
     }
 
     @Override
