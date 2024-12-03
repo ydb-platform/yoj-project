@@ -2,6 +2,7 @@ package tech.ydb.yoj.repository.ydb.statement;
 
 import tech.ydb.proto.ValueProtos;
 import tech.ydb.yoj.repository.db.Entity;
+import tech.ydb.yoj.repository.db.EntityDescriptor;
 import tech.ydb.yoj.repository.db.EntitySchema;
 import tech.ydb.yoj.repository.ydb.yql.YqlType;
 
@@ -25,11 +26,11 @@ public final class UpdateByIdStatement<ENTITY extends Entity<ENTITY>, ID extends
     private final Set<YqlStatementParam> idParams;
 
     public UpdateByIdStatement(Class<ENTITY> type, UpdateModel.ById<ID> model) {
-        this(type, model, EntitySchema.of(type).getName());
+        this(EntityDescriptor.of(type), model);
     }
 
-    public UpdateByIdStatement(Class<ENTITY> type, UpdateModel.ById<ID> model, String tableName) {
-        super(EntitySchema.of(type), EntitySchema.of(type), tableName);
+    public UpdateByIdStatement(EntityDescriptor<ENTITY> descriptor, UpdateModel.ById<ID> model) {
+        super(EntitySchema.of(descriptor.clazz()), EntitySchema.of(descriptor.clazz()), descriptor.getTableName(EntitySchema.of(descriptor.clazz())));
         this.idParams = schema.flattenId().stream()
                 .map(c -> YqlStatementParam.required(YqlType.of(c), c.getName()))
                 .collect(toUnmodifiableSet());

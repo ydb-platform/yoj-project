@@ -12,7 +12,7 @@ import java.util.function.Function;
 import static java.util.Comparator.comparing;
 import static java.util.stream.Collectors.joining;
 
-class CountAllStatement<ENTITY extends Entity<ENTITY>> extends PredicateStatement<Collection<? extends YqlStatementPart<?>>, ENTITY, Count> {
+public class CountAllStatement<ENTITY extends Entity<ENTITY>> extends PredicateStatement<Collection<? extends YqlStatementPart<?>>, ENTITY, Count> {
     private final Collection<? extends YqlStatementPart<?>> parts;
 
     public CountAllStatement(

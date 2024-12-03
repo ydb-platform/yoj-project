@@ -32,13 +32,9 @@ abstract class BatchFindSpliterator<R, T extends Entity<T>, ID extends Entity.Id
 
     protected abstract List<R> find(YqlStatementPart<?> part, YqlStatementPart<?>... otherParts);
 
-    BatchFindSpliterator(Class<T> entityType, int batchSize) {
-        this(entityType, null, batchSize);
-    }
-
-    BatchFindSpliterator(Class<T> entityType, ID partial, int batchSize) {
+    BatchFindSpliterator(EntityIdSchema<ID> idSchema, ID partial, int batchSize) {
         this.batchSize = batchSize;
-        this.idSchema = EntityIdSchema.ofEntity(entityType);
+        this.idSchema = idSchema;
         this.orderById = YqlOrderBy.orderBy(this.idSchema
                 .flattenFields().stream()
                 .map(s -> new YqlOrderBy.SortKey(s.getPath(), YqlOrderBy.SortOrder.ASC))

@@ -15,6 +15,7 @@ import tech.ydb.core.StatusCode;
 import tech.ydb.core.UnexpectedResultException;
 import tech.ydb.yoj.databind.DbType;
 import tech.ydb.yoj.repository.db.Entity;
+import tech.ydb.yoj.repository.db.EntityDescriptor;
 import tech.ydb.yoj.repository.db.EntitySchema;
 import tech.ydb.yoj.repository.ydb.YdbConfig;
 import tech.ydb.yoj.repository.ydb.YdbRepository;
@@ -42,7 +43,7 @@ import static java.util.stream.Collectors.toSet;
 public final class YdbSchemaCompatibilityChecker {
     private static final Logger log = LoggerFactory.getLogger(YdbSchemaCompatibilityChecker.class);
 
-    private final List<Class<? extends Entity>> entities;
+    private final List<EntityDescriptor<? extends Entity>> entities;
     private final Config config;
     private final YdbRepository repository;
     private final YdbConfig repositoryConfig;
@@ -51,12 +52,23 @@ public final class YdbSchemaCompatibilityChecker {
     private final List<String> canExecuteMessages = new ArrayList<>();
     private final List<String> incompatibleMessages = new ArrayList<>();
 
+    public YdbSchemaCompatibilityChecker(Map<String, Class<? extends Entity>> entities, YdbRepository repository) {
+        this(entities, repository, Config.DEFAULT);
+    }
+
     public YdbSchemaCompatibilityChecker(List<Class<? extends Entity>> entities, YdbRepository repository) {
         this(entities, repository, Config.DEFAULT);
     }
 
     public YdbSchemaCompatibilityChecker(List<Class<? extends Entity>> entities, YdbRepository repository, Config config) {
-        this.entities = entities;
+        this.entities = toDescriptors(entities);
+        this.config = config;
+        this.repository = repository;
+        this.repositoryConfig = this.repository.getConfig();
+    }
+
+    public YdbSchemaCompatibilityChecker(Map<String, Class<? extends Entity>> entities, YdbRepository repository, Config config) {
+        this.entities = toDescriptors(entities);
         this.config = config;
         this.repository = repository;
         this.repositoryConfig = this.repository.getConfig();
@@ -153,10 +165,10 @@ public final class YdbSchemaCompatibilityChecker {
     }
 
     @SuppressWarnings("unchecked")
-    private YdbSchemaOperations.Table tableForEntity(Class<? extends Entity> c) {
-        EntitySchema<?> schema = EntitySchema.of(c);
+    private YdbSchemaOperations.Table tableForEntity(EntityDescriptor<? extends Entity<?>> c) {
+        EntitySchema<?> schema = EntitySchema.of(c.clazz());
         return repository.getSchemaOperations()
-                .describeTable(schema.getName(), schema.flattenFields(), schema.flattenId(),
+                .describeTable(c.getTableName(schema), schema.flattenFields(), schema.flattenId(),
                         schema.getGlobalIndexes(), schema.getTtlModifier());
     }
 
@@ -464,6 +476,18 @@ public final class YdbSchemaCompatibilityChecker {
         String realName = globalName.substring(tablespace.length());
         return prefixes.stream()
                 .anyMatch(realName::startsWith);
+    }
+
+    private static List<EntityDescriptor<? extends Entity>> toDescriptors(List<Class<? extends Entity>> entities) {
+        List<EntityDescriptor<? extends Entity>> descriptors = new ArrayList<>();
+        entities.forEach(e -> descriptors.add(EntityDescriptor.of(e)));
+        return descriptors;
+    }
+
+    private static List<EntityDescriptor<? extends Entity>> toDescriptors(Map<String, Class<? extends Entity>> entities) {
+        List<EntityDescriptor<? extends Entity>> descriptors = new ArrayList<>();
+        entities.forEach((n, e) -> descriptors.add(new EntityDescriptor<>(e, n)));
+        return descriptors;
     }
 
     @Value

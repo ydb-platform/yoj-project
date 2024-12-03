@@ -138,7 +138,7 @@ public final class FindInStatement<IN, T extends Entity<T>, RESULT> extends Mult
         this(schema, resultSchema, ids, filter, orderBy, limit, schema.getName());
     }
 
-    protected FindInStatement(
+    public FindInStatement(
             EntitySchema<T> schema,
             Schema<RESULT> resultSchema,
             Iterable<? extends Entity.Id<T>> ids,
@@ -175,7 +175,7 @@ public final class FindInStatement<IN, T extends Entity<T>, RESULT> extends Mult
         this(schema, resultSchema, indexName, keys, filter, orderBy, limit, schema.getName());
     }
 
-    protected <V> FindInStatement(
+    public <V> FindInStatement(
             EntitySchema<T> schema,
             Schema<RESULT> resultSchema,
             String indexName,
