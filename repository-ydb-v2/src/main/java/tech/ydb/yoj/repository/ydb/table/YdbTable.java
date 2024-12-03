@@ -25,6 +25,7 @@ import tech.ydb.yoj.repository.ydb.bulk.BulkMapperImpl;
 import tech.ydb.yoj.repository.ydb.readtable.EntityIdKeyMapper;
 import tech.ydb.yoj.repository.ydb.readtable.ReadTableMapper;
 import tech.ydb.yoj.repository.ydb.statement.FindAllYqlStatement;
+import tech.ydb.yoj.repository.ydb.statement.FindRangeStatement;
 import tech.ydb.yoj.repository.ydb.statement.FindYqlStatement;
 import tech.ydb.yoj.repository.ydb.statement.InsertYqlStatement;
 import tech.ydb.yoj.repository.ydb.statement.Statement;
@@ -243,12 +244,15 @@ public class YdbTable<T extends Entity<T>> implements Table<T> {
 
     @Override
     public <ID extends Entity.Id<T>> List<T> find(Range<ID> range) {
-        return postLoad(executor.execute(YqlStatement.findRange(type, range), range));
+        var statement = new FindRangeStatement<>(schema, schema, range);
+        return postLoad(executor.execute(statement, range));
     }
 
     @Override
     public <V extends View, ID extends Entity.Id<T>> List<V> find(Class<V> viewType, Range<ID> range) {
-        return executor.execute(YqlStatement.findRange(type, viewType, range), range);
+        ViewSchema<V> viewSchema = ViewSchema.of(viewType);
+        var statement = new FindRangeStatement<>(schema, viewSchema, range);
+        return executor.execute(statement, range);
     }
 
     @Override
