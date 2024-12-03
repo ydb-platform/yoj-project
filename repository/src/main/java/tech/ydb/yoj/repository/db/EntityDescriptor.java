@@ -11,6 +11,10 @@ public record EntityDescriptor<E extends Entity<E>>(@NonNull Class<E> clazz, @Nu
         return tableName != null ? tableName : schema.getName();
     }
 
+    public EntitySchema<E> toSchema() {
+        return EntitySchema.of(clazz);
+    }
+
     public static <E extends Entity<E>> EntityDescriptor<E> of(@NonNull Class<E> clazz) {
         return new EntityDescriptor<>(clazz, null);
     }

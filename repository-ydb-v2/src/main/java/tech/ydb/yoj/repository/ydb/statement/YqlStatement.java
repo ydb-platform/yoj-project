@@ -256,7 +256,7 @@ public abstract class YqlStatement<PARAMS, ENTITY extends Entity<ENTITY>, RESULT
         return find(schema, resultSchema, distinct, parts, schema.getName());
     }
 
-    static <ENTITY extends Entity<ENTITY>, RESULT> Statement<Collection<? extends YqlStatementPart<?>>, RESULT> find(
+    public static <ENTITY extends Entity<ENTITY>, RESULT> Statement<Collection<? extends YqlStatementPart<?>>, RESULT> find(
             EntitySchema<ENTITY> schema,
             Schema<RESULT> resultSchema,
             boolean distinct,
@@ -286,7 +286,7 @@ public abstract class YqlStatement<PARAMS, ENTITY extends Entity<ENTITY>, RESULT
         return new CountAllStatement<>(schema, ObjectSchema.of(Count.class), parts, YqlStatement::predicateFrom);
     }
 
-    protected static YqlPredicate predicateFrom(Collection<? extends YqlStatementPart<?>> parts) {
+    public static YqlPredicate predicateFrom(Collection<? extends YqlStatementPart<?>> parts) {
         return parts.stream()
                 .filter(p -> p instanceof YqlPredicate)
                 .map(YqlPredicate.class::cast)

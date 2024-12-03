@@ -10,7 +10,7 @@ public class DeleteByIdStatement<IN, T extends Entity<T>> extends MultipleVarsYq
         super(type);
     }
 
-    DeleteByIdStatement(Class<T> type, String tableName) {
+    public DeleteByIdStatement(Class<T> type, String tableName) {
         super(type, tableName);
     }
 

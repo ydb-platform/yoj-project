@@ -4,6 +4,7 @@ import com.google.protobuf.NullValue;
 import tech.ydb.proto.ValueProtos;
 import tech.ydb.yoj.databind.schema.Schema;
 import tech.ydb.yoj.repository.db.Entity;
+import tech.ydb.yoj.repository.db.EntityDescriptor;
 import tech.ydb.yoj.repository.db.EntitySchema;
 import tech.ydb.yoj.repository.ydb.yql.YqlType;
 
@@ -12,14 +13,21 @@ import java.util.Map;
 
 public final class BulkMapperImpl<E extends Entity<E>> implements BulkMapper<E> {
     private final EntitySchema<E> srcSchema;
+    private final String tableName;
+
+    public BulkMapperImpl(EntityDescriptor<E> descriptor) {
+        this.srcSchema = descriptor.toSchema();
+        this.tableName = descriptor.getTableName(srcSchema);
+    }
 
     public BulkMapperImpl(EntitySchema<E> srcSchema) {
         this.srcSchema = srcSchema;
+        this.tableName = srcSchema.getName();
     }
 
     @Override
     public String getTableName(String tableSpace) {
-        return tableSpace + srcSchema.getName();
+        return tableSpace + tableName;
     }
 
     @Override

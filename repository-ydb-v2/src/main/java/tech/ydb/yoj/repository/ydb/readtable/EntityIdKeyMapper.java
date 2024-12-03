@@ -18,9 +18,19 @@ public final class EntityIdKeyMapper<E extends Entity<E>, ID extends Entity.Id<E
     private final Schema<RESULT> dstSchema;
     private final ResultSetReader<RESULT> resultSetReader;
 
+    private final String tableName;
+
     public EntityIdKeyMapper(EntitySchema<E> srcSchema, Schema<RESULT> dstSchema) {
         this.srcSchema = srcSchema;
         this.dstSchema = dstSchema;
+        this.resultSetReader = new ResultSetReader<>(dstSchema);
+        this.tableName = srcSchema.getName();
+    }
+
+    public EntityIdKeyMapper(EntitySchema<E> srcSchema, Schema<RESULT> dstSchema, String tableName) {
+        this.srcSchema = srcSchema;
+        this.dstSchema = dstSchema;
+        this.tableName = tableName;
         this.resultSetReader = new ResultSetReader<>(dstSchema);
     }
 
@@ -45,7 +55,7 @@ public final class EntityIdKeyMapper<E extends Entity<E>, ID extends Entity.Id<E
 
     @Override
     public String getTableName(String tableSpace) {
-        return tableSpace + srcSchema.getName();
+        return tableSpace + tableName;
     }
 
     @Override
