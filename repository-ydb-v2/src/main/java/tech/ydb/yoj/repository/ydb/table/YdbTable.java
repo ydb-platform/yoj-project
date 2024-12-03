@@ -54,18 +54,21 @@ import static java.util.stream.Stream.concat;
 import static tech.ydb.yoj.repository.db.EntityExpressions.defaultOrder;
 
 public class YdbTable<T extends Entity<T>> implements Table<T> {
-    private final QueryExecutor executor;
     @Getter
     private final Class<T> type;
+    private final QueryExecutor executor;
+    private final EntitySchema<T> schema;
 
     public YdbTable(Class<T> type, QueryExecutor executor) {
         this.type = type;
         this.executor = new CheckingQueryExecutor(executor);
+        this.schema = EntitySchema.of(type);
     }
 
     protected YdbTable(QueryExecutor executor) {
-        this.executor = new CheckingQueryExecutor(executor);
         this.type = resolveEntityType();
+        this.executor = new CheckingQueryExecutor(executor);
+        this.schema = EntitySchema.of(type);
     }
 
     @SuppressWarnings("unchecked")
@@ -181,32 +184,28 @@ public class YdbTable<T extends Entity<T>> implements Table<T> {
 
     @Override
     public void bulkUpsert(List<T> input, BulkParams params) {
-        var entitySchema = EntitySchema.of(getType());
-        var mapper = new BulkMapperImpl<>(entitySchema);
+        var mapper = new BulkMapperImpl<>(schema);
         executor.bulkUpsert(mapper, input, params);
     }
 
     @Override
     public <ID extends Entity.Id<T>> Stream<T> readTable(ReadTableParams<ID> params) {
-        EntitySchema<T> entitySchema = EntitySchema.of(getType());
-        ReadTableMapper<ID, T> mapper = new EntityIdKeyMapper<>(entitySchema, entitySchema);
+        ReadTableMapper<ID, T> mapper = new EntityIdKeyMapper<>(schema, schema);
         return readTableStream(mapper, params)
                 .map(T::postLoad);
     }
 
     @Override
     public <ID extends Entity.Id<T>> Stream<ID> readTableIds(ReadTableParams<ID> params) {
-        EntitySchema<T> entitySchema = EntitySchema.of(getType());
-        EntityIdSchema<ID> idSchema = entitySchema.getIdSchema();
-        ReadTableMapper<ID, ID> mapper = new EntityIdKeyMapper<>(entitySchema, idSchema);
+        EntityIdSchema<ID> idSchema = schema.getIdSchema();
+        ReadTableMapper<ID, ID> mapper = new EntityIdKeyMapper<>(schema, idSchema);
         return readTableStream(mapper, params);
     }
 
     @Override
     public <V extends ViewId<T>, ID extends Id<T>> Stream<V> readTable(Class<V> viewClass, ReadTableParams<ID> params) {
-        EntitySchema<T> entitySchema = EntitySchema.of(getType());
         ViewSchema<V> viewSchema = ViewSchema.of(viewClass);
-        ReadTableMapper<ID, V> mapper = new EntityIdKeyMapper<>(entitySchema, viewSchema);
+        ReadTableMapper<ID, V> mapper = new EntityIdKeyMapper<>(schema, viewSchema);
         return readTableStream(mapper, params);
     }
 
@@ -547,7 +546,7 @@ public class YdbTable<T extends Entity<T>> implements Table<T> {
         var params = new UpdateInStatement.UpdateInStatementInput<>(ids, changeset.toMap());
 
         executor.pendingExecute(
-                new UpdateInStatement<>(EntitySchema.of(type), EntitySchema.of(type), params),
+                new UpdateInStatement<>(schema, schema, params),
                 params
         );
     }
