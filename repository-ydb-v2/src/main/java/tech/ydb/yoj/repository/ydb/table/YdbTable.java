@@ -25,6 +25,7 @@ import tech.ydb.yoj.repository.ydb.bulk.BulkMapperImpl;
 import tech.ydb.yoj.repository.ydb.readtable.EntityIdKeyMapper;
 import tech.ydb.yoj.repository.ydb.readtable.ReadTableMapper;
 import tech.ydb.yoj.repository.ydb.statement.FindAllYqlStatement;
+import tech.ydb.yoj.repository.ydb.statement.FindYqlStatement;
 import tech.ydb.yoj.repository.ydb.statement.InsertYqlStatement;
 import tech.ydb.yoj.repository.ydb.statement.Statement;
 import tech.ydb.yoj.repository.ydb.statement.UpdateInStatement;
@@ -228,14 +229,15 @@ public class YdbTable<T extends Entity<T>> implements Table<T> {
             throw new IllegalArgumentException("Cannot use partial id in find method");
         }
         return executor.getTransactionLocal().firstLevelCache().get(id, __ -> {
-            List<T> res = postLoad(executor.execute(YqlStatement.find(type), id));
+            List<T> res = postLoad(executor.execute(new FindYqlStatement<>(schema, schema), id));
             return res.isEmpty() ? null : res.get(0);
         });
     }
 
     @Override
     public <V extends View> V find(Class<V> viewType, Entity.Id<T> id) {
-        List<V> res = executor.execute(YqlStatement.find(type, viewType), id);
+        ViewSchema<V> viewSchema = ViewSchema.of(viewType);
+        List<V> res = executor.execute(new FindYqlStatement<>(schema, viewSchema), id);
         return res.isEmpty() ? null : res.get(0);
     }
 
@@ -455,7 +457,7 @@ public class YdbTable<T extends Entity<T>> implements Table<T> {
      * @param <ID> entity ID type
      */
     public <ID extends Id<T>> void migrate(ID id) {
-        List<T> foundRaw = executor.execute(YqlStatement.find(type), id);
+        List<T> foundRaw = executor.execute(new FindYqlStatement<>(schema, schema), id);
         if (foundRaw.isEmpty()) {
             return;
         }

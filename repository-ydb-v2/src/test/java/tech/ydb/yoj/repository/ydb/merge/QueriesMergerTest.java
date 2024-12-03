@@ -9,6 +9,7 @@ import tech.ydb.yoj.repository.db.cache.RepositoryCacheImpl;
 import tech.ydb.yoj.repository.test.sample.model.Primitive;
 import tech.ydb.yoj.repository.test.sample.model.Project;
 import tech.ydb.yoj.repository.ydb.YdbRepository;
+import tech.ydb.yoj.repository.ydb.statement.FindYqlStatement;
 import tech.ydb.yoj.repository.ydb.statement.InsertYqlStatement;
 import tech.ydb.yoj.repository.ydb.statement.Statement;
 import tech.ydb.yoj.repository.ydb.statement.UpsertYqlStatement;
@@ -159,7 +160,8 @@ public class QueriesMergerTest {
 
     @SuppressWarnings("unchecked")
     private <T extends Entity<T>> YdbRepository.Query<?> find(T p) {
-        return new YdbRepository.Query<>(YqlStatement.find((Class<T>) p.getClass()), p.getId());
+        var schema = EntitySchema.of((Class<T>) p.getClass());
+        return new YdbRepository.Query<>(new FindYqlStatement<>(schema, schema), p.getId());
     }
 
     @SuppressWarnings("unchecked")

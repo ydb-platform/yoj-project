@@ -17,10 +17,6 @@ public class FindYqlStatement<PARAMS, ENTITY extends Entity<ENTITY>, RESULT> ext
         super(schema, resultSchema);
     }
 
-    public FindYqlStatement(@NonNull EntitySchema<ENTITY> schema, @NonNull Schema<RESULT> resultSchema, String tableName) {
-        super(schema, resultSchema, tableName);
-    }
-
     @Override
     public List<YqlStatementParam> getParams() {
         return schema.flattenId().stream()

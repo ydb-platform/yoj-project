@@ -65,26 +65,6 @@ public abstract class YqlStatement<PARAMS, ENTITY extends Entity<ENTITY>, RESULT
         return new UpdateByIdStatement<>(type, model);
     }
 
-    public static <PARAMS, ENTITY extends Entity<ENTITY>> Statement<PARAMS, ENTITY> find(
-            Class<ENTITY> type
-    ) {
-        EntitySchema<ENTITY> schema = EntitySchema.of(type);
-        return find(schema, schema);
-    }
-
-    public static <PARAMS, ENTITY extends Entity<ENTITY>, VIEW extends View> Statement<PARAMS, VIEW> find(
-            Class<ENTITY> type,
-            Class<VIEW> viewType
-    ) {
-        return find(EntitySchema.of(type), ViewSchema.of(viewType));
-    }
-
-    private static <PARAMS, ENTITY extends Entity<ENTITY>, RESULT> Statement<PARAMS, RESULT> find(
-            EntitySchema<ENTITY> schema,
-            Schema<RESULT> resultSchema) {
-        return new FindYqlStatement<>(schema, resultSchema);
-    }
-
     public static <ENTITY extends Entity<ENTITY>, ID extends Entity.Id<ENTITY>> Statement<Range<ID>, ENTITY> findRange(
             Class<ENTITY> type,
             Range<ID> range
