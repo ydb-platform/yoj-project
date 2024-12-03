@@ -29,6 +29,7 @@ import tech.ydb.yoj.repository.ydb.statement.InsertYqlStatement;
 import tech.ydb.yoj.repository.ydb.statement.Statement;
 import tech.ydb.yoj.repository.ydb.statement.UpdateInStatement;
 import tech.ydb.yoj.repository.ydb.statement.UpdateModel;
+import tech.ydb.yoj.repository.ydb.statement.UpsertYqlStatement;
 import tech.ydb.yoj.repository.ydb.statement.YqlStatement;
 import tech.ydb.yoj.repository.ydb.yql.YqlLimit;
 import tech.ydb.yoj.repository.ydb.yql.YqlListingQuery;
@@ -431,7 +432,7 @@ public class YdbTable<T extends Entity<T>> implements Table<T> {
     @Override
     public T save(T t) {
         T entityToSave = t.preSave();
-        executor.pendingExecute(YqlStatement.save(type), entityToSave);
+        executor.pendingExecute(new UpsertYqlStatement<>(schema), entityToSave);
         executor.getTransactionLocal().firstLevelCache().put(entityToSave);
         executor.getTransactionLocal().projectionCache().save(entityToSave);
         return t;
@@ -460,7 +461,7 @@ public class YdbTable<T extends Entity<T>> implements Table<T> {
         }
         T rawEntity = foundRaw.get(0);
         T entityToSave = rawEntity.postLoad().preSave();
-        executor.pendingExecute(YqlStatement.save(type), entityToSave);
+        executor.pendingExecute(new UpsertYqlStatement<>(schema), entityToSave);
         executor.getTransactionLocal().projectionCache().save(entityToSave);
     }
 

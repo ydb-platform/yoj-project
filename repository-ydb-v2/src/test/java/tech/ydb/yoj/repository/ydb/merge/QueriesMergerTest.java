@@ -11,6 +11,7 @@ import tech.ydb.yoj.repository.test.sample.model.Project;
 import tech.ydb.yoj.repository.ydb.YdbRepository;
 import tech.ydb.yoj.repository.ydb.statement.InsertYqlStatement;
 import tech.ydb.yoj.repository.ydb.statement.Statement;
+import tech.ydb.yoj.repository.ydb.statement.UpsertYqlStatement;
 import tech.ydb.yoj.repository.ydb.statement.YqlStatement;
 
 import java.util.ArrayList;
@@ -146,7 +147,7 @@ public class QueriesMergerTest {
 
     @SuppressWarnings("unchecked")
     private <T extends Entity<T>> YdbRepository.Query<?> upsert(T p) {
-        return new YdbRepository.Query<>(YqlStatement.save((Class<T>) p.getClass()), p);
+        return new YdbRepository.Query<>(new UpsertYqlStatement<>(EntitySchema.of((Class<T>) p.getClass())), p);
     }
 
     @SuppressWarnings("unchecked")

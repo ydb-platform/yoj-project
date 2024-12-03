@@ -65,12 +65,6 @@ public abstract class YqlStatement<PARAMS, ENTITY extends Entity<ENTITY>, RESULT
         return new UpdateByIdStatement<>(type, model);
     }
 
-    public static <PARAMS, ENTITY extends Entity<ENTITY>> Statement<PARAMS, ENTITY> save(
-            Class<ENTITY> type
-    ) {
-        return new UpsertYqlStatement<>(type);
-    }
-
     public static <PARAMS, ENTITY extends Entity<ENTITY>> Statement<PARAMS, ENTITY> find(
             Class<ENTITY> type
     ) {
