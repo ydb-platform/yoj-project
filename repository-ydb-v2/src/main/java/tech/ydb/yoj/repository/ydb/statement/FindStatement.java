@@ -5,6 +5,7 @@ import tech.ydb.yoj.databind.schema.Schema;
 import tech.ydb.yoj.repository.db.Entity;
 import tech.ydb.yoj.repository.db.EntitySchema;
 import tech.ydb.yoj.repository.ydb.yql.YqlOrderBy;
+import tech.ydb.yoj.repository.ydb.yql.YqlPredicate;
 import tech.ydb.yoj.repository.ydb.yql.YqlStatementPart;
 
 import java.util.ArrayList;
@@ -40,7 +41,7 @@ public class FindStatement<ENTITY extends Entity<ENTITY>, RESULT> extends Predic
             @NonNull List<YqlStatementPart<?>> parts,
             boolean distinct
     ) {
-        super(schema, outSchema, parts, YqlStatement::predicateFrom);
+        super(schema, outSchema, parts, YqlPredicate::from);
         this.distinct = distinct;
         this.parts = parts;
     }

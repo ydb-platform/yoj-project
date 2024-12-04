@@ -24,12 +24,8 @@ public final class UpdateByIdStatement<ENTITY extends Entity<ENTITY>, ID extends
 
     private final Set<YqlStatementParam> idParams;
 
-    public UpdateByIdStatement(Class<ENTITY> type, UpdateModel.ById<ID> model) {
-        this(type, model, EntitySchema.of(type).getName());
-    }
-
-    public UpdateByIdStatement(Class<ENTITY> type, UpdateModel.ById<ID> model, String tableName) {
-        super(EntitySchema.of(type), EntitySchema.of(type), tableName);
+    public UpdateByIdStatement(EntitySchema<ENTITY> schema, UpdateModel.ById<ID> model) {
+        super(schema, schema);
         this.idParams = schema.flattenId().stream()
                 .map(c -> YqlStatementParam.required(YqlType.of(c), c.getName()))
                 .collect(toUnmodifiableSet());

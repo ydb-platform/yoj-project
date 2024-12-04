@@ -1,38 +1,22 @@
 package tech.ydb.yoj.repository.ydb.statement;
 
-import tech.ydb.yoj.databind.schema.Schema;
+import tech.ydb.yoj.databind.schema.ObjectSchema;
 import tech.ydb.yoj.repository.db.Entity;
 import tech.ydb.yoj.repository.db.EntitySchema;
 import tech.ydb.yoj.repository.ydb.yql.YqlPredicate;
 import tech.ydb.yoj.repository.ydb.yql.YqlStatementPart;
 
 import java.util.Collection;
-import java.util.function.Function;
+import java.util.List;
 
 import static java.util.Comparator.comparing;
 import static java.util.stream.Collectors.joining;
 
-class CountAllStatement<ENTITY extends Entity<ENTITY>> extends PredicateStatement<Collection<? extends YqlStatementPart<?>>, ENTITY, Count> {
-    private final Collection<? extends YqlStatementPart<?>> parts;
+public class CountAllStatement<ENTITY extends Entity<ENTITY>> extends PredicateStatement<Collection<? extends YqlStatementPart<?>>, ENTITY, Count> {
+    private final List<YqlStatementPart<?>> parts;
 
-    public CountAllStatement(
-            EntitySchema<ENTITY> schema,
-            Schema<Count> resultSchema,
-            Collection<? extends YqlStatementPart<?>> parts,
-            Function<Collection<? extends YqlStatementPart<?>>, YqlPredicate> predicateFrom
-    ) {
-        super(schema, resultSchema, parts, predicateFrom);
-        this.parts = parts;
-    }
-
-    public CountAllStatement(
-            EntitySchema<ENTITY> schema,
-            Schema<Count> resultSchema,
-            Collection<? extends YqlStatementPart<?>> parts,
-            Function<Collection<? extends YqlStatementPart<?>>, YqlPredicate> predicateFrom,
-            String tableName
-    ) {
-        super(schema, resultSchema, parts, predicateFrom, tableName);
+    public CountAllStatement(EntitySchema<ENTITY> schema, List<YqlStatementPart<?>> parts) {
+        super(schema, ObjectSchema.of(Count.class), parts, YqlPredicate::from);
         this.parts = parts;
     }
 

@@ -24,12 +24,18 @@ import tech.ydb.yoj.repository.ydb.bulk.BulkMapper;
 import tech.ydb.yoj.repository.ydb.bulk.BulkMapperImpl;
 import tech.ydb.yoj.repository.ydb.readtable.EntityIdKeyMapper;
 import tech.ydb.yoj.repository.ydb.readtable.ReadTableMapper;
+import tech.ydb.yoj.repository.ydb.statement.CountAllStatement;
+import tech.ydb.yoj.repository.ydb.statement.DeleteAllStatement;
+import tech.ydb.yoj.repository.ydb.statement.DeleteByIdStatement;
 import tech.ydb.yoj.repository.ydb.statement.FindInStatement;
 import tech.ydb.yoj.repository.ydb.statement.FindStatement;
 import tech.ydb.yoj.repository.ydb.statement.FindYqlStatement;
+import tech.ydb.yoj.repository.ydb.statement.InsertYqlStatement;
 import tech.ydb.yoj.repository.ydb.statement.Statement;
+import tech.ydb.yoj.repository.ydb.statement.UpdateByIdStatement;
 import tech.ydb.yoj.repository.ydb.statement.UpdateInStatement;
 import tech.ydb.yoj.repository.ydb.statement.UpdateModel;
+import tech.ydb.yoj.repository.ydb.statement.UpsertYqlStatement;
 import tech.ydb.yoj.repository.ydb.statement.YqlStatement;
 import tech.ydb.yoj.repository.ydb.yql.YqlLimit;
 import tech.ydb.yoj.repository.ydb.yql.YqlListingQuery;
@@ -182,7 +188,7 @@ public class YdbTable<T extends Entity<T>> implements Table<T> {
 
     @Override
     public void deleteAll() {
-        executor.pendingExecute(YqlStatement.deleteAll(type), null);
+        executor.pendingExecute(new DeleteAllStatement<>(schema), null);
     }
 
     @Override
@@ -390,7 +396,8 @@ public class YdbTable<T extends Entity<T>> implements Table<T> {
 
     public long count(YqlStatementPart<?>... parts) {
         List<YqlStatementPart<?>> partsList = asList(parts);
-        return executor.execute(YqlStatement.count(type, partsList), partsList).get(0).getCount();
+        var statement = new CountAllStatement<>(schema, partsList);
+        return executor.execute(statement, partsList).get(0).getCount();
     }
 
     public <V extends View> List<V> find(Class<V> viewType, YqlStatementPart<?> part, YqlStatementPart<?>... otherParts) {
@@ -432,13 +439,13 @@ public class YdbTable<T extends Entity<T>> implements Table<T> {
     @Override
     public void update(Entity.Id<T> id, Changeset changeset) {
         UpdateModel.ById<Id<T>> model = new UpdateModel.ById<>(id, changeset.toMap());
-        executor.pendingExecute(YqlStatement.update(type, model), model);
+        executor.pendingExecute(new UpdateByIdStatement<>(schema, model), model);
     }
 
     @Override
     public T insert(T t) {
         T entityToSave = t.preSave();
-        executor.pendingExecute(YqlStatement.insert(type), entityToSave);
+        executor.pendingExecute(new InsertYqlStatement<>(schema), entityToSave);
         executor.getTransactionLocal().firstLevelCache().put(entityToSave);
         executor.getTransactionLocal().projectionCache().save(entityToSave);
         return t;
@@ -447,7 +454,7 @@ public class YdbTable<T extends Entity<T>> implements Table<T> {
     @Override
     public T save(T t) {
         T entityToSave = t.preSave();
-        executor.pendingExecute(YqlStatement.save(type), entityToSave);
+        executor.pendingExecute(new UpsertYqlStatement<>(schema), entityToSave);
         executor.getTransactionLocal().firstLevelCache().put(entityToSave);
         executor.getTransactionLocal().projectionCache().save(entityToSave);
         return t;
@@ -455,7 +462,7 @@ public class YdbTable<T extends Entity<T>> implements Table<T> {
 
     @Override
     public void delete(Entity.Id<T> id) {
-        executor.pendingExecute(YqlStatement.delete(type), id);
+        executor.pendingExecute(new DeleteByIdStatement<>(schema), id);
         executor.getTransactionLocal().firstLevelCache().putEmpty(id);
         executor.getTransactionLocal().projectionCache().delete(id);
     }
@@ -477,7 +484,7 @@ public class YdbTable<T extends Entity<T>> implements Table<T> {
         }
         T rawEntity = foundRaw.get(0);
         T entityToSave = rawEntity.postLoad().preSave();
-        executor.pendingExecute(YqlStatement.save(type), entityToSave);
+        executor.pendingExecute(new UpsertYqlStatement<>(schema), entityToSave);
         executor.getTransactionLocal().projectionCache().save(entityToSave);
     }
 

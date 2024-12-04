@@ -6,11 +6,14 @@ import lombok.With;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import tech.ydb.yoj.repository.db.Entity;
+import tech.ydb.yoj.repository.db.EntitySchema;
 import tech.ydb.yoj.repository.db.cache.RepositoryCache;
 import tech.ydb.yoj.repository.db.exception.EntityAlreadyExistsException;
 import tech.ydb.yoj.repository.ydb.YdbRepository;
 import tech.ydb.yoj.repository.ydb.exception.YdbRepositoryException;
+import tech.ydb.yoj.repository.ydb.statement.DeleteByIdStatement;
 import tech.ydb.yoj.repository.ydb.statement.Statement;
+import tech.ydb.yoj.repository.ydb.statement.UpsertYqlStatement;
 import tech.ydb.yoj.repository.ydb.statement.YqlStatement;
 
 import java.util.ArrayList;
@@ -158,12 +161,12 @@ public class ByEntityYqlQueriesMerger implements YqlQueriesMerger {
 
     @SuppressWarnings("unchecked")
     private static YdbRepository.Query convertInsertToUpsert(YdbRepository.Query<?> query) {
-        return new YdbRepository.Query<>(YqlStatement.save(getEntityClass(query)), query.getValues().get(0));
+        return new YdbRepository.Query<>(new UpsertYqlStatement<>(EntitySchema.of(getEntityClass(query))), query.getValues().get(0));
     }
 
     @SuppressWarnings("unchecked")
     private static YdbRepository.Query convertInsertToDelete(YdbRepository.Query<?> query) {
-        return new YdbRepository.Query<>(YqlStatement.delete(getEntityClass(query)), getEntityId(query));
+        return new YdbRepository.Query<>(new DeleteByIdStatement<>(EntitySchema.of(getEntityClass(query))), getEntityId(query));
     }
 
     private static Entity.Id getEntityId(YdbRepository.Query<?> query) {
