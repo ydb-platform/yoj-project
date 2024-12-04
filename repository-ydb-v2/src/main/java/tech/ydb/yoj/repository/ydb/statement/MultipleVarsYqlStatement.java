@@ -1,6 +1,5 @@
 package tech.ydb.yoj.repository.ydb.statement;
 
-import lombok.NonNull;
 import tech.ydb.proto.ValueProtos;
 import tech.ydb.yoj.databind.schema.Schema;
 import tech.ydb.yoj.repository.db.Entity;
@@ -24,10 +23,6 @@ public abstract class MultipleVarsYqlStatement<PARAMS, ENTITY extends Entity<ENT
 
     public MultipleVarsYqlStatement(EntitySchema<ENTITY> schema, Schema<RESULT> resultSchema) {
         super(schema, resultSchema);
-    }
-
-    public MultipleVarsYqlStatement(EntitySchema<ENTITY> schema, Schema<RESULT> resultSchema, String tableName) {
-        super(schema, resultSchema, tableName);
     }
 
     @Override
@@ -97,14 +92,6 @@ public abstract class MultipleVarsYqlStatement<PARAMS, ENTITY extends Entity<ENT
 
     public abstract static class Simple<PARAMS, ENTITY extends Entity<ENTITY>>
             extends MultipleVarsYqlStatement<PARAMS, ENTITY, ENTITY> {
-        public Simple(@NonNull Class<ENTITY> type) {
-            super(EntitySchema.of(type), EntitySchema.of(type));
-        }
-
-        public Simple(@NonNull Class<ENTITY> type, String tableName) {
-            super(EntitySchema.of(type), EntitySchema.of(type), tableName);
-        }
-
         public Simple(EntitySchema<ENTITY> schema) {
             super(schema, schema);
         }
