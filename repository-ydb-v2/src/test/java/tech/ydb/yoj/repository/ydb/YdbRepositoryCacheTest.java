@@ -14,6 +14,7 @@ import tech.ydb.table.Session;
 import tech.ydb.table.query.DataQueryResult;
 import tech.ydb.table.query.Params;
 import tech.ydb.table.values.StructType;
+import tech.ydb.yoj.repository.db.EntitySchema;
 import tech.ydb.yoj.repository.db.Range;
 import tech.ydb.yoj.repository.db.exception.EntityAlreadyExistsException;
 import tech.ydb.yoj.repository.test.sample.TestEntityOperations;
@@ -21,6 +22,7 @@ import tech.ydb.yoj.repository.test.sample.model.Complex;
 import tech.ydb.yoj.repository.test.sample.model.Complex.Id;
 import tech.ydb.yoj.repository.ydb.client.SessionManager;
 import tech.ydb.yoj.repository.ydb.client.YdbConverter;
+import tech.ydb.yoj.repository.ydb.statement.FindYqlStatement;
 import tech.ydb.yoj.repository.ydb.statement.MultipleVarsYqlStatement;
 import tech.ydb.yoj.repository.ydb.statement.YqlStatement;
 
@@ -350,6 +352,8 @@ public class YdbRepositoryCacheTest {
     }
 
     private Params convertId(Id id) {
-        return YdbConverter.convertToParams(YqlStatement.find(Complex.class).toQueryParameters(id));
+        EntitySchema<Complex> schema = EntitySchema.of(Complex.class);
+        var statement = new FindYqlStatement<>(schema, schema);
+        return YdbConverter.convertToParams(statement.toQueryParameters(id));
     }
 }
