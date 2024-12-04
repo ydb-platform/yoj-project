@@ -24,6 +24,8 @@ import tech.ydb.yoj.repository.ydb.bulk.BulkMapper;
 import tech.ydb.yoj.repository.ydb.bulk.BulkMapperImpl;
 import tech.ydb.yoj.repository.ydb.readtable.EntityIdKeyMapper;
 import tech.ydb.yoj.repository.ydb.readtable.ReadTableMapper;
+import tech.ydb.yoj.repository.ydb.statement.FindStatement;
+import tech.ydb.yoj.repository.ydb.statement.FindYqlStatement;
 import tech.ydb.yoj.repository.ydb.statement.Statement;
 import tech.ydb.yoj.repository.ydb.statement.UpdateInStatement;
 import tech.ydb.yoj.repository.ydb.statement.UpdateModel;
@@ -223,14 +225,17 @@ public class YdbTable<T extends Entity<T>> implements Table<T> {
             throw new IllegalArgumentException("Cannot use partial id in find method");
         }
         return executor.getTransactionLocal().firstLevelCache().get(id, __ -> {
-            List<T> res = postLoad(executor.execute(YqlStatement.find(type), id));
+            var statement = new FindYqlStatement<>(schema, schema);
+            List<T> res = postLoad(executor.execute(statement, id));
             return res.isEmpty() ? null : res.get(0);
         });
     }
 
     @Override
     public <V extends View> V find(Class<V> viewType, Entity.Id<T> id) {
-        List<V> res = executor.execute(YqlStatement.find(type, viewType), id);
+        ViewSchema<V> viewSchema = ViewSchema.of(viewType);
+        var statement = new FindYqlStatement<>(schema, viewSchema);
+        List<V> res = executor.execute(statement, id);
         return res.isEmpty() ? null : res.get(0);
     }
 
@@ -254,7 +259,8 @@ public class YdbTable<T extends Entity<T>> implements Table<T> {
     }
 
     public List<T> find(Collection<? extends YqlStatementPart<?>> parts) {
-        return postLoad(executor.execute(YqlStatement.find(type, parts), parts));
+        var statement = FindStatement.from(schema, schema, parts, false);
+        return postLoad(executor.execute(statement, parts));
     }
 
     @Override
@@ -385,7 +391,9 @@ public class YdbTable<T extends Entity<T>> implements Table<T> {
     }
 
     public <V extends View> List<V> find(Class<V> viewType, Collection<? extends YqlStatementPart<?>> parts, boolean distinct) {
-        return executor.execute(YqlStatement.find(type, viewType, distinct, parts), parts);
+        ViewSchema<V> viewSchema = ViewSchema.of(viewType);
+        var statement = FindStatement.from(schema, viewSchema, parts, distinct);
+        return executor.execute(statement, parts);
     }
 
     public <ID extends Entity.Id<T>> List<ID> findIds(YqlStatementPart<?> part, YqlStatementPart<?>... otherParts) {
@@ -393,7 +401,9 @@ public class YdbTable<T extends Entity<T>> implements Table<T> {
     }
 
     private <ID extends Entity.Id<T>> List<ID> findIds(Collection<? extends YqlStatementPart<?>> parts) {
-        return executor.execute(YqlStatement.findIds(type, parts), parts);
+        EntityIdSchema<ID> idSchema = EntityIdSchema.ofEntity(type);
+        var statement = FindStatement.from(schema, idSchema, parts, false);
+        return executor.execute(statement, parts);
     }
 
     @Override
@@ -450,7 +460,8 @@ public class YdbTable<T extends Entity<T>> implements Table<T> {
      * @param <ID> entity ID type
      */
     public <ID extends Id<T>> void migrate(ID id) {
-        List<T> foundRaw = executor.execute(YqlStatement.find(type), id);
+        var statement = new FindYqlStatement<>(schema, schema);
+        List<T> foundRaw = executor.execute(statement, id);
         if (foundRaw.isEmpty()) {
             return;
         }

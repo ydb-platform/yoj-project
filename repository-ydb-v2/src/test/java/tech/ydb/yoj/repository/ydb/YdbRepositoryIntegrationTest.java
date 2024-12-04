@@ -72,6 +72,7 @@ import tech.ydb.yoj.repository.ydb.sample.model.HintAutoPartitioningByLoad;
 import tech.ydb.yoj.repository.ydb.sample.model.HintInt64Range;
 import tech.ydb.yoj.repository.ydb.sample.model.HintTablePreset;
 import tech.ydb.yoj.repository.ydb.sample.model.HintUniform;
+import tech.ydb.yoj.repository.ydb.statement.FindStatement;
 import tech.ydb.yoj.repository.ydb.statement.YqlStatement;
 import tech.ydb.yoj.repository.ydb.table.YdbTable;
 import tech.ydb.yoj.repository.ydb.yql.YqlPredicate;
@@ -888,12 +889,13 @@ public class YdbRepositoryIntegrationTest extends RepositoryTest {
 
     private void executeQuery(String expectSqlQuery, List<IndexedEntity> expectRows,
                               Collection<? extends YqlStatementPart<?>> query) {
-        var statement = YqlStatement.find(IndexedEntity.class, query);
+        EntitySchema<IndexedEntity> schema = EntitySchema.of(IndexedEntity.class);
+        var statement = FindStatement.from(schema, schema, new ArrayList<>(query), false);
         var sqlQuery = statement.getQuery("ts/");
         assertEquals(expectSqlQuery, sqlQuery);
 
         // Check we use index and query was not failed
-        var actual = db.tx(() -> ((YdbTable<IndexedEntity>) db.indexedTable()).find(query));
+        var actual = db.tx(() -> ((YdbTable<IndexedEntity>) db.indexedTable()).find(new ArrayList<>(query)));
         assertEquals(expectRows, actual);
     }
 

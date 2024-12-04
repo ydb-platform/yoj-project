@@ -4,27 +4,43 @@ import lombok.NonNull;
 import tech.ydb.yoj.databind.schema.Schema;
 import tech.ydb.yoj.repository.db.Entity;
 import tech.ydb.yoj.repository.db.EntitySchema;
-import tech.ydb.yoj.repository.ydb.yql.YqlPredicate;
+import tech.ydb.yoj.repository.ydb.yql.YqlOrderBy;
 import tech.ydb.yoj.repository.ydb.yql.YqlStatementPart;
 
+import java.util.ArrayList;
 import java.util.Collection;
-import java.util.function.Function;
+import java.util.List;
 
 import static java.util.Comparator.comparing;
 import static java.util.stream.Collectors.joining;
 
 public class FindStatement<ENTITY extends Entity<ENTITY>, RESULT> extends PredicateStatement<Collection<? extends YqlStatementPart<?>>, ENTITY, RESULT> {
     private final boolean distinct;
-    private final Collection<? extends YqlStatementPart<?>> parts;
+    private final List<YqlStatementPart<?>> parts;
 
-    public FindStatement(
+    public static <E extends Entity<E>, R> FindStatement<E, R> from(
+            @NonNull EntitySchema<E> schema,
+            @NonNull Schema<R> outSchema,
+            @NonNull Collection<? extends YqlStatementPart<?>> parts,
+            boolean distinct
+    ) {
+        ArrayList<YqlStatementPart<?>> partsList = new ArrayList<>(parts);
+        if (!distinct) {
+            if (parts.stream().noneMatch(s -> s.getType().equals(YqlOrderBy.TYPE))) {
+                partsList.add(ORDER_BY_ID_ASCENDING);
+            }
+        }
+
+        return new FindStatement<>(schema, outSchema, partsList, distinct);
+    }
+
+    private FindStatement(
             @NonNull EntitySchema<ENTITY> schema,
             @NonNull Schema<RESULT> outSchema,
-            @NonNull Collection<? extends YqlStatementPart<?>> parts,
-            @NonNull Function<Collection<? extends YqlStatementPart<?>>, YqlPredicate> predicateFrom,
-            boolean distinct,
-            String tableName) {
-        super(schema, outSchema, parts, predicateFrom, tableName);
+            @NonNull List<YqlStatementPart<?>> parts,
+            boolean distinct
+    ) {
+        super(schema, outSchema, parts, YqlStatement::predicateFrom);
         this.distinct = distinct;
         this.parts = parts;
     }
