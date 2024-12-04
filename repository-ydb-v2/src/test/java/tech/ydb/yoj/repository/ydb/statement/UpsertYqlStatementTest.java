@@ -2,6 +2,7 @@ package tech.ydb.yoj.repository.ydb.statement;
 
 import org.junit.Test;
 import tech.ydb.yoj.repository.db.EntitySchema;
+import tech.ydb.yoj.repository.db.TableDescriptor;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -19,7 +20,10 @@ public class UpsertYqlStatementTest extends AbstractMultipleVarsYqlStatementTest
 
         txManager.tx(() -> {
             var db = getTestDb();
-            var deleteStatement = new UpsertYqlStatement<>(EntitySchema.of(TestEntity.class));
+
+            var schema = EntitySchema.of(TestEntity.class);
+            var tableDescriptor = TableDescriptor.from(schema);
+            var deleteStatement = new UpsertYqlStatement<>(tableDescriptor, schema);
 
             db.pendingExecute(deleteStatement, ENTITY_1_1);
             db.pendingExecute(deleteStatement, ENTITY_2);

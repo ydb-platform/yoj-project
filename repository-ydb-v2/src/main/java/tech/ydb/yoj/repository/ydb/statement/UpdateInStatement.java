@@ -8,6 +8,7 @@ import tech.ydb.yoj.databind.schema.Schema;
 import tech.ydb.yoj.databind.schema.Schema.JavaField;
 import tech.ydb.yoj.repository.db.Entity;
 import tech.ydb.yoj.repository.db.EntitySchema;
+import tech.ydb.yoj.repository.db.TableDescriptor;
 import tech.ydb.yoj.repository.ydb.yql.YqlType;
 
 import java.util.Collection;
@@ -33,11 +34,12 @@ public class UpdateInStatement<T extends Entity<T>, RESULT>
     private final Set<String> keyFields;
 
     public UpdateInStatement(
+            TableDescriptor<T> tableDescriptor,
             EntitySchema<T> schema,
             Schema<RESULT> resultSchema,
             UpdateInStatementInput<T> in
     ) {
-        super(schema, resultSchema);
+        super(tableDescriptor, schema, resultSchema);
 
         this.keyFields = collectKeyFields(in.ids);
         this.values = new HashMap<>(in.values.size());

@@ -3,6 +3,7 @@ package tech.ydb.yoj.repository.ydb.statement;
 import tech.ydb.yoj.databind.schema.ObjectSchema;
 import tech.ydb.yoj.repository.db.Entity;
 import tech.ydb.yoj.repository.db.EntitySchema;
+import tech.ydb.yoj.repository.db.TableDescriptor;
 import tech.ydb.yoj.repository.ydb.yql.YqlPredicate;
 import tech.ydb.yoj.repository.ydb.yql.YqlStatementPart;
 
@@ -15,8 +16,10 @@ import static java.util.stream.Collectors.joining;
 public class CountAllStatement<ENTITY extends Entity<ENTITY>> extends PredicateStatement<Collection<? extends YqlStatementPart<?>>, ENTITY, Count> {
     private final List<YqlStatementPart<?>> parts;
 
-    public CountAllStatement(EntitySchema<ENTITY> schema, List<YqlStatementPart<?>> parts) {
-        super(schema, ObjectSchema.of(Count.class), parts, YqlPredicate::from);
+    public CountAllStatement(
+            TableDescriptor<ENTITY> tableDescriptor, EntitySchema<ENTITY> schema, List<YqlStatementPart<?>> parts
+    ) {
+        super(tableDescriptor, schema, ObjectSchema.of(Count.class), parts, YqlPredicate::from);
         this.parts = parts;
     }
 

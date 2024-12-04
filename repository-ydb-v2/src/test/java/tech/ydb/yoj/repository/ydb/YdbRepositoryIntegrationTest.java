@@ -37,6 +37,7 @@ import tech.ydb.yoj.repository.db.EntitySchema;
 import tech.ydb.yoj.repository.db.IsolationLevel;
 import tech.ydb.yoj.repository.db.Repository;
 import tech.ydb.yoj.repository.db.RepositoryTransaction;
+import tech.ydb.yoj.repository.db.TableDescriptor;
 import tech.ydb.yoj.repository.db.Tx;
 import tech.ydb.yoj.repository.db.bulk.BulkParams;
 import tech.ydb.yoj.repository.db.exception.ConversionException;
@@ -83,7 +84,6 @@ import java.lang.reflect.Field;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -213,9 +213,10 @@ public class YdbRepositoryIntegrationTest extends RepositoryTest {
         );
         db.tx(() -> db.table(WithUnflattenableField.class).insert(entity));
         db.tx(() -> {
+            EntitySchema<WithUnflattenableField> schema = EntitySchema.of(WithUnflattenableField.class);
+            var tableDescriptor = TableDescriptor.from(schema);
             List<GroupByResult> result = ((YdbRepositoryTransaction<?>) Tx.Current.get().getRepositoryTransaction())
-                    .execute(new YqlStatement<>(EntitySchema.of(WithUnflattenableField.class),
-                            ObjectSchema.of(GroupByResult.class)) {
+                    .execute(new YqlStatement<>(tableDescriptor, schema, ObjectSchema.of(GroupByResult.class)) {
                         @Override
                         public String getQuery(String tablespace) {
                             return "PRAGMA TablePathPrefix = \"" + tablespace + "\";" +
@@ -887,15 +888,17 @@ public class YdbRepositoryIntegrationTest extends RepositoryTest {
         assertThat(db.tx(() -> db.supabubbles2().findLessThan(sc.getId()))).containsOnly(sa, sb);
     }
 
-    private void executeQuery(String expectSqlQuery, List<IndexedEntity> expectRows,
-                              Collection<? extends YqlStatementPart<?>> query) {
+    private void executeQuery(String expectSqlQuery, List<IndexedEntity> expectRows, List<YqlStatementPart<?>> parts) {
         EntitySchema<IndexedEntity> schema = EntitySchema.of(IndexedEntity.class);
-        var statement = FindStatement.from(schema, schema, new ArrayList<>(query), false);
+        TableDescriptor<IndexedEntity> tableDescriptor = TableDescriptor.from(schema);
+        var statement = FindStatement.from(
+                tableDescriptor, schema, schema, parts, false
+        );
         var sqlQuery = statement.getQuery("ts/");
         assertEquals(expectSqlQuery, sqlQuery);
 
         // Check we use index and query was not failed
-        var actual = db.tx(() -> ((YdbTable<IndexedEntity>) db.indexedTable()).find(new ArrayList<>(query)));
+        var actual = db.tx(() -> ((YdbTable<IndexedEntity>) db.indexedTable()).find(parts));
         assertEquals(expectRows, actual);
     }
 

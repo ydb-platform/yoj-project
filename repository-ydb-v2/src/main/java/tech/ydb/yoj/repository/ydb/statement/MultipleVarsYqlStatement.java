@@ -4,6 +4,7 @@ import tech.ydb.proto.ValueProtos;
 import tech.ydb.yoj.databind.schema.Schema;
 import tech.ydb.yoj.repository.db.Entity;
 import tech.ydb.yoj.repository.db.EntitySchema;
+import tech.ydb.yoj.repository.db.TableDescriptor;
 import tech.ydb.yoj.repository.ydb.yql.YqlType;
 
 import java.util.Collection;
@@ -21,8 +22,10 @@ import static tech.ydb.yoj.repository.db.EntityIdSchema.isIdField;
 public abstract class MultipleVarsYqlStatement<PARAMS, ENTITY extends Entity<ENTITY>, RESULT> extends YqlStatement<PARAMS, ENTITY, RESULT> {
     public static final String listName = "$Input";
 
-    public MultipleVarsYqlStatement(EntitySchema<ENTITY> schema, Schema<RESULT> resultSchema) {
-        super(schema, resultSchema);
+    public MultipleVarsYqlStatement(
+            TableDescriptor<ENTITY> tableDescriptor, EntitySchema<ENTITY> schema, Schema<RESULT> resultSchema
+    ) {
+        super(tableDescriptor, schema, resultSchema);
     }
 
     @Override
@@ -92,8 +95,8 @@ public abstract class MultipleVarsYqlStatement<PARAMS, ENTITY extends Entity<ENT
 
     public abstract static class Simple<PARAMS, ENTITY extends Entity<ENTITY>>
             extends MultipleVarsYqlStatement<PARAMS, ENTITY, ENTITY> {
-        public Simple(EntitySchema<ENTITY> schema) {
-            super(schema, schema);
+        public Simple(TableDescriptor<ENTITY> tableDescriptor, EntitySchema<ENTITY> schema) {
+            super(tableDescriptor, schema, schema);
         }
     }
 }

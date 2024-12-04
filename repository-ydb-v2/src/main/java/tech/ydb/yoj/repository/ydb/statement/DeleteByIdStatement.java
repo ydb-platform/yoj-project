@@ -2,13 +2,14 @@ package tech.ydb.yoj.repository.ydb.statement;
 
 import tech.ydb.yoj.repository.db.Entity;
 import tech.ydb.yoj.repository.db.EntitySchema;
+import tech.ydb.yoj.repository.db.TableDescriptor;
 
 import java.util.Map;
 import java.util.function.Function;
 
 public class DeleteByIdStatement<IN, T extends Entity<T>> extends MultipleVarsYqlStatement.Simple<IN, T> {
-    public DeleteByIdStatement(EntitySchema<T> schema) {
-        super(schema);
+    public DeleteByIdStatement(TableDescriptor<T> tableDescriptor, EntitySchema<T> schema) {
+        super(tableDescriptor, schema);
     }
 
     @Override

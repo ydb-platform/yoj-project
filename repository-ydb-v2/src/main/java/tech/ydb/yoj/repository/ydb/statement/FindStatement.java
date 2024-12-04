@@ -4,6 +4,7 @@ import lombok.NonNull;
 import tech.ydb.yoj.databind.schema.Schema;
 import tech.ydb.yoj.repository.db.Entity;
 import tech.ydb.yoj.repository.db.EntitySchema;
+import tech.ydb.yoj.repository.db.TableDescriptor;
 import tech.ydb.yoj.repository.ydb.yql.YqlOrderBy;
 import tech.ydb.yoj.repository.ydb.yql.YqlPredicate;
 import tech.ydb.yoj.repository.ydb.yql.YqlStatementPart;
@@ -20,6 +21,7 @@ public class FindStatement<ENTITY extends Entity<ENTITY>, RESULT> extends Predic
     private final List<YqlStatementPart<?>> parts;
 
     public static <E extends Entity<E>, R> FindStatement<E, R> from(
+            @NonNull TableDescriptor<E> tableDescriptor,
             @NonNull EntitySchema<E> schema,
             @NonNull Schema<R> outSchema,
             @NonNull Collection<? extends YqlStatementPart<?>> parts,
@@ -32,16 +34,17 @@ public class FindStatement<ENTITY extends Entity<ENTITY>, RESULT> extends Predic
             }
         }
 
-        return new FindStatement<>(schema, outSchema, partsList, distinct);
+        return new FindStatement<>(tableDescriptor, schema, outSchema, partsList, distinct);
     }
 
     private FindStatement(
+            @NonNull TableDescriptor<ENTITY> tableDescriptor,
             @NonNull EntitySchema<ENTITY> schema,
             @NonNull Schema<RESULT> outSchema,
             @NonNull List<YqlStatementPart<?>> parts,
             boolean distinct
     ) {
-        super(schema, outSchema, parts, YqlPredicate::from);
+        super(tableDescriptor, schema, outSchema, parts, YqlPredicate::from);
         this.distinct = distinct;
         this.parts = parts;
     }
