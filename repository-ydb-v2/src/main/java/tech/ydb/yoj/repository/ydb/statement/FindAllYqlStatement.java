@@ -11,10 +11,6 @@ public class FindAllYqlStatement<PARAMS, ENTITY extends Entity<ENTITY>, RESULT> 
         super(schema, resultSchema);
     }
 
-    public FindAllYqlStatement(@NonNull EntitySchema<ENTITY> schema, @NonNull Schema<RESULT> resultSchema, String tableName) {
-        super(schema, resultSchema, tableName);
-    }
-
     @Override
     public String getQuery(String tablespace) {
         return declarations()
