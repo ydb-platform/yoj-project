@@ -27,7 +27,9 @@ import tech.ydb.yoj.repository.ydb.readtable.ReadTableMapper;
 import tech.ydb.yoj.repository.ydb.statement.CountAllStatement;
 import tech.ydb.yoj.repository.ydb.statement.DeleteAllStatement;
 import tech.ydb.yoj.repository.ydb.statement.DeleteByIdStatement;
+import tech.ydb.yoj.repository.ydb.statement.FindAllYqlStatement;
 import tech.ydb.yoj.repository.ydb.statement.FindInStatement;
+import tech.ydb.yoj.repository.ydb.statement.FindRangeStatement;
 import tech.ydb.yoj.repository.ydb.statement.FindStatement;
 import tech.ydb.yoj.repository.ydb.statement.FindYqlStatement;
 import tech.ydb.yoj.repository.ydb.statement.InsertYqlStatement;
@@ -36,7 +38,6 @@ import tech.ydb.yoj.repository.ydb.statement.UpdateByIdStatement;
 import tech.ydb.yoj.repository.ydb.statement.UpdateInStatement;
 import tech.ydb.yoj.repository.ydb.statement.UpdateModel;
 import tech.ydb.yoj.repository.ydb.statement.UpsertYqlStatement;
-import tech.ydb.yoj.repository.ydb.statement.YqlStatement;
 import tech.ydb.yoj.repository.ydb.yql.YqlLimit;
 import tech.ydb.yoj.repository.ydb.yql.YqlListingQuery;
 import tech.ydb.yoj.repository.ydb.yql.YqlOrderBy;
@@ -93,7 +94,8 @@ public class YdbTable<T extends Entity<T>> implements Table<T> {
 
     @Override
     public List<T> findAll() {
-        return postLoad(executor.execute(YqlStatement.findAll(type), null));
+        var statement = new FindAllYqlStatement<>(schema, schema);
+        return postLoad(executor.execute(statement, null));
     }
 
     /**
@@ -183,7 +185,9 @@ public class YdbTable<T extends Entity<T>> implements Table<T> {
 
     @Override
     public <V extends View> List<V> findAll(Class<V> viewType) {
-        return executor.execute(YqlStatement.findAll(type, viewType), null);
+        ViewSchema<V> viewSchema = ViewSchema.of(viewType);
+        var statement = new FindAllYqlStatement<>(schema, viewSchema);
+        return executor.execute(statement, null);
     }
 
     @Override
@@ -248,12 +252,15 @@ public class YdbTable<T extends Entity<T>> implements Table<T> {
 
     @Override
     public <ID extends Entity.Id<T>> List<T> find(Range<ID> range) {
-        return postLoad(executor.execute(YqlStatement.findRange(type, range), range));
+        var statement = new FindRangeStatement<>(schema, schema, range);
+        return postLoad(executor.execute(statement, range));
     }
 
     @Override
     public <V extends View, ID extends Entity.Id<T>> List<V> find(Class<V> viewType, Range<ID> range) {
-        return executor.execute(YqlStatement.findRange(type, viewType, range), range);
+        ViewSchema<V> viewSchema = ViewSchema.of(viewType);
+        var statement = new FindRangeStatement<>(schema, viewSchema, range);
+        return executor.execute(statement, range);
     }
 
     @Override
@@ -422,7 +429,9 @@ public class YdbTable<T extends Entity<T>> implements Table<T> {
 
     @Override
     public <ID extends Entity.Id<T>> List<ID> findIds(Range<ID> range) {
-        return executor.execute(YqlStatement.findIds(type, range), range);
+        EntityIdSchema<ID> idSchema = EntityIdSchema.ofEntity(type);
+        var statement = new FindRangeStatement<>(schema, idSchema, range);
+        return executor.execute(statement, range);
     }
 
     @Override

@@ -24,11 +24,7 @@ public class FindRangeStatement<ENTITY extends Entity<ENTITY>, ID extends Entity
     private final List<YqlStatementParam> params;
 
     public FindRangeStatement(EntitySchema<ENTITY> schema, Schema<RESULT> outSchema, Range<ID> range) {
-        this(schema, outSchema, range, schema.getName());
-    }
-
-    public FindRangeStatement(EntitySchema<ENTITY> schema, Schema<RESULT> outSchema, Range<ID> range, String tableName) {
-        super(schema, outSchema, tableName);
+        super(schema, outSchema);
         this.params = Stream.of(RangeBound.values())
                 .flatMap(b -> toParams(b.map(range).keySet(), b))
                 .collect(toList());

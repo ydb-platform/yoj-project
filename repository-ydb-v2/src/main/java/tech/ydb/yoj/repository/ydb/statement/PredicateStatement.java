@@ -39,17 +39,7 @@ public abstract class PredicateStatement<PARAMS, ENTITY extends Entity<ENTITY>, 
             @NonNull PARAMS params,
             @NonNull Function<PARAMS, YqlPredicate> getPredicate
     ) {
-        this(schema, outSchema, params, getPredicate, schema.getName());
-    }
-
-    public PredicateStatement(
-            @NonNull EntitySchema<ENTITY> schema,
-            @NonNull Schema<RESULT> outSchema,
-            @NonNull PARAMS params,
-            @NonNull Function<PARAMS, YqlPredicate> getPredicate,
-            String tableName
-    ) {
-        super(schema, outSchema, tableName);
+        super(schema, outSchema);
 
         this.getPredicate = getPredicate;
         YqlPredicate pred = getPredicate.apply(params);

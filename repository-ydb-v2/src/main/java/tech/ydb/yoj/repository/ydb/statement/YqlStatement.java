@@ -8,9 +8,6 @@ import tech.ydb.yoj.databind.schema.Schema;
 import tech.ydb.yoj.repository.db.Entity;
 import tech.ydb.yoj.repository.db.EntityIdSchema;
 import tech.ydb.yoj.repository.db.EntitySchema;
-import tech.ydb.yoj.repository.db.Range;
-import tech.ydb.yoj.repository.db.Table.View;
-import tech.ydb.yoj.repository.db.ViewSchema;
 import tech.ydb.yoj.repository.db.cache.RepositoryCache;
 import tech.ydb.yoj.repository.ydb.yql.YqlOrderBy;
 import tech.ydb.yoj.repository.ydb.yql.YqlStatementPart;
@@ -51,50 +48,6 @@ public abstract class YqlStatement<PARAMS, ENTITY extends Entity<ENTITY>, RESULT
         this.resultSchema = resultSchema;
         this.resultSetReader = new ResultSetReader<>(resultSchema);
         this.tableName = tableName;
-    }
-
-    public static <ENTITY extends Entity<ENTITY>, ID extends Entity.Id<ENTITY>> Statement<Range<ID>, ENTITY> findRange(
-            Class<ENTITY> type,
-            Range<ID> range
-    ) {
-        EntitySchema<ENTITY> schema = EntitySchema.of(type);
-        return new FindRangeStatement<>(schema, schema, range);
-    }
-
-    public static <ENTITY extends Entity<ENTITY>, VIEW extends View, ID extends Entity.Id<ENTITY>> Statement<Range<ID>, VIEW> findRange(
-            Class<ENTITY> type,
-            Class<VIEW> viewType,
-            Range<ID> range
-    ) {
-        return new FindRangeStatement<>(EntitySchema.of(type), ViewSchema.of(viewType), range);
-    }
-
-    public static <PARAMS, ENTITY extends Entity<ENTITY>> Statement<PARAMS, ENTITY> findAll(
-            Class<ENTITY> type
-    ) {
-        EntitySchema<ENTITY> schema = EntitySchema.of(type);
-        return findAll(schema, schema);
-    }
-
-    public static <PARAMS, ENTITY extends Entity<ENTITY>, VIEW extends View> Statement<PARAMS, VIEW> findAll(
-            Class<ENTITY> type,
-            Class<VIEW> viewType
-    ) {
-        return findAll(EntitySchema.of(type), ViewSchema.of(viewType));
-    }
-
-    private static <PARAMS, ENTITY extends Entity<ENTITY>, RESULT> Statement<PARAMS, RESULT> findAll(
-            EntitySchema<ENTITY> schema,
-            Schema<RESULT> outSchema
-    ) {
-        return new FindAllYqlStatement<>(schema, outSchema);
-    }
-
-    public static <ENTITY extends Entity<ENTITY>, ID extends Entity.Id<ENTITY>> Statement<Range<ID>, ID> findIds(
-            Class<ENTITY> type,
-            Range<ID> range
-    ) {
-        return new FindRangeStatement<>(EntitySchema.of(type), EntityIdSchema.ofEntity(type), range);
     }
 
     @Override
