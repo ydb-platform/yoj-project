@@ -20,7 +20,6 @@ import tech.ydb.yoj.repository.ydb.yql.YqlPredicate;
 import tech.ydb.yoj.repository.ydb.yql.YqlStatementPart;
 import tech.ydb.yoj.repository.ydb.yql.YqlType;
 
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -75,26 +74,6 @@ public abstract class YqlStatement<PARAMS, ENTITY extends Entity<ENTITY>, RESULT
             Class<ENTITY> type
     ) {
         return new UpsertYqlStatement<>(type);
-    }
-
-    public static <PARAMS, ENTITY extends Entity<ENTITY>> Statement<PARAMS, ENTITY> find(
-            Class<ENTITY> type
-    ) {
-        EntitySchema<ENTITY> schema = EntitySchema.of(type);
-        return find(schema, schema);
-    }
-
-    public static <PARAMS, ENTITY extends Entity<ENTITY>, VIEW extends View> Statement<PARAMS, VIEW> find(
-            Class<ENTITY> type,
-            Class<VIEW> viewType
-    ) {
-        return find(EntitySchema.of(type), ViewSchema.of(viewType));
-    }
-
-    private static <PARAMS, ENTITY extends Entity<ENTITY>, RESULT> Statement<PARAMS, RESULT> find(
-            EntitySchema<ENTITY> schema,
-            Schema<RESULT> resultSchema) {
-        return new FindYqlStatement<>(schema, resultSchema);
     }
 
     public static <ENTITY extends Entity<ENTITY>, ID extends Entity.Id<ENTITY>> Statement<Range<ID>, ENTITY> findRange(
@@ -188,38 +167,6 @@ public abstract class YqlStatement<PARAMS, ENTITY extends Entity<ENTITY>, RESULT
         return new FindAllYqlStatement<>(schema, outSchema);
     }
 
-    public static <ENTITY extends Entity<ENTITY>> Statement<Collection<? extends YqlStatementPart<?>>, ENTITY> find(
-            Class<ENTITY> type,
-            Collection<? extends YqlStatementPart<?>> parts
-    ) {
-        EntitySchema<ENTITY> schema = EntitySchema.of(type);
-        return find(schema, schema, false, parts);
-    }
-
-    public static <ENTITY extends Entity<ENTITY>, VIEW extends View> Statement<Collection<? extends YqlStatementPart<?>>, VIEW> find(
-            Class<ENTITY> type,
-            Class<VIEW> viewType,
-            Collection<? extends YqlStatementPart<?>> parts
-    ) {
-        return find(type, viewType, false, parts);
-    }
-
-    public static <ENTITY extends Entity<ENTITY>, VIEW extends View> Statement<Collection<? extends YqlStatementPart<?>>, VIEW> find(
-            Class<ENTITY> type,
-            Class<VIEW> viewType,
-            boolean distinct,
-            Collection<? extends YqlStatementPart<?>> parts
-    ) {
-        return find(EntitySchema.of(type), ViewSchema.of(viewType), distinct, parts);
-    }
-
-    public static <ENTITY extends Entity<ENTITY>, ID extends Entity.Id<ENTITY>> Statement<Collection<? extends YqlStatementPart<?>>, ID> findIds(
-            Class<ENTITY> type,
-            Collection<? extends YqlStatementPart<?>> parts
-    ) {
-        return find(EntitySchema.of(type), EntityIdSchema.ofEntity(type), false, parts);
-    }
-
     public static <ENTITY extends Entity<ENTITY>, ID extends Entity.Id<ENTITY>> Statement<Range<ID>, ID> findIds(
             Class<ENTITY> type,
             Range<ID> range
@@ -245,31 +192,6 @@ public abstract class YqlStatement<PARAMS, ENTITY extends Entity<ENTITY>, RESULT
 
     public String getDeclaration(String name, String type) {
         return String.format("DECLARE %s AS %s;\n", name, type);
-    }
-
-    private static <ENTITY extends Entity<ENTITY>, RESULT> Statement<Collection<? extends YqlStatementPart<?>>, RESULT> find(
-            EntitySchema<ENTITY> schema,
-            Schema<RESULT> resultSchema,
-            boolean distinct,
-            Collection<? extends YqlStatementPart<?>> parts
-    ) {
-        return find(schema, resultSchema, distinct, parts, schema.getName());
-    }
-
-    static <ENTITY extends Entity<ENTITY>, RESULT> Statement<Collection<? extends YqlStatementPart<?>>, RESULT> find(
-            EntitySchema<ENTITY> schema,
-            Schema<RESULT> resultSchema,
-            boolean distinct,
-            Collection<? extends YqlStatementPart<?>> parts,
-            String tableName
-    ) {
-        List<YqlStatementPart<?>> partList = new ArrayList<>(parts);
-        if (!distinct) {
-            if (parts.stream().noneMatch(s -> s.getType().equals(YqlOrderBy.TYPE))) {
-                partList.add(ORDER_BY_ID_ASCENDING);
-            }
-        }
-        return new FindStatement<>(schema, resultSchema, parts, YqlStatement::predicateFrom, distinct, tableName);
     }
 
     public static <ENTITY extends Entity<ENTITY>> Statement<Collection<? extends YqlStatementPart<?>>, Count> count(
