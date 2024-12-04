@@ -127,75 +127,54 @@ public final class FindInStatement<IN, T extends Entity<T>, RESULT> extends Mult
      * @param orderBy      order by expression for result sorting, order fields must be present
      *                     in the {@code resultSchema}
      */
-    protected FindInStatement(
+    public static <ID extends Entity.Id<T>, T extends Entity<T>, RESULT> FindInStatement<Set<ID>, T, RESULT> from(
             EntitySchema<T> schema,
             Schema<RESULT> resultSchema,
-            Iterable<? extends Entity.Id<T>> ids,
+            Iterable<ID> ids,
             @Nullable FilterExpression<T> filter,
             @Nullable OrderExpression<T> orderBy,
             @Nullable Integer limit
     ) {
-        this(schema, resultSchema, ids, filter, orderBy, limit, schema.getName());
+        var keySchema = schema.getIdSchema();
+        var keyFields = collectKeyFieldsFromIds(schema.getIdSchema(), ids);
+
+        return new FindInStatement<>(schema, resultSchema, keySchema, keyFields, null, filter, orderBy, limit);
     }
 
-    protected FindInStatement(
-            EntitySchema<T> schema,
-            Schema<RESULT> resultSchema,
-            Iterable<? extends Entity.Id<T>> ids,
-            @Nullable FilterExpression<T> filter,
-            @Nullable OrderExpression<T> orderBy,
-            @Nullable Integer limit,
-            String tableName
-    ) {
-        super(schema, resultSchema, tableName);
-
-        this.orderBy = orderBy;
-        this.limit = limit;
-
-        indexName = null;
-        keySchema = schema.getIdSchema();
-        keyFields = collectKeyFieldsFromIds(schema.getIdSchema(), ids);
-        predicate = (filter == null) ? null : new PredicateClause<>(schema, YqlListingQuery.toYqlPredicate(filter));
-
-        validateOrderByFields();
-    }
-
-    /**
-     * Creates new {@code FindInStatement} instance with index usage and pagination.
-     */
-    protected <V> FindInStatement(
+    public static <K, T extends Entity<T>, RESULT> FindInStatement<Set<K>, T, RESULT> from(
             EntitySchema<T> schema,
             Schema<RESULT> resultSchema,
             String indexName,
-            Iterable<V> keys,
+            Iterable<K> keys,
             @Nullable FilterExpression<T> filter,
             @Nullable OrderExpression<T> orderBy,
             @Nullable Integer limit
     ) {
-        this(schema, resultSchema, indexName, keys, filter, orderBy, limit, schema.getName());
+        Schema<K> keySchema = getKeySchemaFromValues(keys);
+        Set<String> keyFields = collectKeyFieldsFromKeys(schema, indexName, keySchema, keys);
+
+        return new FindInStatement<>(schema, resultSchema, keySchema, keyFields, indexName, filter, orderBy, limit);
     }
 
-    protected <V> FindInStatement(
+    private <PARAMS> FindInStatement(
             EntitySchema<T> schema,
             Schema<RESULT> resultSchema,
-            String indexName,
-            Iterable<V> keys,
+            Schema<PARAMS> keySchema,
+            Set<String> keyFields,
+            @Nullable String indexName,
             @Nullable FilterExpression<T> filter,
             @Nullable OrderExpression<T> orderBy,
-            @Nullable Integer limit,
-            String tableName
+            @Nullable Integer limit
+
     ) {
-        super(schema, resultSchema, tableName);
+        super(schema, resultSchema);
 
         this.indexName = indexName;
         this.orderBy = orderBy;
         this.limit = limit;
-
-        Schema<V> schemaFromValues = getKeySchemaFromValues(keys);
-
-        keySchema = schemaFromValues;
-        keyFields = collectKeyFieldsFromKeys(schema, indexName, schemaFromValues, keys);
-        predicate = (filter == null) ? null : new PredicateClause<>(schema, YqlListingQuery.toYqlPredicate(filter));
+        this.keySchema = keySchema;
+        this.keyFields = keyFields;
+        this.predicate = (filter == null) ? null : new PredicateClause<>(schema, YqlListingQuery.toYqlPredicate(filter));
 
         validateOrderByFields();
     }

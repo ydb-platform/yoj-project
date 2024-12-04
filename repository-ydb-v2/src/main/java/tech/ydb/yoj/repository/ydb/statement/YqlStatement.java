@@ -4,8 +4,6 @@ import com.google.common.base.Preconditions;
 import com.google.protobuf.NullValue;
 import lombok.NonNull;
 import tech.ydb.proto.ValueProtos;
-import tech.ydb.yoj.databind.expression.FilterExpression;
-import tech.ydb.yoj.databind.expression.OrderExpression;
 import tech.ydb.yoj.databind.schema.ObjectSchema;
 import tech.ydb.yoj.databind.schema.Schema;
 import tech.ydb.yoj.repository.db.Entity;
@@ -90,60 +88,6 @@ public abstract class YqlStatement<PARAMS, ENTITY extends Entity<ENTITY>, RESULT
             Range<ID> range
     ) {
         return new FindRangeStatement<>(EntitySchema.of(type), ViewSchema.of(viewType), range);
-    }
-
-    public static <PARAMS, ENTITY extends Entity<ENTITY>, ID extends Entity.Id<ENTITY>> Statement<PARAMS, ID> findIdsIn(
-            Class<ENTITY> type,
-            Iterable<ID> ids,
-            FilterExpression<ENTITY> filter,
-            OrderExpression<ENTITY> orderBy,
-            Integer limit
-    ) {
-        return new FindInStatement<>(EntitySchema.of(type), EntityIdSchema.ofEntity(type), ids, filter, orderBy, limit);
-    }
-
-    public static <PARAMS, ENTITY extends Entity<ENTITY>> Statement<PARAMS, ENTITY> findIn(
-            Class<ENTITY> type,
-            Iterable<? extends Entity.Id<ENTITY>> ids,
-            FilterExpression<ENTITY> filter,
-            OrderExpression<ENTITY> orderBy,
-            Integer limit
-    ) {
-        return new FindInStatement<>(EntitySchema.of(type), EntitySchema.of(type), ids, filter, orderBy, limit);
-    }
-
-    public static <PARAMS, ENTITY extends Entity<ENTITY>, VIEW extends View> Statement<PARAMS, VIEW> findIn(
-            Class<ENTITY> type,
-            Class<VIEW> viewType,
-            Iterable<? extends Entity.Id<ENTITY>> ids,
-            FilterExpression<ENTITY> filter,
-            OrderExpression<ENTITY> orderBy,
-            Integer limit
-    ) {
-        return new FindInStatement<>(EntitySchema.of(type), ViewSchema.of(viewType), ids, filter, orderBy, limit);
-    }
-
-    public static <PARAMS, ENTITY extends Entity<ENTITY>, K> Statement<PARAMS, ENTITY> findIn(
-            Class<ENTITY> type,
-            String indexName,
-            Iterable<K> keys,
-            FilterExpression<ENTITY> filter,
-            OrderExpression<ENTITY> orderBy,
-            Integer limit
-    ) {
-        return new FindInStatement<>(EntitySchema.of(type), EntitySchema.of(type), indexName, keys, filter, orderBy, limit);
-    }
-
-    public static <PARAMS, ENTITY extends Entity<ENTITY>, VIEW extends View, K> Statement<PARAMS, VIEW> findIn(
-            Class<ENTITY> type,
-            Class<VIEW> viewType,
-            String indexName,
-            Iterable<K> keys,
-            FilterExpression<ENTITY> filter,
-            OrderExpression<ENTITY> orderBy,
-            Integer limit
-    ) {
-        return new FindInStatement<>(EntitySchema.of(type), ViewSchema.of(viewType), indexName, keys, filter, orderBy, limit);
     }
 
     public static <PARAMS, ENTITY extends Entity<ENTITY>> Statement<PARAMS, ENTITY> findAll(
