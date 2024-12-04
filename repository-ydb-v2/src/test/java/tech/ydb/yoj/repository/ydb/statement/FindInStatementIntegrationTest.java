@@ -49,28 +49,28 @@ public class FindInStatementIntegrationTest {
 
     @Test
     public void testGetQueryType() {
-        var statement = new FindInStatement<>(ENTITY_SCHEMA, ENTITY_SCHEMA, IDS, null, null, null);
+        var statement = FindInStatement.from(ENTITY_SCHEMA, ENTITY_SCHEMA, IDS, null, null, null);
 
         assertThat(statement.getQueryType()).isEqualTo(Statement.QueryType.SELECT);
     }
 
     @Test
     public void testToDebugString() {
-        var statement = new FindInStatement<>(ENTITY_SCHEMA, ENTITY_SCHEMA, IDS, null, null, null);
+        var statement = FindInStatement.from(ENTITY_SCHEMA, ENTITY_SCHEMA, IDS, null, null, null);
 
         assertThat(statement.toDebugString(IDS)).isNotBlank();
     }
 
     @Test
     public void testToDebugStringWithOrder() {
-        var statement = new FindInStatement<>(ENTITY_SCHEMA, ENTITY_SCHEMA, IDS, null, DEFAULT_ORDER, null);
+        var statement = FindInStatement.from(ENTITY_SCHEMA, ENTITY_SCHEMA, IDS, null, DEFAULT_ORDER, null);
 
         assertThat(statement.toDebugString(IDS)).isNotBlank();
     }
 
     @Test
     public void testEntityUnordered() {
-        var statement = new FindInStatement<>(ENTITY_SCHEMA, ENTITY_SCHEMA, IDS, null, null, null);
+        var statement = FindInStatement.from(ENTITY_SCHEMA, ENTITY_SCHEMA, IDS, null, null, null);
 
         String query = statement.getQuery("global/cloud/");
         String expected = """
@@ -86,7 +86,7 @@ public class FindInStatementIntegrationTest {
 
     @Test
     public void testEntityDefaultOrder() {
-        var statement = new FindInStatement<>(ENTITY_SCHEMA, ENTITY_SCHEMA, IDS, null, DEFAULT_ORDER, null);
+        var statement = FindInStatement.from(ENTITY_SCHEMA, ENTITY_SCHEMA, IDS, null, DEFAULT_ORDER, null);
 
         String query = statement.getQuery("global/cloud/");
         String expected = """
@@ -103,7 +103,7 @@ public class FindInStatementIntegrationTest {
 
     @Test
     public void testEntityCustomOrder() {
-        var statement = new FindInStatement<>(ENTITY_SCHEMA, ENTITY_SCHEMA, IDS, null,
+        var statement = FindInStatement.from(ENTITY_SCHEMA, ENTITY_SCHEMA, IDS, null,
                 newOrderBuilder(Foo.class)
                         .orderBy("id.key1").ascending()
                         .orderBy("value1").descending()
@@ -126,7 +126,7 @@ public class FindInStatementIntegrationTest {
 
     @Test
     public void testViewUnordered() {
-        var statement = new FindInStatement<>(ENTITY_SCHEMA, VIEW_SCHEMA, IDS, null, null, null);
+        var statement = FindInStatement.from(ENTITY_SCHEMA, VIEW_SCHEMA, IDS, null, null, null);
 
         String query = statement.getQuery("global/cloud/");
         String expected = """
@@ -142,7 +142,7 @@ public class FindInStatementIntegrationTest {
 
     @Test
     public void testViewDefaultOrder() {
-        var statement = new FindInStatement<>(ENTITY_SCHEMA, VIEW_SCHEMA, IDS, null, DEFAULT_ORDER, null);
+        var statement = FindInStatement.from(ENTITY_SCHEMA, VIEW_SCHEMA, IDS, null, DEFAULT_ORDER, null);
 
         String query = statement.getQuery("global/cloud/");
         String expected = """
@@ -159,7 +159,7 @@ public class FindInStatementIntegrationTest {
 
     @Test
     public void testViewCustomOrder() {
-        var statement = new FindInStatement<>(ENTITY_SCHEMA, VIEW_SCHEMA, IDS, null,
+        var statement = FindInStatement.from(ENTITY_SCHEMA, VIEW_SCHEMA, IDS, null,
                 newOrderBuilder(Foo.class)
                         .orderBy("id.key1").ascending()
                         .orderBy("value1").descending()
@@ -182,7 +182,7 @@ public class FindInStatementIntegrationTest {
 
     @Test(expected = IllegalArgumentException.class)
     public void testViewIncompatibleOrder() {
-        var statement = new FindInStatement<>(ENTITY_SCHEMA, VIEW_SCHEMA, IDS, null,
+        var statement = FindInStatement.from(ENTITY_SCHEMA, VIEW_SCHEMA, IDS, null,
                 newOrderBuilder(Foo.class)
                         .orderBy("value2").descending()
                         .build(),
@@ -198,7 +198,7 @@ public class FindInStatementIntegrationTest {
                 .where("value1").neq(42L)
                 .and("value2").in("v1", "v2")
                 .build();
-        var statement = new FindInStatement<>(ENTITY_SCHEMA, VIEW_SCHEMA, IDS, filter, DEFAULT_ORDER, null);
+        var statement = FindInStatement.from(ENTITY_SCHEMA, VIEW_SCHEMA, IDS, filter, DEFAULT_ORDER, null);
 
         String query = statement.getQuery("global/cloud/");
         String expected = """
@@ -225,7 +225,7 @@ public class FindInStatementIntegrationTest {
                 .where("value1").neq(42L)
                 .and("value2").in("v1", "v2")
                 .build();
-        var statement = new FindInStatement<>(ENTITY_SCHEMA, VIEW_SCHEMA, IDS, filter, DEFAULT_ORDER, 42);
+        var statement = FindInStatement.from(ENTITY_SCHEMA, VIEW_SCHEMA, IDS, filter, DEFAULT_ORDER, 42);
 
         String query = statement.getQuery("global/cloud/");
         String expected = """
@@ -249,7 +249,7 @@ public class FindInStatementIntegrationTest {
 
     @Test
     public void testByIndex() {
-        var statement = new FindInStatement<>(
+        var statement = FindInStatement.from(
                 ENTITY_SCHEMA,
                 VIEW_SCHEMA,
                 INDEX_NAME,
@@ -272,7 +272,7 @@ public class FindInStatementIntegrationTest {
     @Test
     public void testNotExistentIndex() {
         assertThatIllegalArgumentException()
-                .isThrownBy(() -> new FindInStatement<>(
+                .isThrownBy(() -> FindInStatement.from(
                         ENTITY_SCHEMA,
                         VIEW_SCHEMA,
                         NOT_EXISTENT_INDEX_NAME,
@@ -285,7 +285,7 @@ public class FindInStatementIntegrationTest {
     @Test
     public void testByIndexInconsistentPrefixKeys() {
         assertThatIllegalArgumentException()
-                .isThrownBy(() -> new FindInStatement<>(
+                .isThrownBy(() -> FindInStatement.from(
                         ENTITY_SCHEMA,
                         VIEW_SCHEMA,
                         INDEX_NAME,
@@ -297,7 +297,7 @@ public class FindInStatementIntegrationTest {
     @Test
     public void testByIndexNotPrefixKeys() {
         assertThatIllegalArgumentException()
-                .isThrownBy(() -> new FindInStatement<>(
+                .isThrownBy(() -> FindInStatement.from(
                         ENTITY_SCHEMA,
                         VIEW_SCHEMA,
                         INDEX_NAME,
@@ -309,7 +309,7 @@ public class FindInStatementIntegrationTest {
     @Test
     public void testByIndexNotIndexedKey() {
         assertThatIllegalArgumentException()
-                .isThrownBy(() -> new FindInStatement<>(
+                .isThrownBy(() -> FindInStatement.from(
                         ENTITY_SCHEMA,
                         VIEW_SCHEMA,
                         INDEX_NAME,
@@ -322,7 +322,7 @@ public class FindInStatementIntegrationTest {
     @Test
     public void testByIndexInconsistentTypeKeys() {
         assertThatIllegalArgumentException()
-                .isThrownBy(() -> new FindInStatement<>(
+                .isThrownBy(() -> FindInStatement.from(
                         ENTITY_SCHEMA,
                         VIEW_SCHEMA,
                         INDEX_NAME,
@@ -334,7 +334,7 @@ public class FindInStatementIntegrationTest {
 
     @Test
     public void testToQueryParameters() {
-        var statement = new FindInStatement<>(ENTITY_SCHEMA, VIEW_SCHEMA, IDS, null, DEFAULT_ORDER, null);
+        var statement = FindInStatement.from(ENTITY_SCHEMA, VIEW_SCHEMA, IDS, null, DEFAULT_ORDER, null);
 
         Map<String, ValueProtos.TypedValue> queryParams = statement.toQueryParameters(IDS);
 
@@ -347,7 +347,7 @@ public class FindInStatementIntegrationTest {
                 .where("value1").neq(42L)
                 .and("value2").in("v1", "v2")
                 .build();
-        var statement = new FindInStatement<>(ENTITY_SCHEMA, VIEW_SCHEMA, IDS, filter, DEFAULT_ORDER, null);
+        var statement = FindInStatement.from(ENTITY_SCHEMA, VIEW_SCHEMA, IDS, filter, DEFAULT_ORDER, null);
 
         Map<String, ValueProtos.TypedValue> queryParams = statement.toQueryParameters(IDS);
 
@@ -360,7 +360,7 @@ public class FindInStatementIntegrationTest {
         var ids = List.of(Bar.Id.of("a"), Bar.Id.of("b"));
         var filter = newFilterBuilder(Bar.class).where("value").eq(100500L).build();
         var orderBy = orderById(Bar.class, OrderExpression.SortOrder.DESCENDING);
-        var statement = new FindInStatement<>(entitySchema, entitySchema, ids, filter, orderBy, 42);
+        var statement = FindInStatement.from(entitySchema, entitySchema, ids, filter, orderBy, 42);
 
         String query = statement.getQuery("global/cloud/");
         String expected = """
