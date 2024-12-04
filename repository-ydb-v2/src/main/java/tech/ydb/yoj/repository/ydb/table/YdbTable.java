@@ -24,6 +24,7 @@ import tech.ydb.yoj.repository.ydb.bulk.BulkMapper;
 import tech.ydb.yoj.repository.ydb.bulk.BulkMapperImpl;
 import tech.ydb.yoj.repository.ydb.readtable.EntityIdKeyMapper;
 import tech.ydb.yoj.repository.ydb.readtable.ReadTableMapper;
+import tech.ydb.yoj.repository.ydb.statement.FindInStatement;
 import tech.ydb.yoj.repository.ydb.statement.FindStatement;
 import tech.ydb.yoj.repository.ydb.statement.FindYqlStatement;
 import tech.ydb.yoj.repository.ydb.statement.Statement;
@@ -328,7 +329,8 @@ public class YdbTable<T extends Entity<T>> implements Table<T> {
         if (ids.isEmpty()) {
             return List.of();
         }
-        return executor.execute(YqlStatement.findIn(type, ids, filter, orderBy, limit), ids);
+        var statement = FindInStatement.from(schema, schema, ids, filter, orderBy, limit);
+        return executor.execute(statement, ids);
     }
 
     @Override
@@ -336,7 +338,9 @@ public class YdbTable<T extends Entity<T>> implements Table<T> {
         if (ids.isEmpty()) {
             return List.of();
         }
-        return executor.execute(YqlStatement.findIn(type, viewType, ids, filter, orderBy, limit), ids);
+        ViewSchema<V> viewSchema = ViewSchema.of(viewType);
+        var statement = FindInStatement.from(schema, viewSchema, ids, filter, orderBy, limit);
+        return executor.execute(statement, ids);
     }
 
     @Override
@@ -344,7 +348,8 @@ public class YdbTable<T extends Entity<T>> implements Table<T> {
         if (keys.isEmpty()) {
             return List.of();
         }
-        return postLoad(executor.execute(YqlStatement.findIn(type, indexName, keys, filter, orderBy, limit), keys));
+        var statement = FindInStatement.from(schema, schema, indexName, keys, filter, orderBy, limit);
+        return postLoad(executor.execute(statement, keys));
     }
 
     @Override
@@ -352,7 +357,9 @@ public class YdbTable<T extends Entity<T>> implements Table<T> {
         if (keys.isEmpty()) {
             return List.of();
         }
-        return executor.execute(YqlStatement.findIn(type, viewType, indexName, keys, filter, orderBy, limit), keys);
+        ViewSchema<V> viewSchema = ViewSchema.of(viewType);
+        var statement = FindInStatement.from(schema, viewSchema, indexName, keys, filter, orderBy, limit);
+        return executor.execute(statement, keys);
     }
 
     public static <T extends Entity<T>> List<YqlStatementPart<? extends YqlStatementPart<?>>> buildStatementParts(
@@ -416,7 +423,10 @@ public class YdbTable<T extends Entity<T>> implements Table<T> {
         if (partialIds.isEmpty()) {
             return List.of();
         }
-        return executor.execute(YqlStatement.findIdsIn(type, partialIds, null, defaultOrder(type), null), partialIds);
+        OrderExpression<T> order = defaultOrder(type);
+        EntityIdSchema<ID> idSchema = EntityIdSchema.ofEntity(type);
+        var statement = FindInStatement.from(schema, idSchema, partialIds, null, order, null);
+        return executor.execute(statement, partialIds);
     }
 
     @Override
