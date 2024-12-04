@@ -76,6 +76,13 @@ public abstract class YqlPredicate implements YqlStatementPart<YqlPredicate> {
         YqlPredicate.useLegacyRel.set(value);
     }
 
+    public static YqlPredicate from(Collection<? extends YqlStatementPart<?>> parts) {
+        return parts.stream()
+                .filter(p -> p instanceof YqlPredicate)
+                .map(YqlPredicate.class::cast)
+                .reduce(YqlPredicate.alwaysTrue(), (p1, p2) -> p1.and(p2));
+    }
+
     public static FieldPredicateBuilder where(@NonNull String fieldPath) {
         return new FieldPredicateBuilder(fieldPath, UnaryOperator.identity());
     }

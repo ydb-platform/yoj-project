@@ -1,16 +1,11 @@
 package tech.ydb.yoj.repository.ydb.statement;
 
-import lombok.NonNull;
 import tech.ydb.yoj.repository.db.Entity;
 import tech.ydb.yoj.repository.db.EntitySchema;
 
-class DeleteAllStatement<PARAMS, ENTITY extends Entity<ENTITY>> extends YqlStatement<PARAMS, ENTITY, ENTITY> {
-    public DeleteAllStatement(@NonNull Class<ENTITY> type) {
-        super(EntitySchema.of(type), EntitySchema.of(type));
-    }
-
-    public DeleteAllStatement(@NonNull EntitySchema<ENTITY> schema, String tableName) {
-        super(schema, schema, tableName);
+public class DeleteAllStatement<PARAMS, ENTITY extends Entity<ENTITY>> extends YqlStatement<PARAMS, ENTITY, ENTITY> {
+    public DeleteAllStatement(EntitySchema<ENTITY> schema) {
+        super(schema, schema);
     }
 
     @Override

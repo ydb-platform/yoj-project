@@ -24,7 +24,7 @@ import tech.ydb.yoj.repository.ydb.client.SessionManager;
 import tech.ydb.yoj.repository.ydb.client.YdbConverter;
 import tech.ydb.yoj.repository.ydb.statement.FindYqlStatement;
 import tech.ydb.yoj.repository.ydb.statement.MultipleVarsYqlStatement;
-import tech.ydb.yoj.repository.ydb.statement.YqlStatement;
+import tech.ydb.yoj.repository.ydb.statement.UpsertYqlStatement;
 
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -324,7 +324,7 @@ public class YdbRepositoryCacheTest {
     private CompletableFuture<Result<DataQueryResult>> convertEntity(List<Complex> complexes) {
         ValueProtos.ResultSet.Builder builder = ValueProtos.ResultSet.newBuilder();
         complexes.stream()
-                .map(complex -> YqlStatement.save(Complex.class).toQueryParameters(complex))
+                .map(complex -> new UpsertYqlStatement<>(EntitySchema.of(Complex.class)).toQueryParameters(complex))
                 .map(map -> YdbConverter.convertToParams(map).values().get(MultipleVarsYqlStatement.listName))
                 .peek(value -> {
                     if (builder.getColumnsCount() == 0) {
