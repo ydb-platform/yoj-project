@@ -104,5 +104,9 @@ public abstract class MultipleVarsYqlStatement<PARAMS, ENTITY extends Entity<ENT
         public Simple(@NonNull Class<ENTITY> type, String tableName) {
             super(EntitySchema.of(type), EntitySchema.of(type), tableName);
         }
+
+        public Simple(EntitySchema<ENTITY> schema) {
+            super(schema, schema);
+        }
     }
 }

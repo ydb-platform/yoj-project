@@ -4,7 +4,6 @@ import com.google.common.base.Preconditions;
 import com.google.protobuf.NullValue;
 import lombok.NonNull;
 import tech.ydb.proto.ValueProtos;
-import tech.ydb.yoj.databind.schema.ObjectSchema;
 import tech.ydb.yoj.databind.schema.Schema;
 import tech.ydb.yoj.repository.db.Entity;
 import tech.ydb.yoj.repository.db.EntityIdSchema;
@@ -14,7 +13,6 @@ import tech.ydb.yoj.repository.db.Table.View;
 import tech.ydb.yoj.repository.db.ViewSchema;
 import tech.ydb.yoj.repository.db.cache.RepositoryCache;
 import tech.ydb.yoj.repository.ydb.yql.YqlOrderBy;
-import tech.ydb.yoj.repository.ydb.yql.YqlPredicate;
 import tech.ydb.yoj.repository.ydb.yql.YqlStatementPart;
 import tech.ydb.yoj.repository.ydb.yql.YqlType;
 
@@ -53,25 +51,6 @@ public abstract class YqlStatement<PARAMS, ENTITY extends Entity<ENTITY>, RESULT
         this.resultSchema = resultSchema;
         this.resultSetReader = new ResultSetReader<>(resultSchema);
         this.tableName = tableName;
-    }
-
-    public static <PARAMS, ENTITY extends Entity<ENTITY>> Statement<PARAMS, ENTITY> insert(
-            Class<ENTITY> type
-    ) {
-        return new InsertYqlStatement<>(type);
-    }
-
-    public static <ENTITY extends Entity<ENTITY>, ID extends Entity.Id<ENTITY>> Statement<UpdateModel.ById<ID>, ?> update(
-            Class<ENTITY> type,
-            UpdateModel.ById<ID> model
-    ) {
-        return new UpdateByIdStatement<>(type, model);
-    }
-
-    public static <PARAMS, ENTITY extends Entity<ENTITY>> Statement<PARAMS, ENTITY> save(
-            Class<ENTITY> type
-    ) {
-        return new UpsertYqlStatement<>(type);
     }
 
     public static <ENTITY extends Entity<ENTITY>, ID extends Entity.Id<ENTITY>> Statement<Range<ID>, ENTITY> findRange(
@@ -138,27 +117,6 @@ public abstract class YqlStatement<PARAMS, ENTITY extends Entity<ENTITY>, RESULT
         return String.format("DECLARE %s AS %s;\n", name, type);
     }
 
-    public static <ENTITY extends Entity<ENTITY>> Statement<Collection<? extends YqlStatementPart<?>>, Count> count(
-            Class<ENTITY> entityType,
-            Collection<? extends YqlStatementPart<?>> parts
-    ) {
-        return count(EntitySchema.of(entityType), parts);
-    }
-
-    private static <ENTITY extends Entity<ENTITY>> Statement<Collection<? extends YqlStatementPart<?>>, Count> count(
-            EntitySchema<ENTITY> schema,
-            Collection<? extends YqlStatementPart<?>> parts
-    ) {
-        return new CountAllStatement<>(schema, ObjectSchema.of(Count.class), parts, YqlStatement::predicateFrom);
-    }
-
-    protected static YqlPredicate predicateFrom(Collection<? extends YqlStatementPart<?>> parts) {
-        return parts.stream()
-                .filter(p -> p instanceof YqlPredicate)
-                .map(YqlPredicate.class::cast)
-                .reduce(YqlPredicate.alwaysTrue(), (p1, p2) -> p1.and(p2));
-    }
-
     protected static Stream<? extends YqlStatementPart<?>> mergeParts(Stream<? extends YqlStatementPart<?>> origParts) {
         return origParts
                 .collect(groupingBy(YqlStatementPart::getType))
@@ -173,14 +131,6 @@ public abstract class YqlStatement<PARAMS, ENTITY extends Entity<ENTITY>, RESULT
         YqlStatementPart<?> first = items.iterator().next();
         //noinspection unchecked, rawtypes
         return (List<? extends YqlStatementPart<?>>) first.combine((List) items.subList(1, items.size()));
-    }
-
-    public static <PARAMS, ENTITY extends Entity<ENTITY>> Statement<PARAMS, ENTITY> deleteAll(Class<ENTITY> type) {
-        return new DeleteAllStatement<>(type);
-    }
-
-    public static <PARAMS, ENTITY extends Entity<ENTITY>> Statement<PARAMS, ENTITY> delete(Class<ENTITY> type) {
-        return new DeleteByIdStatement<>(type);
     }
 
     @Override

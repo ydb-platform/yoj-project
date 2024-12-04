@@ -1,6 +1,7 @@
 package tech.ydb.yoj.repository.ydb.statement;
 
 import org.junit.Test;
+import tech.ydb.yoj.repository.db.EntitySchema;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -18,7 +19,7 @@ public class InsertYqlStatementTest extends AbstractMultipleVarsYqlStatementTest
 
         txManager.tx(() -> {
             var db = getTestDb();
-            var deleteStatement = new InsertYqlStatement<>(TestEntity.class);
+            var deleteStatement = new InsertYqlStatement<>(EntitySchema.of(TestEntity.class));
 
             db.pendingExecute(deleteStatement, ENTITY_2);
             db.pendingExecute(deleteStatement, ENTITY_3);
