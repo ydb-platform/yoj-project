@@ -24,7 +24,7 @@ public class FindStatement<ENTITY extends Entity<ENTITY>, RESULT> extends Predic
             @NonNull Collection<? extends YqlStatementPart<?>> parts,
             boolean distinct
     ) {
-        ArrayList<YqlStatementPart<?>> partsList = new ArrayList<>(parts);
+        List<YqlStatementPart<?>> partsList = new ArrayList<>(parts);
         if (!distinct) {
             if (parts.stream().noneMatch(s -> s.getType().equals(YqlOrderBy.TYPE))) {
                 partsList.add(ORDER_BY_ID_ASCENDING);
@@ -45,6 +45,7 @@ public class FindStatement<ENTITY extends Entity<ENTITY>, RESULT> extends Predic
         this.parts = parts;
     }
 
+    @Override
     public String getQuery(String tablespace) {
         return declarations()
                 + "SELECT " + (distinct ? "DISTINCT " : "") + outNames()
