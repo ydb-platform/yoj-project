@@ -49,7 +49,7 @@ final class Columns {
         } catch (ConversionException e) {
             throw e;
         } catch (Exception e) {
-            String message = format("Could not convert %s: %s", schema.getName(), e.getMessage());
+            String message = format("Could not convert %s: %s", schema.getTypeName(), e.getMessage());
             throw new ConversionException(message, e);
         }
     }

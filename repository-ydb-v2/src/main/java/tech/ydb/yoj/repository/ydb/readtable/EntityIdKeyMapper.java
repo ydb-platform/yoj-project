@@ -6,6 +6,7 @@ import tech.ydb.yoj.databind.schema.Schema;
 import tech.ydb.yoj.repository.db.Entity;
 import tech.ydb.yoj.repository.db.EntityIdSchema;
 import tech.ydb.yoj.repository.db.EntitySchema;
+import tech.ydb.yoj.repository.db.TableDescriptor;
 import tech.ydb.yoj.repository.ydb.statement.ResultSetReader;
 import tech.ydb.yoj.repository.ydb.yql.YqlType;
 
@@ -14,11 +15,13 @@ import java.util.List;
 import java.util.Map;
 
 public final class EntityIdKeyMapper<E extends Entity<E>, ID extends Entity.Id<E>, RESULT> implements ReadTableMapper<ID, RESULT> {
+    private final TableDescriptor<E> tableDescriptor;
     private final EntitySchema<E> srcSchema;
     private final Schema<RESULT> dstSchema;
     private final ResultSetReader<RESULT> resultSetReader;
 
-    public EntityIdKeyMapper(EntitySchema<E> srcSchema, Schema<RESULT> dstSchema) {
+    public EntityIdKeyMapper(TableDescriptor<E> tableDescriptor, EntitySchema<E> srcSchema, Schema<RESULT> dstSchema) {
+        this.tableDescriptor = tableDescriptor;
         this.srcSchema = srcSchema;
         this.dstSchema = dstSchema;
         this.resultSetReader = new ResultSetReader<>(dstSchema);
@@ -45,7 +48,7 @@ public final class EntityIdKeyMapper<E extends Entity<E>, ID extends Entity.Id<E
 
     @Override
     public String getTableName(String tableSpace) {
-        return tableSpace + srcSchema.getName();
+        return tableSpace + tableDescriptor.tableName();
     }
 
     @Override

@@ -28,6 +28,6 @@ public class FindAllYqlStatement<PARAMS, ENTITY extends Entity<ENTITY>, RESULT> 
 
     @Override
     public String toDebugString(PARAMS params) {
-        return "findAll(" + schema.getName() + ")";
+        return "findAll(" + tableDescriptor.toDebugString() + ")";
     }
 }

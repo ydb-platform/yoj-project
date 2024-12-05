@@ -1,6 +1,5 @@
 package tech.ydb.yoj.repository.ydb.merge;
 
-import lombok.NonNull;
 import lombok.Value;
 import lombok.With;
 import org.slf4j.Logger;
@@ -36,7 +35,7 @@ public class ByEntityYqlQueriesMerger implements YqlQueriesMerger {
             Statement.QueryType.DELETE_ALL));
     private static final Map<TransitionKey, MergingState> transitionMap = createTransitionMap();
 
-    private final Map<TableMetadata, TableState> states = new HashMap<>();
+    private final Map<TableDescriptor<?>, TableState> states = new HashMap<>();
     private final RepositoryCache cache;
 
     ByEntityYqlQueriesMerger(RepositoryCache cache) {
@@ -48,7 +47,8 @@ public class ByEntityYqlQueriesMerger implements YqlQueriesMerger {
         Statement.QueryType queryType = query.getStatement().getQueryType();
         check(SUPPORTED_QUERY_TYPES.contains(queryType), "Unsupported query type: " + queryType);
 
-        TableState tableState = states.computeIfAbsent(new TableMetadata(getEntityClass(query), getTableName(query)), __ -> new TableState());
+        TableDescriptor<?> tableDescriptor = convertQueryToYqlStatement(query).getTableDescriptor();
+        TableState tableState = states.computeIfAbsent(tableDescriptor, __ -> new TableState());
         if (queryType == Statement.QueryType.DELETE_ALL) {
             tableState.entityStates.clear();
             tableState.deleteAll = query;
@@ -193,10 +193,6 @@ public class ByEntityYqlQueriesMerger implements YqlQueriesMerger {
         return convertQueryToYqlStatement(query).getInSchemaType();
     }
 
-    private static String getTableName(YdbRepository.Query query) {
-        return convertQueryToYqlStatement(query).getTableName();
-    }
-
     private static YqlStatement convertQueryToYqlStatement(YdbRepository.Query query) {
         return (YqlStatement) query.getStatement();
     }
@@ -251,14 +247,8 @@ public class ByEntityYqlQueriesMerger implements YqlQueriesMerger {
 
     @Value
     private static class TransitionKey {
-        private MergingState state;
-        private Statement.QueryType nextQueryType;
-    }
-
-    @Value
-    private static class TableMetadata {
-        private @NonNull Class<?> entityClass;
-        private @NonNull String tableName;
+        MergingState state;
+        Statement.QueryType nextQueryType;
     }
 
     private enum MergingState {

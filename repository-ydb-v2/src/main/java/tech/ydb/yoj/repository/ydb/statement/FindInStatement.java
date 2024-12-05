@@ -156,7 +156,7 @@ public final class FindInStatement<IN, T extends Entity<T>, RESULT> extends Mult
             @Nullable Integer limit
     ) {
         Schema<K> keySchema = getKeySchemaFromValues(keys);
-        Set<String> keyFields = collectKeyFieldsFromKeys(schema, indexName, keySchema, keys);
+        Set<String> keyFields = collectKeyFieldsFromKeys(tableDescriptor, schema, indexName, keySchema, keys);
 
         return new FindInStatement<>(
                 tableDescriptor, schema, resultSchema, keySchema, keyFields, indexName, filter, orderBy, limit
@@ -219,11 +219,13 @@ public final class FindInStatement<IN, T extends Entity<T>, RESULT> extends Mult
         return ObjectSchema.of((Class<V>) key.getClass());
     }
 
-    private static <V> Set<String> collectKeyFieldsFromKeys(
-            Schema<?> entitySchema,
+    private static <E extends Entity<E>, K> Set<String> collectKeyFieldsFromKeys(
+            TableDescriptor<E> tableDescriptor,
+            Schema<E> entitySchema,
             String indexName,
-            Schema<V> keySchema,
-            Iterable<V> keys) {
+            Schema<K> keySchema,
+            Iterable<K> keys
+    ) {
         Set<Set<String>> nonNullFieldsSet = Streams.stream(keys)
                 .map(key -> nonNullKeyFieldNames(keySchema, key))
                 .collect(toUnmodifiableSet());
@@ -238,7 +240,7 @@ public final class FindInStatement<IN, T extends Entity<T>, RESULT> extends Mult
                 .filter(index -> indexName.equals(index.getIndexName()))
                 .findAny()
                 .orElseThrow(() -> new IllegalArgumentException(
-                        "Entity `%s` doesn't have index `%s`".formatted(entitySchema.getName(), indexName)
+                        "Table `%s` doesn't have index `%s`".formatted(tableDescriptor.toDebugString(), indexName)
                 ));
 
         // 2. all key fields are index key fields
@@ -247,8 +249,8 @@ public final class FindInStatement<IN, T extends Entity<T>, RESULT> extends Mult
 
         Preconditions.checkArgument(
                 missingInIndexKeys.isEmpty(),
-                "Index `%s` of entity `%s` doesn't contain key(s): [%s]".formatted(
-                        indexName, entitySchema.getName(), String.join(", ", missingInIndexKeys)
+                "Index `%s` of table `%s` doesn't contain key(s): [%s]".formatted(
+                        indexName, tableDescriptor.toDebugString(), String.join(", ", missingInIndexKeys)
                 )
         );
 
@@ -268,8 +270,8 @@ public final class FindInStatement<IN, T extends Entity<T>, RESULT> extends Mult
 
             Preconditions.checkArgument(
                     entityFieldType.equals(keyFieldType.getValue()),
-                    "Entity `%s` has column `%s` of type `%s`, but corresponding key field is `%s`".formatted(
-                            entitySchema.getName(), keyFieldType.getKey(), entityFieldType, keyFieldType.getValue()
+                    "Table `%s` has column `%s` of type `%s`, but corresponding key field is `%s`".formatted(
+                            tableDescriptor.toDebugString(), keyFieldType.getKey(), entityFieldType, keyFieldType.getValue()
                     )
             );
         }
@@ -316,7 +318,7 @@ public final class FindInStatement<IN, T extends Entity<T>, RESULT> extends Mult
         Preconditions.checkArgument(
                 missingColumns.isEmpty(),
                 "Result schema of '%s' does not contain field(s): [%s] by which the result is ordered: %s".formatted(
-                        resultSchema.getType().getSimpleName(), String.join(", ", missingColumns), orderBy
+                        resultSchema.getTypeName(), String.join(", ", missingColumns), orderBy
                 )
         );
     }

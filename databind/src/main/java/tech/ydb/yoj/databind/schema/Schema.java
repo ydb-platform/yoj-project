@@ -131,6 +131,10 @@ public abstract class Schema<T> {
         this.changefeeds = schema.changefeeds;
     }
 
+    public String getTypeName() {
+        return getType().getSimpleName();
+    }
+
     private void validateFieldNames() {
         flattenFields().stream().collect(toMap(JavaField::getName, Function.identity(), ((x, y) -> {
             throw new IllegalArgumentException("fields with same name `%s` detected: `{%s}` and `{%s}`"
@@ -268,6 +272,7 @@ public abstract class Schema<T> {
     }
 
     /**
+     * DEPRECATED: old method, use correct instance of {@link TableDescriptor}
      * Returns the name of the table for data binding.
      * <p>
      * If the {@link Table} annotation is present, the field {@code name} should be used to
@@ -275,6 +280,7 @@ public abstract class Schema<T> {
      *
      * @return the table name for data binding
      */
+    @Deprecated
     public final String getName() {
         return staticName;
     }
