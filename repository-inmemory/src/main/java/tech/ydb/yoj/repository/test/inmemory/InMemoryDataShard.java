@@ -17,16 +17,15 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.TreeMap;
 
 final class InMemoryDataShard<T extends Entity<T>> {
     private final Class<T> type;
     private final EntitySchema<T> schema;
-    private final TreeMap<Entity.Id<T>, InMemoryEntityLine> entityLines;
+    private final Map<Entity.Id<T>, InMemoryEntityLine> entityLines;
     private final Map<Long, Set<Entity.Id<T>>> uncommited = new HashMap<>();
 
     private InMemoryDataShard(
-            Class<T> type, EntitySchema<T> schema, TreeMap<Entity.Id<T>, InMemoryEntityLine> entityLines
+            Class<T> type, EntitySchema<T> schema, Map<Entity.Id<T>, InMemoryEntityLine> entityLines
     ) {
         this.type = type;
         this.schema = schema;
@@ -37,15 +36,13 @@ final class InMemoryDataShard<T extends Entity<T>> {
         this(type, EntitySchema.of(type), createEmptyLines(type));
     }
 
-    private static <T extends Entity<T>> TreeMap<Entity.Id<T>, InMemoryEntityLine> createEmptyLines(Class<T> type) {
-        return new TreeMap<>(EntityIdSchema.getIdComparator(type));
+    private static <T extends Entity<T>> Map<Entity.Id<T>, InMemoryEntityLine> createEmptyLines(Class<T> type) {
+        return new EntityIdMap<>(EntityIdSchema.getIdComparator(type));
     }
 
     public synchronized InMemoryDataShard<T> createSnapshot() {
-        TreeMap<Entity.Id<T>, InMemoryEntityLine> snapshotLines = createEmptyLines(type);
-        for (Map.Entry<Entity.Id<T>, InMemoryEntityLine> entry : entityLines.entrySet()) {
-            snapshotLines.put(entry.getKey(), entry.getValue().createSnapshot());
-        }
+        Map<Entity.Id<T>, InMemoryEntityLine> snapshotLines = new EntityIdMap<>((EntityIdMap<T, InMemoryEntityLine>)entityLines);
+        snapshotLines.replaceAll((k, v) -> v.createSnapshot());
         return new InMemoryDataShard<>(type, schema, snapshotLines);
     }
 
