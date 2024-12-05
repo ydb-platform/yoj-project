@@ -1,14 +1,16 @@
 package tech.ydb.yoj.repository.ydb.statement;
 
-import lombok.NonNull;
 import tech.ydb.yoj.databind.schema.Schema;
 import tech.ydb.yoj.repository.db.Entity;
 import tech.ydb.yoj.repository.db.EntitySchema;
+import tech.ydb.yoj.repository.db.TableDescriptor;
 
 public class FindAllYqlStatement<PARAMS, ENTITY extends Entity<ENTITY>, RESULT> extends YqlStatement<PARAMS, ENTITY, RESULT> {
 
-    public FindAllYqlStatement(@NonNull EntitySchema<ENTITY> schema, @NonNull Schema<RESULT> resultSchema) {
-        super(schema, resultSchema);
+    public FindAllYqlStatement(
+            TableDescriptor<ENTITY> tableDescriptor, EntitySchema<ENTITY> schema, Schema<RESULT> resultSchema
+    ) {
+        super(tableDescriptor, schema, resultSchema);
     }
 
     @Override

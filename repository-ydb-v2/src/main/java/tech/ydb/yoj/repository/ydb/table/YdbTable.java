@@ -13,6 +13,7 @@ import tech.ydb.yoj.repository.db.EntityIdSchema;
 import tech.ydb.yoj.repository.db.EntitySchema;
 import tech.ydb.yoj.repository.db.Range;
 import tech.ydb.yoj.repository.db.Table;
+import tech.ydb.yoj.repository.db.TableDescriptor;
 import tech.ydb.yoj.repository.db.Tx;
 import tech.ydb.yoj.repository.db.ViewSchema;
 import tech.ydb.yoj.repository.db.bulk.BulkParams;
@@ -68,17 +69,20 @@ public class YdbTable<T extends Entity<T>> implements Table<T> {
     private final Class<T> type;
     private final QueryExecutor executor;
     private final EntitySchema<T> schema;
+    private final TableDescriptor<T> tableDescriptor;
 
     public YdbTable(Class<T> type, QueryExecutor executor) {
         this.type = type;
         this.executor = new CheckingQueryExecutor(executor);
         this.schema = EntitySchema.of(type);
+        this.tableDescriptor = TableDescriptor.from(schema);
     }
 
     protected YdbTable(QueryExecutor executor) {
         this.type = resolveEntityType();
         this.executor = new CheckingQueryExecutor(executor);
         this.schema = EntitySchema.of(type);
+        this.tableDescriptor = TableDescriptor.from(schema);
     }
 
     @SuppressWarnings("unchecked")
@@ -94,7 +98,7 @@ public class YdbTable<T extends Entity<T>> implements Table<T> {
 
     @Override
     public List<T> findAll() {
-        var statement = new FindAllYqlStatement<>(schema, schema);
+        var statement = new FindAllYqlStatement<>(tableDescriptor, schema, schema);
         return postLoad(executor.execute(statement, null));
     }
 
@@ -186,13 +190,13 @@ public class YdbTable<T extends Entity<T>> implements Table<T> {
     @Override
     public <V extends View> List<V> findAll(Class<V> viewType) {
         ViewSchema<V> viewSchema = ViewSchema.of(viewType);
-        var statement = new FindAllYqlStatement<>(schema, viewSchema);
+        var statement = new FindAllYqlStatement<>(tableDescriptor, schema, viewSchema);
         return executor.execute(statement, null);
     }
 
     @Override
     public void deleteAll() {
-        executor.pendingExecute(new DeleteAllStatement<>(schema), null);
+        executor.pendingExecute(new DeleteAllStatement<>(tableDescriptor, schema), null);
     }
 
     @Override
@@ -236,7 +240,7 @@ public class YdbTable<T extends Entity<T>> implements Table<T> {
             throw new IllegalArgumentException("Cannot use partial id in find method");
         }
         return executor.getTransactionLocal().firstLevelCache().get(id, __ -> {
-            var statement = new FindYqlStatement<>(schema, schema);
+            var statement = new FindYqlStatement<>(tableDescriptor, schema, schema);
             List<T> res = postLoad(executor.execute(statement, id));
             return res.isEmpty() ? null : res.get(0);
         });
@@ -245,21 +249,21 @@ public class YdbTable<T extends Entity<T>> implements Table<T> {
     @Override
     public <V extends View> V find(Class<V> viewType, Entity.Id<T> id) {
         ViewSchema<V> viewSchema = ViewSchema.of(viewType);
-        var statement = new FindYqlStatement<>(schema, viewSchema);
+        var statement = new FindYqlStatement<>(tableDescriptor, schema, viewSchema);
         List<V> res = executor.execute(statement, id);
         return res.isEmpty() ? null : res.get(0);
     }
 
     @Override
     public <ID extends Entity.Id<T>> List<T> find(Range<ID> range) {
-        var statement = new FindRangeStatement<>(schema, schema, range);
+        var statement = new FindRangeStatement<>(tableDescriptor, schema, schema, range);
         return postLoad(executor.execute(statement, range));
     }
 
     @Override
     public <V extends View, ID extends Entity.Id<T>> List<V> find(Class<V> viewType, Range<ID> range) {
         ViewSchema<V> viewSchema = ViewSchema.of(viewType);
-        var statement = new FindRangeStatement<>(schema, viewSchema, range);
+        var statement = new FindRangeStatement<>(tableDescriptor, schema, viewSchema, range);
         return executor.execute(statement, range);
     }
 
@@ -273,7 +277,7 @@ public class YdbTable<T extends Entity<T>> implements Table<T> {
     }
 
     public List<T> find(Collection<? extends YqlStatementPart<?>> parts) {
-        var statement = FindStatement.from(schema, schema, parts, false);
+        var statement = FindStatement.from(tableDescriptor, schema, schema, parts, false);
         return postLoad(executor.execute(statement, parts));
     }
 
@@ -342,7 +346,7 @@ public class YdbTable<T extends Entity<T>> implements Table<T> {
         if (ids.isEmpty()) {
             return List.of();
         }
-        var statement = FindInStatement.from(schema, schema, ids, filter, orderBy, limit);
+        var statement = FindInStatement.from(tableDescriptor, schema, schema, ids, filter, orderBy, limit);
         return executor.execute(statement, ids);
     }
 
@@ -352,7 +356,9 @@ public class YdbTable<T extends Entity<T>> implements Table<T> {
             return List.of();
         }
         ViewSchema<V> viewSchema = ViewSchema.of(viewType);
-        var statement = FindInStatement.from(schema, viewSchema, ids, filter, orderBy, limit);
+        var statement = FindInStatement.from(
+                tableDescriptor, schema, viewSchema, ids, filter, orderBy, limit
+        );
         return executor.execute(statement, ids);
     }
 
@@ -361,7 +367,9 @@ public class YdbTable<T extends Entity<T>> implements Table<T> {
         if (keys.isEmpty()) {
             return List.of();
         }
-        var statement = FindInStatement.from(schema, schema, indexName, keys, filter, orderBy, limit);
+        var statement = FindInStatement.from(
+                tableDescriptor, schema, schema, indexName, keys, filter, orderBy, limit
+        );
         return postLoad(executor.execute(statement, keys));
     }
 
@@ -371,7 +379,9 @@ public class YdbTable<T extends Entity<T>> implements Table<T> {
             return List.of();
         }
         ViewSchema<V> viewSchema = ViewSchema.of(viewType);
-        var statement = FindInStatement.from(schema, viewSchema, indexName, keys, filter, orderBy, limit);
+        var statement = FindInStatement.from(
+                tableDescriptor, schema, viewSchema, indexName, keys, filter, orderBy, limit
+        );
         return executor.execute(statement, keys);
     }
 
@@ -403,7 +413,7 @@ public class YdbTable<T extends Entity<T>> implements Table<T> {
 
     public long count(YqlStatementPart<?>... parts) {
         List<YqlStatementPart<?>> partsList = asList(parts);
-        var statement = new CountAllStatement<>(schema, partsList);
+        var statement = new CountAllStatement<>(tableDescriptor, schema, partsList);
         return executor.execute(statement, partsList).get(0).getCount();
     }
 
@@ -413,7 +423,7 @@ public class YdbTable<T extends Entity<T>> implements Table<T> {
 
     public <V extends View> List<V> find(Class<V> viewType, Collection<? extends YqlStatementPart<?>> parts, boolean distinct) {
         ViewSchema<V> viewSchema = ViewSchema.of(viewType);
-        var statement = FindStatement.from(schema, viewSchema, parts, distinct);
+        var statement = FindStatement.from(tableDescriptor, schema, viewSchema, parts, distinct);
         return executor.execute(statement, parts);
     }
 
@@ -423,14 +433,14 @@ public class YdbTable<T extends Entity<T>> implements Table<T> {
 
     private <ID extends Entity.Id<T>> List<ID> findIds(Collection<? extends YqlStatementPart<?>> parts) {
         EntityIdSchema<ID> idSchema = EntityIdSchema.ofEntity(type);
-        var statement = FindStatement.from(schema, idSchema, parts, false);
+        var statement = FindStatement.from(tableDescriptor, schema, idSchema, parts, false);
         return executor.execute(statement, parts);
     }
 
     @Override
     public <ID extends Entity.Id<T>> List<ID> findIds(Range<ID> range) {
         EntityIdSchema<ID> idSchema = EntityIdSchema.ofEntity(type);
-        var statement = new FindRangeStatement<>(schema, idSchema, range);
+        var statement = new FindRangeStatement<>(tableDescriptor, schema, idSchema, range);
         return executor.execute(statement, range);
     }
 
@@ -441,20 +451,20 @@ public class YdbTable<T extends Entity<T>> implements Table<T> {
         }
         OrderExpression<T> order = defaultOrder(type);
         EntityIdSchema<ID> idSchema = EntityIdSchema.ofEntity(type);
-        var statement = FindInStatement.from(schema, idSchema, partialIds, null, order, null);
+        var statement = FindInStatement.from(tableDescriptor, schema, idSchema, partialIds, null, order, null);
         return executor.execute(statement, partialIds);
     }
 
     @Override
     public void update(Entity.Id<T> id, Changeset changeset) {
         UpdateModel.ById<Id<T>> model = new UpdateModel.ById<>(id, changeset.toMap());
-        executor.pendingExecute(new UpdateByIdStatement<>(schema, model), model);
+        executor.pendingExecute(new UpdateByIdStatement<>(tableDescriptor, schema, model), model);
     }
 
     @Override
     public T insert(T t) {
         T entityToSave = t.preSave();
-        executor.pendingExecute(new InsertYqlStatement<>(schema), entityToSave);
+        executor.pendingExecute(new InsertYqlStatement<>(tableDescriptor, schema), entityToSave);
         executor.getTransactionLocal().firstLevelCache().put(entityToSave);
         executor.getTransactionLocal().projectionCache().save(entityToSave);
         return t;
@@ -463,7 +473,7 @@ public class YdbTable<T extends Entity<T>> implements Table<T> {
     @Override
     public T save(T t) {
         T entityToSave = t.preSave();
-        executor.pendingExecute(new UpsertYqlStatement<>(schema), entityToSave);
+        executor.pendingExecute(new UpsertYqlStatement<>(tableDescriptor, schema), entityToSave);
         executor.getTransactionLocal().firstLevelCache().put(entityToSave);
         executor.getTransactionLocal().projectionCache().save(entityToSave);
         return t;
@@ -471,7 +481,7 @@ public class YdbTable<T extends Entity<T>> implements Table<T> {
 
     @Override
     public void delete(Entity.Id<T> id) {
-        executor.pendingExecute(new DeleteByIdStatement<>(schema), id);
+        executor.pendingExecute(new DeleteByIdStatement<>(tableDescriptor, schema), id);
         executor.getTransactionLocal().firstLevelCache().putEmpty(id);
         executor.getTransactionLocal().projectionCache().delete(id);
     }
@@ -486,14 +496,14 @@ public class YdbTable<T extends Entity<T>> implements Table<T> {
      * @param <ID> entity ID type
      */
     public <ID extends Id<T>> void migrate(ID id) {
-        var statement = new FindYqlStatement<>(schema, schema);
+        var statement = new FindYqlStatement<>(tableDescriptor, schema, schema);
         List<T> foundRaw = executor.execute(statement, id);
         if (foundRaw.isEmpty()) {
             return;
         }
         T rawEntity = foundRaw.get(0);
         T entityToSave = rawEntity.postLoad().preSave();
-        executor.pendingExecute(new UpsertYqlStatement<>(schema), entityToSave);
+        executor.pendingExecute(new UpsertYqlStatement<>(tableDescriptor, schema), entityToSave);
         executor.getTransactionLocal().projectionCache().save(entityToSave);
     }
 
@@ -583,7 +593,7 @@ public class YdbTable<T extends Entity<T>> implements Table<T> {
         var params = new UpdateInStatement.UpdateInStatementInput<>(ids, changeset.toMap());
 
         executor.pendingExecute(
-                new UpdateInStatement<>(schema, schema, params),
+                new UpdateInStatement<>(tableDescriptor, schema, schema, params),
                 params
         );
     }

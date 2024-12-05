@@ -7,6 +7,7 @@ import tech.ydb.yoj.databind.schema.Schema;
 import tech.ydb.yoj.repository.db.Entity;
 import tech.ydb.yoj.repository.db.EntitySchema;
 import tech.ydb.yoj.repository.db.Range;
+import tech.ydb.yoj.repository.db.TableDescriptor;
 import tech.ydb.yoj.repository.ydb.yql.YqlType;
 
 import java.util.List;
@@ -23,8 +24,13 @@ public class FindRangeStatement<ENTITY extends Entity<ENTITY>, ID extends Entity
     @Getter
     private final List<YqlStatementParam> params;
 
-    public FindRangeStatement(EntitySchema<ENTITY> schema, Schema<RESULT> outSchema, Range<ID> range) {
-        super(schema, outSchema);
+    public FindRangeStatement(
+            TableDescriptor<ENTITY> tableDescriptor,
+            EntitySchema<ENTITY> schema,
+            Schema<RESULT> outSchema,
+            Range<ID> range
+    ) {
+        super(tableDescriptor, schema, outSchema);
         this.params = Stream.of(RangeBound.values())
                 .flatMap(b -> toParams(b.map(range).keySet(), b))
                 .collect(toList());
