@@ -2,10 +2,11 @@ package tech.ydb.yoj.repository.ydb.statement;
 
 import tech.ydb.yoj.repository.db.Entity;
 import tech.ydb.yoj.repository.db.EntitySchema;
+import tech.ydb.yoj.repository.db.TableDescriptor;
 
 public class DeleteAllStatement<PARAMS, ENTITY extends Entity<ENTITY>> extends YqlStatement<PARAMS, ENTITY, ENTITY> {
-    public DeleteAllStatement(EntitySchema<ENTITY> schema) {
-        super(schema, schema);
+    public DeleteAllStatement(TableDescriptor<ENTITY> tableDescriptor, EntitySchema<ENTITY> schema) {
+        super(tableDescriptor, schema, schema);
     }
 
     @Override

@@ -2,13 +2,14 @@ package tech.ydb.yoj.repository.ydb.statement;
 
 import tech.ydb.yoj.repository.db.Entity;
 import tech.ydb.yoj.repository.db.EntitySchema;
+import tech.ydb.yoj.repository.db.TableDescriptor;
 
 import java.util.Map;
 import java.util.function.Function;
 
 public class InsertYqlStatement<PARAMS, ENTITY extends Entity<ENTITY>> extends MultipleVarsYqlStatement.Simple<PARAMS, ENTITY> {
-    public InsertYqlStatement(EntitySchema<ENTITY> schema) {
-        super(schema);
+    public InsertYqlStatement(TableDescriptor<ENTITY> tableDescriptor, EntitySchema<ENTITY> schema) {
+        super(tableDescriptor, schema);
     }
 
     @Override

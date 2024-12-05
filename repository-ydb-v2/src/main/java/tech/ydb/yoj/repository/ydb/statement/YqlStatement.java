@@ -8,6 +8,7 @@ import tech.ydb.yoj.databind.schema.Schema;
 import tech.ydb.yoj.repository.db.Entity;
 import tech.ydb.yoj.repository.db.EntityIdSchema;
 import tech.ydb.yoj.repository.db.EntitySchema;
+import tech.ydb.yoj.repository.db.TableDescriptor;
 import tech.ydb.yoj.repository.db.cache.RepositoryCache;
 import tech.ydb.yoj.repository.ydb.yql.YqlOrderBy;
 import tech.ydb.yoj.repository.ydb.yql.YqlStatementPart;
@@ -39,15 +40,13 @@ public abstract class YqlStatement<PARAMS, ENTITY extends Entity<ENTITY>, RESULT
     protected final ResultSetReader<RESULT> resultSetReader;
     protected final String tableName;
 
-    public YqlStatement(@NonNull EntitySchema<ENTITY> schema, @NonNull Schema<RESULT> resultSchema) {
-        this(schema, resultSchema, schema.getName());
-    }
-
-    public YqlStatement(@NonNull EntitySchema<ENTITY> schema, @NonNull Schema<RESULT> resultSchema, @NonNull String tableName) {
+    public YqlStatement(
+            TableDescriptor<ENTITY> tableDescriptor, EntitySchema<ENTITY> schema, Schema<RESULT> resultSchema
+    ) {
         this.schema = schema;
         this.resultSchema = resultSchema;
         this.resultSetReader = new ResultSetReader<>(resultSchema);
-        this.tableName = tableName;
+        this.tableName = tableDescriptor.tableName();
     }
 
     @Override

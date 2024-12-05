@@ -16,6 +16,7 @@ import tech.ydb.table.query.Params;
 import tech.ydb.table.values.StructType;
 import tech.ydb.yoj.repository.db.EntitySchema;
 import tech.ydb.yoj.repository.db.Range;
+import tech.ydb.yoj.repository.db.TableDescriptor;
 import tech.ydb.yoj.repository.db.exception.EntityAlreadyExistsException;
 import tech.ydb.yoj.repository.test.sample.TestEntityOperations;
 import tech.ydb.yoj.repository.test.sample.model.Complex;
@@ -323,8 +324,10 @@ public class YdbRepositoryCacheTest {
     @NonNull
     private CompletableFuture<Result<DataQueryResult>> convertEntity(List<Complex> complexes) {
         ValueProtos.ResultSet.Builder builder = ValueProtos.ResultSet.newBuilder();
+        EntitySchema<Complex> schema = EntitySchema.of(Complex.class);
+        TableDescriptor<Complex> tableDescriptor = TableDescriptor.from(schema);
         complexes.stream()
-                .map(complex -> new UpsertYqlStatement<>(EntitySchema.of(Complex.class)).toQueryParameters(complex))
+                .map(complex -> new UpsertYqlStatement<>(tableDescriptor, schema).toQueryParameters(complex))
                 .map(map -> YdbConverter.convertToParams(map).values().get(MultipleVarsYqlStatement.listName))
                 .peek(value -> {
                     if (builder.getColumnsCount() == 0) {
@@ -353,7 +356,8 @@ public class YdbRepositoryCacheTest {
 
     private Params convertId(Id id) {
         EntitySchema<Complex> schema = EntitySchema.of(Complex.class);
-        var statement = new FindYqlStatement<>(schema, schema);
+        TableDescriptor<Complex> tableDescriptor = TableDescriptor.from(schema);
+        var statement = new FindYqlStatement<>(tableDescriptor, schema, schema);
         return YdbConverter.convertToParams(statement.toQueryParameters(id));
     }
 }

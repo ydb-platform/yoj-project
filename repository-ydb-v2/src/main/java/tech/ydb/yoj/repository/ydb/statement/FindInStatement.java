@@ -16,6 +16,7 @@ import tech.ydb.yoj.databind.schema.Schema;
 import tech.ydb.yoj.databind.schema.Schema.JavaField;
 import tech.ydb.yoj.repository.db.Entity;
 import tech.ydb.yoj.repository.db.EntitySchema;
+import tech.ydb.yoj.repository.db.TableDescriptor;
 import tech.ydb.yoj.repository.ydb.yql.YqlListingQuery;
 import tech.ydb.yoj.repository.ydb.yql.YqlPredicate;
 import tech.ydb.yoj.repository.ydb.yql.YqlType;
@@ -128,6 +129,7 @@ public final class FindInStatement<IN, T extends Entity<T>, RESULT> extends Mult
      *                     in the {@code resultSchema}
      */
     public static <ID extends Entity.Id<T>, T extends Entity<T>, RESULT> FindInStatement<Set<ID>, T, RESULT> from(
+            TableDescriptor<T> tableDescriptor,
             EntitySchema<T> schema,
             Schema<RESULT> resultSchema,
             Iterable<ID> ids,
@@ -138,10 +140,13 @@ public final class FindInStatement<IN, T extends Entity<T>, RESULT> extends Mult
         var keySchema = schema.getIdSchema();
         var keyFields = collectKeyFieldsFromIds(schema.getIdSchema(), ids);
 
-        return new FindInStatement<>(schema, resultSchema, keySchema, keyFields, null, filter, orderBy, limit);
+        return new FindInStatement<>(
+                tableDescriptor,schema, resultSchema, keySchema, keyFields, null, filter, orderBy, limit
+        );
     }
 
     public static <K, T extends Entity<T>, RESULT> FindInStatement<Set<K>, T, RESULT> from(
+            TableDescriptor<T> tableDescriptor,
             EntitySchema<T> schema,
             Schema<RESULT> resultSchema,
             String indexName,
@@ -153,10 +158,13 @@ public final class FindInStatement<IN, T extends Entity<T>, RESULT> extends Mult
         Schema<K> keySchema = getKeySchemaFromValues(keys);
         Set<String> keyFields = collectKeyFieldsFromKeys(schema, indexName, keySchema, keys);
 
-        return new FindInStatement<>(schema, resultSchema, keySchema, keyFields, indexName, filter, orderBy, limit);
+        return new FindInStatement<>(
+                tableDescriptor, schema, resultSchema, keySchema, keyFields, indexName, filter, orderBy, limit
+        );
     }
 
     private <PARAMS> FindInStatement(
+            TableDescriptor<T> tableDescriptor,
             EntitySchema<T> schema,
             Schema<RESULT> resultSchema,
             Schema<PARAMS> keySchema,
@@ -167,14 +175,18 @@ public final class FindInStatement<IN, T extends Entity<T>, RESULT> extends Mult
             @Nullable Integer limit
 
     ) {
-        super(schema, resultSchema);
+        super(tableDescriptor, schema, resultSchema);
 
         this.indexName = indexName;
         this.orderBy = orderBy;
         this.limit = limit;
         this.keySchema = keySchema;
         this.keyFields = keyFields;
-        this.predicate = (filter == null) ? null : new PredicateClause<>(schema, YqlListingQuery.toYqlPredicate(filter));
+        if (filter != null) {
+            this.predicate = new PredicateClause<>(tableDescriptor, schema, YqlListingQuery.toYqlPredicate(filter));
+        } else {
+            this.predicate = null;
+        }
 
         validateOrderByFields();
     }
@@ -437,8 +449,8 @@ public final class FindInStatement<IN, T extends Entity<T>, RESULT> extends Mult
     private static class PredicateClause<T extends Entity<T>> extends PredicateStatement<Class<Void>, T, T> {
         private final YqlPredicate predicate;
 
-        public PredicateClause(EntitySchema<T> schema, YqlPredicate predicate) {
-            super(schema, schema, Void.class, __ -> predicate);
+        public PredicateClause(TableDescriptor<T> tableDescriptor, EntitySchema<T> schema, YqlPredicate predicate) {
+            super(tableDescriptor, schema, schema, Void.class, __ -> predicate);
 
             this.predicate = predicate;
         }

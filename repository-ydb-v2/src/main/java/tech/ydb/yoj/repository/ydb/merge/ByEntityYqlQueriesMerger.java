@@ -7,6 +7,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import tech.ydb.yoj.repository.db.Entity;
 import tech.ydb.yoj.repository.db.EntitySchema;
+import tech.ydb.yoj.repository.db.TableDescriptor;
 import tech.ydb.yoj.repository.db.cache.RepositoryCache;
 import tech.ydb.yoj.repository.db.exception.EntityAlreadyExistsException;
 import tech.ydb.yoj.repository.ydb.YdbRepository;
@@ -161,12 +162,20 @@ public class ByEntityYqlQueriesMerger implements YqlQueriesMerger {
 
     @SuppressWarnings("unchecked")
     private static YdbRepository.Query convertInsertToUpsert(YdbRepository.Query<?> query) {
-        return new YdbRepository.Query<>(new UpsertYqlStatement<>(EntitySchema.of(getEntityClass(query))), query.getValues().get(0));
+        var type = getEntityClass(query);
+        var schema = EntitySchema.of(type);
+        var tableDescriptor = TableDescriptor.from(schema);
+        var statement = new UpsertYqlStatement<>(tableDescriptor, schema);
+        return new YdbRepository.Query<>(statement, query.getValues().get(0));
     }
 
     @SuppressWarnings("unchecked")
     private static YdbRepository.Query convertInsertToDelete(YdbRepository.Query<?> query) {
-        return new YdbRepository.Query<>(new DeleteByIdStatement<>(EntitySchema.of(getEntityClass(query))), getEntityId(query));
+        var type = getEntityClass(query);
+        var schema = EntitySchema.of(type);
+        var tableDescriptor = TableDescriptor.from(schema);
+        var statement = new DeleteByIdStatement<>(tableDescriptor, schema);
+        return new YdbRepository.Query<>(statement, getEntityId(query));
     }
 
     private static Entity.Id getEntityId(YdbRepository.Query<?> query) {

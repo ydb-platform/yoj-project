@@ -4,6 +4,7 @@ import org.assertj.core.api.Assertions;
 import org.junit.Test;
 import tech.ydb.yoj.repository.db.Entity;
 import tech.ydb.yoj.repository.db.EntitySchema;
+import tech.ydb.yoj.repository.db.TableDescriptor;
 import tech.ydb.yoj.repository.db.cache.RepositoryCache;
 import tech.ydb.yoj.repository.db.cache.RepositoryCacheImpl;
 import tech.ydb.yoj.repository.test.sample.model.Primitive;
@@ -144,29 +145,38 @@ public class QueriesMergerTest {
     }
 
     private <T extends Entity<T>> YdbRepository.Query<?> deleteAll(Class<T> clazz) {
-        return new YdbRepository.Query<>(new DeleteAllStatement<>(EntitySchema.of(clazz)), null);
+        EntitySchema<T> schema = EntitySchema.of(clazz);
+        TableDescriptor<T> tableDescriptor = TableDescriptor.from(schema);
+        return new YdbRepository.Query<>(new DeleteAllStatement<>(tableDescriptor, schema), null);
     }
 
     @SuppressWarnings("unchecked")
     private <T extends Entity<T>> YdbRepository.Query<?> upsert(T p) {
-        return new YdbRepository.Query<>(new UpsertYqlStatement<>(EntitySchema.of((Class<T>) p.getClass())), p);
+        EntitySchema<T> schema = EntitySchema.of((Class<T>) p.getClass());
+        TableDescriptor<T> tableDescriptor = TableDescriptor.from(schema);
+        return new YdbRepository.Query<>(new UpsertYqlStatement<>(tableDescriptor, schema), p);
     }
 
     @SuppressWarnings("unchecked")
     private <T extends Entity<T>> YdbRepository.Query<?> insert(T p) {
-        return new YdbRepository.Query<>(new InsertYqlStatement<>(EntitySchema.of((Class<T>) p.getClass())), p);
+        EntitySchema<T> schema = EntitySchema.of((Class<T>) p.getClass());
+        TableDescriptor<T> tableDescriptor = TableDescriptor.from(schema);
+        return new YdbRepository.Query<>(new InsertYqlStatement<>(tableDescriptor, schema), p);
     }
 
     @SuppressWarnings("unchecked")
     private <T extends Entity<T>> YdbRepository.Query<?> find(T p) {
         EntitySchema<T> schema = EntitySchema.of((Class<T>) p.getClass());
-        var statement = new FindYqlStatement<>(schema, schema);
+        TableDescriptor<T> tableDescriptor = TableDescriptor.from(schema);
+        var statement = new FindYqlStatement<>(tableDescriptor, schema, schema);
         return new YdbRepository.Query<>(statement, p.getId());
     }
 
     @SuppressWarnings("unchecked")
     private <T extends Entity<T>> YdbRepository.Query<?> delete(T p) {
-        return new YdbRepository.Query<>(new DeleteByIdStatement<>(EntitySchema.of((Class<T>) p.getClass())), p.getId());
+        EntitySchema<T> schema = EntitySchema.of((Class<T>) p.getClass());
+        TableDescriptor<T> tableDescriptor = TableDescriptor.from(schema);
+        return new YdbRepository.Query<>(new DeleteByIdStatement<>(tableDescriptor, schema), p.getId());
     }
 
     private ArrayList<Project> getProjects() {
