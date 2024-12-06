@@ -21,6 +21,6 @@ public class DeleteAllStatement<PARAMS, ENTITY extends Entity<ENTITY>> extends Y
 
     @Override
     public String toDebugString(PARAMS params) {
-        return "deleteAll(" + schema.getName() + ")";
+        return "deleteAll(" + tableDescriptor.toDebugString() + ")";
     }
 }

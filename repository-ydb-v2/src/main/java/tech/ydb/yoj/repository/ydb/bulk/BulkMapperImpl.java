@@ -5,21 +5,24 @@ import tech.ydb.proto.ValueProtos;
 import tech.ydb.yoj.databind.schema.Schema;
 import tech.ydb.yoj.repository.db.Entity;
 import tech.ydb.yoj.repository.db.EntitySchema;
+import tech.ydb.yoj.repository.db.TableDescriptor;
 import tech.ydb.yoj.repository.ydb.yql.YqlType;
 
 import java.util.HashMap;
 import java.util.Map;
 
 public final class BulkMapperImpl<E extends Entity<E>> implements BulkMapper<E> {
+    private final TableDescriptor<E> tableDescriptor;
     private final EntitySchema<E> srcSchema;
 
-    public BulkMapperImpl(EntitySchema<E> srcSchema) {
+    public BulkMapperImpl(TableDescriptor<E> tableDescriptor, EntitySchema<E> srcSchema) {
+        this.tableDescriptor = tableDescriptor;
         this.srcSchema = srcSchema;
     }
 
     @Override
     public String getTableName(String tableSpace) {
-        return tableSpace + srcSchema.getName();
+        return tableSpace + tableDescriptor.tableName();
     }
 
     @Override

@@ -13,6 +13,7 @@ import tech.ydb.yoj.repository.db.EntityIdSchema;
 import tech.ydb.yoj.repository.db.EntitySchema;
 import tech.ydb.yoj.repository.db.Range;
 import tech.ydb.yoj.repository.db.Table;
+import tech.ydb.yoj.repository.db.TableDescriptor;
 import tech.ydb.yoj.repository.db.ViewSchema;
 import tech.ydb.yoj.repository.db.cache.FirstLevelCache;
 import tech.ydb.yoj.repository.db.exception.IllegalTransactionIsolationLevelException;
@@ -34,11 +35,13 @@ import static java.util.stream.Collectors.toUnmodifiableSet;
 public class InMemoryTable<T extends Entity<T>> implements Table<T> {
     private final Class<T> type;
     private final EntitySchema<T> schema;
+    private final TableDescriptor<T> tableDescriptor;
     private final InMemoryRepositoryTransaction transaction;
 
     public InMemoryTable(DbMemory<T> memory) {
         this.type = memory.type();
         this.schema = EntitySchema.of(type);
+        this.tableDescriptor = TableDescriptor.from(schema);
         this.transaction = memory.transaction();
     }
 
@@ -330,7 +333,7 @@ public class InMemoryTable<T extends Entity<T>> implements Table<T> {
                 .filter(i -> i.getIndexName().equals(indexName))
                 .findAny()
                 .orElseThrow(() -> new IllegalArgumentException(
-                        "Entity `%s` doesn't have index `%s`".formatted(schema.getName(), indexName)
+                        "Table `%s` doesn't have index `%s`".formatted(tableDescriptor.toDebugString(), indexName)
                 ));
 
         Set<String> indexKeys = Set.copyOf(globalIndex.getFieldNames());
@@ -338,8 +341,8 @@ public class InMemoryTable<T extends Entity<T>> implements Table<T> {
 
         Preconditions.checkArgument(
                 missingInIndexKeys.isEmpty(),
-                "Index `%s` of entity `%s` doesn't contain key(s): [%s]".formatted(
-                        indexName, schema.getName(), String.join(", ", missingInIndexKeys)
+                "Index `%s` of table `%s` doesn't contain key(s): [%s]".formatted(
+                        indexName, tableDescriptor.toDebugString(), String.join(", ", missingInIndexKeys)
                 )
         );
         Preconditions.checkArgument(
