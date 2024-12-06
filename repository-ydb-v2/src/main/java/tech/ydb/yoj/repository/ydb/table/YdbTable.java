@@ -201,13 +201,13 @@ public class YdbTable<T extends Entity<T>> implements Table<T> {
 
     @Override
     public void bulkUpsert(List<T> input, BulkParams params) {
-        var mapper = new BulkMapperImpl<>(schema);
+        var mapper = new BulkMapperImpl<>(tableDescriptor, schema);
         executor.bulkUpsert(mapper, input, params);
     }
 
     @Override
     public <ID extends Entity.Id<T>> Stream<T> readTable(ReadTableParams<ID> params) {
-        ReadTableMapper<ID, T> mapper = new EntityIdKeyMapper<>(schema, schema);
+        ReadTableMapper<ID, T> mapper = new EntityIdKeyMapper<>(tableDescriptor, schema, schema);
         return readTableStream(mapper, params)
                 .map(T::postLoad);
     }
@@ -215,14 +215,14 @@ public class YdbTable<T extends Entity<T>> implements Table<T> {
     @Override
     public <ID extends Entity.Id<T>> Stream<ID> readTableIds(ReadTableParams<ID> params) {
         EntityIdSchema<ID> idSchema = schema.getIdSchema();
-        ReadTableMapper<ID, ID> mapper = new EntityIdKeyMapper<>(schema, idSchema);
+        ReadTableMapper<ID, ID> mapper = new EntityIdKeyMapper<>(tableDescriptor, schema, idSchema);
         return readTableStream(mapper, params);
     }
 
     @Override
     public <V extends ViewId<T>, ID extends Id<T>> Stream<V> readTable(Class<V> viewClass, ReadTableParams<ID> params) {
         ViewSchema<V> viewSchema = ViewSchema.of(viewClass);
-        ReadTableMapper<ID, V> mapper = new EntityIdKeyMapper<>(schema, viewSchema);
+        ReadTableMapper<ID, V> mapper = new EntityIdKeyMapper<>(tableDescriptor, schema, viewSchema);
         return readTableStream(mapper, params);
     }
 

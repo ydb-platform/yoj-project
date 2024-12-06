@@ -369,7 +369,9 @@ public abstract class YqlPredicate implements YqlStatementPart<YqlPredicate> {
             return field.flatten()
                     .map(this::fieldToYql)
                     .reduce(rel::combine)
-                    .orElseThrow(() -> new IllegalStateException("No DB fields found for " + fieldPath + " in " + schema.getName()));
+                    .orElseThrow(() -> new IllegalStateException(
+                            "No DB fields found for " + fieldPath + " in " + schema.getTypeName()
+                    ));
         }
 
         private String fieldToYql(EntitySchema.JavaField field) {
@@ -711,7 +713,9 @@ public abstract class YqlPredicate implements YqlStatementPart<YqlPredicate> {
             return schema.getField(fieldPath).flatten()
                     .map(dbField -> format("`%s` %s", dbField.getName(), type.yql))
                     .reduce(type::combine)
-                    .orElseThrow(() -> new IllegalStateException("No DB fields found for " + fieldPath + " in " + schema.getName()));
+                    .orElseThrow(() -> new IllegalStateException(
+                            "No DB fields found for " + fieldPath + " in " + schema.getTypeName()
+                    ));
         }
 
         @Override

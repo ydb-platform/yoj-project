@@ -2,7 +2,7 @@ package tech.ydb.yoj.repository.ydb.statement;
 
 import com.google.common.base.Preconditions;
 import com.google.protobuf.NullValue;
-import lombok.NonNull;
+import lombok.Getter;
 import tech.ydb.proto.ValueProtos;
 import tech.ydb.yoj.databind.schema.Schema;
 import tech.ydb.yoj.repository.db.Entity;
@@ -38,7 +38,8 @@ public abstract class YqlStatement<PARAMS, ENTITY extends Entity<ENTITY>, RESULT
     protected final EntitySchema<ENTITY> schema;
     protected final Schema<RESULT> resultSchema;
     protected final ResultSetReader<RESULT> resultSetReader;
-    protected final String tableName;
+    @Getter
+    protected final TableDescriptor<ENTITY> tableDescriptor;
 
     public YqlStatement(
             TableDescriptor<ENTITY> tableDescriptor, EntitySchema<ENTITY> schema, Schema<RESULT> resultSchema
@@ -46,7 +47,7 @@ public abstract class YqlStatement<PARAMS, ENTITY extends Entity<ENTITY>, RESULT
         this.schema = schema;
         this.resultSchema = resultSchema;
         this.resultSetReader = new ResultSetReader<>(resultSchema);
-        this.tableName = tableDescriptor.tableName();
+        this.tableDescriptor = tableDescriptor;
     }
 
     @Override
@@ -136,10 +137,6 @@ public abstract class YqlStatement<PARAMS, ENTITY extends Entity<ENTITY>, RESULT
         return schema.getType();
     }
 
-    public @NonNull String getTableName() {
-        return tableName;
-    }
-
     protected Collection<YqlStatementParam> getParams() {
         return emptyList();
     }
@@ -164,7 +161,7 @@ public abstract class YqlStatement<PARAMS, ENTITY extends Entity<ENTITY>, RESULT
     }
 
     protected String table(String tablespace) {
-        return escape(tablespace + tableName);
+        return escape(tablespace + tableDescriptor.tableName());
     }
 
     protected String escape(String value) {
