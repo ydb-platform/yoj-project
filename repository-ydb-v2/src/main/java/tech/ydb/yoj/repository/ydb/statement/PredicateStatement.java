@@ -34,6 +34,19 @@ public abstract class PredicateStatement<PARAMS, ENTITY extends Entity<ENTITY>, 
 
     private final Map<String, PredParam> predParams;
 
+    /**
+     * @deprecated Use constructor with {@link TableDescriptor} for selecting correct entity table
+     */
+    @Deprecated(forRemoval = true)
+    public PredicateStatement(
+            @NonNull EntitySchema<ENTITY> schema,
+            @NonNull Schema<RESULT> outSchema,
+            @NonNull PARAMS params,
+            @NonNull Function<PARAMS, YqlPredicate> getPredicate
+    ) {
+        this(TableDescriptor.from(schema), schema, outSchema, params, getPredicate);
+    }
+
     public PredicateStatement(
             @NonNull TableDescriptor<ENTITY> tableDescriptor,
             @NonNull EntitySchema<ENTITY> schema,
