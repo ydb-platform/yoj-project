@@ -41,6 +41,14 @@ public abstract class YqlStatement<PARAMS, ENTITY extends Entity<ENTITY>, RESULT
     @Getter
     protected final TableDescriptor<ENTITY> tableDescriptor;
 
+    /**
+     * @deprecated Use constructor with {@link TableDescriptor} for selecting correct entity table
+     */
+    @Deprecated(forRemoval = true)
+    public YqlStatement(EntitySchema<ENTITY> schema, Schema<RESULT> resultSchema) {
+        this(TableDescriptor.from(schema), schema, resultSchema);
+    }
+
     public YqlStatement(
             TableDescriptor<ENTITY> tableDescriptor, EntitySchema<ENTITY> schema, Schema<RESULT> resultSchema
     ) {
