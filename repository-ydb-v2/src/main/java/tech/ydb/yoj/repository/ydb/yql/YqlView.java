@@ -82,7 +82,7 @@ public class YqlView implements YqlStatementPart<YqlView> {
         }
 
         throw new IllegalStateException(
-                "Unable to find index [%s] in table [%s]".formatted(index, schema.getTypeName())
+                "Unable to find index [%s] for entity [%s]".formatted(index, schema.getTypeName())
         );
     }
 
