@@ -8,6 +8,10 @@ public record TableDescriptor<E extends Entity<E>>(
         return new TableDescriptor<>(schema.getType(), schema.getName());
     }
 
+    public static <E extends Entity<E>> TableDescriptor<E> from(EntitySchema<E> schema, String name) {
+        return new TableDescriptor<>(schema.getType(), name);
+    }
+
     public String toDebugString() {
         String entityName = entityType.getSimpleName();
         if (entityName.equals(tableName)) {
