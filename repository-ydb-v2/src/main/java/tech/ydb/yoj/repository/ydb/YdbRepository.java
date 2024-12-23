@@ -18,6 +18,7 @@ import tech.ydb.yoj.repository.db.EntitySchema;
 import tech.ydb.yoj.repository.db.Repository;
 import tech.ydb.yoj.repository.db.RepositoryTransaction;
 import tech.ydb.yoj.repository.db.SchemaOperations;
+import tech.ydb.yoj.repository.db.TableDescriptor;
 import tech.ydb.yoj.repository.db.TxOptions;
 import tech.ydb.yoj.repository.ydb.client.SessionManager;
 import tech.ydb.yoj.repository.ydb.client.YdbPaths;
@@ -58,7 +59,7 @@ public class YdbRepository implements Repository {
     @Getter
     private final YdbConfig config;
 
-    private final ConcurrentMap<String, Class<? extends Entity<?>>> entityClassesByTableName;
+    private final ConcurrentMap<String, TableDescriptor<?>> entityClassesByTableName;
 
     public YdbRepository(@NonNull YdbConfig config) {
         this(config, NopAuthProvider.INSTANCE);
@@ -199,7 +200,7 @@ public class YdbRepository implements Repository {
     }
 
     @Override
-    public Set<Class<? extends Entity<?>>> tables() {
+    public Set<TableDescriptor<?>> tables() {
         return getSchemaOperations().getTableNames().stream()
                 .map(entityClassesByTableName::get)
                 .filter(Objects::nonNull)
@@ -249,12 +250,12 @@ public class YdbRepository implements Repository {
     }
 
     @Override
-    public <T extends Entity<T>> SchemaOperations<T> schema(Class<T> c) {
-        EntitySchema<T> schema = EntitySchema.of(c);
+    public <T extends Entity<T>> SchemaOperations<T> schema(TableDescriptor<T> tableDescriptor) {
+        EntitySchema<T> schema = EntitySchema.of(tableDescriptor.entityType());
         return new SchemaOperations<>() {
             @Override
             public void create() {
-                String tableName = schema.getName();
+                String tableName = tableDescriptor.tableName();
                 getSchemaOperations().createTable(
                         tableName,
                         schema.flattenFields(),
@@ -264,12 +265,12 @@ public class YdbRepository implements Repository {
                         schema.getTtlModifier(),
                         schema.getChangefeeds()
                 );
-                entityClassesByTableName.put(tableName, c);
+                entityClassesByTableName.put(tableName, tableDescriptor);
             }
 
             private YdbTableHint extractHint() {
                 try {
-                    Field ydbTableHintField = c.getDeclaredField("ydbTableHint");
+                    Field ydbTableHintField = tableDescriptor.entityType().getDeclaredField("ydbTableHint");
                     ydbTableHintField.setAccessible(true);
                     return (YdbTableHint) ydbTableHintField.get(null);
                 } catch (NoSuchFieldException | IllegalAccessException ignored) {
@@ -279,17 +280,17 @@ public class YdbRepository implements Repository {
 
             @Override
             public void drop() {
-                String tableName = schema.getName();
+                String tableName = tableDescriptor.tableName();
                 getSchemaOperations().dropTable(tableName);
                 entityClassesByTableName.remove(tableName);
             }
 
             @Override
             public boolean exists() {
-                String tableName = schema.getName();
+                String tableName = tableDescriptor.tableName();
                 boolean exists = getSchemaOperations().hasTable(tableName);
                 if (exists) {
-                    entityClassesByTableName.put(tableName, c);
+                    entityClassesByTableName.put(tableName, tableDescriptor);
                 } else {
                     entityClassesByTableName.remove(tableName);
                 }

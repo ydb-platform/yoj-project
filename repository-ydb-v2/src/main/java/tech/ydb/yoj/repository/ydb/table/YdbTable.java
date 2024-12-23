@@ -85,6 +85,13 @@ public class YdbTable<T extends Entity<T>> implements Table<T> {
         this.tableDescriptor = TableDescriptor.from(schema);
     }
 
+    public YdbTable(TableDescriptor<T> tableDescriptor, QueryExecutor executor) {
+        this.type = tableDescriptor.entityType();
+        this.executor = new CheckingQueryExecutor(executor);
+        this.schema = EntitySchema.of(type);
+        this.tableDescriptor = tableDescriptor;
+    }
+
     @SuppressWarnings("unchecked")
     private Class<T> resolveEntityType() {
         return (Class<T>) (new TypeToken<T>(getClass()) {

@@ -33,21 +33,28 @@ import static java.util.stream.Collectors.toUnmodifiableMap;
 import static java.util.stream.Collectors.toUnmodifiableSet;
 
 public class InMemoryTable<T extends Entity<T>> implements Table<T> {
-    private final Class<T> type;
     private final EntitySchema<T> schema;
     private final TableDescriptor<T> tableDescriptor;
     private final InMemoryRepositoryTransaction transaction;
 
+    @Deprecated // Don't use DbMemory, use other constructor instead
     public InMemoryTable(DbMemory<T> memory) {
-        this.type = memory.type();
-        this.schema = EntitySchema.of(type);
+        this(memory.transaction(), memory.type());
+    }
+
+    public InMemoryTable(InMemoryRepositoryTransaction transaction, Class<T> type) {
+        this(transaction, TableDescriptor.from(EntitySchema.of(type)));
+    }
+
+    public InMemoryTable(InMemoryRepositoryTransaction transaction, TableDescriptor<T> tableDescriptor) {
+        this.schema = EntitySchema.of(tableDescriptor.entityType());
         this.tableDescriptor = TableDescriptor.from(schema);
-        this.transaction = memory.transaction();
+        this.transaction = transaction;
     }
 
     @Override
     public List<T> findAll() {
-        transaction.getWatcher().markTableRead(type);
+        transaction.getWatcher().markTableRead(tableDescriptor);
         return findAll0();
     }
 
@@ -155,7 +162,7 @@ public class InMemoryTable<T extends Entity<T>> implements Table<T> {
 
     @Override
     public Class<T> getType() {
-        return type;
+        return tableDescriptor.entityType();
     }
 
     @Override
@@ -165,7 +172,7 @@ public class InMemoryTable<T extends Entity<T>> implements Table<T> {
         }
         return transaction.getTransactionLocal().firstLevelCache().get(id, __ -> {
             markKeyRead(id);
-            T entity = transaction.doInTransaction("find(" + id + ")", type, shard -> shard.find(id));
+            T entity = transaction.doInTransaction("find(" + id + ")", tableDescriptor, shard -> shard.find(id));
             return postLoad(entity);
         });
     }
@@ -184,13 +191,13 @@ public class InMemoryTable<T extends Entity<T>> implements Table<T> {
         }
 
         markKeyRead(id);
-        return transaction.doInTransaction("find(" + id + ")", type, shard -> shard.find(id, viewType));
+        return transaction.doInTransaction("find(" + id + ")", tableDescriptor, shard -> shard.find(id, viewType));
     }
 
     @Override
     @SuppressWarnings("unchecked")
     public <ID extends Entity.Id<T>> List<T> find(Range<ID> range) {
-        transaction.getWatcher().markRangeRead(type, range);
+        transaction.getWatcher().markRangeRead(tableDescriptor, range);
         return findAll0().stream()
                 .filter(e -> range.contains((ID) e.getId()))
                 .sorted(EntityIdSchema.SORT_ENTITY_BY_ID)
@@ -352,7 +359,7 @@ public class InMemoryTable<T extends Entity<T>> implements Table<T> {
         );
 
         for (Map<String, Object> id : keysSet) {
-            transaction.getWatcher().markRangeRead(type, id);
+            transaction.getWatcher().markRangeRead(tableDescriptor, id);
         }
 
         Stream<T> result = getAllEntries().stream()
@@ -388,9 +395,9 @@ public class InMemoryTable<T extends Entity<T>> implements Table<T> {
         EntityIdSchema<Entity.Id<T>> idSchema = schema.getIdSchema();
         if (idSchema.flattenFieldNames().size() != idSchema.flatten(id).size()) {
             // Partial key, will throw error when not searching by PK prefix
-            transaction.getWatcher().markRangeRead(type, Range.create(id, id));
+            transaction.getWatcher().markRangeRead(tableDescriptor, Range.create(id, id));
         } else {
-            transaction.getWatcher().markRowRead(type, id);
+            transaction.getWatcher().markRowRead(tableDescriptor, id);
         }
     }
 
@@ -406,8 +413,8 @@ public class InMemoryTable<T extends Entity<T>> implements Table<T> {
     @Override
     public T insert(T tt) {
         T t = tt.preSave();
-        transaction.getWatcher().markRowRead(type, t.getId());
-        transaction.doInWriteTransaction("insert(" + t + ")", type, shard -> shard.insert(t));
+        transaction.getWatcher().markRowRead(tableDescriptor, t.getId());
+        transaction.doInWriteTransaction("insert(" + t + ")", tableDescriptor, shard -> shard.insert(t));
         transaction.getTransactionLocal().firstLevelCache().put(t);
         transaction.getTransactionLocal().projectionCache().save(t);
         return t;
@@ -416,7 +423,7 @@ public class InMemoryTable<T extends Entity<T>> implements Table<T> {
     @Override
     public T save(T tt) {
         T t = tt.preSave();
-        transaction.doInWriteTransaction("save(" + t + ")", type, shard -> shard.save(t));
+        transaction.doInWriteTransaction("save(" + t + ")", tableDescriptor, shard -> shard.save(t));
         transaction.getTransactionLocal().firstLevelCache().put(t);
         transaction.getTransactionLocal().projectionCache().save(t);
         return t;
@@ -424,18 +431,22 @@ public class InMemoryTable<T extends Entity<T>> implements Table<T> {
 
     @Override
     public void delete(Entity.Id<T> id) {
-        transaction.doInWriteTransaction("delete(" + id + ")", type, shard -> shard.delete(id));
+        transaction.doInWriteTransaction("delete(" + id + ")", tableDescriptor, shard -> shard.delete(id));
         transaction.getTransactionLocal().firstLevelCache().putEmpty(id);
         transaction.getTransactionLocal().projectionCache().delete(id);
     }
 
     @Override
     public void deleteAll() {
-        transaction.doInWriteTransaction("deleteAll(" + type.getName() + ")", type, WriteTxDataShard::deleteAll);
+        transaction.doInWriteTransaction(
+                "deleteAll(" + tableDescriptor.toDebugString() + ")", tableDescriptor, WriteTxDataShard::deleteAll
+        );
     }
 
     private List<T> getAllEntries() {
-        return transaction.doInTransaction("findAll(" + type.getName() + ")", type, ReadOnlyTxDataShard::findAll);
+        return transaction.doInTransaction(
+                "findAll(" + tableDescriptor.toDebugString() + ")", tableDescriptor, ReadOnlyTxDataShard::findAll
+        );
     }
 
     private List<T> findAll0() {
@@ -494,9 +505,9 @@ public class InMemoryTable<T extends Entity<T>> implements Table<T> {
 
     private <ID extends Entity.Id<T>> void markRangeRead(Range<ID> range) {
         if (range == null) {
-            transaction.getWatcher().markTableRead(type);
+            transaction.getWatcher().markTableRead(tableDescriptor);
         } else {
-            transaction.getWatcher().markRangeRead(type, range);
+            transaction.getWatcher().markRangeRead(tableDescriptor, range);
         }
     }
 
@@ -565,6 +576,8 @@ public class InMemoryTable<T extends Entity<T>> implements Table<T> {
         return Columns.fromEntity(schema, entity).toSchema(viewSchema);
     }
 
+
+    @Deprecated // Legacy. Using only for creating InMemoryTable. Use constructor of InMemoryTable instead
     public record DbMemory<T extends Entity<T>>(
             Class<T> type,
             InMemoryRepositoryTransaction transaction

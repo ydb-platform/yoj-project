@@ -6,6 +6,7 @@ import tech.ydb.yoj.repository.db.EntityIdSchema;
 import tech.ydb.yoj.repository.db.EntitySchema;
 import tech.ydb.yoj.repository.db.Range;
 import tech.ydb.yoj.repository.db.Table;
+import tech.ydb.yoj.repository.db.TableDescriptor;
 import tech.ydb.yoj.repository.db.ViewSchema;
 import tech.ydb.yoj.repository.db.exception.EntityAlreadyExistsException;
 import tech.ydb.yoj.repository.db.exception.OptimisticLockException;
@@ -20,21 +21,27 @@ import java.util.Set;
 import java.util.TreeMap;
 
 final class InMemoryDataShard<T extends Entity<T>> {
-    private final Class<T> type;
+    private final TableDescriptor<T> tableDescriptor;
     private final EntitySchema<T> schema;
     private final TreeMap<Entity.Id<T>, InMemoryEntityLine> entityLines;
     private final Map<Long, Set<Entity.Id<T>>> uncommited = new HashMap<>();
 
     private InMemoryDataShard(
-            Class<T> type, EntitySchema<T> schema, TreeMap<Entity.Id<T>, InMemoryEntityLine> entityLines
+            TableDescriptor<T> tableDescriptor,
+            EntitySchema<T> schema,
+            TreeMap<Entity.Id<T>, InMemoryEntityLine> entityLines
     ) {
-        this.type = type;
+        this.tableDescriptor = tableDescriptor;
         this.schema = schema;
         this.entityLines = entityLines;
     }
 
-    public InMemoryDataShard(Class<T> type) {
-        this(type, EntitySchema.of(type), createEmptyLines(type));
+    public InMemoryDataShard(TableDescriptor<T> tableDescriptor) {
+        this(
+                tableDescriptor,
+                EntitySchema.of(tableDescriptor.entityType()),
+                createEmptyLines(tableDescriptor.entityType())
+        );
     }
 
     private static <T extends Entity<T>> TreeMap<Entity.Id<T>, InMemoryEntityLine> createEmptyLines(Class<T> type) {
@@ -42,11 +49,11 @@ final class InMemoryDataShard<T extends Entity<T>> {
     }
 
     public synchronized InMemoryDataShard<T> createSnapshot() {
-        TreeMap<Entity.Id<T>, InMemoryEntityLine> snapshotLines = createEmptyLines(type);
+        TreeMap<Entity.Id<T>, InMemoryEntityLine> snapshotLines = createEmptyLines(tableDescriptor.entityType());
         for (Map.Entry<Entity.Id<T>, InMemoryEntityLine> entry : entityLines.entrySet()) {
             snapshotLines.put(entry.getKey(), entry.getValue().createSnapshot());
         }
-        return new InMemoryDataShard<>(type, schema, snapshotLines);
+        return new InMemoryDataShard<>(tableDescriptor, schema, snapshotLines);
     }
 
     public synchronized void commit(long txId, long version) {
@@ -60,14 +67,14 @@ final class InMemoryDataShard<T extends Entity<T>> {
     }
 
     public synchronized void checkLocks(long version, InMemoryTxLockWatcher watcher) {
-        for (Entity.Id<T> lockedId : watcher.getReadRows(type)) {
+        for (Entity.Id<T> lockedId : watcher.getReadRows(tableDescriptor)) {
             InMemoryEntityLine entityLine = entityLines.get(lockedId);
             if (entityLine != null && entityLine.hasYounger(version)) {
                 throw new OptimisticLockException("Row lock failed " + lockedId);
             }
         }
 
-        List<Range<Entity.Id<T>>> lockedRanges = watcher.getReadRanges(type);
+        List<Range<Entity.Id<T>>> lockedRanges = watcher.getReadRanges(tableDescriptor);
         if (lockedRanges.isEmpty()) {
             return;
         }
@@ -79,7 +86,7 @@ final class InMemoryDataShard<T extends Entity<T>> {
 
             for (Range<Entity.Id<T>> lockedRange: lockedRanges) {
                 if (lockedRange.contains(entry.getKey())) {
-                    throw new OptimisticLockException("Table lock failed " + type.getSimpleName());
+                    throw new OptimisticLockException("Table lock failed " + tableDescriptor.toDebugString());
                 }
             }
         }
