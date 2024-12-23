@@ -1,6 +1,7 @@
 package tech.ydb.yoj.repository.test.inmemory;
 
 import tech.ydb.yoj.repository.db.Entity;
+import tech.ydb.yoj.repository.db.TableDescriptor;
 
 import java.util.HashMap;
 import java.util.HashSet;
@@ -8,8 +9,8 @@ import java.util.Map;
 import java.util.Set;
 
 final class InMemoryStorage {
-    private final Map<Class<?>, InMemoryDataShard<?>> shards;
-    private final Map<Long, Set<Class<?>>> uncommited = new HashMap<>();
+    private final Map<TableDescriptor<?>, InMemoryDataShard<?>> shards;
+    private final Map<Long, Set<TableDescriptor<?>>> uncommited = new HashMap<>();
 
     private long currentVersion;
 
@@ -17,7 +18,7 @@ final class InMemoryStorage {
         this(0, new HashMap<>());
     }
 
-    private InMemoryStorage(long version, Map<Class<?>, InMemoryDataShard<?>> shards) {
+    private InMemoryStorage(long version, Map<TableDescriptor<?>, InMemoryDataShard<?>> shards) {
         this.shards = shards;
         this.currentVersion = version;
     }
@@ -27,8 +28,8 @@ final class InMemoryStorage {
     }
 
     public synchronized InMemoryStorage createSnapshot() {
-        Map<Class<?>, InMemoryDataShard<?>> snapshotDb = new HashMap<>();
-        for (Map.Entry<Class<?>, InMemoryDataShard<?>> entry : shards.entrySet()) {
+        Map<TableDescriptor<?>, InMemoryDataShard<?>> snapshotDb = new HashMap<>();
+        for (Map.Entry<TableDescriptor<?>, InMemoryDataShard<?>> entry : shards.entrySet()) {
             snapshotDb.put(entry.getKey(), entry.getValue().createSnapshot());
         }
         return new InMemoryStorage(currentVersion, snapshotDb);
@@ -45,42 +46,42 @@ final class InMemoryStorage {
 
         currentVersion++;
 
-        Set<Class<?>> uncommitedTables = uncommited.remove(txId);
-        for (Class<?> type : uncommitedTables) {
-            shards.get(type).commit(txId, currentVersion);
+        Set<TableDescriptor<?>> uncommitedTables = uncommited.remove(txId);
+        for (TableDescriptor<?> tableDescriptor : uncommitedTables) {
+            shards.get(tableDescriptor).commit(txId, currentVersion);
         }
     }
 
     public synchronized void rollback(long txId) {
-        Set<Class<?>> uncommitedTables = uncommited.remove(txId);
+        Set<TableDescriptor<?>> uncommitedTables = uncommited.remove(txId);
         if (uncommitedTables == null) {
             return;
         }
-        for (Class<?> type : uncommitedTables) {
-            shards.get(type).rollback(txId);
+        for (TableDescriptor<?> tableDescriptor : uncommitedTables) {
+            shards.get(tableDescriptor).rollback(txId);
         }
     }
 
     public synchronized <T extends Entity<T>> WriteTxDataShard<T> getWriteTxDataShard(
-            Class<T> type, long txId, long version
+            TableDescriptor<T> tableDescriptor, long txId, long version
     ) {
-        uncommited.computeIfAbsent(txId, __ -> new HashSet<>()).add(type);
-        return getTxDataShard(type, txId, version, InMemoryTxLockWatcher.NO_LOCKS);
+        uncommited.computeIfAbsent(txId, __ -> new HashSet<>()).add(tableDescriptor);
+        return getTxDataShard(tableDescriptor, txId, version, InMemoryTxLockWatcher.NO_LOCKS);
     }
 
     public synchronized <T extends Entity<T>> ReadOnlyTxDataShard<T> getReadOnlyTxDataShard(
-            Class<T> type, long txId, long version, InMemoryTxLockWatcher watcher
+            TableDescriptor<T> tableDescriptor, long txId, long version, InMemoryTxLockWatcher watcher
     ) {
-        return getTxDataShard(type, txId, version, watcher);
+        return getTxDataShard(tableDescriptor, txId, version, watcher);
     }
 
     private <T extends Entity<T>> TxDataShardImpl<T> getTxDataShard(
-            Class<T> type, long txId, long version, InMemoryTxLockWatcher watcher
+            TableDescriptor<T> tableDescriptor, long txId, long version, InMemoryTxLockWatcher watcher
     ) {
         @SuppressWarnings("unchecked")
-        InMemoryDataShard<T> shard = (InMemoryDataShard<T>) shards.get(type);
+        InMemoryDataShard<T> shard = (InMemoryDataShard<T>) shards.get(tableDescriptor);
         if (shard == null) {
-            throw new InMemoryRepositoryException("Table is not created: " + type.getSimpleName());
+            throw new InMemoryRepositoryException("Table is not created: " + tableDescriptor.toDebugString());
         }
         return new TxDataShardImpl<>(shard, txId, version, watcher);
     }
@@ -89,27 +90,26 @@ final class InMemoryStorage {
         shards.clear();
     }
 
-    @SuppressWarnings({"unchecked", "rawtypes"})
-    public synchronized Set<Class<? extends Entity<?>>> tables() {
-        return (Set) shards.keySet();
+    public synchronized Set<TableDescriptor<?>> tables() {
+        return shards.keySet();
     }
 
-    public synchronized boolean containsTable(Class<?> type) {
-        return shards.containsKey(type);
+    public synchronized boolean containsTable(TableDescriptor<?> tableDescriptor) {
+        return shards.containsKey(tableDescriptor);
     }
 
-    public synchronized <T extends Entity<T>> void createTable(Class<T> type) {
-        if (containsTable(type)) {
+    public synchronized <T extends Entity<T>> void createTable(TableDescriptor<T> tableDescriptor) {
+        if (containsTable(tableDescriptor)) {
             return;
         }
-        shards.put(type, new InMemoryDataShard<>(type));
+        shards.put(tableDescriptor, new InMemoryDataShard<>(tableDescriptor));
     }
 
-    public synchronized boolean dropTable(Class<?> type) {
-        if (!containsTable(type)) {
+    public synchronized boolean dropTable(TableDescriptor<?> tableDescriptor) {
+        if (!containsTable(tableDescriptor)) {
             return false;
         }
-        shards.remove(type);
+        shards.remove(tableDescriptor);
         return true;
     }
 }

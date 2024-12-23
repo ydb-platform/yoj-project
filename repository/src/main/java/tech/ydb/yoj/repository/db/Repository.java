@@ -12,14 +12,18 @@ public interface Repository {
     default void checkSchemaCompatibility() {
     }
 
-    <T extends Entity<T>> SchemaOperations<T> schema(Class<T> c);
+    default <T extends Entity<T>> SchemaOperations<T> schema(Class<T> c) {
+        return schema(TableDescriptor.from(EntitySchema.of(c)));
+    }
+
+    <T extends Entity<T>> SchemaOperations<T> schema(TableDescriptor<T> c);
 
     /**
      * @deprecated For testing purposes only. Will only <em>reliably</em> work for tables that were created or inspected
      * using calls to {@link #schema(Class)}.
      */
     @Deprecated
-    Set<Class<? extends Entity<?>>> tables();
+    Set<TableDescriptor<?>> tables();
 
     default RepositoryTransaction startTransaction() {
         return startTransaction(IsolationLevel.SERIALIZABLE_READ_WRITE);

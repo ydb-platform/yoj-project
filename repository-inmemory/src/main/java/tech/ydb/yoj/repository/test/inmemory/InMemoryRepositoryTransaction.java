@@ -7,6 +7,7 @@ import tech.ydb.yoj.repository.BaseDb;
 import tech.ydb.yoj.repository.db.Entity;
 import tech.ydb.yoj.repository.db.RepositoryTransaction;
 import tech.ydb.yoj.repository.db.Table;
+import tech.ydb.yoj.repository.db.TableDescriptor;
 import tech.ydb.yoj.repository.db.TxOptions;
 import tech.ydb.yoj.repository.db.cache.TransactionLocal;
 import tech.ydb.yoj.repository.db.exception.IllegalTransactionIsolationLevelException;
@@ -59,6 +60,12 @@ public class InMemoryRepositoryTransaction implements BaseDb, RepositoryTransact
         return new InMemoryTable<>(getMemory(c));
     }
 
+    @Override
+    public <T extends Entity<T>> Table<T> table(TableDescriptor<T> tableDescriptor) {
+        return new InMemoryTable<>(this, tableDescriptor);
+    }
+
+    @Deprecated // use other constructor of InMemoryTable
     public final <T extends Entity<T>> InMemoryTable.DbMemory<T> getMemory(Class<T> c) {
         return new InMemoryTable.DbMemory<>(c, this);
     }
@@ -119,7 +126,7 @@ public class InMemoryRepositoryTransaction implements BaseDb, RepositoryTransact
     }
 
     final <T extends Entity<T>> void doInWriteTransaction(
-            String log, Class<T> type, Consumer<WriteTxDataShard<T>> consumer
+            String log, TableDescriptor<T> tableDescriptor, Consumer<WriteTxDataShard<T>> consumer
     ) {
         if (options.isScan()) {
             throw new IllegalTransactionScanException("Mutable operations");
@@ -129,7 +136,7 @@ public class InMemoryRepositoryTransaction implements BaseDb, RepositoryTransact
         }
 
         Runnable query = () -> logTransaction(log, () -> {
-            WriteTxDataShard<T> shard = storage.getWriteTxDataShard(type, txId, getVersion());
+            WriteTxDataShard<T> shard = storage.getWriteTxDataShard(tableDescriptor, txId, getVersion());
             consumer.accept(shard);
 
             hasWrites = true;
@@ -143,11 +150,13 @@ public class InMemoryRepositoryTransaction implements BaseDb, RepositoryTransact
     }
 
     final <T extends Entity<T>, R> R doInTransaction(
-            String action, Class<T> type, Function<ReadOnlyTxDataShard<T>, R> func
+            String action, TableDescriptor<T> tableDescriptor, Function<ReadOnlyTxDataShard<T>, R> func
     ) {
         return logTransaction(action, () -> {
             InMemoryTxLockWatcher findWatcher = hasWrites ? watcher : InMemoryTxLockWatcher.NO_LOCKS;
-            ReadOnlyTxDataShard<T> shard = storage.getReadOnlyTxDataShard(type, txId, getVersion(), findWatcher);
+            ReadOnlyTxDataShard<T> shard = storage.getReadOnlyTxDataShard(
+                    tableDescriptor, txId, getVersion(), findWatcher
+            );
             try {
                 return func.apply(shard);
             } catch (OptimisticLockException e) {

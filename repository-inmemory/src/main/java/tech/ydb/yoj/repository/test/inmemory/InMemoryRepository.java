@@ -6,6 +6,7 @@ import tech.ydb.yoj.repository.db.Entity;
 import tech.ydb.yoj.repository.db.Repository;
 import tech.ydb.yoj.repository.db.RepositoryTransaction;
 import tech.ydb.yoj.repository.db.SchemaOperations;
+import tech.ydb.yoj.repository.db.TableDescriptor;
 import tech.ydb.yoj.repository.db.TxOptions;
 import tech.ydb.yoj.repository.db.exception.DropTableException;
 
@@ -38,7 +39,7 @@ public class InMemoryRepository implements Repository {
     }
 
     @Override
-    public Set<Class<? extends Entity<?>>> tables() {
+    public Set<TableDescriptor<?>> tables() {
         return Set.copyOf(storage.tables());
     }
 
@@ -47,26 +48,25 @@ public class InMemoryRepository implements Repository {
         return new InMemoryRepositoryTransaction(options, this);
     }
 
-    @Override
-    public <T extends Entity<T>> SchemaOperations<T> schema(Class<T> c) {
+    public <T extends Entity<T>> SchemaOperations<T> schema(TableDescriptor<T> tableDescriptor) {
         return new SchemaOperations<T>() {
             @Override
             public void create() {
-                storage.createTable(c);
+                storage.createTable(tableDescriptor);
             }
 
             @Override
             public void drop() {
-                if (!storage.dropTable(c)) {
-                    throw new DropTableException(
-                            String.format("Can't drop table %s: table doesn't exist", c.getSimpleName())
+                if (!storage.dropTable(tableDescriptor)) {
+                    throw new DropTableException(String.format("Can't drop table %s: table doesn't exist",
+                            tableDescriptor.toDebugString())
                     );
                 }
             }
 
             @Override
             public boolean exists() {
-                return storage.containsTable(c);
+                return storage.containsTable(tableDescriptor);
             }
         };
     }
