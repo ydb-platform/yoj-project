@@ -164,7 +164,7 @@ public class ByEntityYqlQueriesMerger implements YqlQueriesMerger {
     private static YdbRepository.Query convertInsertToUpsert(YdbRepository.Query<?> query) {
         var type = getEntityClass(query);
         var schema = EntitySchema.of(type);
-        var tableDescriptor = TableDescriptor.from(schema);
+        var tableDescriptor = convertQueryToYqlStatement(query).getTableDescriptor();
         var statement = new UpsertYqlStatement<>(tableDescriptor, schema);
         return new YdbRepository.Query<>(statement, query.getValues().get(0));
     }
@@ -173,7 +173,7 @@ public class ByEntityYqlQueriesMerger implements YqlQueriesMerger {
     private static YdbRepository.Query convertInsertToDelete(YdbRepository.Query<?> query) {
         var type = getEntityClass(query);
         var schema = EntitySchema.of(type);
-        var tableDescriptor = TableDescriptor.from(schema);
+        var tableDescriptor = convertQueryToYqlStatement(query).getTableDescriptor();
         var statement = new DeleteByIdStatement<>(tableDescriptor, schema);
         return new YdbRepository.Query<>(statement, getEntityId(query));
     }
