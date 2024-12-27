@@ -1364,6 +1364,29 @@ public abstract class RepositoryTest extends RepositoryTestSupport {
     }
 
     @Test
+    public void testUsingSecondTable() {
+        String verySameName = "valuableName";
+        UniqueProject ue1 = new UniqueProject(new UniqueProject.Id("id1"), verySameName, 1);
+        db.tx(() -> {
+            db.table(UniqueProject.class).save(ue1);
+            db.table(TestEntities.SECOND_UNIQUE_PROJECT_TABLE).save(ue1.withVersion(2));
+        });
+        UniqueProject firstTableProject = db.tx(() -> db.table(UniqueProject.class).find(ue1.getId()));
+        UniqueProject secondTableProject = db.tx(() -> db.table(TestEntities.SECOND_UNIQUE_PROJECT_TABLE).find(ue1.getId()));
+
+        assertThat(firstTableProject.getVersion()).isEqualTo(1);
+        assertThat(secondTableProject.getVersion()).isEqualTo(2);
+
+        db.tx(() -> db.table(UniqueProject.class).delete(ue1.getId()));
+
+        firstTableProject = db.tx(() -> db.table(UniqueProject.class).find(ue1.getId()));
+        secondTableProject = db.tx(() -> db.table(TestEntities.SECOND_UNIQUE_PROJECT_TABLE).find(ue1.getId()));
+
+        assertThat(firstTableProject).isNull();
+        assertThat(secondTableProject.getVersion()).isEqualTo(2);
+    }
+
+    @Test
     public void doubleTxIsOk() {
         db.tx(this::findRange);
     }

@@ -48,7 +48,7 @@ public class InMemoryTable<T extends Entity<T>> implements Table<T> {
 
     public InMemoryTable(InMemoryRepositoryTransaction transaction, TableDescriptor<T> tableDescriptor) {
         this.schema = EntitySchema.of(tableDescriptor.entityType());
-        this.tableDescriptor = TableDescriptor.from(schema);
+        this.tableDescriptor = tableDescriptor;
         this.transaction = transaction;
     }
 
