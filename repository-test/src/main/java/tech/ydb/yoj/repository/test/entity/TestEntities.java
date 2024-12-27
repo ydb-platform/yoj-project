@@ -3,6 +3,7 @@ package tech.ydb.yoj.repository.test.entity;
 import lombok.NonNull;
 import tech.ydb.yoj.repository.db.Entity;
 import tech.ydb.yoj.repository.db.Repository;
+import tech.ydb.yoj.repository.db.TableDescriptor;
 import tech.ydb.yoj.repository.test.sample.model.Book;
 import tech.ydb.yoj.repository.test.sample.model.Bubble;
 import tech.ydb.yoj.repository.test.sample.model.BytePkEntity;
@@ -30,6 +31,10 @@ import tech.ydb.yoj.repository.test.sample.model.WithUnflattenableField;
 import java.util.List;
 
 public final class TestEntities {
+    public static final TableDescriptor<UniqueProject> SECOND_UNIQUE_PROJECT_TABLE = new TableDescriptor<>(
+            UniqueProject.class, "second_uniq_project_table"
+    );
+
     private TestEntities() {
     }
 
@@ -54,10 +59,19 @@ public final class TestEntities {
             MultiWrappedEntity.class
     );
 
+    public static final List<TableDescriptor<?>> ALL_TABLE_DESCRIPTORS = List.of(
+            SECOND_UNIQUE_PROJECT_TABLE
+    );
+
+
     @SuppressWarnings("unchecked")
     public static Repository init(@NonNull Repository repository) {
         repository.createTablespace();
         ALL.forEach(entityClass -> repository.schema(entityClass).create());
+
+        for (TableDescriptor<?> tableDescriptor : ALL_TABLE_DESCRIPTORS) {
+            repository.schema(tableDescriptor).create();
+        }
 
         return repository;
     }
