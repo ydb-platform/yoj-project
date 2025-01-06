@@ -8,9 +8,7 @@ import tech.ydb.yoj.repository.db.exception.OptimisticLockException;
  * one call to either method) lest your transaction stays active on the DB server.
  */
 public interface RepositoryTransaction {
-    default <T extends Entity<T>> Table<T> table(Class<T> c) {
-        return table(TableDescriptor.from(EntitySchema.of(c)));
-    }
+    <T extends Entity<T>> Table<T> table(Class<T> c);
 
     <T extends Entity<T>> Table<T> table(TableDescriptor<T> tableDescriptor);
 
