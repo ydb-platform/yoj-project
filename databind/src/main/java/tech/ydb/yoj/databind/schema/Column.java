@@ -68,7 +68,7 @@ public @interface Column {
      * </li>
      * Defaults to {@code true} (flatten composite fields).<br>
      * Changing this parameter for a non-composite field has no effect.
-     * <p><strong>Tip:</strong> Use the {@link ObjectColumn @ObjectColumn} annotation
+     * <p><strong>Tip:</strong> Use the {@link tech.ydb.yoj.databind.converter.ObjectColumn @ObjectColumn} annotation
      * if you only need to override {@code @Column.flatten} to {@code false}.
      */
     boolean flatten() default true;
@@ -77,7 +77,39 @@ public @interface Column {
      * Specifies custom conversion logic for this column, if any.
      *
      * @see CustomValueType
+     * @see tech.ydb.yoj.databind.converter.ValueConverter ValueConverter
      */
     @ExperimentalApi(issue = "https://github.com/ydb-platform/yoj-project/issues/24")
     CustomValueType customValueType() default @CustomValueType(columnClass = Comparable.class, converter = NoConverter.class);
+
+    /**
+     * Column naming policy, used by {@link tech.ydb.yoj.databind.schema.naming.AnnotationFirstNamingStrategy the default naming strategy}.
+     * <br>Determines how the column name is derived from this column's name and its parent column, if any.
+     */
+    ColumnNaming columnNaming() default ColumnNaming.LEGACY;
+
+    /**
+     * Column naming policy.
+     * <br>Determines how the column name is derived from this column's name and its parent column, if any.
+     */
+    enum ColumnNaming {
+        /**
+         * Adds parent column name (if any) as prefix, but <strong>only</strong> if current (child) doesn't specify {@link #name()} explicitly.
+         * <br>It works both like {@link #RELATIVE} and {@link #ABSOLUTE} policy, depending on the presence of {@link #name()} annotation attribute
+         * for this column.
+         *
+         * @deprecated This column naming policy is deprecated, but will stay the default in YOJ 2.x.
+         * {@link #RELATIVE} will become the default policy in YOJ 3.0.
+         */
+        @Deprecated LEGACY,
+        /**
+         * Uses this column's name as-is, without ever using consulting parent column's name (<strong>even if there is a parent column!</strong>)
+         */
+        ABSOLUTE,
+        /**
+         * <strong>Always</strong> uses parent column name (if any) as prefix: {@code [<name for parent column>_]<name for this column>}.
+         * <br>This policy will become the default in YOJ 3.0.
+         */
+        RELATIVE
+    }
 }

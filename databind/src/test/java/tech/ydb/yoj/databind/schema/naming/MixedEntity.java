@@ -12,11 +12,22 @@ public class MixedEntity {
 
     TestEntity.SubEntity subEntity;
 
+    SubEntityWithRelative relativeWithoutColumnAnnotation;
+
+    @Column(name = "prefix")
+    SubEntityWithRelative relativeWithPrefix;
+
     @Value
     private static class Id {
         String stringValue;
 
         @Column(name = "int.val")
         Integer intValue;
+    }
+
+    @Value
+    static class SubEntityWithRelative {
+        @Column(name = "sfe_relative", columnNaming = Column.ColumnNaming.RELATIVE)
+        SingleFieldEntity singleFieldEntityRelative;
     }
 }

@@ -37,7 +37,7 @@ public class AnnotationFirstNamingStrategyTest extends BaseNamingStrategyTestBas
     @Test
     public void testMixedEntityFieldNameTest() {
         verifyFieldNames(MixedEntity.class,
-                "column_name", "subEntity_boolValue", "sfe_timestamp", "id_stringValue", "int.val");
+                "column_name", "subEntity_boolValue", "absoluteBoolValue", "sfe_timestamp", "id_stringValue", "int.val", "prefix_sfe_relative_timestamp", "sfe_absolute_timestamp", "relativeWithoutColumnAnnotation_sfe_relative_timestamp");
     }
 
     @Override
