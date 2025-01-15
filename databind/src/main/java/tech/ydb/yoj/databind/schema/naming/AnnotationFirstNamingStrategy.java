@@ -31,10 +31,19 @@ public class AnnotationFirstNamingStrategy implements NamingStrategy {
     private String getColumnName(Schema.JavaField field) {
         var annotation = field.getField().getColumn();
         if (annotation != null && !annotation.name().isEmpty()) {
-            return annotation.name();
+            var parentName = getParentAnnotationName(field);
+            return (parentName == null || parentName.isEmpty())
+                ? annotation.name()
+                : parentName + NAME_DELIMITER + annotation.name();
         }
 
         return getColumnNameFromField(field);
+    }
+
+    private String getParentAnnotationName(Schema.JavaField field) {
+        if (field.getParent() == null || field.getParent().getField() == null || field.getParent().getField().getColumn() == null)
+            return null;
+        return field.getParent().getField().getColumn().name();
     }
 
     protected String getColumnNameFromField(Schema.JavaField field) {

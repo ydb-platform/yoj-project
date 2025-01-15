@@ -12,6 +12,9 @@ public class MixedEntity {
 
     TestEntity.SubEntity subEntity;
 
+    @Column(name = "prefix")
+    TestEntity.SubEntity subEntityWithPrefix;
+
     @Value
     private static class Id {
         String stringValue;
