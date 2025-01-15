@@ -1,6 +1,7 @@
 package tech.ydb.yoj.databind.schema.naming;
 
 import lombok.NonNull;
+import tech.ydb.yoj.databind.schema.Column;
 import tech.ydb.yoj.databind.schema.Schema;
 import tech.ydb.yoj.databind.schema.Table;
 
@@ -30,17 +31,34 @@ public class AnnotationFirstNamingStrategy implements NamingStrategy {
 
     private String getColumnName(Schema.JavaField field) {
         var annotation = field.getField().getColumn();
-        if (annotation != null && !annotation.name().isEmpty()) {
-            return annotation.name();
+        var parentName = (field.getParent() == null) ? null : field.getParent().getName();
+
+        if (annotation == null) {
+            var fieldName = field.getField().getName();
+            return parentName == null ? fieldName : parentName + NAME_DELIMITER + fieldName;
         }
 
-        return getColumnNameFromField(field);
+        return getColumnNameWithNaming(field, annotation.name(), parentName, annotation.columnNaming());
     }
 
-    protected String getColumnNameFromField(Schema.JavaField field) {
-        return (field.getParent() == null)
-                ? field.getField().getName()
-                : field.getParent().getName() + NAME_DELIMITER + field.getField().getName();
+    private static String getColumnNameWithNaming(
+        Schema.JavaField field,
+        String annotationName,
+        String parentName, Column.ColumnNaming columnNaming
+    ) {
+        var name = (annotationName.isEmpty()) ? field.getField().getName() : annotationName;
+
+        return switch (columnNaming) {
+            case ABSOLUTE -> name;
+            case RELATIVE -> parentName + NAME_DELIMITER + name;
+            case LEGACY -> {
+                if (!annotationName.isEmpty()) {
+                    yield annotationName;
+                } else {
+                    yield parentName == null ? name : parentName + NAME_DELIMITER + name;
+                }
+            }
+        };
     }
 
     protected void propagateFieldNameToFlatSubfield(Schema.JavaField field) {
