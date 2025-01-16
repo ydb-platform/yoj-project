@@ -80,4 +80,17 @@ public @interface Column {
      */
     @ExperimentalApi(issue = "https://github.com/ydb-platform/yoj-project/issues/24")
     CustomValueType customValueType() default @CustomValueType(columnClass = Comparable.class, converter = NoConverter.class);
+
+    enum NamingStrategy {
+        @Deprecated LEGACY,
+        ABSOLUTE,
+        RELATIVE
+    }
+
+    /**
+     * LEGACY - Use parent name as prefix only if current(child) doesn't specify name explicityly
+     * ABSOLUTE - Use only current name, don't add prent name as prefix
+     * RELATIVE - Use current name and add parent name as prefix
+     */
+    NamingStrategy namingStrategy() default NamingStrategy.LEGACY;
 }
