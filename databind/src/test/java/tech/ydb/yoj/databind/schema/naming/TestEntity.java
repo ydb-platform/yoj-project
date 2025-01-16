@@ -18,7 +18,13 @@ public class TestEntity {
     static class SubEntity {
         boolean boolValue;
 
+        @Column(namingStrategy = Column.NamingStrategy.ABSOLUTE)
+        boolean absoluteBoolValue;
+
         @Column(name = "sfe")
         SingleFieldEntity singleFieldEntity;
+
+        @Column(name = "sfe_absolute", namingStrategy = Column.NamingStrategy.ABSOLUTE)
+        SingleFieldEntity singleFieldEntityAbsolute;
     }
 }

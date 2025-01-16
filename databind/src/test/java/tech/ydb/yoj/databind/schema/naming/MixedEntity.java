@@ -12,8 +12,10 @@ public class MixedEntity {
 
     TestEntity.SubEntity subEntity;
 
+    SubEntityWithRelative relativeWithoutColumnAnnotation;
+
     @Column(name = "prefix")
-    TestEntity.SubEntity subEntityWithPrefix;
+    SubEntityWithRelative relativeWithPrefix;
 
     @Value
     private static class Id {
@@ -21,5 +23,11 @@ public class MixedEntity {
 
         @Column(name = "int.val")
         Integer intValue;
+    }
+
+    @Value
+    static class SubEntityWithRelative {
+        @Column(name = "sfe_relative", namingStrategy = Column.NamingStrategy.RELATIVE)
+        SingleFieldEntity singleFieldEntityRelative;
     }
 }
