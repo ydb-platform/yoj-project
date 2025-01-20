@@ -6,6 +6,8 @@ import tech.ydb.yoj.databind.schema.Schema.JavaField;
 
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import java.util.function.Function;
 
 import static java.lang.String.format;
@@ -27,7 +29,7 @@ import static java.lang.reflect.Modifier.isStatic;
  * @param <J> Java type
  */
 public final class StringValueConverter<J> implements ValueConverter<J, String> {
-    private volatile Function<String, J> deserializer;
+    private final ConcurrentMap<Class<?>, Function<String, J>> deserializers = new ConcurrentHashMap<>(1);
 
     public StringValueConverter() {
     }
@@ -45,16 +47,9 @@ public final class StringValueConverter<J> implements ValueConverter<J, String> 
             return (J) column;
         }
 
-        var f = deserializer;
-        if (deserializer == null) {
-            synchronized (this) {
-                f = deserializer;
-                if (f == null) {
-                    deserializer = f = getStringValueDeserializerMethod(clazz);
-                }
-            }
-        }
-        return f.apply(column);
+        return deserializers
+                .computeIfAbsent(clazz, StringValueConverter::getStringValueDeserializerMethod)
+                .apply(column);
     }
 
     @SuppressWarnings("unchecked")
