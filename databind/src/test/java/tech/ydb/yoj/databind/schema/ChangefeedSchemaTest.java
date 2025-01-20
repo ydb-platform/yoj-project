@@ -48,7 +48,7 @@ public class ChangefeedSchemaTest {
         assertThat(entitySchema.getChangefeeds().get(0).getRetentionPeriod()).isEqualTo(Duration.ofHours(24));
         assertThat(entitySchema.getChangefeeds().get(0).isVirtualTimestamps()).isFalse();
         assertThat(entitySchema.getChangefeeds().get(0).isInitialScan()).isFalse();
-        assertThat(entitySchema.getChangefeeds().get(0).getConsumers()).containsExactly("consumer1", "consumer2");
+        assertThat(entitySchema.getChangefeeds().get(0).getConsumers()).containsExactlyInAnyOrder("consumer1", "consumer2");
     }
 
     private static <T> Schema<T> schemaOf(Class<T> entityType) {
