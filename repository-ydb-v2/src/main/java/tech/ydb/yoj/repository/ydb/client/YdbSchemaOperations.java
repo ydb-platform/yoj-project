@@ -1,5 +1,7 @@
 package tech.ydb.yoj.repository.ydb.client;
 
+import com.google.common.collect.Lists;
+import com.google.common.collect.Sets;
 import lombok.Getter;
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
@@ -28,6 +30,7 @@ import tech.ydb.table.settings.TtlSettings;
 import tech.ydb.table.values.Type;
 import tech.ydb.topic.TopicClient;
 import tech.ydb.topic.description.Consumer;
+import tech.ydb.topic.description.TopicDescription;
 import tech.ydb.topic.settings.AlterTopicSettings;
 import tech.ydb.yoj.databind.schema.Schema;
 import tech.ydb.yoj.repository.db.EntitySchema;
@@ -160,8 +163,18 @@ public class YdbSchemaOperations {
                     }
 
                     String changeFeedTopicPath = YdbPaths.join(tablespace + name, changefeed.getName());
+                    Result<TopicDescription> result = topicClient.describeTopic(changeFeedTopicPath).join();
+                    if (result.getStatus().getCode() != tech.ydb.core.StatusCode.SUCCESS) {
+                        throw new CreateTableException(String.format("Can't describe CDC topic %s: %s", changeFeedTopicPath, result.getStatus()));
+                    }
+
+                    Set<String> existingConsumers = result.getValue().getConsumers().stream()
+                            .map(Consumer::getName)
+                            .collect(toSet());
+                    Set<String> addedConsumers = Sets.difference(changefeed.getConsumers(), existingConsumers);
+
                     AlterTopicSettings.Builder addConsumersRequest = AlterTopicSettings.newBuilder();
-                    for (String consumer : changefeed.getConsumers()) {
+                    for (String consumer : addedConsumers) {
                         addConsumersRequest.addAddConsumer(Consumer.newBuilder()
                                 .setName(consumer)
                                 .build());

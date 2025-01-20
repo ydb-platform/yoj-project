@@ -252,7 +252,7 @@ public abstract class Schema<T> {
                 changefeed.virtualTimestamps(),
                 retentionPeriod,
                 changefeed.initialScan(),
-                List.of(changefeed.consumers())
+                Set.of(changefeed.consumers())
         );
     }
 
@@ -816,6 +816,6 @@ public abstract class Schema<T> {
         boolean initialScan;
 
         @NonNull
-        List<String> consumers;
+        Set<String> consumers;
     }
 }
