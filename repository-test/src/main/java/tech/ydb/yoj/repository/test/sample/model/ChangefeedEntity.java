@@ -16,7 +16,8 @@ import static tech.ydb.yoj.databind.schema.Changefeed.Mode.KEYS_ONLY;
         format = JSON,
         virtualTimestamps = true,
         retentionPeriod = "PT1H",
-        initialScan = false /* otherwise YDB is "overloaded" during YdbRepositoryIntegrationTest */
+        initialScan = false, /* otherwise YDB is "overloaded" during YdbRepositoryIntegrationTest */
+        consumers = {"test-consumer1", "test-consumer2"}
 )
 @Changefeed(name = "test-changefeed2")
 public class ChangefeedEntity implements Entity<ChangefeedEntity> {
