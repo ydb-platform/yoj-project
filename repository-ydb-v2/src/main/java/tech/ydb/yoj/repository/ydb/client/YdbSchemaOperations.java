@@ -26,6 +26,9 @@ import tech.ydb.table.settings.PartitioningPolicy;
 import tech.ydb.table.settings.PartitioningSettings;
 import tech.ydb.table.settings.TtlSettings;
 import tech.ydb.table.values.Type;
+import tech.ydb.topic.TopicClient;
+import tech.ydb.topic.description.Consumer;
+import tech.ydb.topic.settings.AlterTopicSettings;
 import tech.ydb.yoj.databind.schema.Schema;
 import tech.ydb.yoj.repository.db.EntitySchema;
 import tech.ydb.yoj.repository.db.exception.CreateTableException;
@@ -53,12 +56,14 @@ public class YdbSchemaOperations {
 
     private final SessionManager sessionManager;
     private final SchemeClient schemeClient;
+    private final TopicClient topicClient;
     private String tablespace;
 
     public YdbSchemaOperations(String tablespace, @NonNull SessionManager sessionManager, GrpcTransport transport) {
         this.tablespace = YdbPaths.canonicalTablespace(tablespace);
         this.sessionManager = sessionManager;
         this.schemeClient = SchemeClient.newClient(transport).build();
+        this.topicClient = TopicClient.newClient(transport).build();
     }
 
     public void setTablespace(String tablespace) {
@@ -81,7 +86,7 @@ public class YdbSchemaOperations {
         columns.forEach(c -> {
             ValueProtos.Type.PrimitiveTypeId yqlType = YqlPrimitiveType.of(c).getYqlType();
             int yqlTypeNumber = yqlType.getNumber();
-            ValueProtos.Type.PrimitiveTypeId primitiveTypeId = Stream.of(ValueProtos.Type.PrimitiveTypeId.values())
+            Stream.of(ValueProtos.Type.PrimitiveTypeId.values())
                     .filter(id -> id.getNumber() == yqlTypeNumber)
                     .findFirst()
                     .orElseThrow(() -> new CreateTableException(String.format("Can't create table '%s'%n"
@@ -148,6 +153,22 @@ public class YdbSchemaOperations {
                     status = session.alterTable(tablespace + name, alterTableSettings).join();
                     if (status.getCode() != tech.ydb.core.StatusCode.SUCCESS) {
                         throw new CreateTableException(String.format("Can't alter table %s: %s", name, status));
+                    }
+
+                    if (changefeed.getConsumers().isEmpty()) {
+                        continue;
+                    }
+
+                    String changeFeedTopicPath = YdbPaths.join(tablespace + name, changefeed.getName());
+                    AlterTopicSettings.Builder addConsumersRequest = AlterTopicSettings.newBuilder();
+                    for (String consumer : changefeed.getConsumers()) {
+                        addConsumersRequest.addAddConsumer(Consumer.newBuilder()
+                                .setName(consumer)
+                                .build());
+                    }
+                    status = topicClient.alterTopic(changeFeedTopicPath, addConsumersRequest.build()).join();
+                    if (status.getCode() != tech.ydb.core.StatusCode.SUCCESS) {
+                        throw new CreateTableException(String.format("Can't alter CDC topic %s: %s", changeFeedTopicPath, status));
                     }
                 }
             }

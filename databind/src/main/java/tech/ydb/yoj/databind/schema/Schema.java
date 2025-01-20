@@ -251,7 +251,8 @@ public abstract class Schema<T> {
                 changefeed.format(),
                 changefeed.virtualTimestamps(),
                 retentionPeriod,
-                changefeed.initialScan()
+                changefeed.initialScan(),
+                List.of(changefeed.consumers())
         );
     }
 
@@ -813,5 +814,8 @@ public abstract class Schema<T> {
         Duration retentionPeriod;
 
         boolean initialScan;
+
+        @NonNull
+        List<String> consumers;
     }
 }

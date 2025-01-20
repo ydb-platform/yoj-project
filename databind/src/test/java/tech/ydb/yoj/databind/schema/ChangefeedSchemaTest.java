@@ -25,6 +25,7 @@ public class ChangefeedSchemaTest {
         assertThat(entitySchema.getChangefeeds().get(0).getRetentionPeriod()).isEqualTo(Duration.ofHours(24));
         assertThat(entitySchema.getChangefeeds().get(0).isVirtualTimestamps()).isFalse();
         assertThat(entitySchema.getChangefeeds().get(0).isInitialScan()).isFalse();
+        assertThat(entitySchema.getChangefeeds().get(0).getConsumers()).isEmpty();
     }
 
     @Test
@@ -35,6 +36,19 @@ public class ChangefeedSchemaTest {
     @Test
     public void testConflictingChangefeedNameEntity() {
         assertThatThrownBy(() -> schemaOf(ConflictingChangefeedNameEntity.class));
+    }
+
+    @Test
+    public void testPredefinedConsumersChangefeedEntity() {
+        var entitySchema = schemaOf(PredefinedConsumersChangefeedEntity.class);
+
+        assertThat(entitySchema.getChangefeeds()).hasSize(1);
+        assertThat(entitySchema.getChangefeeds().get(0).getMode()).isEqualTo(Changefeed.Mode.NEW_IMAGE);
+        assertThat(entitySchema.getChangefeeds().get(0).getFormat()).isEqualTo(Changefeed.Format.JSON);
+        assertThat(entitySchema.getChangefeeds().get(0).getRetentionPeriod()).isEqualTo(Duration.ofHours(24));
+        assertThat(entitySchema.getChangefeeds().get(0).isVirtualTimestamps()).isFalse();
+        assertThat(entitySchema.getChangefeeds().get(0).isInitialScan()).isFalse();
+        assertThat(entitySchema.getChangefeeds().get(0).getConsumers()).containsExactly("consumer1", "consumer2");
     }
 
     private static <T> Schema<T> schemaOf(Class<T> entityType) {
@@ -71,6 +85,13 @@ public class ChangefeedSchemaTest {
     @Changefeed(name = "feed1")
     @Changefeed(name = "feed1")
     private static class ConflictingChangefeedNameEntity {
+        int field1;
+        int field2;
+    }
+
+    @Value
+    @Changefeed(name = "feed1", consumers = {"consumer1", "consumer2"})
+    private static class PredefinedConsumersChangefeedEntity {
         int field1;
         int field2;
     }

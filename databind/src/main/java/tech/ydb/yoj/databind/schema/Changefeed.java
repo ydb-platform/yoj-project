@@ -41,6 +41,11 @@ public @interface Changefeed {
      */
     boolean initialScan() default false;
 
+    /**
+     * Initial consumers of the changefeed
+     */
+    String[] consumers() default {};
+
     enum Mode {
         /**
          * Only the key component of the modified row
