@@ -31,6 +31,7 @@ import tech.ydb.topic.TopicClient;
 import tech.ydb.topic.description.Consumer;
 import tech.ydb.topic.description.TopicDescription;
 import tech.ydb.topic.settings.AlterTopicSettings;
+import tech.ydb.yoj.databind.schema.Changefeed.Consumer.Codec;
 import tech.ydb.yoj.databind.schema.Schema;
 import tech.ydb.yoj.repository.db.EntitySchema;
 import tech.ydb.yoj.repository.db.exception.CreateTableException;
@@ -43,12 +44,13 @@ import tech.ydb.yoj.repository.ydb.yql.YqlType;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.function.Function;
 import java.util.stream.Stream;
 
 import static com.google.common.base.Strings.isNullOrEmpty;
-import static java.util.stream.Collectors.toList;
-import static java.util.stream.Collectors.toSet;
+import static java.util.stream.Collectors.*;
 import static lombok.AccessLevel.PRIVATE;
 import static tech.ydb.core.StatusCode.SCHEME_ERROR;
 
@@ -167,16 +169,30 @@ public class YdbSchemaOperations {
                         throw new CreateTableException(String.format("Can't describe CDC topic %s: %s", changeFeedTopicPath, result.getStatus()));
                     }
 
-                    Set<String> existingConsumers = result.getValue().getConsumers().stream()
+                    Set<String> existingConsumerNames = result.getValue().getConsumers().stream()
                             .map(Consumer::getName)
                             .collect(toSet());
-                    Set<String> addedConsumers = Sets.difference(changefeed.getConsumers(), existingConsumers);
+
+                    Map<String, Schema.Changefeed.Consumer> specifiedConsumers = changefeed.getConsumers().stream()
+                            .collect(toMap(Schema.Changefeed.Consumer::getName, Function.identity()));
+
+                    Set<String> addedConsumers = Sets.difference(specifiedConsumers.keySet(), existingConsumerNames);
 
                     AlterTopicSettings.Builder addConsumersRequest = AlterTopicSettings.newBuilder();
-                    for (String consumer : addedConsumers) {
-                        addConsumersRequest.addAddConsumer(Consumer.newBuilder()
-                                .setName(consumer)
-                                .build());
+                    for (String addedConsumer : addedConsumers) {
+                        Schema.Changefeed.Consumer consumer = specifiedConsumers.get(addedConsumer);
+                        Consumer.Builder consumerConfiguration = Consumer.newBuilder()
+                                .setName(consumer.getName())
+                                .setImportant(consumer.isImportant())
+                                .setReadFrom(consumer.getReadFrom());
+
+                        for (Codec consumerCodec : consumer.getCodecs()) {
+                            consumerConfiguration.addSupportedCodec(
+                                    tech.ydb.topic.description.Codec.valueOf(consumerCodec.name())
+                            );
+                        }
+
+                        addConsumersRequest.addAddConsumer(consumerConfiguration.build());
                     }
                     status = topicClient.alterTopic(changeFeedTopicPath, addConsumersRequest.build()).join();
                     if (status.getCode() != tech.ydb.core.StatusCode.SUCCESS) {
