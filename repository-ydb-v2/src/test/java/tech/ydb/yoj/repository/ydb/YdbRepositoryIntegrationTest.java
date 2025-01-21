@@ -28,6 +28,7 @@ import tech.ydb.proto.discovery.DiscoveryProtos;
 import tech.ydb.proto.discovery.v1.DiscoveryServiceGrpc;
 import tech.ydb.proto.scheme.v1.SchemeServiceGrpc;
 import tech.ydb.proto.table.v1.TableServiceGrpc;
+import tech.ydb.proto.topic.v1.TopicServiceGrpc;
 import tech.ydb.table.Session;
 import tech.ydb.table.SessionPoolStats;
 import tech.ydb.table.TableClient;
@@ -151,6 +152,7 @@ public class YdbRepositoryIntegrationTest extends RepositoryTest {
                 .addService(new ProxyYdbTableService(channel))
                 .addService(proxyDiscoveryService)
                 .addService(new DelegateSchemeServiceImplBase(SchemeServiceGrpc.newStub(channel)))
+                .addService(new DelegateTopicServiceImplBase(TopicServiceGrpc.newStub(channel)))
                 .build();
         proxyServer.start();
         Runtime.getRuntime().addShutdownHook(new Thread(proxyServer::shutdown));
@@ -1021,6 +1023,12 @@ public class YdbRepositoryIntegrationTest extends RepositoryTest {
     private static class DelegateSchemeServiceImplBase extends SchemeServiceGrpc.SchemeServiceImplBase {
         @Delegate
         final SchemeServiceGrpc.SchemeServiceStub schemeServiceStub;
+    }
+
+    @AllArgsConstructor
+    private static class DelegateTopicServiceImplBase extends TopicServiceGrpc.TopicServiceImplBase {
+        @Delegate
+        final TopicServiceGrpc.TopicServiceStub topicServiceStub;
     }
 
     private static class ProxyDiscoveryService extends DiscoveryServiceGrpc.DiscoveryServiceImplBase {

@@ -41,6 +41,11 @@ public @interface Changefeed {
      */
     boolean initialScan() default false;
 
+    /**
+     * Initial consumers of the changefeed
+     */
+    Consumer[] consumers() default {};
+
     enum Mode {
         /**
          * Only the key component of the modified row
@@ -70,5 +75,23 @@ public @interface Changefeed {
 
     enum Format {
         JSON
+    }
+
+    @interface Consumer {
+        String name();
+
+        Codec[] codecs() default {};
+
+        String readFrom() default "1970-01-01T00:00:00Z";
+
+        boolean important() default false;
+
+        enum Codec {
+            RAW,
+            GZIP,
+            LZOP,
+            ZSTD,
+            CUSTOM
+        }
     }
 }

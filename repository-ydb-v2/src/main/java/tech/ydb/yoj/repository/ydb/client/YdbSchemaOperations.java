@@ -1,5 +1,6 @@
 package tech.ydb.yoj.repository.ydb.client;
 
+import com.google.common.collect.Sets;
 import lombok.Getter;
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
@@ -26,6 +27,11 @@ import tech.ydb.table.settings.PartitioningPolicy;
 import tech.ydb.table.settings.PartitioningSettings;
 import tech.ydb.table.settings.TtlSettings;
 import tech.ydb.table.values.Type;
+import tech.ydb.topic.TopicClient;
+import tech.ydb.topic.description.Consumer;
+import tech.ydb.topic.description.TopicDescription;
+import tech.ydb.topic.settings.AlterTopicSettings;
+import tech.ydb.yoj.databind.schema.Changefeed.Consumer.Codec;
 import tech.ydb.yoj.databind.schema.Schema;
 import tech.ydb.yoj.repository.db.EntitySchema;
 import tech.ydb.yoj.repository.db.exception.CreateTableException;
@@ -38,11 +44,14 @@ import tech.ydb.yoj.repository.ydb.yql.YqlType;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.function.Function;
 import java.util.stream.Stream;
 
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static java.util.stream.Collectors.toList;
+import static java.util.stream.Collectors.toMap;
 import static java.util.stream.Collectors.toSet;
 import static lombok.AccessLevel.PRIVATE;
 import static tech.ydb.core.StatusCode.SCHEME_ERROR;
@@ -53,12 +62,14 @@ public class YdbSchemaOperations {
 
     private final SessionManager sessionManager;
     private final SchemeClient schemeClient;
+    private final TopicClient topicClient;
     private String tablespace;
 
     public YdbSchemaOperations(String tablespace, @NonNull SessionManager sessionManager, GrpcTransport transport) {
         this.tablespace = YdbPaths.canonicalTablespace(tablespace);
         this.sessionManager = sessionManager;
         this.schemeClient = SchemeClient.newClient(transport).build();
+        this.topicClient = TopicClient.newClient(transport).build();
     }
 
     public void setTablespace(String tablespace) {
@@ -81,7 +92,7 @@ public class YdbSchemaOperations {
         columns.forEach(c -> {
             ValueProtos.Type.PrimitiveTypeId yqlType = YqlPrimitiveType.of(c).getYqlType();
             int yqlTypeNumber = yqlType.getNumber();
-            ValueProtos.Type.PrimitiveTypeId primitiveTypeId = Stream.of(ValueProtos.Type.PrimitiveTypeId.values())
+            Stream.of(ValueProtos.Type.PrimitiveTypeId.values())
                     .filter(id -> id.getNumber() == yqlTypeNumber)
                     .findFirst()
                     .orElseThrow(() -> new CreateTableException(String.format("Can't create table '%s'%n"
@@ -148,6 +159,46 @@ public class YdbSchemaOperations {
                     status = session.alterTable(tablespace + name, alterTableSettings).join();
                     if (status.getCode() != tech.ydb.core.StatusCode.SUCCESS) {
                         throw new CreateTableException(String.format("Can't alter table %s: %s", name, status));
+                    }
+
+                    if (changefeed.getConsumers().isEmpty()) {
+                        continue;
+                    }
+
+                    String changeFeedTopicPath = YdbPaths.join(tablespace + name, changefeed.getName());
+                    Result<TopicDescription> result = topicClient.describeTopic(changeFeedTopicPath).join();
+                    if (result.getStatus().getCode() != tech.ydb.core.StatusCode.SUCCESS) {
+                        throw new CreateTableException(String.format("Can't describe CDC topic %s: %s", changeFeedTopicPath, result.getStatus()));
+                    }
+
+                    Set<String> existingConsumerNames = result.getValue().getConsumers().stream()
+                            .map(Consumer::getName)
+                            .collect(toSet());
+
+                    Map<String, Schema.Changefeed.Consumer> specifiedConsumers = changefeed.getConsumers().stream()
+                            .collect(toMap(Schema.Changefeed.Consumer::getName, Function.identity()));
+
+                    Set<String> addedConsumers = Sets.difference(specifiedConsumers.keySet(), existingConsumerNames);
+
+                    AlterTopicSettings.Builder addConsumersRequest = AlterTopicSettings.newBuilder();
+                    for (String addedConsumer : addedConsumers) {
+                        Schema.Changefeed.Consumer consumer = specifiedConsumers.get(addedConsumer);
+                        Consumer.Builder consumerConfiguration = Consumer.newBuilder()
+                                .setName(consumer.getName())
+                                .setImportant(consumer.isImportant())
+                                .setReadFrom(consumer.getReadFrom());
+
+                        for (Codec consumerCodec : consumer.getCodecs()) {
+                            consumerConfiguration.addSupportedCodec(
+                                    tech.ydb.topic.description.Codec.valueOf(consumerCodec.name())
+                            );
+                        }
+
+                        addConsumersRequest.addAddConsumer(consumerConfiguration.build());
+                    }
+                    status = topicClient.alterTopic(changeFeedTopicPath, addConsumersRequest.build()).join();
+                    if (status.getCode() != tech.ydb.core.StatusCode.SUCCESS) {
+                        throw new CreateTableException(String.format("Can't alter CDC topic %s: %s", changeFeedTopicPath, status));
                     }
                 }
             }
