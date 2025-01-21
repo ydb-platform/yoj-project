@@ -40,6 +40,16 @@
         </dependency>
         <dependency>
             <groupId>tech.ydb</groupId>
+            <artifactId>ydb-sdk-topic</artifactId>
+            <exclusions>
+                <exclusion>
+                    <groupId>com.google.code.findbugs</groupId>
+                    <artifactId>annotations</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+        <dependency>
+            <groupId>tech.ydb</groupId>
             <artifactId>ydb-sdk-scheme</artifactId>
         </dependency>
         <dependency>

@@ -23,7 +23,9 @@ import javax.annotation.Nullable;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Type;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -245,13 +247,23 @@ public abstract class Schema<T> {
         var retentionPeriod = Duration.parse(changefeed.retentionPeriod());
         Preconditions.checkArgument(!(retentionPeriod.isNegative() || retentionPeriod.isZero()),
                 "RetentionPeriod value defined for %s must be positive", getType());
+        List<Changefeed.Consumer> consumers = Arrays.stream(changefeed.consumers())
+                .map(consumer -> new Changefeed.Consumer(
+                        consumer.name(),
+                        List.of(consumer.codecs()),
+                        Instant.parse(consumer.readFrom()),
+                        consumer.important()
+                ))
+                .toList();
+
         return new Changefeed(
                 changefeed.name(),
                 changefeed.mode(),
                 changefeed.format(),
                 changefeed.virtualTimestamps(),
                 retentionPeriod,
-                changefeed.initialScan()
+                changefeed.initialScan(),
+                consumers
         );
     }
 
@@ -813,5 +825,22 @@ public abstract class Schema<T> {
         Duration retentionPeriod;
 
         boolean initialScan;
+
+        @NonNull
+        List<Consumer> consumers;
+
+        @Value
+        public static class Consumer {
+            @NonNull
+            String name;
+
+            @NonNull
+            List<tech.ydb.yoj.databind.schema.Changefeed.Consumer.Codec> codecs;
+
+            @NonNull
+            Instant readFrom;
+
+            boolean important;
+        }
     }
 }
