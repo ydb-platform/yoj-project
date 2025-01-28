@@ -125,13 +125,6 @@ public final class YqlOrderBy implements YqlStatementPart<YqlOrderBy> {
     }
 
     @Override
-    public List<? extends YqlOrderBy> combine(@NonNull List<? extends YqlOrderBy> other) {
-        return singletonList(new YqlOrderBy(other.stream()
-                .flatMap(o -> o.getKeys().stream())
-                .collect(toList())));
-    }
-
-    @Override
     public String toString() {
         return format("order by %s", keys.stream().map(Object::toString).collect(joining(", ")));
     }

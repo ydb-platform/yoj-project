@@ -54,7 +54,7 @@ public class FindStatement<ENTITY extends Entity<ENTITY>, RESULT> extends Predic
         return declarations()
                 + "SELECT " + (distinct ? "DISTINCT " : "") + outNames()
                 + " FROM " + table(tablespace)
-                + " " + mergeParts(parts.stream())
+                + " " + mergeParts(parts)
                 .sorted(comparing(YqlStatementPart::getPriority))
                 .map(sp -> sp.toFullYql(schema))
                 .map(this::resolveParamNames)

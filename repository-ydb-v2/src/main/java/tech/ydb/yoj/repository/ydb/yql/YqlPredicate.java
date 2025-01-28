@@ -229,7 +229,7 @@ public abstract class YqlPredicate implements YqlStatementPart<YqlPredicate> {
     }
 
     /**
-     * @return stream of statement parameter specifications, if this YQL predicate uses parameters
+     * @return a fresh stream of statement parameter specifications, if this YQL predicate uses parameters; an fresh empty stream otherwise
      */
     public Stream<YqlPredicateParam<?>> paramStream() {
         return Stream.empty();

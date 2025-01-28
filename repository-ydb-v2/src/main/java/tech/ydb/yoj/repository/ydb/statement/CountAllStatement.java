@@ -28,7 +28,7 @@ public class CountAllStatement<ENTITY extends Entity<ENTITY>> extends PredicateS
         return declarations()
                 + "SELECT COUNT(*) AS count"
                 + " FROM " + table(tablespace)
-                + " " + mergeParts(parts.stream())
+                + " " + mergeParts(parts)
                 .sorted(comparing(YqlStatementPart::getPriority))
                 .map(sp -> sp.toFullYql(schema))
                 .map(this::resolveParamNames)

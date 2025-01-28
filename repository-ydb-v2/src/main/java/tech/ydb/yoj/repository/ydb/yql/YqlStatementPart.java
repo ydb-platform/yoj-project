@@ -20,6 +20,6 @@ public interface YqlStatementPart<P extends YqlStatementPart<P>> {
     <T extends Entity<T>> String toYql(@NonNull EntitySchema<T> schema);
 
     default List<? extends YqlStatementPart<?>> combine(@NonNull List<? extends P> other) {
-        return other;
+        throw new UnsupportedOperationException("Multiple " + getType() + " specifications are not supported");
     }
 }
