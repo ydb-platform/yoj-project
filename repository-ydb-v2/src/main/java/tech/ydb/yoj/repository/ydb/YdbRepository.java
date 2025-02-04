@@ -10,6 +10,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import tech.ydb.auth.AuthProvider;
 import tech.ydb.auth.NopAuthProvider;
+import tech.ydb.core.grpc.BalancingSettings;
 import tech.ydb.core.grpc.GrpcTransport;
 import tech.ydb.core.grpc.GrpcTransportBuilder;
 import tech.ydb.core.impl.SingleChannelTransport;
@@ -115,6 +116,16 @@ public class YdbRepository implements Repository {
                     });
         } else {
             throw new IllegalArgumentException("one of [discoveryEndpoint, hostAndPort] must be set");
+        }
+
+        if (config.getBalancingConfig() != null) {
+            transportBuilder.withBalancingSettings(
+                    switch (config.getBalancingConfig().getPolicy()) {
+                        case USE_ALL_NODES -> BalancingSettings.fromPolicy(BalancingSettings.Policy.USE_ALL_NODES);
+                        case USE_PREFERABLE_LOCATION -> BalancingSettings.fromLocation(config.getBalancingConfig().getPreferableLocation());
+                        case DETECT_LOCAL_DC -> BalancingSettings.detectLocalDs();
+                    }
+            );
         }
 
         if (config.isUseTLS()) {
