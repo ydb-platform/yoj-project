@@ -152,7 +152,7 @@ public class YdbConfig {
         /**
          * Use all available cluster nodes regardless datacenter locality
          */
-        static BalancingConfig useAllNodes() {
+        public static BalancingConfig useAllNodes() {
             return new BalancingConfig(Policy.USE_ALL_NODES, null);
         }
 
@@ -161,14 +161,14 @@ public class YdbConfig {
          *
          * @param preferableLocation a name of location
          */
-        static BalancingConfig usePreferableLocation(@NonNull String preferableLocation) {
+        public static BalancingConfig usePreferableLocation(@NonNull String preferableLocation) {
             return new BalancingConfig(Policy.USE_PREFERABLE_LOCATION, preferableLocation);
         }
 
         /**
          * Detecting of local DC by the latency measuring
          */
-        static BalancingConfig detectLocalDc() {
+        public static BalancingConfig detectLocalDc() {
             return new BalancingConfig(Policy.DETECT_LOCAL_DC, null);
         }
 
