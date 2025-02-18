@@ -19,7 +19,7 @@ If you wish to contribute to YOJ, see the [Notice to external contributors](CONT
 <dependency>
     <groupId>tech.ydb.yoj</groupId>
     <artifactId>yoj-bom</artifactId>
-    <version>2.6.6</version>
+    <version>2.6.7</version>
     <type>pom</type>
     <scope>import</scope>
 </dependency>
