@@ -2,6 +2,7 @@ package tech.ydb.yoj.repository.ydb;
 
 import io.grpc.ClientInterceptor;
 import tech.ydb.auth.AuthProvider;
+import tech.ydb.core.grpc.GrpcTransport;
 import tech.ydb.yoj.repository.db.IsolationLevel;
 import tech.ydb.yoj.repository.db.RepositoryTransaction;
 import tech.ydb.yoj.repository.db.Table;
@@ -51,6 +52,10 @@ public class TestYdbRepository extends YdbRepository {
 
     public TestYdbRepository(YdbConfig config) {
         super(config);
+    }
+
+    public TestYdbRepository(YdbConfig config, GrpcTransport transport) {
+        super(config, transport);
     }
 
     public TestYdbRepository(YdbConfig config, AuthProvider authProvider, List<ClientInterceptor> interceptors) {

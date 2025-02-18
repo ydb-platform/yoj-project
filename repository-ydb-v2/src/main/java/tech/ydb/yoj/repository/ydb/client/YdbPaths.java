@@ -21,7 +21,7 @@ public final class YdbPaths {
         return database.endsWith("/") ? database.substring(0, database.length() - 1) : database;
     }
 
-    static String join(String parent, String child) {
+    public static String join(String parent, String child) {
         return parent.isEmpty() ? child : (parent.endsWith("/") ? parent : parent + "/") + child;
     }
 

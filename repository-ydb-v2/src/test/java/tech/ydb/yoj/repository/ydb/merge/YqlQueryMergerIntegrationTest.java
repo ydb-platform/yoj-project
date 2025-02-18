@@ -1,6 +1,7 @@
 package tech.ydb.yoj.repository.ydb.merge;
 
 import org.junit.Assert;
+import org.junit.ClassRule;
 import org.junit.Test;
 import tech.ydb.yoj.repository.db.Repository;
 import tech.ydb.yoj.repository.test.RepositoryTestSupport;
@@ -8,11 +9,14 @@ import tech.ydb.yoj.repository.test.entity.TestEntities;
 import tech.ydb.yoj.repository.test.sample.TestDb;
 import tech.ydb.yoj.repository.test.sample.TestDbImpl;
 import tech.ydb.yoj.repository.test.sample.model.Project;
-import tech.ydb.yoj.repository.ydb.TestYdbConfig;
 import tech.ydb.yoj.repository.ydb.TestYdbRepository;
+import tech.ydb.yoj.repository.ydb.YdbEnvAndTransportRule;
 import tech.ydb.yoj.repository.ydb.util.RandomUtils;
 
 public class YqlQueryMergerIntegrationTest extends RepositoryTestSupport {
+    @ClassRule
+    public static final YdbEnvAndTransportRule ydbEnvAndTransport = new YdbEnvAndTransportRule();
+
     protected TestDb db;
 
     @Override
@@ -29,7 +33,7 @@ public class YqlQueryMergerIntegrationTest extends RepositoryTestSupport {
 
     @Override
     protected final Repository createRepository() {
-        return TestEntities.init(new TestYdbRepository(TestYdbConfig.get()));
+        return TestEntities.init(new TestYdbRepository(ydbEnvAndTransport.getYdbConfig(), ydbEnvAndTransport.getGrpcTransport()));
     }
 
     @Test

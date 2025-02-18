@@ -4,9 +4,9 @@ import lombok.NonNull;
 import lombok.Value;
 import org.junit.Test;
 import tech.ydb.proto.ValueProtos;
+import tech.ydb.yoj.databind.DbType;
 import tech.ydb.yoj.databind.expression.FilterExpression;
 import tech.ydb.yoj.databind.expression.OrderExpression;
-import tech.ydb.yoj.databind.DbType;
 import tech.ydb.yoj.databind.schema.Column;
 import tech.ydb.yoj.databind.schema.GlobalIndex;
 import tech.ydb.yoj.databind.schema.Schema;
@@ -28,7 +28,7 @@ import static tech.ydb.yoj.repository.db.EntityExpressions.newFilterBuilder;
 import static tech.ydb.yoj.repository.db.EntityExpressions.newOrderBuilder;
 import static tech.ydb.yoj.repository.db.EntityExpressions.orderById;
 
-public class FindInStatementIntegrationTest {
+public class FindInStatementTest {
     private static final EntitySchema<Foo> ENTITY_SCHEMA = EntitySchema.of(Foo.class);
     private static final Schema<FooView> VIEW_SCHEMA = ViewSchema.of(FooView.class);
 
@@ -115,7 +115,7 @@ public class FindInStatementIntegrationTest {
                 DECLARE $Input AS List<Struct<`key1`:Utf8,`key2`:Utf8>>;
                 SELECT t.`key1` AS `key1`, t.`key2` AS `key2`, t.`value1` AS `value1`, t.`value2` AS `value2`
                 FROM AS_TABLE($Input) AS k
-                JOIN `global/cloud/FindInStatementIntegrationTest_Foo` AS t
+                JOIN `global/cloud/FindInStatementTest_Foo` AS t
                 ON t.`key1` = k.`key1` AND t.`key2` = k.`key2`
                 """;
 
@@ -133,7 +133,7 @@ public class FindInStatementIntegrationTest {
                 DECLARE $Input AS List<Struct<`key1`:Utf8,`key2`:Utf8>>;
                 SELECT t.`key1` AS `key1`, t.`key2` AS `key2`, t.`value1` AS `value1`, t.`value2` AS `value2`
                 FROM AS_TABLE($Input) AS k
-                JOIN `global/cloud/FindInStatementIntegrationTest_Foo` AS t
+                JOIN `global/cloud/FindInStatementTest_Foo` AS t
                 ON t.`key1` = k.`key1` AND t.`key2` = k.`key2`
                 ORDER BY `key1` ASC, `key2` ASC
                 """;
@@ -156,7 +156,7 @@ public class FindInStatementIntegrationTest {
                 DECLARE $Input AS List<Struct<`key1`:Utf8,`key2`:Utf8>>;
                 SELECT t.`key1` AS `key1`, t.`key2` AS `key2`, t.`value1` AS `value1`, t.`value2` AS `value2`
                 FROM AS_TABLE($Input) AS k
-                JOIN `global/cloud/FindInStatementIntegrationTest_Foo` AS t
+                JOIN `global/cloud/FindInStatementTest_Foo` AS t
                 ON t.`key1` = k.`key1` AND t.`key2` = k.`key2`
                 ORDER BY `key1` ASC, `value1` DESC
                 """;
@@ -175,7 +175,7 @@ public class FindInStatementIntegrationTest {
                 DECLARE $Input AS List<Struct<`key1`:Utf8,`key2`:Utf8>>;
                 SELECT t.`key1` AS `key1`, t.`key2` AS `key2`, t.`value1` AS `value1`
                 FROM AS_TABLE($Input) AS k
-                JOIN `global/cloud/FindInStatementIntegrationTest_Foo` AS t
+                JOIN `global/cloud/FindInStatementTest_Foo` AS t
                 ON t.`key1` = k.`key1` AND t.`key2` = k.`key2`
                 """;
 
@@ -193,7 +193,7 @@ public class FindInStatementIntegrationTest {
                 DECLARE $Input AS List<Struct<`key1`:Utf8,`key2`:Utf8>>;
                 SELECT t.`key1` AS `key1`, t.`key2` AS `key2`, t.`value1` AS `value1`
                 FROM AS_TABLE($Input) AS k
-                JOIN `global/cloud/FindInStatementIntegrationTest_Foo` AS t
+                JOIN `global/cloud/FindInStatementTest_Foo` AS t
                 ON t.`key1` = k.`key1` AND t.`key2` = k.`key2`
                 ORDER BY `key1` ASC, `key2` ASC
                 """;
@@ -216,7 +216,7 @@ public class FindInStatementIntegrationTest {
                 DECLARE $Input AS List<Struct<`key1`:Utf8,`key2`:Utf8>>;
                 SELECT t.`key1` AS `key1`, t.`key2` AS `key2`, t.`value1` AS `value1`
                 FROM AS_TABLE($Input) AS k
-                JOIN `global/cloud/FindInStatementIntegrationTest_Foo` AS t
+                JOIN `global/cloud/FindInStatementTest_Foo` AS t
                 ON t.`key1` = k.`key1` AND t.`key2` = k.`key2`
                 ORDER BY `key1` ASC, `value1` DESC
                 """;
@@ -255,7 +255,7 @@ public class FindInStatementIntegrationTest {
                 FROM (
                 SELECT t.`key1` AS `key1`, t.`key2` AS `key2`, t.`value1` AS `value1`, t.`value2` AS `value2`
                 FROM AS_TABLE($Input) AS k
-                JOIN `global/cloud/FindInStatementIntegrationTest_Foo` AS t
+                JOIN `global/cloud/FindInStatementTest_Foo` AS t
                 ON t.`key1` = k.`key1` AND t.`key2` = k.`key2`
                 )
                 WHERE (`value1` <> $pred_0_value1) AND (`value2` IN $pred_1_value2)
@@ -284,7 +284,7 @@ public class FindInStatementIntegrationTest {
                 FROM (
                 SELECT t.`key1` AS `key1`, t.`key2` AS `key2`, t.`value1` AS `value1`, t.`value2` AS `value2`
                 FROM AS_TABLE($Input) AS k
-                JOIN `global/cloud/FindInStatementIntegrationTest_Foo` AS t
+                JOIN `global/cloud/FindInStatementTest_Foo` AS t
                 ON t.`key1` = k.`key1` AND t.`key2` = k.`key2`
                 )
                 WHERE (`value1` <> $pred_0_value1) AND (`value2` IN $pred_1_value2)
@@ -309,7 +309,7 @@ public class FindInStatementIntegrationTest {
                 DECLARE $Input AS List<Struct<`key2`:Utf8,`value2`:Utf8>>;
                 SELECT t.`key1` AS `key1`, t.`key2` AS `key2`, t.`value1` AS `value1`
                 FROM AS_TABLE($Input) AS k
-                JOIN `global/cloud/FindInStatementIntegrationTest_Foo` VIEW `index_by_value` AS t
+                JOIN `global/cloud/FindInStatementTest_Foo` VIEW `index_by_value` AS t
                 ON t.`value2` = k.`value2` AND t.`key2` = k.`key2`
                 LIMIT 1000
                 """;
@@ -424,7 +424,7 @@ public class FindInStatementIntegrationTest {
                 FROM (
                 SELECT t.`idd` AS `idd`, t.`value` AS `value`
                 FROM AS_TABLE($Input) AS k
-                JOIN `global/cloud/FindInStatementIntegrationTest_Bar` AS t
+                JOIN `global/cloud/FindInStatementTest_Bar` AS t
                 ON t.`idd` = k.`idd`
                 )
                 WHERE `value` = $pred_0_value

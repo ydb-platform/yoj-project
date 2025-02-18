@@ -6,7 +6,6 @@ import lombok.Builder;
 import lombok.NonNull;
 import lombok.Value;
 import org.junit.ClassRule;
-import tech.ydb.test.junit4.GrpcTransportRule;
 import tech.ydb.yoj.databind.DbType;
 import tech.ydb.yoj.databind.schema.Column;
 import tech.ydb.yoj.databind.schema.Table;
@@ -19,13 +18,13 @@ import tech.ydb.yoj.repository.db.TxManager;
 import tech.ydb.yoj.repository.db.TxOptions;
 import tech.ydb.yoj.repository.test.RepositoryTestSupport;
 import tech.ydb.yoj.repository.ydb.YdbConfig;
+import tech.ydb.yoj.repository.ydb.YdbEnvAndTransportRule;
 import tech.ydb.yoj.repository.ydb.YdbRepository;
 import tech.ydb.yoj.repository.ydb.YdbRepositoryTransaction;
 
-public abstract class AbstractMultipleVarsYqlStatementTestBase extends RepositoryTestSupport {
-
+public abstract class AbstractMultipleVarsYqlStatementIntegrationTestBase extends RepositoryTestSupport {
     @ClassRule
-    public static final GrpcTransportRule ydbTransport = new GrpcTransportRule();
+    public static final YdbEnvAndTransportRule ydbEnvAndTransport = new YdbEnvAndTransportRule();
 
     protected static final TestEntity ENTITY_1 = new TestEntity(TestEntity.Id.of("a"), "foo");
     protected static final TestEntity ENTITY_1_1 = new TestEntity(TestEntity.Id.of("a"), "fuu");
@@ -41,7 +40,7 @@ public abstract class AbstractMultipleVarsYqlStatementTestBase extends Repositor
 
     @Override
     protected Repository createRepository() {
-        var repository = new YdbRepository(config, ydbTransport) {
+        var repository = new YdbRepository(ydbEnvAndTransport.getYdbConfig(), ydbEnvAndTransport.getGrpcTransport()) {
             @Override
             public RepositoryTransaction startTransaction(TxOptions options) {
                 return new RepositoryTransactionImpl(this, options);
