@@ -1,4 +1,4 @@
-package tech.ydb.yoj.repository.ydb;
+package tech.ydb.yoj.repository.ydb.spliterator.legacy;
 
 import java.util.Spliterator;
 import java.util.function.Consumer;
