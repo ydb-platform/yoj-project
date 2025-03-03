@@ -427,7 +427,7 @@ public class YdbSchemaOperations {
         List<DirectoryEntity> tables = result.getChildren().stream()
                 .filter(entry -> switch (entry.getType()) {
                     case DIRECTORY, TABLE -> true;
-                    case COLUMN_STORE -> false;
+                    case COLUMN_STORE, COORDINATION_NODE -> false;
                     default -> {
                         errors.add(String.format("Unexpected entry type (%s:%s) in directory %s", entry.getType(), entry.getName(), directory));
                         yield false;
