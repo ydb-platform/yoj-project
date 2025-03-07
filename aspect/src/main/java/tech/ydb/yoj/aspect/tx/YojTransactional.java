@@ -1,5 +1,7 @@
 package tech.ydb.yoj.aspect.tx;
 
+import tech.ydb.yoj.repository.db.IsolationLevel;
+
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Inherited;
 import java.lang.annotation.Retention;
@@ -22,6 +24,17 @@ public @interface YojTransactional {
      * Mark transactions as read only
      */
     boolean readOnly() default false;
+
+    /**
+     * Indicates isolation level of transaction.
+     * If transaction marked as read only, then following isolation levels are supported:
+     * ONLINE_CONSISTENT_READ_ONLY
+     * ONLINE_INCONSISTENT_READ_ONLY
+     * STALE_CONSISTENT_READ_ONLY
+     * SNAPSHOT
+     * If transaction marked as not read only, isolation level is ignored.
+     */
+    IsolationLevel isolation() default IsolationLevel.ONLINE_CONSISTENT_READ_ONLY;
 
     /**
      * Set transaction name otherwise method name will be used as transaction name

@@ -48,9 +48,16 @@ public class YojTransactionAspect {
             if (transactional.maxRetries() != YojTransactional.UNDEFINED) {
                 localTx = tx.withMaxRetries(transactional.maxRetries());
             }
-            return transactional.readOnly() ? localTx.readOnly().run(() -> safeCall(pjp)) : localTx.tx(() -> safeCall(pjp));
+            validateIsolationLevel(transactional);
+            return transactional.readOnly() ? localTx.readOnly().withStatementIsolationLevel(transactional.isolation()).run(() -> safeCall(pjp)) : localTx.tx(() -> safeCall(pjp));
         } catch (CallRetryableException | CallException e) {
             throw e.getCause();
+        }
+    }
+
+    private void validateIsolationLevel(YojTransactional transactional) {
+        if (transactional.isolation().isReadWrite() && transactional.readOnly()) {
+            throw new IllegalStateException("Unsupported isolation level for read-only transaction: " + transactional.isolation());
         }
     }
 
