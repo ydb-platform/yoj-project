@@ -52,7 +52,8 @@ public class YojTransactionAspect {
             validateIsolationLevel(transactional);
 
             if (transactional.readOnly()) {
-                return localTx.readOnly()
+                return localTx
+                    .readOnly()
                     .withStatementIsolationLevel(transactional.isolation())
                     .run(() -> safeCall(pjp));
             } else {
