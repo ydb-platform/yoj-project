@@ -27,6 +27,15 @@ public class ReadTableParams<ID> {
     @ExperimentalApi(issue = "https://github.com/ydb-platform/yoj-project/issues/42")
     boolean useNewSpliterator;
 
+    /**
+     * Set this to {@code true} to use a {@code Spliterator} contract-conformant and less memory consuming implementation for the {@code Stream}
+     * returned by {@code readTable()}.
+     * <p>Note that using the new implementation currently has a negative performance impact, for more information refer to
+     * <a href="https://github.com/ydb-platform/yoj-project/issues/42">GitHub Issue #42</a>.
+     */
+    @ExperimentalApi(issue = "https://github.com/ydb-platform/yoj-project/issues/42")
+    boolean useNewSpliterator2;
+
     int batchLimitBytes;
     int batchLimitRows;
 
