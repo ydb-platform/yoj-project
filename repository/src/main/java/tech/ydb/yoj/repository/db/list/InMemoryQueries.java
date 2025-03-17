@@ -17,8 +17,10 @@ import tech.ydb.yoj.util.function.StreamSupplier;
 
 import javax.annotation.Nullable;
 import java.util.Comparator;
+import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.Stream;
@@ -144,12 +146,18 @@ public final class InMemoryQueries {
     }
 
     public static <T extends Entity<T>> Comparator<T> toComparator(@NonNull OrderExpression<T> orderBy) {
+        if (orderBy.isUnordered()) {
+            // Produces a randomly-ordering, but stable Comparator. UUID.randomUUID() collisions are extremely unlikely, so we ignore them.
+            Map<Object, UUID> randomIds = new IdentityHashMap<>();
+            return Comparator.comparing(e -> randomIds.computeIfAbsent(e, __ -> UUID.randomUUID()));
+        }
+
         Schema<T> schema = orderBy.getSchema();
         return (a, b) -> {
             Map<String, Object> mapA = schema.flatten(a);
             Map<String, Object> mapB = schema.flatten(b);
             for (OrderExpression.SortKey sortKey : orderBy.getKeys()) {
-                for (JavaField field : sortKey.getField().flatten().collect(toList())) {
+                for (JavaField field : sortKey.getField().flatten().toList()) {
                     int res = compare(FieldValue.getComparable(mapA, field), FieldValue.getComparable(mapB, field));
                     if (res != 0) {
                         return sortKey.getOrder() == ASCENDING ? res : -res;

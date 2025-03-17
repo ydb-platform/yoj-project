@@ -1,9 +1,11 @@
 package tech.ydb.yoj.repository.db;
 
 import lombok.NonNull;
+import tech.ydb.yoj.ExperimentalApi;
 import tech.ydb.yoj.databind.expression.FilterBuilder;
 import tech.ydb.yoj.databind.expression.OrderBuilder;
 import tech.ydb.yoj.databind.expression.OrderExpression;
+import tech.ydb.yoj.databind.schema.Schema;
 
 import static tech.ydb.yoj.databind.expression.OrderExpression.SortOrder.ASCENDING;
 
@@ -17,6 +19,14 @@ public final class EntityExpressions {
 
     public static <T extends Entity<T>> OrderBuilder<T> newOrderBuilder(@NonNull Class<T> entityType) {
         return OrderBuilder.forSchema(schema(entityType));
+    }
+
+    /**
+     * @see OrderExpression#unordered(Schema)
+     */
+    @ExperimentalApi(issue = "https://github.com/ydb-platform/yoj-project/issues/115")
+    public static <T extends Entity<T>> OrderExpression<T> unordered(@NonNull Class<T> entityType) {
+        return OrderExpression.unordered(schema(entityType));
     }
 
     private static <T extends Entity<T>> EntitySchema<T> schema(@NonNull Class<T> entityType) {
