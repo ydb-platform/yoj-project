@@ -6,6 +6,7 @@ import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.NonNull;
 import lombok.Value;
+import tech.ydb.yoj.ExperimentalApi;
 import tech.ydb.yoj.repository.db.Entity;
 import tech.ydb.yoj.repository.db.EntitySchema;
 
@@ -25,6 +26,8 @@ import static tech.ydb.yoj.repository.ydb.yql.YqlOrderBy.SortOrder.DESC;
 @Getter
 @EqualsAndHashCode
 public final class YqlOrderBy implements YqlStatementPart<YqlOrderBy> {
+    private static final YqlOrderBy UNORDERED = new YqlOrderBy(List.of());
+
     public static final String TYPE = "OrderBy";
     private final List<SortKey> keys;
 
@@ -96,6 +99,22 @@ public final class YqlOrderBy implements YqlStatementPart<YqlOrderBy> {
     }
 
     /**
+     * Returns an {@code YqlOrderBy} that applies <em>no particular sort order</em> to the query results.
+     * The results will be returned in an implementation-defined order which is subject to change at any time,
+     * <em>potentially even giving a different ordering for repeated executions of the same query</em>.
+     * <p><strong>BEWARE!</strong> For small queries that return results entirely from a single table partition
+     * (<em>data shard</em>), the <em>no particular sort order</em> imposed by {@code YqlOrderBy.unordered()}
+     * on a real YDB database will <strong>most likely be the same</strong> as "order by entity ID ascending",
+     * but this will quickly and unpredictably change if the table and/or the result set grow bigger.
+     *
+     * @return an {@code YqlOrderBy} representing <em>no particular sort order</em>
+     */
+    @ExperimentalApi(issue = "https://github.com/ydb-platform/yoj-project/issues/115")
+    public static YqlOrderBy unordered() {
+        return UNORDERED;
+    }
+
+    /**
      * @return builder for {@code YqlOrderBy}
      */
     public static Builder order() {
@@ -104,7 +123,7 @@ public final class YqlOrderBy implements YqlStatementPart<YqlOrderBy> {
 
     @Override
     public <T extends Entity<T>> String toYql(@NonNull EntitySchema<T> schema) {
-        return keys.stream().map(k -> k.toYql(schema)).collect(joining(", "));
+        return keys.isEmpty() ? "" : keys.stream().map(k -> k.toYql(schema)).collect(joining(", "));
     }
 
     @Override
@@ -114,7 +133,7 @@ public final class YqlOrderBy implements YqlStatementPart<YqlOrderBy> {
 
     @Override
     public String getYqlPrefix() {
-        return "ORDER BY ";
+        return keys.isEmpty() ? "" : "ORDER BY ";
     }
 
     @Override
@@ -124,7 +143,7 @@ public final class YqlOrderBy implements YqlStatementPart<YqlOrderBy> {
 
     @Override
     public String toString() {
-        return format("order by %s", keys.stream().map(Object::toString).collect(joining(", ")));
+        return keys.isEmpty() ? "unordered" : format("order by %s", keys.stream().map(Object::toString).collect(joining(", ")));
     }
 
     public enum SortOrder {
@@ -147,7 +166,7 @@ public final class YqlOrderBy implements YqlStatementPart<YqlOrderBy> {
      * Sort key: entity field plus {@link SortOrder sort order} (either ascending or descending).
      */
     @Value
-    public static final class SortKey {
+    public static class SortKey {
         String fieldPath;
         SortOrder order;
 
