@@ -931,6 +931,22 @@ public class YdbRepositoryIntegrationTest extends RepositoryTest {
         }
     }
 
+    @Test
+    public void unordered() {
+        // YDB tends to return data in index-order, not "by PK ascending" order, if we don't force the result order
+        IndexedEntity ie1 = new IndexedEntity(new IndexedEntity.Id("abc"), "z", "v1-1", "v1-2");
+        IndexedEntity ie2 = new IndexedEntity(new IndexedEntity.Id("def"), "y", "v2-1", "v2-2");
+        db.tx(() -> db.indexedTable().insert(ie1, ie2));
+
+        var results = db.tx(() -> db.indexedTable().query()
+                .where("keyId").gte("a")
+                .limit(2)
+                .index(IndexedEntity.KEY_INDEX)
+                .unordered()
+                .find());
+        assertThat(results).containsExactly(ie2, ie1);
+    }
+
     @AllArgsConstructor
     private static class DelegateSchemeServiceImplBase extends SchemeServiceGrpc.SchemeServiceImplBase {
         @Delegate

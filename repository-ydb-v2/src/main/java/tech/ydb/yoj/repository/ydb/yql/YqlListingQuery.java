@@ -165,7 +165,9 @@ public final class YqlListingQuery {
     }
 
     public static <T extends Entity<T>> YqlOrderBy toYqlOrderBy(@NonNull OrderExpression<T> orderBy) {
-        return YqlOrderBy.orderBy(orderBy.getKeys().stream().map(YqlListingQuery::toSortKey).collect(toList()));
+        return orderBy.isUnordered()
+                ? YqlOrderBy.unordered()
+                : YqlOrderBy.orderBy(orderBy.getKeys().stream().map(YqlListingQuery::toSortKey).collect(toList()));
     }
 
     private static YqlOrderBy.SortKey toSortKey(SortKey k) {
