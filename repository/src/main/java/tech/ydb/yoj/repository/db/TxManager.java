@@ -33,11 +33,25 @@ public interface TxManager {
 
     /**
      * Enable pending write queue in transaction and execute write changes right before the transaction is committed.
+     * <strong>This is the default.</strong>
+     * <p>Note that in this mode, you can still see <em>some</em> of transaction's own changes <em>iif</em> you query your entities by using
+     * {@code Table.find(ID)} or {@code Table.find(Set<ID>)} (this method also permits partial IDs for range queries) <strong>and</strong> you
+     * did not also {@link #noFirstLevelCache() disable the first-level cache}.
+     *
+     * @see #immediateWrites()
+     * @see #noFirstLevelCache()
      */
     TxManager delayedWrites();
 
     /**
      * Disable pending write queue in transaction and execute write changes immediately.
+     * <p><strong>Note:</strong> This also disables write merging, which might <strong>significantly</strong> impact write performance, and will only
+     * work with YDB >= <a href="https://ydb.tech/docs/en/changelog-server#23-3">23.3</a>, where transactions can see their own changes.
+     * <br>Please enable this option <strong>only</strong> if your business logic requires writing changes and then reading them from the same
+     * transaction via a non-trivial query (not a {@code Table.find(ID)} and not a {@code Table.find(Set<ID>)}), e.g., via {@code Table.query()} DSL,
+     * or even {@code Table.find(Range<ID>)}.
+     *
+     * @see #delayedWrites()
      */
     TxManager immediateWrites();
 
