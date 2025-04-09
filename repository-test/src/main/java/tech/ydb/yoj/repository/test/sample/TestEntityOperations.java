@@ -14,6 +14,7 @@ import tech.ydb.yoj.repository.test.sample.model.EntityWithValidation;
 import tech.ydb.yoj.repository.test.sample.model.IndexedEntity;
 import tech.ydb.yoj.repository.test.sample.model.LogEntry;
 import tech.ydb.yoj.repository.test.sample.model.MultiWrappedEntity;
+import tech.ydb.yoj.repository.test.sample.model.MultiWrappedEntity2;
 import tech.ydb.yoj.repository.test.sample.model.NetworkAppliance;
 import tech.ydb.yoj.repository.test.sample.model.Primitive;
 import tech.ydb.yoj.repository.test.sample.model.Project;
@@ -74,6 +75,8 @@ public interface TestEntityOperations extends BaseDb {
     Table<DetachedEntity> detachedEntities();
 
     Table<MultiWrappedEntity> multiWrappedIdEntities();
+
+    Table<MultiWrappedEntity2> multiWrappedEntities2();
 
     class ProjectTable extends AbstractDelegatingTable<Project> {
         public ProjectTable(Table<Project> target) {

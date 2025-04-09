@@ -6,8 +6,9 @@ import tech.ydb.yoj.databind.ByteArray;
 import tech.ydb.yoj.databind.CustomValueTypes;
 import tech.ydb.yoj.databind.FieldValueType;
 import tech.ydb.yoj.databind.expression.IllegalExpressionException;
-import tech.ydb.yoj.databind.schema.ObjectSchema;
+import tech.ydb.yoj.databind.schema.Schema;
 import tech.ydb.yoj.databind.schema.Schema.JavaField;
+import tech.ydb.yoj.databind.schema.naming.NamingStrategy;
 
 import javax.annotation.Nullable;
 import java.lang.reflect.Type;
@@ -33,6 +34,8 @@ public sealed interface FieldValue extends tech.ydb.yoj.databind.expression.Fiel
 
     @Override
     default Object getRaw(@NonNull JavaField field) {
+        field = field.isFlat() ? field.toFlatField() : field;
+
         Comparable<?> cmp = getComparable(field);
         return CustomValueTypes.postconvert(field, cmp);
     }
@@ -49,7 +52,8 @@ public sealed interface FieldValue extends tech.ydb.yoj.databind.expression.Fiel
     }
 
     static FieldValue ofObj(@NonNull Object obj, @NonNull JavaField schemaField) {
-        FieldValueType fvt = FieldValueType.forJavaType(obj.getClass(), schemaField.getField());
+        Class<?> objRawType = obj.getClass();
+        FieldValueType fvt = FieldValueType.forJavaType(objRawType, schemaField.getField());
         obj = CustomValueTypes.preconvert(schemaField, obj);
 
         return switch (fvt) {
@@ -62,19 +66,37 @@ public sealed interface FieldValue extends tech.ydb.yoj.databind.expression.Fiel
             case TIMESTAMP -> new TimestampFieldValue((Instant) obj);
             case UUID -> new UuidFieldValue((UUID) obj);
             case COMPOSITE -> {
-                ObjectSchema<?> schema = ObjectSchema.of(obj.getClass());
+                JavaField innerField;
+                if (schemaField.isFlat()) {
+                    // For flat fields, walk the chain of wrappers to find a wrapper which matches the obj's raw type exactly
+                    innerField = schemaField.getFlatRoot().findFlatChild(child -> child.getRawType().equals(objRawType));
+                } else {
+                    // For non-flat fields, we just require an exact match to obj's raw type (or else Schema.flatten() will fail!)
+                    innerField = schemaField;
+                }
+                Preconditions.checkArgument(innerField != null && innerField.getRawType().equals(objRawType),
+                        "Composite schema field %s is not compatible with value of type %s", schemaField, objRawType);
+
+                class InnerSchema<T> extends Schema<T> {
+                    protected InnerSchema(JavaField subSchemaField) {
+                        super(subSchemaField, (NamingStrategy) null);
+                    }
+                }
+
+                Schema<?> schema = new InnerSchema<>(innerField);
                 List<JavaField> flatFields = schema.flattenFields();
 
                 @SuppressWarnings({"rawtypes", "unchecked"})
-                Map<String, Object> flattenedObj = ((ObjectSchema) schema).flatten(obj);
+                Map<String, Object> flattenedObj = ((Schema) schema).flatten(obj);
 
                 List<Tuple.FieldAndValue> allFieldValues = tupleValues(flatFields, flattenedObj);
                 if (allFieldValues.size() == 1) {
                     FieldValue singleValue = allFieldValues.iterator().next().value();
                     Preconditions.checkArgument(singleValue != null, "Wrappers must have a non-null value inside them");
                     yield singleValue;
+                } else {
+                    yield new TupleFieldValue(new Tuple(obj, allFieldValues));
                 }
-                yield new TupleFieldValue(new Tuple(obj, allFieldValues));
             }
             default -> throw new UnsupportedOperationException("Unsupported value type: not a string, integer, timestamp, UUID, enum, "
                     + "floating-point number, byte array, tuple or wrapper of the above");

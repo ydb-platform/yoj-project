@@ -8,8 +8,10 @@ import org.assertj.core.api.Assertions;
 import org.junit.Assert;
 import org.junit.Test;
 import tech.ydb.yoj.databind.expression.FilterExpression;
+import tech.ydb.yoj.databind.expression.values.StringFieldValue;
 import tech.ydb.yoj.repository.BaseDb;
 import tech.ydb.yoj.repository.db.Entity;
+import tech.ydb.yoj.repository.db.EntitySchema;
 import tech.ydb.yoj.repository.db.IsolationLevel;
 import tech.ydb.yoj.repository.db.Range;
 import tech.ydb.yoj.repository.db.Repository;
@@ -44,6 +46,7 @@ import tech.ydb.yoj.repository.test.sample.model.DetachedEntityId;
 import tech.ydb.yoj.repository.test.sample.model.EntityWithValidation;
 import tech.ydb.yoj.repository.test.sample.model.IndexedEntity;
 import tech.ydb.yoj.repository.test.sample.model.MultiLevelDirectory;
+import tech.ydb.yoj.repository.test.sample.model.MultiWrappedEntity2;
 import tech.ydb.yoj.repository.test.sample.model.NetworkAppliance;
 import tech.ydb.yoj.repository.test.sample.model.NonDeserializableEntity;
 import tech.ydb.yoj.repository.test.sample.model.NonDeserializableObject;
@@ -359,7 +362,7 @@ public abstract class RepositoryTest extends RepositoryTestSupport {
         assertThatExceptionOfType(IllegalArgumentException.class)
                 .isThrownBy(() -> db.tx(() -> db.projects().streamAll(5001)));
     }
-    
+
     private static <ID extends Entity.Id<?>> ReadTableParams<ID> defaultReadTableParamsNonLegacy() {
         return RepositoryTest.<ID>buildReadTableParamsNonLegacy().build();
     }
@@ -2810,6 +2813,103 @@ public abstract class RepositoryTest extends RepositoryTestSupport {
         var theEntity = new DetachedEntity(new DetachedEntityId("some-id"));
         db.tx(() -> db.detachedEntities().save(theEntity));
         assertThat(db.tx(() -> db.detachedEntities().find(theEntity.id()))).isEqualTo(theEntity);
+    }
+
+    @Test
+    public void multiWrapperEntity2WithCustomConverterUnwrapped() {
+        var theEntity = new MultiWrappedEntity2(new MultiWrappedEntity2.Id(
+                new MultiWrappedEntity2.WrapperOfIdStringValue(
+                        MultiWrappedEntity2.IdStringValue.fromString("xyzzy-central1:013943912")
+                )
+        ));
+        db.tx(() -> db.multiWrappedEntities2().save(theEntity));
+
+        var unwrapped = "xyzzy-central1:0";
+        assertThat(db.tx(() -> db.multiWrappedEntities2().query()
+                .where("id").gt(unwrapped)
+                .findOne()
+        )).isEqualTo(theEntity);
+        assertThat(db.tx(() -> db.multiWrappedEntities2().query()
+                .where("id").lt(unwrapped)
+                .find()
+        )).isEmpty();
+    }
+
+    @Test
+    public void multiWrapperEntity2WithCustomConverterOnceWrapped() {
+        var theEntity = new MultiWrappedEntity2(new MultiWrappedEntity2.Id(
+                new MultiWrappedEntity2.WrapperOfIdStringValue(
+                        MultiWrappedEntity2.IdStringValue.fromString("xyzzy-central1:013943912")
+                )
+        ));
+        db.tx(() -> db.multiWrappedEntities2().save(theEntity));
+
+        var onceWrapped = MultiWrappedEntity2.IdStringValue.fromString("xyzzy-central1:0");
+        assertThat(db.tx(() -> db.multiWrappedEntities2().query()
+                .where("id").gt(onceWrapped)
+                .findOne()
+        )).isEqualTo(theEntity);
+        assertThat(db.tx(() -> db.multiWrappedEntities2().query()
+                .where("id").lt(onceWrapped)
+                .find()
+        )).isEmpty();
+    }
+
+    @Test
+    public void multiWrapperEntity2WithCustomConverterTwiceWrapped() {
+        var theEntity = new MultiWrappedEntity2(new MultiWrappedEntity2.Id(
+                new MultiWrappedEntity2.WrapperOfIdStringValue(
+                        MultiWrappedEntity2.IdStringValue.fromString("xyzzy-central1:013943912")
+                )
+        ));
+        db.tx(() -> db.multiWrappedEntities2().save(theEntity));
+
+        var twiceWrapped = new MultiWrappedEntity2.WrapperOfIdStringValue(MultiWrappedEntity2.IdStringValue.fromString("xyzzy-central1:0"));
+        assertThat(db.tx(() -> db.multiWrappedEntities2().query()
+                .where("id").gt(twiceWrapped)
+                .findOne()
+        )).isEqualTo(theEntity);
+        assertThat(db.tx(() -> db.multiWrappedEntities2().query()
+                .where("id").lt(twiceWrapped)
+                .find()
+        )).isEmpty();
+    }
+
+    @Test
+    public void multiWrapperEntity2WithCustomConverterPartiallyUnwrapped3() {
+        var theEntity = new MultiWrappedEntity2(new MultiWrappedEntity2.Id(
+                new MultiWrappedEntity2.WrapperOfIdStringValue(
+                        MultiWrappedEntity2.IdStringValue.fromString("xyzzy-central1:013943912")
+                )
+        ));
+        db.tx(() -> db.multiWrappedEntities2().save(theEntity));
+
+        var schema = EntitySchema.of(MultiWrappedEntity2.class);
+        var idField = schema.getField("id");
+        var sv = new StringFieldValue("xyzzy-central1:0").getRaw(idField); // Will get flattest original value, which is the IdStringValue("xyzzy-..")
+        assertThat(db.tx(() -> db.multiWrappedEntities2().query()
+                .where("id").gt(sv)
+                .findOne()
+        )).isEqualTo(theEntity);
+        assertThat(db.tx(() -> db.multiWrappedEntities2().query()
+                .where("id").lt(sv)
+                .find()
+        )).isEmpty();
+    }
+
+    @Test
+    public void multiWrapperEntity2WithCustomConverterFullyWrapped() {
+        var theEntity = new MultiWrappedEntity2(new MultiWrappedEntity2.Id(new MultiWrappedEntity2.WrapperOfIdStringValue(MultiWrappedEntity2.IdStringValue.fromString("xyzzy-central1:013943912"))));
+        db.tx(() -> db.multiWrappedEntities2().save(theEntity));
+
+        assertThat(db.tx(() -> db.multiWrappedEntities2().query()
+                .where("id").gt(new MultiWrappedEntity2.Id(new MultiWrappedEntity2.WrapperOfIdStringValue(MultiWrappedEntity2.IdStringValue.fromString("xyzzy-central1:0"))))
+                .findOne()
+        )).isEqualTo(theEntity);
+        assertThat(db.tx(() -> db.multiWrappedEntities2().query()
+                .where("id").lt(new MultiWrappedEntity2.Id(new MultiWrappedEntity2.WrapperOfIdStringValue(MultiWrappedEntity2.IdStringValue.fromString("xyzzy-central1:0"))))
+                .find()
+        )).isEmpty();
     }
 
     protected void runInTx(Consumer<RepositoryTransaction> action) {
