@@ -13,6 +13,7 @@ import tech.ydb.yoj.repository.test.sample.model.EntityWithValidation;
 import tech.ydb.yoj.repository.test.sample.model.IndexedEntity;
 import tech.ydb.yoj.repository.test.sample.model.LogEntry;
 import tech.ydb.yoj.repository.test.sample.model.MultiWrappedEntity;
+import tech.ydb.yoj.repository.test.sample.model.MultiWrappedEntity2;
 import tech.ydb.yoj.repository.test.sample.model.NetworkAppliance;
 import tech.ydb.yoj.repository.test.sample.model.NonDeserializableEntity;
 import tech.ydb.yoj.repository.test.sample.model.Primitive;
@@ -56,7 +57,8 @@ public final class TestEntities {
             VersionedEntity.class,
             VersionedAliasedEntity.class,
             DetachedEntity.class,
-            MultiWrappedEntity.class
+            MultiWrappedEntity.class,
+            MultiWrappedEntity2.class
     );
 
     public static final List<TableDescriptor<?>> ALL_TABLE_DESCRIPTORS = List.of(
