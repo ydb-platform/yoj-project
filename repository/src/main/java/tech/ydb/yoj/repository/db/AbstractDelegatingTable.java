@@ -117,6 +117,11 @@ public abstract class AbstractDelegatingTable<T extends Entity<T>> implements Ta
     }
 
     @Override
+    public TableDescriptor<T> getTableDescriptor() {
+        return target.getTableDescriptor();
+    }
+
+    @Override
     public T find(Entity.Id<T> id) {
         return target.find(id);
     }

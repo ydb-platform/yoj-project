@@ -67,9 +67,12 @@ import static tech.ydb.yoj.repository.db.EntityExpressions.defaultOrder;
 public class YdbTable<T extends Entity<T>> implements Table<T> {
     @Getter
     private final Class<T> type;
+
+    @Getter
+    private final TableDescriptor<T> tableDescriptor;
+
     private final QueryExecutor executor;
     private final EntitySchema<T> schema;
-    private final TableDescriptor<T> tableDescriptor;
 
     public YdbTable(Class<T> type, QueryExecutor executor) {
         this.type = type;
@@ -246,7 +249,7 @@ public class YdbTable<T extends Entity<T>> implements Table<T> {
         if (id.isPartial()) {
             throw new IllegalArgumentException("Cannot use partial id in find method");
         }
-        return executor.getTransactionLocal().firstLevelCache().get(id, __ -> {
+        return executor.getTransactionLocal().firstLevelCache().get(tableDescriptor, id, __ -> {
             var statement = new FindYqlStatement<>(tableDescriptor, schema, schema);
             List<T> res = postLoad(executor.execute(statement, id));
             return res.isEmpty() ? null : res.get(0);
@@ -343,7 +346,7 @@ public class YdbTable<T extends Entity<T>> implements Table<T> {
         List<T> found = postLoad(findUncached(ids, filter, orderBy, limit));
         if (!isPartialIdMode && ids.size() > found.size()) {
             Set<Id<T>> foundIds = found.stream().map(Entity::getId).collect(toSet());
-            Sets.difference(ids, foundIds).forEach(executor.getTransactionLocal().firstLevelCache()::putEmpty);
+            Sets.difference(ids, foundIds).forEach(id -> executor.getTransactionLocal().firstLevelCache().putEmpty(tableDescriptor, id));
         }
         return found;
     }
@@ -463,6 +466,7 @@ public class YdbTable<T extends Entity<T>> implements Table<T> {
     }
 
     @Override
+    @Deprecated
     public void update(Entity.Id<T> id, Changeset changeset) {
         UpdateModel.ById<Id<T>> model = new UpdateModel.ById<>(id, changeset.toMap());
         executor.pendingExecute(new UpdateByIdStatement<>(tableDescriptor, schema, model), model);
@@ -472,7 +476,7 @@ public class YdbTable<T extends Entity<T>> implements Table<T> {
     public T insert(T t) {
         T entityToSave = t.preSave();
         executor.pendingExecute(new InsertYqlStatement<>(tableDescriptor, schema), entityToSave);
-        executor.getTransactionLocal().firstLevelCache().put(entityToSave);
+        executor.getTransactionLocal().firstLevelCache().put(tableDescriptor, entityToSave);
         executor.getTransactionLocal().projectionCache().save(entityToSave);
         return t;
     }
@@ -481,7 +485,7 @@ public class YdbTable<T extends Entity<T>> implements Table<T> {
     public T save(T t) {
         T entityToSave = t.preSave();
         executor.pendingExecute(new UpsertYqlStatement<>(tableDescriptor, schema), entityToSave);
-        executor.getTransactionLocal().firstLevelCache().put(entityToSave);
+        executor.getTransactionLocal().firstLevelCache().put(tableDescriptor, entityToSave);
         executor.getTransactionLocal().projectionCache().save(entityToSave);
         return t;
     }
@@ -489,7 +493,7 @@ public class YdbTable<T extends Entity<T>> implements Table<T> {
     @Override
     public void delete(Entity.Id<T> id) {
         executor.pendingExecute(new DeleteByIdStatement<>(tableDescriptor, schema), id);
-        executor.getTransactionLocal().firstLevelCache().putEmpty(id);
+        executor.getTransactionLocal().firstLevelCache().putEmpty(tableDescriptor, id);
         executor.getTransactionLocal().projectionCache().delete(id);
     }
 
@@ -526,7 +530,7 @@ public class YdbTable<T extends Entity<T>> implements Table<T> {
         if (e1 != e) {
             executor.getTransactionLocal().log().debug("    postLoad(%s) has diff", e1.getId());
         }
-        executor.getTransactionLocal().firstLevelCache().put(e1);
+        executor.getTransactionLocal().firstLevelCache().put(tableDescriptor, e1);
         executor.getTransactionLocal().projectionCache().load(e1);
         return e1;
     }
@@ -596,6 +600,15 @@ public class YdbTable<T extends Entity<T>> implements Table<T> {
         }
     }
 
+    /**
+     * @deprecated Blindly setting entity fields is not recommended. Use {@code Table.modifyIfPresent()} instead, unless you
+     * have specific requirements.
+     * <p>Blind updates disrupt query merging mechanism, so you typically won't able to run multiple blind update statements
+     * in the same transaction, or interleave them with upserts ({@code Table.save()}) and inserts.
+     * <p>Blind updates also do not update projections because they do not load the entity before performing the update;
+     * this can cause projections to be inconsistent with the main entity.
+     */
+    @Deprecated
     public <ID extends Id<T>> void updateIn(Collection<ID> ids, Changeset changeset) {
         var params = new UpdateInStatement.UpdateInStatementInput<>(ids, changeset.toMap());
 
