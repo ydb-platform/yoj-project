@@ -368,7 +368,7 @@ public abstract class RepositoryTest extends RepositoryTestSupport {
     }
 
     private static <ID extends Entity.Id<?>> ReadTableParams.ReadTableParamsBuilder<ID> buildReadTableParamsNonLegacy() {
-        return ReadTableParams.<ID>builder().useNewSpliterator(true);
+        return ReadTableParams.<ID>builder().useNewSpliterator2(true);
     }
 
     @Test
