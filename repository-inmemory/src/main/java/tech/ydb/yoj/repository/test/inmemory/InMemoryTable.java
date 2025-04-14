@@ -166,11 +166,16 @@ public class InMemoryTable<T extends Entity<T>> implements Table<T> {
     }
 
     @Override
+    public TableDescriptor<T> getTableDescriptor() {
+        return tableDescriptor;
+    }
+
+    @Override
     public T find(Entity.Id<T> id) {
         if (id.isPartial()) {
             throw new IllegalArgumentException("Cannot use partial id in find method");
         }
-        return transaction.getTransactionLocal().firstLevelCache().get(id, __ -> {
+        return transaction.getTransactionLocal().firstLevelCache().get(tableDescriptor, id, __ -> {
             markKeyRead(id);
             T entity = transaction.doInTransaction("find(" + id + ")", tableDescriptor, shard -> shard.find(id));
             return postLoad(entity);
@@ -184,8 +189,8 @@ public class InMemoryTable<T extends Entity<T>> implements Table<T> {
         }
 
         FirstLevelCache cache = transaction.getTransactionLocal().firstLevelCache();
-        if (cache.containsKey(id)) {
-            return cache.peek(id)
+        if (cache.containsKey(tableDescriptor, id)) {
+            return cache.peek(tableDescriptor, id)
                     .map(entity -> toView(viewType, schema, entity))
                     .orElse(null);
         }
@@ -415,7 +420,7 @@ public class InMemoryTable<T extends Entity<T>> implements Table<T> {
         T t = tt.preSave();
         transaction.getWatcher().markRowRead(tableDescriptor, t.getId());
         transaction.doInWriteTransaction("insert(" + t + ")", tableDescriptor, shard -> shard.insert(t));
-        transaction.getTransactionLocal().firstLevelCache().put(t);
+        transaction.getTransactionLocal().firstLevelCache().put(tableDescriptor, t);
         transaction.getTransactionLocal().projectionCache().save(t);
         return t;
     }
@@ -424,7 +429,7 @@ public class InMemoryTable<T extends Entity<T>> implements Table<T> {
     public T save(T tt) {
         T t = tt.preSave();
         transaction.doInWriteTransaction("save(" + t + ")", tableDescriptor, shard -> shard.save(t));
-        transaction.getTransactionLocal().firstLevelCache().put(t);
+        transaction.getTransactionLocal().firstLevelCache().put(tableDescriptor, t);
         transaction.getTransactionLocal().projectionCache().save(t);
         return t;
     }
@@ -432,7 +437,7 @@ public class InMemoryTable<T extends Entity<T>> implements Table<T> {
     @Override
     public void delete(Entity.Id<T> id) {
         transaction.doInWriteTransaction("delete(" + id + ")", tableDescriptor, shard -> shard.delete(id));
-        transaction.getTransactionLocal().firstLevelCache().putEmpty(id);
+        transaction.getTransactionLocal().firstLevelCache().putEmpty(tableDescriptor, id);
         transaction.getTransactionLocal().projectionCache().delete(id);
     }
 
@@ -560,7 +565,7 @@ public class InMemoryTable<T extends Entity<T>> implements Table<T> {
             return null;
         }
         T t = entity.postLoad();
-        transaction.getTransactionLocal().firstLevelCache().put(t);
+        transaction.getTransactionLocal().firstLevelCache().put(tableDescriptor, t);
         transaction.getTransactionLocal().projectionCache().load(t);
         return t;
     }

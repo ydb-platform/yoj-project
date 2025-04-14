@@ -38,6 +38,8 @@ public interface Table<T extends Entity<T>> {
 
     Class<T> getType();
 
+    TableDescriptor<T> getTableDescriptor();
+
     @CheckForNull
     T find(Entity.Id<T> id);
 
@@ -277,11 +279,12 @@ public interface Table<T extends Entity<T>> {
 
         var orderBy = EntityExpressions.defaultOrder(getType());
         var cache = getFirstLevelCache();
+        var tableDescriptor = getTableDescriptor();
         var isPartialIdMode = ids.iterator().next().isPartial();
 
         var foundInCache = ids.stream()
-                .filter(cache::containsKey)
-                .map(cache::peek)
+                .filter(id -> cache.containsKey(tableDescriptor, id))
+                .map(id -> cache.peek(tableDescriptor, id))
                 .flatMap(Optional::stream)
                 .collect(Collectors.toMap(Entity::getId, Function.identity()));
         var remainingIds = Sets.difference(ids, foundInCache.keySet());
@@ -293,8 +296,8 @@ public interface Table<T extends Entity<T>> {
         // so we must return actual entries from cache
         for (var entry : foundInDb) {
             var id = entry.getId();
-            if (cache.containsKey(id)) {
-                var cached = cache.peek(id);
+            if (cache.containsKey(tableDescriptor, id)) {
+                var cached = cache.peek(tableDescriptor, id);
                 cached.ifPresent(t -> merged.put(id, t));
                 // not present means marked as deleted in cache
             } else {
@@ -312,7 +315,7 @@ public interface Table<T extends Entity<T>> {
         if (!isPartialIdMode) {
             Set<Entity.Id<T>> foundInDbIds = foundInDb.stream().map(Entity::getId).collect(toSet());
             Set<Entity.Id<T>> foundInCacheIds = new HashSet<>(foundInCache.keySet());
-            Sets.difference(Sets.difference(ids, foundInDbIds), foundInCacheIds).forEach(cache::putEmpty);
+            Sets.difference(Sets.difference(ids, foundInDbIds), foundInCacheIds).forEach(id -> cache.putEmpty(tableDescriptor, id));
         }
 
         return merged.values().stream().sorted(EntityIdSchema.SORT_ENTITY_BY_ID).collect(Collectors.toList());
@@ -347,6 +350,14 @@ public interface Table<T extends Entity<T>> {
         return new TableQueryBuilder<>(this);
     }
 
+    /**
+     * @deprecated Blindly setting entity fields is not recommended. Use {@code Table.modifyIfPresent()} instead, unless you
+     * have specific requirements.
+     * <p>Blind updates disrupt query merging mechanism, so you typically won't able to run multiple blind update statements
+     * in the same transaction, or interleave them with upserts ({@code Table.save()}) and inserts.
+     * <p>Blind updates also do not update projections because they do not load the entity before performing the update;
+     * this can cause projections to be inconsistent with the main entity.
+     */
     @Deprecated
     void update(Entity.Id<T> id, Changeset changeset);
 

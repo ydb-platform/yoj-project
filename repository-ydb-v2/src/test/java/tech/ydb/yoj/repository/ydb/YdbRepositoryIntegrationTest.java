@@ -45,6 +45,7 @@ import tech.ydb.yoj.repository.db.exception.UnavailableException;
 import tech.ydb.yoj.repository.db.list.ListRequest;
 import tech.ydb.yoj.repository.db.readtable.ReadTableParams;
 import tech.ydb.yoj.repository.test.RepositoryTest;
+import tech.ydb.yoj.repository.test.entity.TestEntities;
 import tech.ydb.yoj.repository.test.sample.TestDb;
 import tech.ydb.yoj.repository.test.sample.TestDbImpl;
 import tech.ydb.yoj.repository.test.sample.model.Bubble;
@@ -55,6 +56,7 @@ import tech.ydb.yoj.repository.test.sample.model.Project;
 import tech.ydb.yoj.repository.test.sample.model.Supabubble2;
 import tech.ydb.yoj.repository.test.sample.model.TtlEntity;
 import tech.ydb.yoj.repository.test.sample.model.TypeFreak;
+import tech.ydb.yoj.repository.test.sample.model.UniqueProject;
 import tech.ydb.yoj.repository.test.sample.model.WithUnflattenableField;
 import tech.ydb.yoj.repository.ydb.client.SessionManager;
 import tech.ydb.yoj.repository.ydb.compatibility.YdbSchemaCompatibilityChecker;
@@ -82,6 +84,7 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -945,6 +948,46 @@ public class YdbRepositoryIntegrationTest extends RepositoryTest {
                 .unordered()
                 .find());
         assertThat(results).containsExactly(ie2, ie1);
+    }
+
+    @Test
+    public void multipleTablesSameEntitySameTransaction() {
+        UniqueProject ue = new UniqueProject(new UniqueProject.Id("id1"), "valuableName", 1);
+        db.tx(() -> db.table(UniqueProject.class).save(ue));
+
+        List<UniqueProject> findFirstTableThenSecond = db.tx(() -> {
+            var p1 = db.table(UniqueProject.class).find(ue.getId());
+            var p2 = db.table(TestEntities.SECOND_UNIQUE_PROJECT_TABLE).find(ue.getId());
+            return Stream.of(p1, p2).filter(Objects::nonNull).toList();
+        });
+
+        List<UniqueProject> findSecondTableThenFirst = db.tx(() -> {
+            var p1 = db.table(TestEntities.SECOND_UNIQUE_PROJECT_TABLE).find(ue.getId());
+            var p2 = db.table(UniqueProject.class).find(ue.getId());
+            return Stream.of(p1, p2).filter(Objects::nonNull).toList();
+        });
+
+        assertThat(findFirstTableThenSecond).isEqualTo(findSecondTableThenFirst);
+    }
+
+    @Test
+    public void multipleTablesSameEntitySameTransactionQueryView() {
+        UniqueProject ue = new UniqueProject(new UniqueProject.Id("id1"), "valuableName", 1);
+        db.tx(() -> db.table(UniqueProject.class).save(ue));
+
+        List<UniqueProject.NameView> findFirstTableThenSecond = db.tx(() -> {
+            var n1 = db.table(UniqueProject.class).find(UniqueProject.NameView.class, ue.getId());
+            var n2 = db.table(TestEntities.SECOND_UNIQUE_PROJECT_TABLE).find(UniqueProject.NameView.class, ue.getId());
+            return Stream.of(n1, n2).filter(Objects::nonNull).toList();
+        });
+
+        List<UniqueProject.NameView> findSecondTableThenFirst = db.tx(() -> {
+            var n1 = db.table(TestEntities.SECOND_UNIQUE_PROJECT_TABLE).find(UniqueProject.NameView.class, ue.getId());
+            var n2 = db.table(UniqueProject.class).find(UniqueProject.NameView.class, ue.getId());
+            return Stream.of(n1, n2).filter(Objects::nonNull).toList();
+        });
+
+        assertThat(findFirstTableThenSecond).isEqualTo(findSecondTableThenFirst);
     }
 
     @AllArgsConstructor
