@@ -65,11 +65,10 @@ public abstract class YqlStatement<PARAMS, ENTITY extends Entity<ENTITY>, RESULT
             return;
         }
         for (Object o : result) {
-            if (o instanceof Entity) {
-                Entity<?> e = (Entity<?>) o;
-                cache.put(new RepositoryCache.Key(e.getClass(), e.getId()), e);
+            if (o instanceof Entity<?> e) {
+                cache.put(new RepositoryCache.Key(e.getClass(), tableDescriptor, e.getId()), e);
             } else {
-                // list should contains elements of the same type
+                // List contains elements of the same type, so if one of them is not suitable for caching, the others are not suitable as well
                 break;
             }
         }
@@ -171,6 +170,10 @@ public abstract class YqlStatement<PARAMS, ENTITY extends Entity<ENTITY>, RESULT
 
     public int hashCode() {
         return getQuery("").hashCode();
+    }
+
+    public EntitySchema<ENTITY> getInSchema() {
+        return schema;
     }
 
     public Class<ENTITY> getInSchemaType() {
