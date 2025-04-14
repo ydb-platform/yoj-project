@@ -72,24 +72,28 @@ public interface Statement<PARAMS, RESULT> {
     // First level cache
 
     /**
-     * Tries to read the query result from first-level cache.
+     * Tries to read the query result from statement cache.
      *
      * @param params parameter values.
      *               Might be {@code null} depending on the statement type, e.g. for DELETE statements.
-     * @param cache  first-level cache
-     * @return query result, if present in first-level cache; {@code null} otherwise
+     * @param cache  statement cache
+     * @return query result, if present in statement cache; {@code null} otherwise
+     *
+     * @see RepositoryCache
      */
     default List<RESULT> readFromCache(PARAMS params, RepositoryCache cache) {
         return null;
     }
 
     /**
-     * Writes the query result to first-level cache.
+     * Writes the query result to statement cache.
      *
      * @param params parameter values
      *               Might be {@code null} depending on the statement type, e.g. for DELETE statements.
      * @param result result to save; if {@code null}, nothing will be saved to cache
-     * @param cache  first-level cache
+     * @param cache  statement cache
+     *
+     * @see RepositoryCache
      */
     default void storeToCache(PARAMS params, List<RESULT> result, RepositoryCache cache) {
     }

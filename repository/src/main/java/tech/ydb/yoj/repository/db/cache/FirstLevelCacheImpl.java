@@ -3,32 +3,29 @@ package tech.ydb.yoj.repository.db.cache;
 import lombok.NonNull;
 import tech.ydb.yoj.repository.db.Entity;
 
+import javax.annotation.Nullable;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.function.Function;
 
-final class FirstLevelCacheImpl implements FirstLevelCache {
-    private final EntityCache<?> entityCache = new EntityCache<>();
+/*package*/ final class FirstLevelCacheImpl<E extends Entity<E>> implements FirstLevelCache<E> {
+    private final Map<Entity.Id<E>, Optional<E>> cache = new HashMap<>();
 
-    @SuppressWarnings("unchecked")
-    private <E extends Entity<E>> EntityCache<E> getEntityCache() {
-        return (EntityCache<E>) entityCache;
-    }
-
+    @NonNull
     @Override
-    public <E extends Entity<E>> Optional<E> peek(@NonNull Entity.Id<E> id) {
-        EntityCache<E> cache = getEntityCache();
+    public Optional<E> peek(@NonNull Entity.Id<E> id) {
         if (cache.containsKey(id)) {
             return cache.get(id);
         }
         throw new NoSuchElementException();
     }
 
+    @Nullable
     @Override
-    public <E extends Entity<E>> E get(@NonNull Entity.Id<E> id, @NonNull Function<Entity.Id<E>, E> loader) {
-        EntityCache<E> cache = getEntityCache();
+    public E get(@NonNull Entity.Id<E> id, @NonNull Function<Entity.Id<E>, E> loader) {
         if (cache.containsKey(id)) {
             return cache.get(id).orElse(null);
         }
@@ -39,32 +36,24 @@ final class FirstLevelCacheImpl implements FirstLevelCache {
         return entity;
     }
 
+    @NonNull
     @Override
-    public <E extends Entity<E>> List<E> snapshot(@NonNull Class<E> entityType) {
-        EntityCache<E> cache = getEntityCache();
-        return cache.values().stream()
-                .flatMap(Optional::stream)
-                .filter(v -> entityType.equals(v.getId().getType()))
-                .toList();
+    public List<E> snapshot() {
+        return cache.values().stream().flatMap(Optional::stream).toList();
     }
 
     @Override
-    public <E extends Entity<E>> void put(@NonNull E e) {
-        EntityCache<E> cache = getEntityCache();
+    public void put(@NonNull E e) {
         cache.put(e.getId(), Optional.of(e));
     }
 
     @Override
-    public <E extends Entity<E>> void putEmpty(@NonNull Entity.Id<E> id) {
-        EntityCache<E> cache = getEntityCache();
+    public void putEmpty(@NonNull Entity.Id<E> id) {
         cache.put(id, Optional.empty());
     }
 
     @Override
-    public <E extends Entity<E>> boolean containsKey(Entity.@NonNull Id<E> id) {
-        return getEntityCache().containsKey(id);
-    }
-
-    private static final class EntityCache<E extends Entity<E>> extends HashMap<Entity.Id<E>, Optional<E>> {
+    public boolean containsKey(@NonNull Entity.Id<E> id) {
+        return cache.containsKey(id);
     }
 }
