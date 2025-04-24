@@ -67,9 +67,9 @@ import static tech.ydb.yoj.repository.db.EntityExpressions.defaultOrder;
 public class YdbTable<T extends Entity<T>> implements Table<T> {
     @Getter
     private final Class<T> type;
-    private final QueryExecutor executor;
-    private final EntitySchema<T> schema;
-    private final TableDescriptor<T> tableDescriptor;
+    protected final QueryExecutor executor;
+    protected final EntitySchema<T> schema;
+    protected final TableDescriptor<T> tableDescriptor;
 
     public YdbTable(Class<T> type, QueryExecutor executor) {
         this.type = type;
