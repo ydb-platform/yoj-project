@@ -13,7 +13,7 @@ public class FirstLevelCacheTest {
 
     @Before
     public void setUp() {
-        cache = FirstLevelCache.create();
+        cache = new FirstLevelCacheImpl();
     }
 
     @Test

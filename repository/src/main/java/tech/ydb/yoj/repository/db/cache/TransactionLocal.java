@@ -1,6 +1,7 @@
 package tech.ydb.yoj.repository.db.cache;
 
 import lombok.NonNull;
+import tech.ydb.yoj.repository.db.TableDescriptor;
 import tech.ydb.yoj.repository.db.Tx;
 import tech.ydb.yoj.repository.db.TxOptions;
 import tech.ydb.yoj.repository.db.projection.ProjectionCache;
@@ -14,12 +15,15 @@ import java.util.function.Supplier;
 public final class TransactionLocal {
     private final Map<Supplier<?>, Object> singletons = new IdentityHashMap<>();
 
-    private final Supplier<FirstLevelCache> firstLevelCacheSupplier;
+    private final Supplier<FirstLevelCacheManager> cacheManagerSupplier;
     private final Supplier<ProjectionCache> projectionCacheSupplier;
     private final Supplier<TransactionLog> logSupplier;
 
     public TransactionLocal(@NonNull TxOptions options) {
-        this.firstLevelCacheSupplier = options.isFirstLevelCache() ? FirstLevelCache::create : FirstLevelCache::empty;
+        Supplier<FirstLevelCache> cacheFabric = options.isFirstLevelCache()
+                ? FirstLevelCacheImpl::new
+                : EmptyFirstLevelCache::new;
+        this.cacheManagerSupplier = () -> new FirstLevelCacheManager(cacheFabric);
         this.projectionCacheSupplier = options.isMutable() ? RwProjectionCache::new : RoProjectionCache::new;
         this.logSupplier = () -> new TransactionLog(options.getLogLevel());
     }
@@ -37,8 +41,8 @@ public final class TransactionLocal {
         return instance(projectionCacheSupplier);
     }
 
-    public FirstLevelCache firstLevelCache() {
-        return instance(firstLevelCacheSupplier);
+    public FirstLevelCache firstLevelCache(TableDescriptor<?> tableDescriptor) {
+        return instance(cacheManagerSupplier).get(tableDescriptor);
     }
 
     public TransactionLog log() {

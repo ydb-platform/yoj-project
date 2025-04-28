@@ -24,12 +24,4 @@ public interface FirstLevelCache {
     <E extends Entity<E>> void putEmpty(@NonNull Entity.Id<E> id);
 
     <E extends Entity<E>> boolean containsKey(@NonNull Entity.Id<E> id);
-
-    static FirstLevelCache empty() {
-        return new EmptyFirstLevelCache();
-    }
-
-    static FirstLevelCache create() {
-        return new FirstLevelCacheImpl();
-    }
 }

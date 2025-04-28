@@ -1380,6 +1380,15 @@ public abstract class RepositoryTest extends RepositoryTestSupport {
         assertThat(firstTableProject.getVersion()).isEqualTo(1);
         assertThat(secondTableProject.getVersion()).isEqualTo(2);
 
+        // Test that cache works correctly with different tables
+        db.tx(() -> {
+            UniqueProject firstTableProject1 = db.table(UniqueProject.class).find(ue1.getId());
+            UniqueProject secondTableProject1 = db.table(TestEntities.SECOND_UNIQUE_PROJECT_TABLE).find(ue1.getId());
+
+            assertThat(firstTableProject1.getVersion()).isEqualTo(1);
+            assertThat(secondTableProject1.getVersion()).isEqualTo(2);
+        });
+
         db.tx(() -> db.table(UniqueProject.class).delete(ue1.getId()));
 
         firstTableProject = db.tx(() -> db.table(UniqueProject.class).find(ue1.getId()));

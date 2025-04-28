@@ -246,7 +246,7 @@ public class YdbTable<T extends Entity<T>> implements Table<T> {
         if (id.isPartial()) {
             throw new IllegalArgumentException("Cannot use partial id in find method");
         }
-        return executor.getTransactionLocal().firstLevelCache().get(id, __ -> {
+        return executor.getTransactionLocal().firstLevelCache(tableDescriptor).get(id, __ -> {
             var statement = new FindYqlStatement<>(tableDescriptor, schema, schema);
             List<T> res = postLoad(executor.execute(statement, id));
             return res.isEmpty() ? null : res.get(0);
@@ -343,7 +343,7 @@ public class YdbTable<T extends Entity<T>> implements Table<T> {
         List<T> found = postLoad(findUncached(ids, filter, orderBy, limit));
         if (!isPartialIdMode && ids.size() > found.size()) {
             Set<Id<T>> foundIds = found.stream().map(Entity::getId).collect(toSet());
-            Sets.difference(ids, foundIds).forEach(executor.getTransactionLocal().firstLevelCache()::putEmpty);
+            Sets.difference(ids, foundIds).forEach(executor.getTransactionLocal().firstLevelCache(tableDescriptor)::putEmpty);
         }
         return found;
     }
@@ -472,7 +472,7 @@ public class YdbTable<T extends Entity<T>> implements Table<T> {
     public T insert(T t) {
         T entityToSave = t.preSave();
         executor.pendingExecute(new InsertYqlStatement<>(tableDescriptor, schema), entityToSave);
-        executor.getTransactionLocal().firstLevelCache().put(entityToSave);
+        executor.getTransactionLocal().firstLevelCache(tableDescriptor).put(entityToSave);
         executor.getTransactionLocal().projectionCache().save(entityToSave);
         return t;
     }
@@ -481,7 +481,7 @@ public class YdbTable<T extends Entity<T>> implements Table<T> {
     public T save(T t) {
         T entityToSave = t.preSave();
         executor.pendingExecute(new UpsertYqlStatement<>(tableDescriptor, schema), entityToSave);
-        executor.getTransactionLocal().firstLevelCache().put(entityToSave);
+        executor.getTransactionLocal().firstLevelCache(tableDescriptor).put(entityToSave);
         executor.getTransactionLocal().projectionCache().save(entityToSave);
         return t;
     }
@@ -489,7 +489,7 @@ public class YdbTable<T extends Entity<T>> implements Table<T> {
     @Override
     public void delete(Entity.Id<T> id) {
         executor.pendingExecute(new DeleteByIdStatement<>(tableDescriptor, schema), id);
-        executor.getTransactionLocal().firstLevelCache().putEmpty(id);
+        executor.getTransactionLocal().firstLevelCache(tableDescriptor).putEmpty(id);
         executor.getTransactionLocal().projectionCache().delete(id);
     }
 
@@ -516,7 +516,7 @@ public class YdbTable<T extends Entity<T>> implements Table<T> {
 
     @Override
     public FirstLevelCache getFirstLevelCache() {
-        return executor.getTransactionLocal().firstLevelCache();
+        return executor.getTransactionLocal().firstLevelCache(tableDescriptor);
     }
 
     @Override
@@ -526,7 +526,7 @@ public class YdbTable<T extends Entity<T>> implements Table<T> {
         if (e1 != e) {
             executor.getTransactionLocal().log().debug("    postLoad(%s) has diff", e1.getId());
         }
-        executor.getTransactionLocal().firstLevelCache().put(e1);
+        executor.getTransactionLocal().firstLevelCache(tableDescriptor).put(e1);
         executor.getTransactionLocal().projectionCache().load(e1);
         return e1;
     }
