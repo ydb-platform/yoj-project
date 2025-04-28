@@ -1,7 +1,7 @@
 package tech.ydb.yoj.repository.db.cache;
 
 import lombok.NonNull;
-import tech.ydb.yoj.repository.BaseDb;
+import tech.ydb.yoj.repository.db.Tx;
 import tech.ydb.yoj.repository.db.TxOptions;
 import tech.ydb.yoj.repository.db.projection.ProjectionCache;
 import tech.ydb.yoj.repository.db.projection.RoProjectionCache;
@@ -11,7 +11,7 @@ import java.util.IdentityHashMap;
 import java.util.Map;
 import java.util.function.Supplier;
 
-public class TransactionLocal {
+public final class TransactionLocal {
     private final Map<Supplier<?>, Object> singletons = new IdentityHashMap<>();
 
     private final Supplier<FirstLevelCache> firstLevelCacheSupplier;
@@ -25,7 +25,7 @@ public class TransactionLocal {
     }
 
     public static TransactionLocal get() {
-        return BaseDb.current(Holder.class).getTransactionLocal();
+        return Tx.Current.get().getRepositoryTransaction().getTransactionLocal();
     }
 
     @SuppressWarnings("unchecked")
@@ -43,9 +43,5 @@ public class TransactionLocal {
 
     public TransactionLog log() {
         return instance(logSupplier);
-    }
-
-    public interface Holder {
-        TransactionLocal getTransactionLocal();
     }
 }
