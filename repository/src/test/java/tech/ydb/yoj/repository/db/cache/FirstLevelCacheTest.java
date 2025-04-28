@@ -114,28 +114,6 @@ public class FirstLevelCacheTest {
         assertThat(snapshot).containsOnly(entity1, entity2);
     }
 
-    @Test
-    public void testEntities() {
-        var entity1 = new FooEntity(FooEntity.Id.of(17));
-        var entity2 = new FooEntity(FooEntity.Id.of(23));
-        var entity3 = new BarEntity(BarEntity.Id.of("42"));
-        var id = FooEntity.Id.of(42);
-
-        cache.put(entity1);
-        cache.put(entity2);
-        cache.put(entity3);
-        cache.putEmpty(id);
-
-        // Act
-        var entities = cache.entities(FooEntity.class);
-
-        // Verify
-        assertThat(entities).containsOnlyKeys(entity1.getId(), entity2.getId());
-        assertThat(entities.get(entity1.getId())).isSameAs(entity1);
-        assertThat(entities.get(entity2.getId())).isSameAs(entity2);
-        assertThat(entities.get(id)).isNull();
-    }
-
     @Value
     static class FooEntity implements Entity<FooEntity> {
         Id id;

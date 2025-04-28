@@ -82,7 +82,7 @@ import static tech.ydb.yoj.repository.ydb.client.YdbValidator.validatePkConstrai
 import static tech.ydb.yoj.repository.ydb.client.YdbValidator.validateTruncatedResults;
 
 public class YdbRepositoryTransaction<REPO extends YdbRepository>
-        implements BaseDb, RepositoryTransaction, YdbTable.QueryExecutor, TransactionLocal.Holder {
+        implements BaseDb, RepositoryTransaction, YdbTable.QueryExecutor {
     private static final Logger log = LoggerFactory.getLogger(YdbRepositoryTransaction.class);
 
     private final List<YdbRepository.Query<?>> pendingWrites = new ArrayList<>();
