@@ -7,7 +7,6 @@ import tech.ydb.yoj.ExperimentalApi;
 import tech.ydb.yoj.databind.expression.FilterExpression;
 import tech.ydb.yoj.databind.expression.OrderExpression;
 import tech.ydb.yoj.repository.BaseDb;
-import tech.ydb.yoj.repository.db.cache.FirstLevelCache;
 import tech.ydb.yoj.repository.db.readtable.ReadTableParams;
 import tech.ydb.yoj.repository.db.statement.Changeset;
 
@@ -115,11 +114,6 @@ public abstract class AbstractDelegatingTable<T extends Entity<T>> implements Ta
     @Override
     public Class<T> getType() {
         return target.getType();
-    }
-
-    @Override
-    public FirstLevelCache<T> getFirstLevelCache() {
-        return target.getFirstLevelCache();
     }
 
     @Override

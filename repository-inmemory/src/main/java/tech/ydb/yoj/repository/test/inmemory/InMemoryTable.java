@@ -14,6 +14,7 @@ import tech.ydb.yoj.repository.db.EntitySchema;
 import tech.ydb.yoj.repository.db.Range;
 import tech.ydb.yoj.repository.db.Table;
 import tech.ydb.yoj.repository.db.TableDescriptor;
+import tech.ydb.yoj.repository.db.TableQueryImpl;
 import tech.ydb.yoj.repository.db.ViewSchema;
 import tech.ydb.yoj.repository.db.cache.FirstLevelCache;
 import tech.ydb.yoj.repository.db.exception.IllegalTransactionIsolationLevelException;
@@ -180,6 +181,11 @@ public class InMemoryTable<T extends Entity<T>> implements Table<T> {
             T entity = transaction.doInTransaction("find(" + id + ")", tableDescriptor, shard -> shard.find(id));
             return postLoad(entity);
         });
+    }
+
+    @Override
+    public <ID extends Entity.Id<T>> List<T> find(Set<ID> ids) {
+        return TableQueryImpl.find(this, getFirstLevelCache(), ids);
     }
 
     @Override
@@ -553,7 +559,6 @@ public class InMemoryTable<T extends Entity<T>> implements Table<T> {
         return true;
     }
 
-    @Override
     public FirstLevelCache<T> getFirstLevelCache() {
         return transaction.getTransactionLocal().firstLevelCache(tableDescriptor);
     }
