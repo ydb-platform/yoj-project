@@ -67,9 +67,9 @@ import static tech.ydb.yoj.repository.db.EntityExpressions.defaultOrder;
 public class YdbTable<T extends Entity<T>> implements Table<T> {
     @Getter
     private final Class<T> type;
-    protected final QueryExecutor executor;
-    protected final EntitySchema<T> schema;
-    protected final TableDescriptor<T> tableDescriptor;
+    private final QueryExecutor executor;
+    private final EntitySchema<T> schema;
+    private final TableDescriptor<T> tableDescriptor;
 
     public YdbTable(Class<T> type, QueryExecutor executor) {
         this.type = type;
@@ -90,6 +90,18 @@ public class YdbTable<T extends Entity<T>> implements Table<T> {
         this.executor = new CheckingQueryExecutor(executor);
         this.schema = EntitySchema.of(type);
         this.tableDescriptor = tableDescriptor;
+    }
+
+    protected final QueryExecutor executor() {
+        return executor;
+    }
+    
+    protected final EntitySchema<T> schema() {
+        return schema;
+    }
+    
+    protected final TableDescriptor<T> tableDescriptor() {
+        return tableDescriptor;
     }
 
     @SuppressWarnings("unchecked")
