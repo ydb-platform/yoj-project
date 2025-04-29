@@ -40,7 +40,6 @@ import tech.ydb.yoj.repository.db.TableDescriptor;
 import tech.ydb.yoj.repository.db.TxOptions;
 import tech.ydb.yoj.repository.db.bulk.BulkParams;
 import tech.ydb.yoj.repository.db.cache.RepositoryCache;
-import tech.ydb.yoj.repository.db.cache.RepositoryCacheImpl;
 import tech.ydb.yoj.repository.db.cache.TransactionLocal;
 import tech.ydb.yoj.repository.db.exception.IllegalTransactionIsolationLevelException;
 import tech.ydb.yoj.repository.db.exception.IllegalTransactionScanException;
@@ -107,7 +106,7 @@ public class YdbRepositoryTransaction<REPO extends YdbRepository>
         this.repo = repo;
         this.options = options;
         this.transactionLocal = new TransactionLocal(options);
-        this.cache = options.isFirstLevelCache() ? new RepositoryCacheImpl() : RepositoryCache.empty();
+        this.cache = options.isFirstLevelCache() ? RepositoryCache.create() : RepositoryCache.empty();
     }
 
     private <V> YdbSpliterator<V> createSpliterator(String request, boolean isOrdered) {

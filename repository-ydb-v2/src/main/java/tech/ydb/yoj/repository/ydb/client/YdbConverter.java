@@ -16,6 +16,7 @@ import tech.ydb.table.values.Value;
 import tech.ydb.table.values.VoidType;
 import tech.ydb.table.values.VoidValue;
 import tech.ydb.table.values.proto.ProtoValue;
+import tech.ydb.yoj.InternalApi;
 
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -26,6 +27,7 @@ import java.util.Map;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toMap;
 
+@InternalApi
 public class YdbConverter {
     public static Value<?> toSDK(ValueProtos.TypedValue typedValue) {
         return toSDK(typedValue.getType(), typedValue.getValue());

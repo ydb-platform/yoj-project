@@ -11,6 +11,15 @@ import tech.ydb.yoj.repository.ydb.yql.YqlPredicate;
 import javax.annotation.Nullable;
 import java.util.Map;
 
+/**
+ * @deprecated Blindly setting entity fields is not recommended. Use {@code Table.modifyIfPresent()} instead, unless you
+ * have specific requirements.
+ * <p>Blind updates disrupt query merging mechanism, so you typically won't able to run multiple blind update statements
+ * in the same transaction, or interleave them with upserts ({@code Table.save()}) and inserts.
+ * <p>Blind updates also do not update projections because they do not load the entity before performing the update;
+ * this can cause projections to be inconsistent with the main entity.
+ */
+@Deprecated
 @Getter
 @ToString
 public abstract class UpdateModel {
@@ -43,6 +52,10 @@ public abstract class UpdateModel {
         return newValues.get(fieldPath);
     }
 
+    /**
+     * @deprecated {@link UpdateModel} is deprecated
+     */
+    @Deprecated
     @Getter
     public static final class ByPredicate extends UpdateModel {
         private final YqlPredicate predicate;
@@ -53,6 +66,10 @@ public abstract class UpdateModel {
         }
     }
 
+    /**
+     * @deprecated {@link UpdateModel} is deprecated
+     */
+    @Deprecated
     @Getter
     public static final class ById<ID extends Id<?>> extends UpdateModel {
         private final ID id;

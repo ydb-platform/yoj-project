@@ -5,6 +5,7 @@ import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
 import lombok.Value;
 import tech.ydb.yoj.DeprecationWarnings;
+import tech.ydb.yoj.InternalApi;
 import tech.ydb.yoj.repository.db.Entity;
 import tech.ydb.yoj.repository.db.EntitySchema;
 import tech.ydb.yoj.repository.db.TableDescriptor;
@@ -23,6 +24,7 @@ import java.util.Optional;
  *
  * @see FirstLevelCache
  */
+@InternalApi
 public interface RepositoryCache {
     /**
      * @param key cache key
@@ -56,6 +58,13 @@ public interface RepositoryCache {
      */
     static RepositoryCache empty() {
         return EmptyRepositoryCache.INSTANCE;
+    }
+
+    /**
+     * @return an instance of standard cache implementation
+     */
+    static RepositoryCache create() {
+        return new RepositoryCacheImpl();
     }
 
     /**

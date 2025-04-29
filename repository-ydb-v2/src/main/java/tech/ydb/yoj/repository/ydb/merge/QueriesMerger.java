@@ -1,5 +1,6 @@
 package tech.ydb.yoj.repository.ydb.merge;
 
+import tech.ydb.yoj.InternalApi;
 import tech.ydb.yoj.repository.db.cache.RepositoryCache;
 import tech.ydb.yoj.repository.ydb.YdbRepository;
 import tech.ydb.yoj.repository.ydb.statement.YqlStatement;
@@ -12,6 +13,7 @@ import java.util.stream.Stream;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Stream.concat;
 
+@InternalApi
 public class QueriesMerger {
     private final Supplier<YqlQueriesMerger> factory;
 

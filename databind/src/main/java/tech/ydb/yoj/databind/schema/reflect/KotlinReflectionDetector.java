@@ -3,7 +3,7 @@ package tech.ydb.yoj.databind.schema.reflect;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-final class KotlinReflectionDetector {
+/*package*/ final class KotlinReflectionDetector {
     private static final Logger log = LoggerFactory.getLogger(KotlinReflectionDetector.class);
 
     private KotlinReflectionDetector() {

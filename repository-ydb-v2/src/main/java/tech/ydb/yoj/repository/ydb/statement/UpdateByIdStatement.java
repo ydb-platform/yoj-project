@@ -19,6 +19,15 @@ import static java.util.stream.Collectors.toMap;
 import static java.util.stream.Collectors.toUnmodifiableSet;
 import static java.util.stream.Stream.concat;
 
+/**
+ * @deprecated Blindly setting entity fields is not recommended. Use {@code Table.modifyIfPresent()} instead, unless you
+ * have specific requirements.
+ * <p>Blind updates disrupt query merging mechanism, so you typically won't able to run multiple blind update statements
+ * in the same transaction, or interleave them with upserts ({@code Table.save()}) and inserts.
+ * <p>Blind updates also do not update projections because they do not load the entity before performing the update;
+ * this can cause projections to be inconsistent with the main entity.
+ */
+@Deprecated
 public final class UpdateByIdStatement<ENTITY extends Entity<ENTITY>, ID extends Entity.Id<ENTITY>>
         extends YqlStatement<UpdateModel.ById<ID>, ENTITY, ENTITY> {
     private final Map<String, UpdateSetParam> setParams;

@@ -4,6 +4,7 @@ import com.google.common.base.Preconditions;
 import lombok.SneakyThrows;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import tech.ydb.yoj.InternalApi;
 
 import javax.annotation.ParametersAreNonnullByDefault;
 import java.lang.reflect.Type;
@@ -17,6 +18,7 @@ import java.util.stream.Stream;
 import static java.lang.String.format;
 import static java.util.stream.Collectors.toUnmodifiableMap;
 
+@InternalApi
 @ParametersAreNonnullByDefault
 public final class CommonConverters {
     private static final Logger log = LoggerFactory.getLogger(CommonConverters.class);

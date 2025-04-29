@@ -2,6 +2,7 @@ package tech.ydb.yoj.repository.db.projection;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import tech.ydb.yoj.InternalApi;
 import tech.ydb.yoj.repository.db.Entity;
 import tech.ydb.yoj.repository.db.RepositoryTransaction;
 
@@ -11,6 +12,7 @@ import java.util.stream.Stream;
 
 import static java.util.stream.Collectors.toMap;
 
+@InternalApi
 public class RwProjectionCache implements ProjectionCache {
     private static final Logger log = LoggerFactory.getLogger(RwProjectionCache.class);
 

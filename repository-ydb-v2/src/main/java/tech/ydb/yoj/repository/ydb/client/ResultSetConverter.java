@@ -2,6 +2,7 @@ package tech.ydb.yoj.repository.ydb.client;
 
 import tech.ydb.proto.ValueProtos;
 import tech.ydb.table.result.ResultSetReader;
+import tech.ydb.yoj.InternalApi;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -9,6 +10,7 @@ import java.util.function.BiFunction;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
+@InternalApi
 public class ResultSetConverter {
     private final ResultSetReader resultSet;
     private List<ValueProtos.Column> columns = new ArrayList<>();
