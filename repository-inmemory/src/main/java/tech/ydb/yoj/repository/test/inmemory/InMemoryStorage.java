@@ -8,7 +8,7 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 
-final class InMemoryStorage {
+/*package*/ final class InMemoryStorage {
     private final Map<TableDescriptor<?>, InMemoryDataShard<?>> shards;
     private final Map<Long, Set<TableDescriptor<?>>> uncommited = new HashMap<>();
 

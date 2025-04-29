@@ -1,6 +1,7 @@
 package tech.ydb.yoj.repository.db.cache;
 
 import lombok.NonNull;
+import tech.ydb.yoj.InternalApi;
 import tech.ydb.yoj.repository.db.Entity;
 import tech.ydb.yoj.repository.db.TableDescriptor;
 import tech.ydb.yoj.repository.db.Tx;
@@ -32,6 +33,11 @@ public final class TransactionLocal {
         return Tx.Current.get().getRepositoryTransaction().getTransactionLocal();
     }
 
+    /**
+     * @param supplier supplier of transaction-local state
+     * @return gets or creates (using the {@code supplier}) transaction-local state
+     * @param <X> type of transaction-local state
+     */
     @SuppressWarnings("unchecked")
     public <X> X instance(@NonNull Supplier<X> supplier) {
         return (X) singletons.computeIfAbsent(supplier, Supplier::get);
@@ -43,6 +49,7 @@ public final class TransactionLocal {
      * <p>Also, projection support <em>might</em> be dropped or seriously reworked in YOJ 3.x, so please
      * do not rely on this implementation detail.
      */
+    @InternalApi
     public ProjectionCache projectionCache() {
         return instance(projectionCacheSupplier);
     }
@@ -56,6 +63,7 @@ public final class TransactionLocal {
      * @return an instance of first-level cache for the specified table descriptor; will be the same
      * for the duration of the transaction
      */
+    @InternalApi
     public <E extends Entity<E>> FirstLevelCache<E> firstLevelCache(TableDescriptor<E> descriptor) {
         return instance(cacheProviderSupplier).getOrCreate(descriptor);
     }

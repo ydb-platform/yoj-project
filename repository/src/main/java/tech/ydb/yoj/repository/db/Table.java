@@ -2,6 +2,7 @@ package tech.ydb.yoj.repository.db;
 
 import com.google.common.collect.Sets;
 import lombok.NonNull;
+import tech.ydb.yoj.InternalApi;
 import tech.ydb.yoj.databind.expression.FilterExpression;
 import tech.ydb.yoj.databind.expression.OrderExpression;
 import tech.ydb.yoj.repository.db.bulk.BulkParams;
@@ -160,6 +161,7 @@ public interface Table<T extends Entity<T>> {
         return readTableIds(ReadTableParams.getDefault());
     }
 
+    @InternalApi
     FirstLevelCache<T> getFirstLevelCache();
 
     @NonNull
@@ -322,6 +324,7 @@ public interface Table<T extends Entity<T>> {
         throw new UnsupportedOperationException();
     }
 
+    @InternalApi
     default TableQueryBuilder<T> toQueryBuilder(ListRequest<T> request) {
         return query()
                 .index(request.getIndex())
@@ -331,10 +334,12 @@ public interface Table<T extends Entity<T>> {
                 .limit(request.getPageSize() + 1);
     }
 
+    @InternalApi
     default List<T> postLoad(List<T> list) {
         return list.stream().map(this::postLoad).collect(Collectors.toList());
     }
 
+    @InternalApi
     default T postLoad(T e) {
         return e.postLoad();
     }

@@ -1,5 +1,7 @@
 package tech.ydb.yoj.repository.ydb;
 
+import tech.ydb.yoj.InternalApi;
+
 import java.util.Spliterator;
 import java.util.function.Consumer;
 import java.util.stream.Stream;
@@ -12,6 +14,7 @@ import java.util.stream.StreamSupport;
  * <a href="https://github.com/ydb-platform/yoj-project/issues/42">GitHub Issue #42</a>.
  */
 @Deprecated
+@InternalApi
 public class YdbLegacySpliterator<V> implements Spliterator<V> {
     private final int flags;
     private final Consumer<Consumer<? super V>> action;

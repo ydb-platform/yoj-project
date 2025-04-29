@@ -4,6 +4,7 @@ import lombok.Value;
 import lombok.With;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import tech.ydb.yoj.InternalApi;
 import tech.ydb.yoj.repository.db.Entity;
 import tech.ydb.yoj.repository.db.EntitySchema;
 import tech.ydb.yoj.repository.db.TableDescriptor;
@@ -24,6 +25,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+@InternalApi
 public class ByEntityYqlQueriesMerger implements YqlQueriesMerger {
     private static final Logger log = LoggerFactory.getLogger(ByEntityYqlQueriesMerger.class);
 

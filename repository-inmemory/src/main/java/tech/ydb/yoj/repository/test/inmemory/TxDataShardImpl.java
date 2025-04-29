@@ -8,7 +8,7 @@ import javax.annotation.Nullable;
 import java.util.List;
 
 @RequiredArgsConstructor
-final class TxDataShardImpl<T extends Entity<T>> implements ReadOnlyTxDataShard<T>, WriteTxDataShard<T> {
+/*package*/ final class TxDataShardImpl<T extends Entity<T>> implements ReadOnlyTxDataShard<T>, WriteTxDataShard<T> {
     private final InMemoryDataShard<T> shard;
     private final long txId;
     private final long version;

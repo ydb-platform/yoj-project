@@ -31,6 +31,7 @@ import tech.ydb.topic.TopicClient;
 import tech.ydb.topic.description.Consumer;
 import tech.ydb.topic.description.TopicDescription;
 import tech.ydb.topic.settings.AlterTopicSettings;
+import tech.ydb.yoj.InternalApi;
 import tech.ydb.yoj.databind.schema.Changefeed.Consumer.Codec;
 import tech.ydb.yoj.databind.schema.Schema;
 import tech.ydb.yoj.repository.db.EntitySchema;
@@ -57,6 +58,7 @@ import static lombok.AccessLevel.PRIVATE;
 import static tech.ydb.core.StatusCode.SCHEME_ERROR;
 
 @Getter
+@InternalApi
 public class YdbSchemaOperations {
     private static final Logger log = LoggerFactory.getLogger(YdbSchemaOperations.class);
 

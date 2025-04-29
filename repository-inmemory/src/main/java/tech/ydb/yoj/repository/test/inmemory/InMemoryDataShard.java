@@ -20,7 +20,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
 
-final class InMemoryDataShard<T extends Entity<T>> {
+/*package*/ final class InMemoryDataShard<T extends Entity<T>> {
     private final TableDescriptor<T> tableDescriptor;
     private final EntitySchema<T> schema;
     private final TreeMap<Entity.Id<T>, InMemoryEntityLine> entityLines;

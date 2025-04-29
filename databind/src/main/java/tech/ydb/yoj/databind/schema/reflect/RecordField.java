@@ -8,7 +8,7 @@ import javax.annotation.Nullable;
 /**
  * Represents a record class component for the purposes of YOJ data-binding.
  */
-public final class RecordField extends ReflectFieldBase {
+/*package*/ final class RecordField extends ReflectFieldBase {
     private final java.lang.reflect.Method accessor;
 
     public RecordField(@NonNull Reflector reflector, @NonNull java.lang.reflect.RecordComponent delegate) {

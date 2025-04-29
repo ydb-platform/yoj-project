@@ -6,7 +6,7 @@ import tech.ydb.yoj.repository.db.Table;
 import javax.annotation.Nullable;
 import java.util.List;
 
-interface ReadOnlyTxDataShard<T extends Entity<T>> {
+/*package*/ interface ReadOnlyTxDataShard<T extends Entity<T>> {
     @Nullable
     T find(Entity.Id<T> id);
 

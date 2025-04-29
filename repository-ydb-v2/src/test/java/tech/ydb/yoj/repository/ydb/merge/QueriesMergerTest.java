@@ -6,13 +6,11 @@ import tech.ydb.yoj.repository.db.Entity;
 import tech.ydb.yoj.repository.db.EntitySchema;
 import tech.ydb.yoj.repository.db.TableDescriptor;
 import tech.ydb.yoj.repository.db.cache.RepositoryCache;
-import tech.ydb.yoj.repository.db.cache.RepositoryCacheImpl;
 import tech.ydb.yoj.repository.test.sample.model.Primitive;
 import tech.ydb.yoj.repository.test.sample.model.Project;
 import tech.ydb.yoj.repository.ydb.YdbRepository;
 import tech.ydb.yoj.repository.ydb.statement.DeleteAllStatement;
 import tech.ydb.yoj.repository.ydb.statement.DeleteByIdStatement;
-import tech.ydb.yoj.repository.ydb.statement.FindYqlStatement;
 import tech.ydb.yoj.repository.ydb.statement.InsertYqlStatement;
 import tech.ydb.yoj.repository.ydb.statement.Statement;
 import tech.ydb.yoj.repository.ydb.statement.UpsertYqlStatement;
@@ -37,7 +35,7 @@ public class QueriesMergerTest {
 
     @Test
     public void mergeFindInsertQueries() {
-        RepositoryCacheImpl cache = new RepositoryCacheImpl();
+        RepositoryCache cache = RepositoryCache.create();
         QueriesMerger merger = QueriesMerger.create(cache);
 
         List<YdbRepository.Query<?>> queries = new ArrayList<>();
@@ -118,7 +116,6 @@ public class QueriesMergerTest {
         Assertions.assertThat(result.get(0).getStatement().getQueryType()).isEqualTo(Statement.QueryType.INSERT);
         assertThat(result.get(0).getValues()).isEqualTo(Collections.singletonList(p));
         Assertions.assertThat(result.get(1).getStatement().getQueryType()).isEqualTo(Statement.QueryType.DELETE);
-        //noinspection unchecked
         assertThat(result.get(1).getValues()).hasSize(3);
     }
 
@@ -141,7 +138,7 @@ public class QueriesMergerTest {
     }
 
     private QueriesMerger createMerger() {
-        return QueriesMerger.create(new RepositoryCacheImpl());
+        return QueriesMerger.create(RepositoryCache.create());
     }
 
     private <T extends Entity<T>> YdbRepository.Query<?> deleteAll(Class<T> clazz) {
@@ -162,14 +159,6 @@ public class QueriesMergerTest {
         EntitySchema<T> schema = EntitySchema.of((Class<T>) p.getClass());
         TableDescriptor<T> tableDescriptor = TableDescriptor.from(schema);
         return new YdbRepository.Query<>(new InsertYqlStatement<>(tableDescriptor, schema), p);
-    }
-
-    @SuppressWarnings("unchecked")
-    private <T extends Entity<T>> YdbRepository.Query<?> find(T p) {
-        EntitySchema<T> schema = EntitySchema.of((Class<T>) p.getClass());
-        TableDescriptor<T> tableDescriptor = TableDescriptor.from(schema);
-        var statement = new FindYqlStatement<>(tableDescriptor, schema, schema);
-        return new YdbRepository.Query<>(statement, p.getId());
     }
 
     @SuppressWarnings("unchecked")

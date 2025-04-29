@@ -4,7 +4,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 
-public class RepositoryCacheImpl implements RepositoryCache {
+/*package*/ class RepositoryCacheImpl implements RepositoryCache {
     private final Map<Key, Optional<Object>> cache = new HashMap<>();
 
     @Override

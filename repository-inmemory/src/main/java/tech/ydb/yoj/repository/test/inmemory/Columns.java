@@ -27,7 +27,7 @@ import static java.util.Collections.unmodifiableMap;
 import static org.eclipse.collections.impl.tuple.Tuples.pair;
 
 @RequiredArgsConstructor(access = AccessLevel.PRIVATE)
-final class Columns {
+/*package*/ final class Columns {
     public static final Columns EMPTY = new Columns(Maps.immutable.empty());
 
     private final ImmutableMap<String, Object> map;

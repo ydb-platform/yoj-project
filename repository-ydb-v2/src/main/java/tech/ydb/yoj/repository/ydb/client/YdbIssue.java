@@ -2,9 +2,11 @@ package tech.ydb.yoj.repository.ydb.client;
 
 import lombok.RequiredArgsConstructor;
 import tech.ydb.core.Issue;
+import tech.ydb.yoj.InternalApi;
 
 import static lombok.AccessLevel.PRIVATE;
 
+@InternalApi
 @RequiredArgsConstructor(access = PRIVATE)
 public enum YdbIssue {
     DEFAULT_ERROR(0),

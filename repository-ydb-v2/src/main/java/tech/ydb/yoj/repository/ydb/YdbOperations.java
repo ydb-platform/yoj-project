@@ -1,5 +1,6 @@
 package tech.ydb.yoj.repository.ydb;
 
+import tech.ydb.yoj.InternalApi;
 import tech.ydb.yoj.repository.db.exception.InternalRepositoryException;
 import tech.ydb.yoj.repository.db.exception.QueryInterruptedException;
 import tech.ydb.yoj.repository.db.exception.RepositoryException;
@@ -17,6 +18,7 @@ import java.util.concurrent.TimeoutException;
 import static tech.ydb.yoj.repository.ydb.client.YdbValidator.checkGrpcContextStatus;
 import static tech.ydb.yoj.util.lang.Interrupts.isThreadInterrupted;
 
+@InternalApi
 public final class YdbOperations {
     private YdbOperations() {
     }

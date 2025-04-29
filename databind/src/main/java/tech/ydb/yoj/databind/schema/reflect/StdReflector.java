@@ -26,7 +26,7 @@ import static java.util.Comparator.comparing;
 public final class StdReflector implements Reflector {
     public static final Reflector instance = new StdReflector(List.of(
             RecordType.FACTORY,
-            KotlinDataClassTypeFactory.instance,
+            KotlinDataClassTypeFactory.INSTANCE,
             PojoType.FACTORY,
             SimpleType.FACTORY
     ));
