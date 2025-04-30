@@ -3,8 +3,8 @@ package tech.ydb.yoj.repository.ydb.table;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Sets;
 import com.google.common.reflect.TypeToken;
-import lombok.Getter;
 import lombok.NonNull;
+import tech.ydb.yoj.InternalApi;
 import tech.ydb.yoj.databind.expression.FilterExpression;
 import tech.ydb.yoj.databind.expression.OrderExpression;
 import tech.ydb.yoj.repository.db.Entity;
@@ -66,14 +66,10 @@ import static java.util.stream.Stream.concat;
 import static tech.ydb.yoj.repository.db.EntityExpressions.defaultOrder;
 
 public class YdbTable<T extends Entity<T>> implements Table<T> {
-    @Getter
     private final Class<T> type;
-
-    @Getter
     private final TableDescriptor<T> tableDescriptor;
-
-    private final QueryExecutor executor;
     private final EntitySchema<T> schema;
+    private final QueryExecutor executor;
 
     public YdbTable(Class<T> type, QueryExecutor executor) {
         this.type = type;
@@ -96,16 +92,23 @@ public class YdbTable<T extends Entity<T>> implements Table<T> {
         this.tableDescriptor = tableDescriptor;
     }
 
-    protected final QueryExecutor executor() {
-        return executor;
+    @Override
+    public final Class<T> getType() {
+        return type;
+    }
+
+    @Override
+    public final TableDescriptor<T> getTableDescriptor() {
+        return tableDescriptor;
     }
     
-    protected final EntitySchema<T> schema() {
+    public final EntitySchema<T> getSchema() {
         return schema;
     }
-    
-    protected final TableDescriptor<T> tableDescriptor() {
-        return tableDescriptor;
+
+    @InternalApi
+    protected final QueryExecutor getExecutor() {
+        return executor;
     }
 
     @SuppressWarnings("unchecked")
