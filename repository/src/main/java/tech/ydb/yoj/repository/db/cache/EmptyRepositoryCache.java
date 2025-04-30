@@ -2,7 +2,7 @@ package tech.ydb.yoj.repository.db.cache;
 
 import java.util.Optional;
 
-class EmptyRepositoryCache implements RepositoryCache {
+/*package*/ class EmptyRepositoryCache implements RepositoryCache {
     static final RepositoryCache INSTANCE = new EmptyRepositoryCache();
 
     @Override

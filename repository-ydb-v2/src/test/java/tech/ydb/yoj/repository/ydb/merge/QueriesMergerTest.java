@@ -41,7 +41,7 @@ public class QueriesMergerTest {
         QueriesMerger merger = QueriesMerger.create(cache);
 
         List<YdbRepository.Query<?>> queries = new ArrayList<>();
-        getProjects().forEach(p -> cache.put(new RepositoryCache.Key(p.getClass(), p.getId()), null));
+        getProjects().forEach(p -> cache.put(cacheKey(p), null));
         getProjects().forEach(p -> queries.add(insert(p)));
 
         merger.merge(queries);
@@ -177,6 +177,13 @@ public class QueriesMergerTest {
         EntitySchema<T> schema = EntitySchema.of((Class<T>) p.getClass());
         TableDescriptor<T> tableDescriptor = TableDescriptor.from(schema);
         return new YdbRepository.Query<>(new DeleteByIdStatement<>(tableDescriptor, schema), p.getId());
+    }
+
+    @SuppressWarnings("unchecked")
+    private static <T extends Entity<T>> RepositoryCache.Key cacheKey(T p) {
+        EntitySchema<T> schema = EntitySchema.of((Class<T>) p.getClass());
+        TableDescriptor<T> tableDescriptor = TableDescriptor.from(schema);
+        return new RepositoryCache.Key(p.getClass(), tableDescriptor, p.getId());
     }
 
     private ArrayList<Project> getProjects() {

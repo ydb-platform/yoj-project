@@ -62,7 +62,7 @@ public class ByEntityYqlQueriesMerger implements YqlQueriesMerger {
         check(tableState.deleteAll == null && tableState.update == null,
                 "Modifications after delete_all or update aren't allowed");
         EntityState state;
-        Entity.Id id = getEntityId(query);
+        Entity.Id<?> id = getEntityId(query);
         if (tableState.entityStates.containsKey(id)) {
             state = tableState.entityStates.get(id);
             MergingState oldMergingState = state.getState();
@@ -121,9 +121,11 @@ public class ByEntityYqlQueriesMerger implements YqlQueriesMerger {
 
     private boolean needIgnoreQuery(EntityState entityState) {
         if (entityState.state == MergingState.UPSERT || entityState.state == MergingState.INSERT) {
-            Class<?> clazz = getEntityClass(entityState.query);
-            Entity.Id entityId = getEntityId(entityState.query);
-            RepositoryCache.Key key = new RepositoryCache.Key(clazz, entityId);
+            YqlStatement<?, ?, ?> srcStatement = convertQueryToYqlStatement(entityState.query);
+            Class<?> entityClass = srcStatement.getInSchemaType();
+            TableDescriptor<?> tableDescriptor = srcStatement.getTableDescriptor();
+            Entity.Id<?> entityId = getEntityId(entityState.query);
+            RepositoryCache.Key key = new RepositoryCache.Key(entityClass, tableDescriptor, entityId);
 
             if (entityState.state == MergingState.UPSERT) {
                 boolean newValueEqualsCached = cache.get(key)
@@ -160,41 +162,41 @@ public class ByEntityYqlQueriesMerger implements YqlQueriesMerger {
         return nextState;
     }
 
-    @SuppressWarnings("unchecked")
-    private static YdbRepository.Query convertInsertToUpsert(YdbRepository.Query<?> query) {
-        var type = getEntityClass(query);
-        var schema = EntitySchema.of(type);
-        var tableDescriptor = convertQueryToYqlStatement(query).getTableDescriptor();
-        var statement = new UpsertYqlStatement<>(tableDescriptor, schema);
-        return new YdbRepository.Query<>(statement, query.getValues().get(0));
+    private static <E extends Entity<E>> YdbRepository.Query<?> convertInsertToUpsert(YdbRepository.Query<?> query) {
+        YqlStatement<?, E, ?> srcStatement = convertQueryToYqlStatement(query);
+        EntitySchema<E> schema = srcStatement.getInSchema();
+        TableDescriptor<E> tableDescriptor = srcStatement.getTableDescriptor();
+
+        return new YdbRepository.Query<>(
+                new UpsertYqlStatement<>(tableDescriptor, schema),
+                query.getValues().get(0)
+        );
     }
 
-    @SuppressWarnings("unchecked")
-    private static YdbRepository.Query convertInsertToDelete(YdbRepository.Query<?> query) {
-        var type = getEntityClass(query);
-        var schema = EntitySchema.of(type);
-        var tableDescriptor = convertQueryToYqlStatement(query).getTableDescriptor();
-        var statement = new DeleteByIdStatement<>(tableDescriptor, schema);
-        return new YdbRepository.Query<>(statement, getEntityId(query));
+    private static <E extends Entity<E>> YdbRepository.Query<?> convertInsertToDelete(YdbRepository.Query<?> query) {
+        YqlStatement<?, E, ?> srcStatement = convertQueryToYqlStatement(query);
+        EntitySchema<E> schema = srcStatement.getInSchema();
+        TableDescriptor<E> tableDescriptor = srcStatement.getTableDescriptor();
+
+        return new YdbRepository.Query<>(
+                new DeleteByIdStatement<>(tableDescriptor, schema),
+                getEntityId(query)
+        );
     }
 
-    private static Entity.Id getEntityId(YdbRepository.Query<?> query) {
+    private static Entity.Id<?> getEntityId(YdbRepository.Query<?> query) {
         check(query.getValues().size() == 1, "Unsupported query");
 
         Object value = query.getValues().get(0);
         if (query.getStatement().getQueryType() == Statement.QueryType.DELETE) {
-            return (Entity.Id) value;
+            return (Entity.Id<?>) value;
         } else {
-            return ((Entity) value).getId();
+            return ((Entity<?>) value).getId();
         }
     }
 
-    private static Class getEntityClass(YdbRepository.Query query) {
-        return convertQueryToYqlStatement(query).getInSchemaType();
-    }
-
-    private static YqlStatement convertQueryToYqlStatement(YdbRepository.Query query) {
-        return (YqlStatement) query.getStatement();
+    private static <E extends Entity<E>> YqlStatement<?, E, ?> convertQueryToYqlStatement(YdbRepository.Query<?> query) {
+        return (YqlStatement<?, E, ?>) query.getStatement();
     }
 
     private static void check(boolean condition, String message) {
@@ -230,13 +232,13 @@ public class ByEntityYqlQueriesMerger implements YqlQueriesMerger {
 
     @With
     @Value
-    private class EntityState {
-        private YdbRepository.Query<?> query;
-        private MergingState state;
+    private static class EntityState {
+        YdbRepository.Query<?> query;
+        MergingState state;
     }
 
-    private class TableState {
-        private Map<Entity.Id, EntityState> entityStates = new HashMap<>();
+    private static class TableState {
+        private final Map<Entity.Id<?>, EntityState> entityStates = new HashMap<>();
         private YdbRepository.Query<?> deleteAll;
         private YdbRepository.Query<?> update;
 

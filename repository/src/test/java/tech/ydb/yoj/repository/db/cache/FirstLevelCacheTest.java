@@ -1,36 +1,44 @@
 package tech.ydb.yoj.repository.db.cache;
 
-import lombok.Value;
-import org.assertj.core.api.Assertions;
 import org.junit.Before;
 import org.junit.Test;
 import tech.ydb.yoj.repository.db.Entity;
+import tech.ydb.yoj.repository.db.EntitySchema;
+import tech.ydb.yoj.repository.db.RecordEntity;
+import tech.ydb.yoj.repository.db.TableDescriptor;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.fail;
 
 public class FirstLevelCacheTest {
-    private FirstLevelCache cache;
+    private FirstLevelCacheProvider cacheProvider;
+    private TableDescriptor<FooEntity> fooTableDescriptor;
+    private TableDescriptor<BarEntity> barTableDescriptor;
 
     @Before
     public void setUp() {
-        cache = FirstLevelCache.create();
+        cacheProvider = new FirstLevelCacheProvider(FirstLevelCache::create);
+        fooTableDescriptor = TableDescriptor.from(EntitySchema.of(FooEntity.class));
+        barTableDescriptor = TableDescriptor.from(EntitySchema.of(BarEntity.class));
     }
 
     @Test
-    public void testGetLoad() {
-        var id = FooEntity.Id.of(17);
+    public void getLoad() {
+        var id = new FooEntity.Id(17);
         var entity = new FooEntity(id);
 
+        var cache = cacheProvider.getOrCreate(fooTableDescriptor);
         var actual = cache.get(id, __ -> entity);
 
         assertThat(actual).isSameAs(entity);
     }
 
     @Test
-    public void testGetLoadNotFound() {
-        var id = FooEntity.Id.of(17);
+    public void getLoadNotFound() {
+        var id = new FooEntity.Id(17);
         boolean[] loaderCalled = {false};
 
+        var cache = cacheProvider.getOrCreate(fooTableDescriptor);
         var actual = cache.get(id, __ -> {
             loaderCalled[0] = true;
             return null;
@@ -41,15 +49,16 @@ public class FirstLevelCacheTest {
     }
 
     @Test
-    public void testGetFromCache() {
-        var id = FooEntity.Id.of(17);
+    public void getFromCache() {
+        var id = new FooEntity.Id(17);
         var entity = new FooEntity(id);
 
+        var cache = cacheProvider.getOrCreate(fooTableDescriptor);
         cache.get(id, __ -> entity);
 
         // Act
         var actual = cache.get(id, __ -> {
-            Assertions.fail("Loader MUST NOT be called");
+            fail("Loader MUST NOT be called");
             return null;
         });
 
@@ -58,16 +67,17 @@ public class FirstLevelCacheTest {
     }
 
     @Test
-    public void testPut() {
-        var id = FooEntity.Id.of(17);
+    public void put() {
+        var id = new FooEntity.Id(17);
         var entity = new FooEntity(id);
 
         // Act
+        var cache = cacheProvider.getOrCreate(fooTableDescriptor);
         cache.put(entity);
 
         // Verify
         var actual = cache.get(id, __ -> {
-            Assertions.fail("Loader MUST NOT be called");
+            fail("Loader MUST NOT be called");
             return null;
         });
 
@@ -75,13 +85,14 @@ public class FirstLevelCacheTest {
     }
 
     @Test
-    public void testPutEmpty() {
-        var id = FooEntity.Id.of(17);
+    public void putEmpty() {
+        var id = new FooEntity.Id(17);
         var entity = new FooEntity(id);
 
+        // Act
+        var cache = cacheProvider.getOrCreate(fooTableDescriptor);
         cache.put(entity);
 
-        // Act
         cache.putEmpty(id);
 
         // Verify
@@ -96,63 +107,42 @@ public class FirstLevelCacheTest {
     }
 
     @Test
-    public void testSnapshot() {
-        var entity1 = new FooEntity(FooEntity.Id.of(17));
-        var entity2 = new FooEntity(FooEntity.Id.of(23));
-        var entity3 = new BarEntity(BarEntity.Id.of("42"));
-        var id = FooEntity.Id.of(42);
+    public void snapshot() {
+        var entity1 = new FooEntity(new FooEntity.Id(17));
+        var entity2 = new FooEntity(new FooEntity.Id(23));
+        var entity3 = new BarEntity(new BarEntity.Id("42"));
+        var id = new FooEntity.Id(42);
 
-        cache.put(entity1);
-        cache.put(entity2);
-        cache.put(entity3);
-        cache.putEmpty(id);
+        var fooCache = cacheProvider.getOrCreate(fooTableDescriptor);
+        var barCache = cacheProvider.getOrCreate(barTableDescriptor);
 
-        // Act
-        var snapshot = cache.snapshot(FooEntity.class);
+        fooCache.put(entity1);
+        fooCache.put(entity2);
+        barCache.put(entity3);
+        fooCache.putEmpty(id);
 
-        // Verify
-        assertThat(snapshot).containsOnly(entity1, entity2);
+        var fooSnapshot = fooCache.snapshot();
+        var barSnapshot = barCache.snapshot();
+        assertThat(fooSnapshot).containsOnly(entity1, entity2);
+        assertThat(barSnapshot).containsOnly(entity3);
+
+        // FirstLevelCache.snapshot() is an immutable copy, so it should not see further changes to the cache
+        var entity4 = new FooEntity(new FooEntity.Id(99));
+        fooCache.put(entity4);
+        assertThat(fooSnapshot).containsOnly(entity1, entity2);
+
+        // Later snapshots should see the updated cache state
+        var fooSnapshot2 = fooCache.snapshot();
+        assertThat(fooSnapshot2).containsOnly(entity1, entity2, entity4);
     }
 
-    @Test
-    public void testEntities() {
-        var entity1 = new FooEntity(FooEntity.Id.of(17));
-        var entity2 = new FooEntity(FooEntity.Id.of(23));
-        var entity3 = new BarEntity(BarEntity.Id.of("42"));
-        var id = FooEntity.Id.of(42);
-
-        cache.put(entity1);
-        cache.put(entity2);
-        cache.put(entity3);
-        cache.putEmpty(id);
-
-        // Act
-        var entities = cache.entities(FooEntity.class);
-
-        // Verify
-        assertThat(entities).containsOnlyKeys(entity1.getId(), entity2.getId());
-        assertThat(entities.get(entity1.getId())).isSameAs(entity1);
-        assertThat(entities.get(entity2.getId())).isSameAs(entity2);
-        assertThat(entities.get(id)).isNull();
-    }
-
-    @Value
-    static class FooEntity implements Entity<FooEntity> {
-        Id id;
-
-        @Value(staticConstructor = "of")
-        static class Id implements Entity.Id<FooEntity> {
-            int value;
+    record FooEntity(FooEntity.Id id) implements RecordEntity<FooEntity> {
+        record Id(int value) implements Entity.Id<FooEntity> {
         }
     }
 
-    @Value
-    static class BarEntity implements Entity<BarEntity> {
-        Id id;
-
-        @Value(staticConstructor = "of")
-        static class Id implements Entity.Id<BarEntity> {
-            String value;
+    record BarEntity(BarEntity.Id id) implements RecordEntity<BarEntity> {
+        record Id(String value) implements Entity.Id<BarEntity> {
         }
     }
 }

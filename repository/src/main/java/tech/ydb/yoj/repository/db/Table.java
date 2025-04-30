@@ -38,6 +38,8 @@ public interface Table<T extends Entity<T>> {
 
     Class<T> getType();
 
+    TableDescriptor<T> getTableDescriptor();
+
     @CheckForNull
     T find(Entity.Id<T> id);
 
@@ -158,9 +160,7 @@ public interface Table<T extends Entity<T>> {
         return readTableIds(ReadTableParams.getDefault());
     }
 
-    default FirstLevelCache getFirstLevelCache() {
-        return null;
-    }
+    FirstLevelCache<T> getFirstLevelCache();
 
     @NonNull
     default <X extends Exception> T find(Entity.Id<T> id, Supplier<? extends X> throwIfAbsent) throws X {
@@ -347,6 +347,14 @@ public interface Table<T extends Entity<T>> {
         return new TableQueryBuilder<>(this);
     }
 
+    /**
+     * @deprecated Blindly setting entity fields is not recommended. Use {@code Table.modifyIfPresent()} instead, unless you
+     * have specific requirements.
+     * <p>Blind updates disrupt query merging mechanism, so you typically won't able to run multiple blind update statements
+     * in the same transaction, or interleave them with upserts ({@code Table.save()}) and inserts.
+     * <p>Blind updates also do not update projections because they do not load the entity before performing the update;
+     * this can cause projections to be inconsistent with the main entity.
+     */
     @Deprecated
     void update(Entity.Id<T> id, Changeset changeset);
 

@@ -36,7 +36,7 @@ public class FindYqlStatement<PARAMS, ENTITY extends Entity<ENTITY>, RESULT> ext
 
     @Override
     public List<RESULT> readFromCache(PARAMS params, RepositoryCache cache) {
-        RepositoryCache.Key key = new RepositoryCache.Key(resultSchema.getType(), params);
+        RepositoryCache.Key key = new RepositoryCache.Key(resultSchema.getType(), tableDescriptor, params);
         if (!cache.contains(key)) {
             return null;
         }
@@ -49,7 +49,7 @@ public class FindYqlStatement<PARAMS, ENTITY extends Entity<ENTITY>, RESULT> ext
 
     @Override
     public void storeToCache(PARAMS params, List<RESULT> result, RepositoryCache cache) {
-        RepositoryCache.Key key = new RepositoryCache.Key(resultSchema.getType(), params);
+        RepositoryCache.Key key = new RepositoryCache.Key(resultSchema.getType(), tableDescriptor, params);
         cache.put(key, result.stream().findFirst().orElse(null));
     }
 
