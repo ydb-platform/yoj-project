@@ -95,6 +95,18 @@ public class YdbTable<T extends Entity<T>> implements Table<T> {
         this.tableDescriptor = tableDescriptor;
     }
 
+    protected final QueryExecutor executor() {
+        return executor;
+    }
+    
+    protected final EntitySchema<T> schema() {
+        return schema;
+    }
+    
+    protected final TableDescriptor<T> tableDescriptor() {
+        return tableDescriptor;
+    }
+
     @SuppressWarnings("unchecked")
     private Class<T> resolveEntityType() {
         return (Class<T>) (new TypeToken<T>(getClass()) {
