@@ -8,6 +8,7 @@ import tech.ydb.core.Issue;
 import tech.ydb.core.StatusCode;
 import tech.ydb.table.query.DataQueryResult;
 import tech.ydb.table.result.ResultSetReader;
+import tech.ydb.yoj.InternalApi;
 import tech.ydb.yoj.repository.db.exception.DeadlineExceededException;
 import tech.ydb.yoj.repository.db.exception.EntityAlreadyExistsException;
 import tech.ydb.yoj.repository.db.exception.OptimisticLockException;
@@ -27,6 +28,7 @@ import java.util.function.Function;
 
 import static lombok.AccessLevel.PRIVATE;
 
+@InternalApi
 public final class YdbValidator {
     private static final Logger log = LoggerFactory.getLogger(YdbValidator.class);
 

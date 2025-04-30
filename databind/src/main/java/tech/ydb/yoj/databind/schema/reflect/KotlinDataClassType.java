@@ -18,7 +18,7 @@ import static java.util.stream.Collectors.toMap;
 /**
  * Represents a Kotlin data class for the purposes of YOJ data-binding.
  */
-public final class KotlinDataClassType<T> implements ReflectType<T> {
+/*package*/ final class KotlinDataClassType<T> implements ReflectType<T> {
     private final Class<T> type;
     private final Constructor<T> constructor;
     private final List<ReflectField> fields;

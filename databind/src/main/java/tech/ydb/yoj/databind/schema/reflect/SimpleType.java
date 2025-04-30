@@ -11,7 +11,7 @@ import java.util.List;
  *
  * @param <T> simple type
  */
-public final class SimpleType<T> implements ReflectType<T> {
+/*package*/ final class SimpleType<T> implements ReflectType<T> {
     public static final StdReflector.TypeFactory FACTORY = new StdReflector.TypeFactory() {
         @Override
         public int priority() {

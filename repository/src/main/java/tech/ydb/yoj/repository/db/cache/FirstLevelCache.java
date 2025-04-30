@@ -1,6 +1,7 @@
 package tech.ydb.yoj.repository.db.cache;
 
 import lombok.NonNull;
+import tech.ydb.yoj.InternalApi;
 import tech.ydb.yoj.repository.db.Entity;
 
 import javax.annotation.Nullable;
@@ -18,6 +19,7 @@ import java.util.function.Function;
  *
  * @param <E> entity type
  */
+@InternalApi
 public interface FirstLevelCache<E extends Entity<E>> {
     /**
      * Loads the entity into the L1 cache.

@@ -9,7 +9,7 @@ import javax.annotation.Nullable;
 /**
  * Represents a field of a POJO class, hand-written or generated e.g. by Lombok.
  */
-public final class PojoField extends ReflectFieldBase {
+/*package*/ final class PojoField extends ReflectFieldBase {
     private final java.lang.reflect.Field delegate;
 
     public PojoField(@NonNull Reflector reflector, @NonNull java.lang.reflect.Field delegate) {

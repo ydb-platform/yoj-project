@@ -6,7 +6,6 @@ import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.NoArgsConstructor;
 import lombok.Value;
-import lombok.experimental.UtilityClass;
 import tech.ydb.proto.ValueProtos;
 import tech.ydb.yoj.databind.schema.Schema;
 import tech.ydb.yoj.repository.db.exception.ConversionException;
@@ -18,9 +17,11 @@ import java.util.Map;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
-@UtilityClass
-public class YqlCompositeType {
+public final class YqlCompositeType {
     public static final YqlVoid VOID = new YqlVoid();
+
+    private YqlCompositeType() {
+    }
 
     @NoArgsConstructor(access = AccessLevel.PRIVATE)
     public static class YqlVoid implements YqlType {
@@ -109,12 +110,11 @@ public class YqlCompositeType {
 
         @Override
         public ValueProtos.Value.Builder toYql(Object value) {
-            if (!(value instanceof Iterable)) {
+            if (!(value instanceof Iterable<?> values)) {
                 throw new ConversionException(String.format("Could not convert Java value of type \"%s\" to YDB value of type \"%s\": List expected",
                         value.getClass(), getYqlTypeName()));
             }
             var builder = ValueProtos.Value.newBuilder();
-            var values = (Iterable<?>) value;
             int i = 0;
             for (var item : values) {
                 try {
@@ -202,15 +202,16 @@ public class YqlCompositeType {
         return new YqlList(itemType);
     }
 
+    @SuppressWarnings("unchecked")
     public static YqlDict dictSet(YqlType keyType) {
         return new YqlDict(
                 new Field(keyType, Function.identity()),
                 new Field(VOID, ign -> null),
                 value -> {
-                    if (!(value instanceof Iterable)) {
+                    if (!(value instanceof Iterable<?> iterable)) {
                         throw new ConversionException("Converting to YQL set (Dict<X, Void>) parameter expected to be iterable, got: " + value.getClass());
                     }
-                    return (Iterable) value;
+                    return (Iterable<Object>) iterable;
                 }
         );
     }

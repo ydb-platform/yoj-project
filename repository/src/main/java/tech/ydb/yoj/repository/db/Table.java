@@ -1,6 +1,7 @@
 package tech.ydb.yoj.repository.db;
 
 import lombok.NonNull;
+import tech.ydb.yoj.InternalApi;
 import tech.ydb.yoj.databind.expression.FilterExpression;
 import tech.ydb.yoj.databind.expression.OrderExpression;
 import tech.ydb.yoj.repository.db.bulk.BulkParams;
@@ -156,7 +157,7 @@ public interface Table<T extends Entity<T>> {
     default <ID extends Entity.Id<T>> Stream<ID> readTableIds() {
         return readTableIds(ReadTableParams.getDefault());
     }
-
+  
     @NonNull
     default <X extends Exception> T find(Entity.Id<T> id, Supplier<? extends X> throwIfAbsent) throws X {
         T found = find(id);
@@ -268,11 +269,13 @@ public interface Table<T extends Entity<T>> {
     default void bulkUpsert(List<T> input, BulkParams params) {
         throw new UnsupportedOperationException();
     }
-
+  
+    @InternalApi
     default List<T> postLoad(List<T> list) {
         return list.stream().map(this::postLoad).collect(Collectors.toList());
     }
 
+    @InternalApi
     default T postLoad(T e) {
         return e.postLoad();
     }

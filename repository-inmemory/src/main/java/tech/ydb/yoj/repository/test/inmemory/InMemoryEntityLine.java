@@ -6,7 +6,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-final class InMemoryEntityLine {
+/*package*/ final class InMemoryEntityLine {
     private final List<Versioned> versions;
     private final Map<Long, Columns> uncommited = new HashMap<>();
 

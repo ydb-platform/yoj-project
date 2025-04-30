@@ -1,7 +1,9 @@
 package tech.ydb.yoj.repository.ydb.client;
 
 import com.google.common.base.Preconditions;
+import tech.ydb.yoj.InternalApi;
 
+@InternalApi
 public final class YdbPaths {
     private YdbPaths() {
     }

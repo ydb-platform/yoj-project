@@ -4,6 +4,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.reflect.TypeToken;
 import lombok.NonNull;
 import tech.ydb.yoj.ExperimentalApi;
+import tech.ydb.yoj.InternalApi;
 import tech.ydb.yoj.databind.converter.ValueConverter;
 import tech.ydb.yoj.databind.schema.Column;
 import tech.ydb.yoj.databind.schema.CustomConverterException;
@@ -18,6 +19,7 @@ import java.lang.reflect.Type;
 import static java.lang.reflect.Modifier.isAbstract;
 import static java.lang.reflect.Modifier.isStatic;
 
+@InternalApi
 @ExperimentalApi(issue = "https://github.com/ydb-platform/yoj-project/issues/24")
 public final class CustomValueTypes {
     private CustomValueTypes() {
@@ -66,7 +68,6 @@ public final class CustomValueTypes {
     }
 
     @Nullable
-    @ExperimentalApi(issue = "https://github.com/ydb-platform/yoj-project/issues/24")
     public static <J, C extends Comparable<? super C>> CustomValueTypeInfo<J, C> getCustomValueTypeInfo(
             @NonNull Type type, @Nullable Column columnAnnotation
     ) {

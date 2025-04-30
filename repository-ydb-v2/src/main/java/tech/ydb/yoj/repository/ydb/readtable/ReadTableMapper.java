@@ -1,9 +1,11 @@
 package tech.ydb.yoj.repository.ydb.readtable;
 
 import tech.ydb.proto.ValueProtos;
+import tech.ydb.yoj.InternalApi;
 
 import java.util.List;
 
+@InternalApi
 public interface ReadTableMapper<ID, RESULT> {
     String getTableName(String tableSpace);
 

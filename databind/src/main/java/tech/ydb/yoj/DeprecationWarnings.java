@@ -8,6 +8,7 @@ import java.util.Collections;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
+@InternalApi
 public final class DeprecationWarnings {
     private static final Logger log = LoggerFactory.getLogger(DeprecationWarnings.class);
     private static final Set<String> warnings = Collections.newSetFromMap(new ConcurrentHashMap<>());
