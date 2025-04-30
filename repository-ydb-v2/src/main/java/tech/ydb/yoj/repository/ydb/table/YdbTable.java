@@ -14,6 +14,7 @@ import tech.ydb.yoj.repository.db.EntitySchema;
 import tech.ydb.yoj.repository.db.Range;
 import tech.ydb.yoj.repository.db.Table;
 import tech.ydb.yoj.repository.db.TableDescriptor;
+import tech.ydb.yoj.repository.db.TableQueryImpl;
 import tech.ydb.yoj.repository.db.Tx;
 import tech.ydb.yoj.repository.db.ViewSchema;
 import tech.ydb.yoj.repository.db.bulk.BulkParams;
@@ -266,6 +267,11 @@ public class YdbTable<T extends Entity<T>> implements Table<T> {
             List<T> res = postLoad(executor.execute(statement, id));
             return res.isEmpty() ? null : res.get(0);
         });
+    }
+
+    @Override
+    public <ID extends Entity.Id<T>> List<T> find(Set<ID> ids) {
+        return TableQueryImpl.find(this, getFirstLevelCache(), ids);
     }
 
     @Override
@@ -531,7 +537,6 @@ public class YdbTable<T extends Entity<T>> implements Table<T> {
         executor.getTransactionLocal().projectionCache().save(entityToSave);
     }
 
-    @Override
     public FirstLevelCache<T> getFirstLevelCache() {
         return executor.getTransactionLocal().firstLevelCache(tableDescriptor);
     }
