@@ -1,6 +1,7 @@
 package tech.ydb.yoj.repository.db;
 
 import com.google.common.collect.Sets;
+import tech.ydb.yoj.InternalApi;
 import tech.ydb.yoj.repository.db.cache.FirstLevelCache;
 import tech.ydb.yoj.repository.db.list.ListRequest;
 
@@ -15,9 +16,11 @@ import java.util.stream.Collectors;
 import static java.util.stream.Collectors.toSet;
 
 /**
- * Utility class for internal use only. This class is not part of the public API and should not be
- * used directly by client code.
+ * Utility class for {@link Table} implementation; <strong>for internal use only</strong>.
+ * This class is <strong>not</strong> part of the public API and <strong>should not</strong>
+ * be used directly by client code.
  */
+@InternalApi
 public final class TableQueryImpl {
     private TableQueryImpl() {
     }
