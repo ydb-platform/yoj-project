@@ -4,6 +4,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.Sets;
 import com.google.common.reflect.TypeToken;
 import lombok.NonNull;
+import tech.ydb.yoj.DeprecationWarnings;
 import tech.ydb.yoj.InternalApi;
 import tech.ydb.yoj.databind.expression.FilterExpression;
 import tech.ydb.yoj.databind.expression.OrderExpression;
@@ -14,6 +15,7 @@ import tech.ydb.yoj.repository.db.EntitySchema;
 import tech.ydb.yoj.repository.db.Range;
 import tech.ydb.yoj.repository.db.Table;
 import tech.ydb.yoj.repository.db.TableDescriptor;
+import tech.ydb.yoj.repository.db.TableQueryBuilder;
 import tech.ydb.yoj.repository.db.TableQueryImpl;
 import tech.ydb.yoj.repository.db.Tx;
 import tech.ydb.yoj.repository.db.ViewSchema;
@@ -78,7 +80,16 @@ public class YdbTable<T extends Entity<T>> implements Table<T> {
         this.tableDescriptor = TableDescriptor.from(schema);
     }
 
+    /**
+     * @deprecated This {@code YdbTable} constructor uses reflection tricks to determine entity type,
+     * and will be removed in YOJ 2.7.0.
+     * Please migrate to {@link YdbTable#YdbTable(Class, QueryExecutor)} or
+     * {@link YdbTable#YdbTable(TableDescriptor, QueryExecutor)}.
+     */
+    @Deprecated(forRemoval = true)
     protected YdbTable(QueryExecutor executor) {
+        DeprecationWarnings.warnOnce("new YdbTable(QueryExecutor)",
+                "Single-arg new YdbTable(QueryExecutor) will be removed in YOJ 2.7.0. Please use the two-arg constructors instead");
         this.type = resolveEntityType();
         this.executor = new CheckingQueryExecutor(executor);
         this.schema = EntitySchema.of(type);
@@ -120,6 +131,11 @@ public class YdbTable<T extends Entity<T>> implements Table<T> {
     @SafeVarargs
     private static <E> List<E> toList(E first, E... rest) {
         return concat(Stream.of(first), stream(rest)).collect(Collectors.toList());
+    }
+
+    @Override
+    public TableQueryBuilder<T> query() {
+        return new TableQueryBuilder<>(this, schema);
     }
 
     @Override
@@ -179,7 +195,8 @@ public class YdbTable<T extends Entity<T>> implements Table<T> {
             BiFunction<YqlStatementPart<?>, YqlStatementPart<?>[], List<R>> findMethod
     ) {
         Preconditions.checkArgument(1 <= batchSize && batchSize <= 5000, "batchSize must be in range [1, 5000], got %s", batchSize);
-        return StreamSupport.stream(new BatchFindSpliterator<>(type, partial, batchSize) {
+        EntityIdSchema<Id<T>> idSchema = schema.getIdSchema();
+        return StreamSupport.stream(new BatchFindSpliterator<>(idSchema, partial, batchSize) {
             @Override
             protected Entity.Id<T> getId(R r) {
                 return idMapper.apply(r);
@@ -200,7 +217,8 @@ public class YdbTable<T extends Entity<T>> implements Table<T> {
     @Override
     public <ID extends Entity.Id<T>> Stream<ID> streamPartialIds(ID partial, int batchSize) {
         Preconditions.checkArgument(1 <= batchSize && batchSize <= 10000, "batchSize must be in range [1, 10000], got %s", batchSize);
-        return StreamSupport.stream(new BatchFindSpliterator<>(type, partial, batchSize) {
+        EntityIdSchema<ID> idSchema = schema.getIdSchema();
+        return StreamSupport.stream(new BatchFindSpliterator<>(idSchema, partial, batchSize) {
             @Override
             protected ID getId(ID id) {
                 return id;
@@ -262,8 +280,8 @@ public class YdbTable<T extends Entity<T>> implements Table<T> {
 
     @Override
     public T find(Entity.Id<T> id) {
-        if (id.isPartial()) {
-            throw new IllegalArgumentException("Cannot use partial id in find method");
+        if (TableQueryImpl.isPartialId(id, schema)) {
+            throw new IllegalArgumentException("Cannot use partial ID in Table.find() method");
         }
         return executor.getTransactionLocal().firstLevelCache(tableDescriptor).get(id, __ -> {
             var statement = new FindYqlStatement<>(tableDescriptor, schema, schema);
@@ -274,7 +292,7 @@ public class YdbTable<T extends Entity<T>> implements Table<T> {
 
     @Override
     public <ID extends Entity.Id<T>> List<T> find(Set<ID> ids) {
-        return TableQueryImpl.find(this, getFirstLevelCache(), ids);
+        return TableQueryImpl.find(this, schema, getFirstLevelCache(), ids);
     }
 
     @Override
@@ -300,7 +318,7 @@ public class YdbTable<T extends Entity<T>> implements Table<T> {
 
     @Override
     public <V extends View, ID extends Entity.Id<T>> List<V> find(Class<V> viewType, Set<ID> ids) {
-        return find(viewType, ids, null, defaultOrder(type), null);
+        return find(viewType, ids, null, defaultOrder(schema), null);
     }
 
     public final List<T> find(YqlStatementPart<?> part, YqlStatementPart<?>... otherParts) {
@@ -363,7 +381,7 @@ public class YdbTable<T extends Entity<T>> implements Table<T> {
         if (ids.isEmpty()) {
             return List.of();
         }
-        var isPartialIdMode = ids.iterator().next().isPartial();
+        var isPartialIdMode = TableQueryImpl.isPartialId(ids.iterator().next(), schema);
         List<T> found = postLoad(findUncached(ids, filter, orderBy, limit));
         if (!isPartialIdMode && ids.size() > found.size()) {
             Set<Id<T>> foundIds = found.stream().map(Entity::getId).collect(toSet());
@@ -464,14 +482,14 @@ public class YdbTable<T extends Entity<T>> implements Table<T> {
     }
 
     private <ID extends Entity.Id<T>> List<ID> findIds(Collection<? extends YqlStatementPart<?>> parts) {
-        EntityIdSchema<ID> idSchema = EntityIdSchema.ofEntity(type);
+        EntityIdSchema<ID> idSchema = schema.getIdSchema();
         var statement = FindStatement.from(tableDescriptor, schema, idSchema, parts, false);
         return executor.execute(statement, parts);
     }
 
     @Override
     public <ID extends Entity.Id<T>> List<ID> findIds(Range<ID> range) {
-        EntityIdSchema<ID> idSchema = EntityIdSchema.ofEntity(type);
+        EntityIdSchema<ID> idSchema = schema.getIdSchema();
         var statement = new FindRangeStatement<>(tableDescriptor, schema, idSchema, range);
         return executor.execute(statement, range);
     }
@@ -481,8 +499,8 @@ public class YdbTable<T extends Entity<T>> implements Table<T> {
         if (partialIds.isEmpty()) {
             return List.of();
         }
-        OrderExpression<T> order = defaultOrder(type);
-        EntityIdSchema<ID> idSchema = EntityIdSchema.ofEntity(type);
+        OrderExpression<T> order = defaultOrder(schema);
+        EntityIdSchema<ID> idSchema = schema.getIdSchema();
         var statement = FindInStatement.from(tableDescriptor, schema, idSchema, partialIds, null, order, null);
         return executor.execute(statement, partialIds);
     }

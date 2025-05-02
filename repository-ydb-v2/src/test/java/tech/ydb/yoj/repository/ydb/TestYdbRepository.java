@@ -170,7 +170,7 @@ public class TestYdbRepository extends YdbRepository {
 
     private static class YdbSupabubble2Table extends YdbTable<Supabubble2> implements TestEntityOperations.Supabubble2Table {
         protected YdbSupabubble2Table(QueryExecutor executor) {
-            super(executor);
+            super(Supabubble2.class, executor);
         }
 
         @Override
@@ -181,7 +181,7 @@ public class TestYdbRepository extends YdbRepository {
 
     private static class ComplexTableImpl extends YdbTable<Complex> implements ComplexTable {
         protected ComplexTableImpl(QueryExecutor executor) {
-            super(executor);
+            super(Complex.class, executor);
         }
 
         @Override
@@ -192,7 +192,7 @@ public class TestYdbRepository extends YdbRepository {
 
     private static class BubbleTableImpl extends YdbTable<Bubble> implements BubbleTable {
         protected BubbleTableImpl(QueryExecutor executor) {
-            super(executor);
+            super(Bubble.class, executor);
         }
 
         @Override
@@ -203,7 +203,7 @@ public class TestYdbRepository extends YdbRepository {
 
     private static class IndexedTableImpl extends YdbTable<IndexedEntity> implements IndexedTable {
         protected IndexedTableImpl(QueryExecutor executor) {
-            super(executor);
+            super(IndexedEntity.class, executor);
         }
 
         @Override
