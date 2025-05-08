@@ -64,7 +64,6 @@ public enum FieldValueType {
     /**
      * Binary value: just a stream of uninterpreted bytes.
      * Java-side <strong>must</strong> be a {@code byte[]}.
-     * <p>
      *
      * @deprecated Support for mapping raw {@code byte[]} will be removed in YOJ 3.0.0.
      * Even now, it is strongly recommended to use a {@link ByteArray}: it is properly {@code Comparable}

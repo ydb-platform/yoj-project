@@ -46,3 +46,22 @@ jobs:
 
       - name: Build with Maven
         run: mvn $MAVEN_ARGS -Plombok,integration-test -am -pl :yoj-repository-ydb-v2 verify
+  javadoc-and-source:
+    name: Validate JavaDoc
+    runs-on: ubuntu-latest
+
+    env:
+      MAVEN_ARGS: --batch-mode --update-snapshots -Dstyle.color=always
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          java-version: 17
+          distribution: 'temurin'
+          cache: 'maven'
+
+      - name: Build with Maven
+        run: mvn $MAVEN_ARGS -Plombok,javadoc-and-source -DskipTests verify

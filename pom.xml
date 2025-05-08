@@ -115,6 +115,8 @@
         <!-- build-only dependencies (provided) -->
         <lombok.version>1.18.30</lombok.version>
         <checkstyle.version>10.12.4</checkstyle.version>
+        <lombok-maven-plugin.version>1.18.20.0</lombok-maven-plugin.version>
+        <lombok-maven-plugin.delombok.output>${project.build.directory}/delombok-for-javadoc</lombok-maven-plugin.delombok.output>
 
         <!-- compile dependencies -->
         <protobuf.version>3.24.0</protobuf.version>
@@ -158,6 +160,9 @@
         <profile>
             <activation>
                 <activeByDefault>true</activeByDefault>
+                <property>
+                    <name>yojRelease</name>
+                </property>
             </activation>
             <id>lombok</id>
             <dependencies>
@@ -185,6 +190,9 @@
         </profile>
         <profile>
             <id>integration-test</id>
+            <activation>
+                <activeByDefault>false</activeByDefault>
+            </activation>
             <properties>
                 <test-classes>
                     **/*IntegrationTest.class,
@@ -193,9 +201,61 @@
             </properties>
         </profile>
         <profile>
+            <id>javadoc-and-source</id>
+            <activation>
+                <activeByDefault>false</activeByDefault>
+                <property>
+                    <name>yojRelease</name>
+                </property>
+            </activation>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-source-plugin</artifactId>
+                        <executions>
+                            <execution>
+                                <id>attach-sources</id>
+                                <goals>
+                                    <goal>jar-no-fork</goal>
+                                </goals>
+                            </execution>
+                        </executions>
+                    </plugin>
+                    <plugin>
+                        <groupId>org.projectlombok</groupId>
+                        <artifactId>lombok-maven-plugin</artifactId>
+                        <executions>
+                            <execution>
+                                <id>delombok-for-javadoc</id>
+                                <goals>
+                                    <goal>delombok</goal>
+                                </goals>
+                            </execution>
+                        </executions>
+                    </plugin>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-javadoc-plugin</artifactId>
+                        <executions>
+                            <execution>
+                                <id>attach-javadocs</id>
+                                <goals>
+                                    <goal>jar</goal>
+                                </goals>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+        <profile>
             <id>ossrh-s01</id>
             <activation>
                 <activeByDefault>false</activeByDefault>
+                <property>
+                    <name>yojRelease</name>
+                </property>
             </activation>
 
             <build>
@@ -372,13 +432,40 @@
                     <version>${maven-source-plugin.version}</version>
                 </plugin>
                 <plugin>
+                    <groupId>org.projectlombok</groupId>
+                    <artifactId>lombok-maven-plugin</artifactId>
+                    <version>${lombok-maven-plugin.version}</version>
+                    <executions>
+                        <execution>
+                            <id>delombok-for-javadoc</id>
+                            <phase>generate-sources</phase>
+                            <goals>
+                                <goal>delombok</goal>
+                            </goals>
+                            <configuration>
+                                <sourceDirectory>${project.basedir}/src/main/java</sourceDirectory>
+                                <outputDirectory>${lombok-maven-plugin.delombok.output}</outputDirectory>
+                                <addOutputDirectory>false</addOutputDirectory>
+                            </configuration>
+                        </execution>
+                    </executions>
+                    <dependencies>
+                        <dependency>
+                            <groupId>org.projectlombok</groupId>
+                            <artifactId>lombok</artifactId>
+                            <version>${lombok.version}</version>
+                        </dependency>
+                    </dependencies>
+                </plugin>
+                <plugin>
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-javadoc-plugin</artifactId>
                     <version>${maven-javadoc-plugin.version}</version>
                     <configuration>
                         <source>${java.version}</source>
-                        <!-- FIXME(entropia@): fix malformed HTML and re-enable doclint -->
-                        <doclint>none</doclint>
+                        <sourcepath>${lombok-maven-plugin.delombok.output}</sourcepath>
+                        <!-- TODO(nvamelichev@): Enable 'missing' validation and fix the docs -->
+                        <doclint>all,-missing</doclint>
                     </configuration>
                 </plugin>
                 <plugin>
@@ -396,30 +483,6 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
-            </plugin>
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-source-plugin</artifactId>
-                <executions>
-                    <execution>
-                        <id>attach-sources</id>
-                        <goals>
-                            <goal>jar-no-fork</goal>
-                        </goals>
-                    </execution>
-                </executions>
-            </plugin>
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-javadoc-plugin</artifactId>
-                <executions>
-                    <execution>
-                        <id>attach-javadocs</id>
-                        <goals>
-                            <goal>jar</goal>
-                        </goals>
-                    </execution>
-                </executions>
             </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>

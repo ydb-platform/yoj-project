@@ -58,9 +58,7 @@ public final class ProjectionMappings {
      * Creates a one-to-one mapping from entity fields to entity projection ID fields, assuming that the projection ID
      * contains fields with the same name as in the main entity and <em>at most one</em> field for the main entity ID
      * (with any name).
-     * </ul>
-     * <p>
-     * <em>E.g.</em>, the following entity-projection pair qualifies: <blockquote><pre>
+     * <p><em>E.g.</em>, the following entity-projection pair qualifies: <blockquote><pre>
      * &#64;Value class MyEntity implements Entity&lt;MyEntity> {
      *     Id id;
      *     String field;

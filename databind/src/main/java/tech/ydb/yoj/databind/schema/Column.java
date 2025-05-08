@@ -65,7 +65,6 @@ public @interface Column {
      * <li>or represented as a single column holding the serialized representation of the field's value
      * ({@code flatten=false}).</li>
      * </ul>
-     * </li>
      * Defaults to {@code true} (flatten composite fields).<br>
      * Changing this parameter for a non-composite field has no effect.
      * <p><strong>Tip:</strong> Use the {@link tech.ydb.yoj.databind.converter.ObjectColumn @ObjectColumn} annotation
