@@ -49,7 +49,7 @@ public final class StdReflector implements Reflector {
     }
 
     private ReflectType<?> reflectFor(Type type, FieldValueType fvt) {
-        Class<?> rawType = TypeToken.of(type).getRawType();
+        Class<?> rawType = type instanceof Class<?> clazz ? clazz : TypeToken.of(type).getRawType();
         for (TypeFactory m : matchers) {
             if (m.matches(rawType, fvt)) {
                 return m.create(this, rawType, fvt);

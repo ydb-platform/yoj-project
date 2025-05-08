@@ -105,7 +105,7 @@ public class TestInMemoryRepository extends InMemoryRepository {
 
         @Override
         public Supabubble2Table supabubbles2() {
-            return new Supabubble2InMemoryTable(getMemory(Supabubble2.class));
+            return new Supabubble2InMemoryTable(this, Supabubble2.class);
         }
 
         @Override
@@ -145,8 +145,8 @@ public class TestInMemoryRepository extends InMemoryRepository {
     }
 
     private static class Supabubble2InMemoryTable extends InMemoryTable<Supabubble2> implements TestEntityOperations.Supabubble2Table {
-        public Supabubble2InMemoryTable(DbMemory<Supabubble2> memory) {
-            super(memory);
+        public Supabubble2InMemoryTable(InMemoryRepositoryTransaction transaction, Class<Supabubble2> type) {
+            super(transaction, type);
         }
     }
 

@@ -45,7 +45,7 @@ public class FindInStatementTest {
     private static final Set<?> NOT_INDEXED_KEYS = Set.of(FooIndexKey.of(1L, null, null));
     private static final Set<?> INCONSISTENT_TYPE_KEYS = Set.of(FooIndexKeyInconsistentType.of(100500L));
 
-    private static final OrderExpression<Foo> DEFAULT_ORDER = defaultOrder(Foo.class);
+    private static final OrderExpression<Foo> DEFAULT_ORDER = defaultOrder(ENTITY_SCHEMA);
 
     private static final String INDEX_NAME = "index_by_value";
     private static final String NOT_EXISTENT_INDEX_NAME = "not_existent_index";

@@ -3,6 +3,7 @@ package tech.ydb.yoj.repository.test.inmemory;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
+import tech.ydb.yoj.DeprecationWarnings;
 import tech.ydb.yoj.databind.expression.FilterExpression;
 import tech.ydb.yoj.databind.expression.OrderExpression;
 import tech.ydb.yoj.databind.schema.ObjectSchema;
@@ -14,6 +15,7 @@ import tech.ydb.yoj.repository.db.EntitySchema;
 import tech.ydb.yoj.repository.db.Range;
 import tech.ydb.yoj.repository.db.Table;
 import tech.ydb.yoj.repository.db.TableDescriptor;
+import tech.ydb.yoj.repository.db.TableQueryBuilder;
 import tech.ydb.yoj.repository.db.TableQueryImpl;
 import tech.ydb.yoj.repository.db.ViewSchema;
 import tech.ydb.yoj.repository.db.cache.FirstLevelCache;
@@ -32,19 +34,28 @@ import java.util.stream.Stream;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toUnmodifiableMap;
 import static java.util.stream.Collectors.toUnmodifiableSet;
+import static tech.ydb.yoj.repository.db.TableQueryImpl.getEntityByIdComparator;
 
 public class InMemoryTable<T extends Entity<T>> implements Table<T> {
     private final EntitySchema<T> schema;
     private final TableDescriptor<T> tableDescriptor;
     private final InMemoryRepositoryTransaction transaction;
 
-    @Deprecated // Don't use DbMemory, use other constructor instead
+    /**
+     * @deprecated {@code DbMemory} and this constructor will be removed in YOJ 3.0.0.
+     * Please use other constructors instead.
+     */
+    @Deprecated(forRemoval = true)
     public InMemoryTable(DbMemory<T> memory) {
         this(memory.transaction(), memory.type());
+        DeprecationWarnings.warnOnce("new InMemoryTable(DbMemory)",
+                "Please do not use the InMemoryTable(DbMemory<T>) constructor, it will be removed in YOJ 3.0.0");
     }
 
     public InMemoryTable(InMemoryRepositoryTransaction transaction, Class<T> type) {
-        this(transaction, TableDescriptor.from(EntitySchema.of(type)));
+        this.schema = EntitySchema.of(type);
+        this.tableDescriptor = TableDescriptor.from(schema);
+        this.transaction = transaction;
     }
 
     public InMemoryTable(InMemoryRepositoryTransaction transaction, TableDescriptor<T> tableDescriptor) {
@@ -53,6 +64,11 @@ public class InMemoryTable<T extends Entity<T>> implements Table<T> {
         this.transaction = transaction;
     }
 
+    @Override
+    public TableQueryBuilder<T> query() {
+        return new TableQueryBuilder<>(this, schema);
+    }
+    
     @Override
     public List<T> findAll() {
         transaction.getWatcher().markTableRead(tableDescriptor);
@@ -103,7 +119,7 @@ public class InMemoryTable<T extends Entity<T>> implements Table<T> {
             @Nullable Long offset
     ) {
         // NOTE: InMemoryTable doesn't handle index.
-        return InMemoryQueries.find(() -> findAll().stream(), filter, orderBy, limit, offset);
+        return TableQueryImpl.find(() -> findAll().stream(), schema, filter, orderBy, limit, offset);
     }
 
     @Override
@@ -173,8 +189,8 @@ public class InMemoryTable<T extends Entity<T>> implements Table<T> {
 
     @Override
     public T find(Entity.Id<T> id) {
-        if (id.isPartial()) {
-            throw new IllegalArgumentException("Cannot use partial id in find method");
+        if (TableQueryImpl.isPartialId(id, schema)) {
+            throw new IllegalArgumentException("Cannot use partial ID in Table.find() method");
         }
         return transaction.getTransactionLocal().firstLevelCache(tableDescriptor).get(id, __ -> {
             markKeyRead(id);
@@ -185,13 +201,13 @@ public class InMemoryTable<T extends Entity<T>> implements Table<T> {
 
     @Override
     public <ID extends Entity.Id<T>> List<T> find(Set<ID> ids) {
-        return TableQueryImpl.find(this, getFirstLevelCache(), ids);
+        return TableQueryImpl.find(this, schema, getFirstLevelCache(), ids);
     }
 
     @Override
     public <V extends View> V find(Class<V> viewType, Entity.Id<T> id) {
-        if (id.isPartial()) {
-            throw new IllegalArgumentException("Cannot use partial id in find method");
+        if (TableQueryImpl.isPartialId(id, schema)) {
+            throw new IllegalArgumentException("Cannot use partial ID in Table.find() method");
         }
 
         FirstLevelCache<T> cache = transaction.getTransactionLocal().firstLevelCache(tableDescriptor);
@@ -208,10 +224,13 @@ public class InMemoryTable<T extends Entity<T>> implements Table<T> {
     @Override
     @SuppressWarnings("unchecked")
     public <ID extends Entity.Id<T>> List<T> find(Range<ID> range) {
-        transaction.getWatcher().markRangeRead(tableDescriptor, range);
+        Preconditions.checkArgument(range.getType() == schema.getIdSchema(),
+                "ID schema mismatch: Range was constructed with a different ID schema than the YdbTable");
+
+        markRangeRead(range);
         return findAll0().stream()
                 .filter(e -> range.contains((ID) e.getId()))
-                .sorted(EntityIdSchema.SORT_ENTITY_BY_ID)
+                .sorted(getEntityByIdComparator(schema))
                 .collect(toList());
     }
 
@@ -232,7 +251,7 @@ public class InMemoryTable<T extends Entity<T>> implements Table<T> {
 
     @Override
     public <V extends View, ID extends Entity.Id<T>> List<V> find(Class<V> viewType, Set<ID> ids) {
-        return find(viewType, ids, null, EntityExpressions.defaultOrder(getType()), null);
+        return find(viewType, ids, null, EntityExpressions.defaultOrder(schema), null);
     }
 
     @Override
@@ -404,9 +423,10 @@ public class InMemoryTable<T extends Entity<T>> implements Table<T> {
 
     private <ID extends Entity.Id<T>> void markKeyRead(ID id) {
         EntityIdSchema<Entity.Id<T>> idSchema = schema.getIdSchema();
-        if (idSchema.flattenFieldNames().size() != idSchema.flatten(id).size()) {
+        Map<String, Object> eqMap = idSchema.flatten(id);
+        if (idSchema.flattenFieldNames().size() != eqMap.size()) {
             // Partial key, will throw error when not searching by PK prefix
-            transaction.getWatcher().markRangeRead(tableDescriptor, Range.create(id, id));
+            transaction.getWatcher().markRangeRead(tableDescriptor, Range.create(idSchema, eqMap));
         } else {
             transaction.getWatcher().markRowRead(tableDescriptor, id);
         }
@@ -475,7 +495,7 @@ public class InMemoryTable<T extends Entity<T>> implements Table<T> {
         Preconditions.checkArgument(1 <= batchSize && batchSize <= 5000,
                 "batchSize must be in range [1, 5000], got %s", batchSize);
 
-        Range<ID> range = partial == null ? null : Range.create(partial);
+        Range<ID> range = rangeForPartialId(partial);
         markRangeRead(range);
 
         return streamPartial0(range);
@@ -508,18 +528,24 @@ public class InMemoryTable<T extends Entity<T>> implements Table<T> {
         Preconditions.checkArgument(1 <= batchSize && batchSize <= 10000,
                 "batchSize must be in range [1, 10000], got %s", batchSize);
 
-        Range<ID> range = partial == null ? null : Range.create(partial);
+        Range<ID> range = rangeForPartialId(partial);
         markRangeRead(range);
 
         return streamPartial0(range).map(e -> (ID) e.getId());
     }
 
-    private <ID extends Entity.Id<T>> void markRangeRead(Range<ID> range) {
+    private <ID extends Entity.Id<T>> void markRangeRead(@Nullable Range<ID> range) {
         if (range == null) {
             transaction.getWatcher().markTableRead(tableDescriptor);
         } else {
             transaction.getWatcher().markRangeRead(tableDescriptor, range);
         }
+    }
+
+    @Nullable
+    private <ID extends Entity.Id<T>> Range<ID> rangeForPartialId(ID partial) {
+        EntityIdSchema<ID> idSchema = schema.getIdSchema();
+        return partial == null ? null : Range.create(idSchema, idSchema.flatten(partial));
     }
 
     private <ID extends Entity.Id<T>> Stream<T> readTableStream(ReadTableParams<ID> params) {
@@ -533,7 +559,7 @@ public class InMemoryTable<T extends Entity<T>> implements Table<T> {
                 .stream()
                 .filter(e -> readTableFilter(e, params));
         if (params.isOrdered()) {
-            stream = stream.sorted(EntityIdSchema.SORT_ENTITY_BY_ID);
+            stream = stream.sorted(getEntityByIdComparator(schema));
         }
         if (params.getRowLimit() > 0) {
             stream = stream.limit(params.getRowLimit());
@@ -542,18 +568,20 @@ public class InMemoryTable<T extends Entity<T>> implements Table<T> {
     }
 
     private <ID extends Entity.Id<T>> boolean readTableFilter(T e, ReadTableParams<ID> params) {
+        EntityIdSchema<ID> idSchema = schema.getIdSchema();
+
         @SuppressWarnings("unchecked")
         ID id = (ID) e.getId();
         ID from = params.getFromKey();
         if (from != null) {
-            int compare = EntityIdSchema.ofEntity(id.getType()).compare(id, from);
+            int compare = idSchema.compare(id, from);
             if (params.isFromInclusive() ? compare < 0 : compare <= 0) {
                 return false;
             }
         }
         ID to = params.getToKey();
         if (to != null) {
-            int compare = EntityIdSchema.ofEntity(id.getType()).compare(id, to);
+            int compare = idSchema.compare(id, to);
             return params.isToInclusive() ? compare <= 0 : compare < 0;
         }
         return true;
@@ -587,7 +615,12 @@ public class InMemoryTable<T extends Entity<T>> implements Table<T> {
     }
 
 
-    @Deprecated // Legacy. Using only for creating InMemoryTable. Use constructor of InMemoryTable instead
+    /**
+     * @deprecated Legacy class, used only for creating {@code InMemoryTable}. 
+     * This class will be removed in YOJ 3.0.0.
+     * Please use other constructors of {@code InMemoryTable} instead.
+     */
+    @Deprecated(forRemoval = true)
     public record DbMemory<T extends Entity<T>>(
             Class<T> type,
             InMemoryRepositoryTransaction transaction
