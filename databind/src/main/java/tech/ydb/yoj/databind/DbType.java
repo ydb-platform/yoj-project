@@ -84,7 +84,12 @@ public enum DbType {
      * JSON value, stored in an indexed representation permitting efficient query operations of the values inside the
      * JSON value itself.
      */
-    JSON_DOCUMENT("JSON_DOCUMENT");
+    JSON_DOCUMENT("JSON_DOCUMENT"),
+
+    /**
+     * UUID (Universally unique identifier)
+     */
+    UUID("UUID");
 
     private final String type;
 

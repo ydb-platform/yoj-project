@@ -76,7 +76,8 @@ public class YqlPrimitiveType implements YqlType {
             Map.entry(PrimitiveTypeId.STRING, "String"),
             Map.entry(PrimitiveTypeId.UTF8, "Utf8"),
             Map.entry(PrimitiveTypeId.JSON, "Json"),
-            Map.entry(PrimitiveTypeId.JSON_DOCUMENT, "JsonDocument")
+            Map.entry(PrimitiveTypeId.JSON_DOCUMENT, "JsonDocument"),
+            Map.entry(PrimitiveTypeId.UUID, "Uuid")
     );
 
     private static final Setter BOOL_SETTER = (b, v) -> b.setBoolValue((Boolean) v);
