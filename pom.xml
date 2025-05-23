@@ -160,9 +160,6 @@
         <profile>
             <activation>
                 <activeByDefault>true</activeByDefault>
-                <property>
-                    <name>yojRelease</name>
-                </property>
             </activation>
             <id>lombok</id>
             <dependencies>
@@ -204,9 +201,6 @@
             <id>javadoc-and-source</id>
             <activation>
                 <activeByDefault>false</activeByDefault>
-                <property>
-                    <name>yojRelease</name>
-                </property>
             </activation>
             <build>
                 <plugins>
@@ -253,9 +247,6 @@
             <id>ossrh-s01</id>
             <activation>
                 <activeByDefault>false</activeByDefault>
-                <property>
-                    <name>yojRelease</name>
-                </property>
             </activation>
 
             <build>
