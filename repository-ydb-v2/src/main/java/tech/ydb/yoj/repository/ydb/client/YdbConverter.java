@@ -90,7 +90,8 @@ public class YdbConverter {
             case UTF8 -> PrimitiveType.Text;
             case TIMESTAMP -> PrimitiveType.Timestamp;
             case INTERVAL -> PrimitiveType.Interval;
-            default -> throw new IllegalArgumentException(type.getTypeId().name());
+            case UUID -> PrimitiveType.Uuid;
+            default -> throw new IllegalArgumentException("Unknown YDB primitive type: " + type.getTypeId().name());
         };
     }
 
@@ -116,7 +117,8 @@ public class YdbConverter {
             case UTF8 -> ProtoValue.fromText(value.getTextValue());
             case TIMESTAMP -> ProtoValue.fromTimestamp(value.getUint64Value());
             case INTERVAL -> ProtoValue.fromInterval(value.getInt64Value());
-            default -> throw new IllegalArgumentException(type.getTypeId() + ": " + value.toString());
+            case UUID -> ProtoValue.fromUuid(value.getHigh128(), value.getLow128());
+            default -> throw new IllegalArgumentException("Unknown YDB primitive type: " + type.getTypeId().name());
         };
     }
 
@@ -244,7 +246,8 @@ public class YdbConverter {
             case UTF8 -> builder.setTextValue(column.getText());
             case TIMESTAMP -> builder.setUint64Value(column.getValue().toPb().getUint64Value());
             case INTERVAL -> builder.setInt64Value(column.getValue().toPb().getInt64Value());
-            default -> throw new IllegalArgumentException(column.getType().toPb().getTypeId() + ": " + column);
+            case UUID -> builder.mergeFrom(ProtoValue.fromUuid(column.getUuid()));
+            default -> throw new IllegalArgumentException("Unknown YDB primitive type: " + column.getType().toPb().getTypeId());
         };
     }
 

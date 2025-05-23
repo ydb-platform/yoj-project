@@ -78,6 +78,7 @@ import static org.eclipse.collections.impl.tuple.Tuples.pair;
 
             return switch (field.getValueType()) {
                 case STRING, BOOLEAN, INTEGER, REAL -> value;
+                // NB: YDB has native UUID support, but in-memory implementation always stores UUIDs as java.lang.String
                 case UUID -> CommonConverters.serializeUuidValue(value);
                 case ENUM -> DbTypeQualifier.ENUM_TO_STRING.equals(qualifier)
                         ? CommonConverters.serializeEnumToStringValue(serializedType, value)
@@ -106,6 +107,7 @@ import static org.eclipse.collections.impl.tuple.Tuples.pair;
 
             var deserialized = switch (field.getValueType()) {
                 case STRING, BOOLEAN, INTEGER, REAL -> value;
+                // NB: YDB has native UUID support, but in-memory implementation always stores UUIDs as java.lang.String
                 case UUID -> CommonConverters.deserializeUuidValue(value);
                 case ENUM -> DbTypeQualifier.ENUM_TO_STRING.equals(qualifier)
                         ? CommonConverters.deserializeEnumToStringValue(serializedType, value)

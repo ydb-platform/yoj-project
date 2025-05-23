@@ -115,6 +115,16 @@ public final class CommonConverters {
         return v -> deserializeUuidValue(rawValueGetter.apply(v));
     }
 
+    public static UUID uuidValue(Object v) {
+        if (v instanceof String str) {
+            return UUID.fromString(str);
+        } else if (v instanceof UUID uuid) {
+            return uuid;
+        }
+        throw new IllegalArgumentException("Value must be an instance of java.util.UUID or a java.lang.String but is "
+                + v.getClass().getName());
+    }
+
     public static Object deserializeUuidValue(Object v) {
         if (v instanceof String str) {
             return UUID.fromString(str);
