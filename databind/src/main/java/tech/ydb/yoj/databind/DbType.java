@@ -76,15 +76,24 @@ public enum DbType {
     UTF8("UTF8"),
 
     /**
-     * JSON value, stored as a UTF-8 encoded string.
+     * JSON (JavaScript Object Notation) value, stored as a UTF-8 encoded string.
      */
     JSON("JSON"),
 
     /**
-     * JSON value, stored in an indexed representation permitting efficient query operations of the values inside the
-     * JSON value itself.
+     * JSON (JavaScript Object Notation) value, stored in an indexed representation permitting efficient queries
+     * on the data inside the JSON value itself. Offers a trade-off of more optimized and sophisticated read queries
+     * vs less compact internal representation and lower write performance.
      */
-    JSON_DOCUMENT("JSON_DOCUMENT");
+    JSON_DOCUMENT("JSON_DOCUMENT"),
+
+    /**
+     * UUID (Universally Unique Identifier) value, validated by YDB and stored as 16 bytes (as opposed to UUID
+     * <em>text representation</em> stored as 36 bytes as a {@code TEXT (UTF8)} or {@code BYTES (STRING)} value).
+     *
+     * @see <a href="https://tools.ietf.org/html/rfc4122">RFC 4122</a>
+     */
+    UUID("UUID");
 
     private final String type;
 

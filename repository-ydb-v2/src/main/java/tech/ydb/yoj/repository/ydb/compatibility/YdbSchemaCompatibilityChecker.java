@@ -329,6 +329,7 @@ public final class YdbSchemaCompatibilityChecker {
             case UTF8 -> "PrimitiveType.utf8()";
             case JSON -> "PrimitiveType.json()";
             case JSON_DOCUMENT -> "PrimitiveType.jsonDocument()";
+            case UUID -> "PrimitiveType.uuid()";
         };
     }
 

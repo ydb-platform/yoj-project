@@ -67,6 +67,7 @@ import tech.ydb.yoj.repository.test.sample.model.VersionedEntity;
 import tech.ydb.yoj.repository.test.sample.model.WithUnflattenableField;
 import tech.ydb.yoj.repository.test.sample.model.annotations.Sha256;
 import tech.ydb.yoj.repository.test.sample.model.annotations.UniqueEntity;
+import tech.ydb.yoj.repository.test.sample.model.annotations.UniqueEntityNative;
 
 import java.time.Instant;
 import java.util.ArrayList;
@@ -2806,6 +2807,46 @@ public abstract class RepositoryTest extends RepositoryTestSupport {
                 .where("uniqueId").eq(ve.uniqueId())
                 .findOne()
         )).isEqualTo(ve);
+    }
+
+    @Test
+    public void uuidEntityString() {
+        var uuid = UUID.randomUUID();
+        var entity = new UniqueEntity(new UniqueEntity.Id(uuid), "hehe");
+
+        db.tx(() -> db.table(UniqueEntity.class).save(entity));
+        assertThat(db.tx(() -> db.table(UniqueEntity.class).find(new UniqueEntity.Id(uuid))))
+                .isEqualTo(entity);
+        assertThat(db.tx(() -> db.table(UniqueEntity.class).query()
+                .where("id").eq(new UniqueEntity.Id(uuid))
+                .and("value").eq("hehe")
+                .findOne())
+        ).isEqualTo(entity);
+        assertThat(db.tx(() -> db.table(UniqueEntity.class).query()
+                .where("id").eq(uuid)
+                .and("value").eq("hehe")
+                .findOne())
+        ).isEqualTo(entity);
+    }
+
+    @Test
+    public void uuidEntityNative() {
+        var uuid = UUID.randomUUID();
+        var entity = new UniqueEntityNative(new UniqueEntityNative.Id(uuid), "hehe");
+
+        db.tx(() -> db.table(UniqueEntityNative.class).save(entity));
+        assertThat(db.tx(() -> db.table(UniqueEntityNative.class).find(new UniqueEntityNative.Id(uuid))))
+                .isEqualTo(entity);
+        assertThat(db.tx(() -> db.table(UniqueEntityNative.class).query()
+                .where("id").eq(new UniqueEntityNative.Id(uuid))
+                .and("value").eq("hehe")
+                .findOne())
+        ).isEqualTo(entity);
+        assertThat(db.tx(() -> db.table(UniqueEntityNative.class).query()
+                .where("id").eq(uuid)
+                .and("value").eq("hehe")
+                .findOne())
+        ).isEqualTo(entity);
     }
 
     @Test

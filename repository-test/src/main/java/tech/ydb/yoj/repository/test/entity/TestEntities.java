@@ -28,6 +28,8 @@ import tech.ydb.yoj.repository.test.sample.model.UpdateFeedEntry;
 import tech.ydb.yoj.repository.test.sample.model.VersionedAliasedEntity;
 import tech.ydb.yoj.repository.test.sample.model.VersionedEntity;
 import tech.ydb.yoj.repository.test.sample.model.WithUnflattenableField;
+import tech.ydb.yoj.repository.test.sample.model.annotations.UniqueEntity;
+import tech.ydb.yoj.repository.test.sample.model.annotations.UniqueEntityNative;
 
 import java.util.List;
 
@@ -58,7 +60,9 @@ public final class TestEntities {
             VersionedAliasedEntity.class,
             DetachedEntity.class,
             MultiWrappedEntity.class,
-            MultiWrappedEntity2.class
+            MultiWrappedEntity2.class,
+            UniqueEntity.class,
+            UniqueEntityNative.class
     );
 
     public static final List<TableDescriptor<?>> ALL_TABLE_DESCRIPTORS = List.of(

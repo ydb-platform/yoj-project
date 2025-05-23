@@ -33,7 +33,7 @@ public final class YdbEnvAndTransportRule implements TestRule {
                 List<Throwable> errors = new ArrayList<>();
                 try {
                     Map<String, String> evm = new HashMap<>();
-                    evm.put("YDB_DOCKER_IMAGE", "docker.io/ydbplatform/local-ydb@sha256:79b36e76ecc8bc64e208e8949c1710c50d84cf718b575feba0522dba27b377cd");
+                    evm.put("YDB_DOCKER_IMAGE", "docker.io/ydbplatform/local-ydb:24.4.4");
 
                     Statement ydbEnrichedStatement;
 
