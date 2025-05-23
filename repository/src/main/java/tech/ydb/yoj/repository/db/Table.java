@@ -284,9 +284,7 @@ public interface Table<T extends Entity<T>> {
         return count(null, filter);
     }
 
-    default TableQueryBuilder<T> query() {
-        return new TableQueryBuilder<>(this);
-    }
+    TableQueryBuilder<T> query();
 
     /**
      * @deprecated Blindly setting entity fields is not recommended. Use {@code Table.modifyIfPresent()} instead, unless you

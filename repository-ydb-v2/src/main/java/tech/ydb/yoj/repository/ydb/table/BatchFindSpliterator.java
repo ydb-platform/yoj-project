@@ -3,7 +3,6 @@ package tech.ydb.yoj.repository.ydb.table;
 import tech.ydb.yoj.databind.schema.Schema;
 import tech.ydb.yoj.repository.db.Entity;
 import tech.ydb.yoj.repository.db.EntityIdSchema;
-import tech.ydb.yoj.repository.db.Range;
 import tech.ydb.yoj.repository.ydb.yql.YqlLimit;
 import tech.ydb.yoj.repository.ydb.yql.YqlOrderBy;
 import tech.ydb.yoj.repository.ydb.yql.YqlPredicate;
@@ -32,13 +31,9 @@ abstract class BatchFindSpliterator<R, T extends Entity<T>, ID extends Entity.Id
 
     protected abstract List<R> find(YqlStatementPart<?> part, YqlStatementPart<?>... otherParts);
 
-    BatchFindSpliterator(Class<T> entityType, int batchSize) {
-        this(entityType, null, batchSize);
-    }
-
-    BatchFindSpliterator(Class<T> entityType, ID partial, int batchSize) {
+    BatchFindSpliterator(EntityIdSchema<ID> idSchema, ID partial, int batchSize) {
         this.batchSize = batchSize;
-        this.idSchema = EntityIdSchema.ofEntity(entityType);
+        this.idSchema = idSchema;
         this.orderById = YqlOrderBy.orderBy(this.idSchema
                 .flattenFields().stream()
                 .map(s -> new YqlOrderBy.SortKey(s.getPath(), YqlOrderBy.SortOrder.ASC))
@@ -46,8 +41,8 @@ abstract class BatchFindSpliterator<R, T extends Entity<T>, ID extends Entity.Id
         );
         this.top = YqlLimit.top(batchSize);
         if (partial != null) {
-            Range<ID> range = Range.create(partial);
-            Map<String, Object> eqMap = range.getEqMap();
+            // NB: Schema.flatten() does *not* write null-valued columns to the map
+            Map<String, Object> eqMap = idSchema.flatten(partial);
             this.initialPartialPredicates = this.idSchema
                     .flattenFields().stream()
                     .filter(f -> eqMap.containsKey(f.getName()))
@@ -85,8 +80,8 @@ abstract class BatchFindSpliterator<R, T extends Entity<T>, ID extends Entity.Id
 
     private List<R> next() {
         if (lastPartialId.size() != 0 && lastPartialId.size() <= initialPartialPredicates.size()) {
-            // we need this if because YDB has bug for queries like
-            // SELECT * FROM table WHERE id = 'id' and id > 'id'
+            // We need this because certain versions of YDB have a bug for queries like
+            // SELECT * FROM table WHERE id = 'id' AND id > 'id'
             return List.of();
         }
 

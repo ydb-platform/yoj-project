@@ -3,6 +3,7 @@ package tech.ydb.yoj.repository.db;
 import com.google.common.base.Preconditions;
 import com.google.common.reflect.TypeToken;
 import lombok.NonNull;
+import tech.ydb.yoj.InternalApi;
 import tech.ydb.yoj.databind.CustomValueTypes;
 import tech.ydb.yoj.databind.FieldValueType;
 import tech.ydb.yoj.databind.schema.Schema;
@@ -42,10 +43,23 @@ public final class EntityIdSchema<ID extends Entity.Id<?>> extends Schema<ID> im
     private static final String ID_SUBFIELD_PATH_PREFIX = ID_FIELD_NAME + PATH_DELIMITER;
     private static final String ID_SUBFIELD_NAME_PREFIX = ID_FIELD_NAME + NAME_DELIMITER;
 
+    /**
+     * @deprecated This is an internal implementation detail that's no longer used by YOJ implementation; it will be
+     * deleted in YOJ 2.7.0.
+     */
+    @InternalApi
+    @Deprecated(forRemoval = true)
     public static final Comparator<Entity<?>> SORT_ENTITY_BY_ID = Comparator.comparing(
             Entity::getId, (a, b) -> EntityIdSchema.ofEntity(a.getType()).compare(a, b)
     );
 
+    /**
+     * @deprecated This is an internal implementation detail that's no longer used by YOJ implementation; it will be
+     * deleted in YOJ 2.7.0. ({@code EntityIdSchema} is already a {@link Comparator} for IDs, there is no need
+     * for this convoluted method.)
+     */
+    @InternalApi
+    @Deprecated(forRemoval = true)
     public static <T extends Entity<T>> Comparator<Entity.Id<T>> getIdComparator(Class<T> type) {
         return Comparator.comparing(
                 id -> id, (a, b) -> EntityIdSchema.ofEntity(type).compare(a, b)
@@ -115,9 +129,6 @@ public final class EntityIdSchema<ID extends Entity.Id<?>> extends Schema<ID> im
         return of(idType, null);
     }
 
-    /**
-     * @param namingStrategy naming strategy with mandatory equals/hashCode.
-     */
     public static <T extends Entity<T>, ID extends Entity.Id<T>> EntityIdSchema<ID> of(
             Class<ID> idType, NamingStrategy namingStrategy) {
         return of(SchemaRegistry.getDefault(), idType, namingStrategy);
@@ -128,13 +139,12 @@ public final class EntityIdSchema<ID extends Entity.Id<?>> extends Schema<ID> im
         return of(registry, idType, null);
     }
 
-    /**
-     * @param namingStrategy naming strategy with mandatory equals/hashCode.
-     */
     public static <T extends Entity<T>, ID extends Entity.Id<T>> EntityIdSchema<ID> of(
             SchemaRegistry registry,
             Class<ID> idType, NamingStrategy namingStrategy) {
-        @SuppressWarnings("unchecked") Class<T> entityType = (Class<T>) resolveEntityType(idType);
+        @SuppressWarnings("unchecked")
+        Class<T> entityType = (Class<T>) TypeToken.of(idType).resolveType(ENTITY_TYPE_PARAMETER).getRawType();
+
         EntitySchema<T> entitySchema = EntitySchema.of(registry, entityType, namingStrategy);
         return from(entitySchema);
     }
@@ -142,10 +152,6 @@ public final class EntityIdSchema<ID extends Entity.Id<?>> extends Schema<ID> im
     public static <T extends Entity<T>, ID extends Entity.Id<T>> EntityIdSchema<ID> from(EntitySchema<T> entitySchema) {
         var key = SchemaKey.of(entitySchema.getType(), entitySchema.getNamingStrategy());
         return entitySchema.getRegistry().getOrCreate(EntityIdSchema.class, (k, r) -> new EntityIdSchema<>(entitySchema), key);
-    }
-
-    static Class<?> resolveEntityType(Class<?> idType) {
-        return TypeToken.of(idType).resolveType(ENTITY_TYPE_PARAMETER).getRawType();
     }
 
     public static boolean isIdField(@NonNull JavaField field) {

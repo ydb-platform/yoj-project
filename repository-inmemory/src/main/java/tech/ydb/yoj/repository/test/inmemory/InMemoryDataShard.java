@@ -2,7 +2,6 @@ package tech.ydb.yoj.repository.test.inmemory;
 
 import tech.ydb.yoj.databind.schema.Schema;
 import tech.ydb.yoj.repository.db.Entity;
-import tech.ydb.yoj.repository.db.EntityIdSchema;
 import tech.ydb.yoj.repository.db.EntitySchema;
 import tech.ydb.yoj.repository.db.Range;
 import tech.ydb.yoj.repository.db.Table;
@@ -18,18 +17,19 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.SortedMap;
 import java.util.TreeMap;
 
 /*package*/ final class InMemoryDataShard<T extends Entity<T>> {
     private final TableDescriptor<T> tableDescriptor;
     private final EntitySchema<T> schema;
-    private final TreeMap<Entity.Id<T>, InMemoryEntityLine> entityLines;
+    private final SortedMap<Entity.Id<T>, InMemoryEntityLine> entityLines;
     private final Map<Long, Set<Entity.Id<T>>> uncommited = new HashMap<>();
 
     private InMemoryDataShard(
             TableDescriptor<T> tableDescriptor,
             EntitySchema<T> schema,
-            TreeMap<Entity.Id<T>, InMemoryEntityLine> entityLines
+            SortedMap<Entity.Id<T>, InMemoryEntityLine> entityLines
     ) {
         this.tableDescriptor = tableDescriptor;
         this.schema = schema;
@@ -39,18 +39,24 @@ import java.util.TreeMap;
     public InMemoryDataShard(TableDescriptor<T> tableDescriptor) {
         this(
                 tableDescriptor,
-                EntitySchema.of(tableDescriptor.entityType()),
-                createEmptyLines(tableDescriptor.entityType())
+                EntitySchema.of(tableDescriptor.entityType())
         );
     }
 
-    private static <T extends Entity<T>> TreeMap<Entity.Id<T>, InMemoryEntityLine> createEmptyLines(Class<T> type) {
-        return new TreeMap<>(EntityIdSchema.getIdComparator(type));
+    private InMemoryDataShard(
+            TableDescriptor<T> tableDescriptor,
+            EntitySchema<T> schema
+    ) {
+        this(tableDescriptor, schema, createEmptyLines(schema));
+    }
+
+    private static <T extends Entity<T>> SortedMap<Entity.Id<T>, InMemoryEntityLine> createEmptyLines(EntitySchema<T> schema) {
+        return new TreeMap<>(schema.getIdSchema());
     }
 
     public synchronized InMemoryDataShard<T> createSnapshot() {
-        TreeMap<Entity.Id<T>, InMemoryEntityLine> snapshotLines = createEmptyLines(tableDescriptor.entityType());
-        for (Map.Entry<Entity.Id<T>, InMemoryEntityLine> entry : entityLines.entrySet()) {
+        var snapshotLines = createEmptyLines(schema);
+        for (var entry : entityLines.entrySet()) {
             snapshotLines.put(entry.getKey(), entry.getValue().createSnapshot());
         }
         return new InMemoryDataShard<>(tableDescriptor, schema, snapshotLines);
