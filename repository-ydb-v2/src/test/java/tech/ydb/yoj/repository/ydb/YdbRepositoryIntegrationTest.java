@@ -233,7 +233,7 @@ public class YdbRepositoryIntegrationTest extends RepositoryTest {
 
                         @Override
                         public String toDebugString(Object o) {
-                            return null;
+                            return "readYqlListAndMap";
                         }
 
                         @Override

@@ -4,6 +4,9 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Iterators;
 import lombok.SneakyThrows;
+import org.apache.logging.log4j.Level;
+import org.apache.logging.log4j.core.LoggerContext;
+import org.apache.logging.log4j.core.config.Configurator;
 import org.assertj.core.api.Assertions;
 import org.junit.Assert;
 import org.junit.Test;
@@ -39,6 +42,7 @@ import tech.ydb.yoj.repository.test.entity.TestEntities;
 import tech.ydb.yoj.repository.test.sample.TestDb;
 import tech.ydb.yoj.repository.test.sample.TestDbImpl;
 import tech.ydb.yoj.repository.test.sample.TestEntityOperations;
+import tech.ydb.yoj.repository.test.sample.model.BadToStringEntity;
 import tech.ydb.yoj.repository.test.sample.model.Book;
 import tech.ydb.yoj.repository.test.sample.model.Bubble;
 import tech.ydb.yoj.repository.test.sample.model.BytePkEntity;
@@ -73,6 +77,7 @@ import tech.ydb.yoj.repository.test.sample.model.annotations.Sha256;
 import tech.ydb.yoj.repository.test.sample.model.annotations.UniqueEntity;
 import tech.ydb.yoj.repository.test.sample.model.annotations.UniqueEntityNative;
 
+import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -1660,24 +1665,22 @@ public abstract class RepositoryTest extends RepositoryTestSupport {
         RepositoryTransaction tx1 = startTransaction();
         tx1.table(Project.class).insert(new Project(new Project.Id("3"), "p3"));
         tx1.table(Project.class).find(new Project.Id("1"));
-        {
-            RepositoryTransaction tx2 = startTransaction();
-            tx2.table(Project.class).save(new Project(new Project.Id("1"), "p1-1"));
-            tx2.commit();
-        }
+
+        RepositoryTransaction tx2 = startTransaction();
+        tx2.table(Project.class).save(new Project(new Project.Id("1"), "p1-1"));
+        tx2.commit();
+
         // read object was touched -> rollback on any operation
-        //не prepare запросы валятся при обращении
-        //prepare запросы валятся на комите
         assertThatExceptionOfType(OptimisticLockException.class)
                 .isThrownBy(() -> {
-                    //не prepare запросы валятся при обращении
+                    // non-prepared statements fail on statement execution
                     try {
                         tx1.table(Project.class).find(new Project.Id("1"));
                     } catch (Exception e) {
                         tx1.rollback();
                         throw e;
                     }
-                    //prepare запросы валятся на комите
+                    // prepared statements fail on tx commit
                     tx1.commit();
                 });
     }
@@ -2469,14 +2472,14 @@ public abstract class RepositoryTest extends RepositoryTestSupport {
             tx2.commit();
         }
 
-        //не prepare запросы не валятся при обращении
+        // non-prepared statements should not fail on statement execution, because scan reads from a database snapshot
         try {
             tx1.table(Project.class).find(new Project.Id("1"));
         } catch (Exception e) {
             tx1.rollback();
             throw e;
         }
-        //prepare запросы не валятся на комите
+        // prepared statements should not fail on commit, because scan reads from a database snapshot
         tx1.commit();
     }
 
@@ -3039,8 +3042,66 @@ public abstract class RepositoryTest extends RepositoryTestSupport {
         });
     }
 
+    @Test
+    public void toStringThrows() {
+        var entity = new BadToStringEntity(new BadToStringEntity.Id("id"), null);
+        db.tx(() -> db.table(BadToStringEntity.class).save(entity));
+        assertThatExceptionOfType(EntityAlreadyExistsException.class)
+                .isThrownBy(() -> db.withMaxRetries(0).tx(() -> db.table(BadToStringEntity.class).insert(entity)));
+        assertThat(db.tx(() -> db.table(BadToStringEntity.class).find(entity.getId()))).isEqualTo(entity);
+        assertThat(db.tx(() -> db.table(BadToStringEntity.class).find(Set.of(entity.getId()))))
+                .singleElement().isEqualTo(entity);
+        assertThat(db.tx(() -> db.table(BadToStringEntity.class).query()
+                .ids(Set.of(entity.getId()))
+                .findOne())
+        ).isEqualTo(entity);
+        assertThat(db.tx(() -> db.table(BadToStringEntity.class).query()
+                .where("id").in(entity.getId())
+                .findOne())
+        ).isEqualTo(entity);
+        assertThat(db.tx(() -> db.table(BadToStringEntity.class).query()
+                .where("id").eq(entity.getId())
+                .and("toStringDuration").isNull()
+                .findOne())
+        ).isEqualTo(entity);
+    }
+
+    @Test(timeout = 30_000L)
+    public void toStringSlow() {
+        var loggerName = "tech.ydb.yoj.repository.db";
+        var config = LoggerContext.getContext().getConfiguration();
+        var prevLoggerLevel = config.getLoggerConfig(loggerName).getLevel();
+        try {
+            Configurator.setLevel(loggerName, Level.ERROR);
+
+            var entity = new BadToStringEntity(new BadToStringEntity.Id("id"), Duration.ofMinutes(5));
+            db.tx(() -> db.table(BadToStringEntity.class).save(entity));
+            assertThatExceptionOfType(EntityAlreadyExistsException.class)
+                    .isThrownBy(() -> db.withMaxRetries(0).tx(() -> db.table(BadToStringEntity.class).insert(entity)));
+            assertThat(db.tx(() -> db.table(BadToStringEntity.class).find(entity.getId()))).isEqualTo(entity);
+            assertThat(db.tx(() -> db.table(BadToStringEntity.class).find(Set.of(entity.getId()))))
+                    .singleElement().isEqualTo(entity);
+            assertThat(db.tx(() -> db.table(BadToStringEntity.class).query()
+                    .ids(Set.of(entity.getId()))
+                    .findOne())
+            ).isEqualTo(entity);
+            assertThat(db.tx(() -> db.table(BadToStringEntity.class).query()
+                    .where("id").in(entity.getId())
+                    .findOne())
+            ).isEqualTo(entity);
+            assertThat(db.tx(() -> db.table(BadToStringEntity.class).query()
+                    .where("id").eq(entity.getId())
+                    .and("toStringDuration").isNotNull()
+                    .findOne())
+            ).isEqualTo(entity);
+        } finally {
+            Configurator.setLevel(loggerName, prevLoggerLevel);
+        }
+    }
+
     protected void runInTx(Consumer<RepositoryTransaction> action) {
-        // We do not retry transactions, because we do not expect conflicts in our test scenarios.
+        // We do *not* retry low-level transactions (`RepositoryTransaction`s) because we don't expect to get conflicts
+        // in our test scenarios
         RepositoryTransaction transaction = startTransaction();
         try {
             action.accept(transaction);

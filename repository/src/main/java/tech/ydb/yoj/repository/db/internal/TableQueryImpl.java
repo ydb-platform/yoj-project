@@ -1,7 +1,11 @@
-package tech.ydb.yoj.repository.db;
+package tech.ydb.yoj.repository.db.internal;
 
 import com.google.common.collect.Sets;
-import tech.ydb.yoj.InternalApi;
+import tech.ydb.yoj.repository.db.Entity;
+import tech.ydb.yoj.repository.db.EntityExpressions;
+import tech.ydb.yoj.repository.db.EntityIdSchema;
+import tech.ydb.yoj.repository.db.Table;
+import tech.ydb.yoj.repository.db.TableQueryBuilder;
 import tech.ydb.yoj.repository.db.cache.FirstLevelCache;
 import tech.ydb.yoj.repository.db.list.ListRequest;
 
@@ -20,7 +24,6 @@ import static java.util.stream.Collectors.toSet;
  * This class is <strong>not</strong> part of the public API and <strong>should not</strong>
  * be used directly by client code.
  */
-@InternalApi
 public final class TableQueryImpl {
     private TableQueryImpl() {
     }

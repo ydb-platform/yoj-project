@@ -7,6 +7,8 @@ import tech.ydb.yoj.repository.db.TableDescriptor;
 import java.util.Map;
 import java.util.function.Function;
 
+import static tech.ydb.yoj.util.lang.Strings.lazyDebugMsg;
+
 public class DeleteByIdStatement<IN, T extends Entity<T>> extends MultipleVarsYqlStatement.Simple<IN, T> {
     public DeleteByIdStatement(TableDescriptor<T> tableDescriptor, EntitySchema<T> schema) {
         super(tableDescriptor, schema);
@@ -30,7 +32,7 @@ public class DeleteByIdStatement<IN, T extends Entity<T>> extends MultipleVarsYq
     }
 
     @Override
-    public String toDebugString(IN in) {
-        return "delete(" + toDebugParams(in) + ")";
+    public Object toDebugString(IN in) {
+        return lazyDebugMsg("delete(%s)", toDebugParams(in));
     }
 }

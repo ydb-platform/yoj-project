@@ -4,6 +4,7 @@ import lombok.NonNull;
 import tech.ydb.yoj.repository.db.Entity;
 import tech.ydb.yoj.repository.db.Repository;
 import tech.ydb.yoj.repository.db.TableDescriptor;
+import tech.ydb.yoj.repository.test.sample.model.BadToStringEntity;
 import tech.ydb.yoj.repository.test.sample.model.Book;
 import tech.ydb.yoj.repository.test.sample.model.Bubble;
 import tech.ydb.yoj.repository.test.sample.model.BytePkEntity;
@@ -64,7 +65,8 @@ public final class TestEntities {
             MultiWrappedEntity2.class,
             UniqueEntity.class,
             UniqueEntityNative.class,
-            EnumEntity.class
+            EnumEntity.class,
+            BadToStringEntity.class
     );
 
     public static final List<TableDescriptor<?>> ALL_TABLE_DESCRIPTORS = List.of(

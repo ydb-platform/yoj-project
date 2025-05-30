@@ -33,6 +33,7 @@ import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toCollection;
 import static java.util.stream.Collectors.toUnmodifiableMap;
 import static java.util.stream.Collectors.toUnmodifiableSet;
+import static tech.ydb.yoj.util.lang.Strings.lazyDebugMsg;
 
 /**
  * <p>Creates statement for {@code SELECT ... WHERE PK IN (PK1, PK2, ...)}. {@code PK} can be both
@@ -114,7 +115,7 @@ public final class FindInStatement<IN, T extends Entity<T>, RESULT> extends Mult
     private final String indexName;
     private final Schema<?> keySchema;
     private final Set<String> keyFields;
-    private final PredicateClause<T> predicate;
+    private final PredicateClause<T> predicateClause;
     private final OrderExpression<T> orderBy;
     private final Integer limit;
 
@@ -183,9 +184,9 @@ public final class FindInStatement<IN, T extends Entity<T>, RESULT> extends Mult
         this.keySchema = keySchema;
         this.keyFields = keyFields;
         if (filter != null) {
-            this.predicate = new PredicateClause<>(tableDescriptor, schema, YqlListingQuery.toYqlPredicate(filter));
+            this.predicateClause = new PredicateClause<>(tableDescriptor, schema, YqlListingQuery.toYqlPredicate(filter));
         } else {
-            this.predicate = null;
+            this.predicateClause = null;
         }
 
         validateOrderByFields();
@@ -332,11 +333,11 @@ public final class FindInStatement<IN, T extends Entity<T>, RESULT> extends Mult
     public String getQuery(String tablespace) {
         return declarations() +
                 "SELECT " + outNames() + "\n" +
-                (hasPredicate() ? "FROM (\nSELECT " + allColumnNames() + "\n" : "") +
+                (hasPredicateClause() ? "FROM (\nSELECT " + allColumnNames() + "\n" : "") +
                 "FROM AS_TABLE(" + listName + ") AS k\n" +
                 "JOIN " + table(tablespace) + indexUsage() + " AS t\n" +
                 "ON " + joinExpression() + "\n" +
-                (hasPredicate() ? ")\n" : "") +
+                (hasPredicateClause() ? ")\n" : "") +
                 predicateClause() +
                 orderByClause() +
                 limitClause();
@@ -352,10 +353,10 @@ public final class FindInStatement<IN, T extends Entity<T>, RESULT> extends Mult
 
     @Override
     public Map<String, ValueProtos.TypedValue> toQueryParameters(IN in) {
-        if (hasPredicate()) {
+        if (hasPredicateClause()) {
             return ImmutableMap.<String, ValueProtos.TypedValue>builder()
                     .putAll(super.toQueryParameters(in))
-                    .putAll(predicate.toQueryParameters())
+                    .putAll(predicateClause.toQueryParameters())
                     .build();
         }
 
@@ -381,7 +382,7 @@ public final class FindInStatement<IN, T extends Entity<T>, RESULT> extends Mult
     }
 
     private String getOutName(JavaField field) {
-        return hasPredicate() ? escape(field.getName()) : getAliasedName(field);
+        return hasPredicateClause() ? escape(field.getName()) : getAliasedName(field);
     }
 
     private String getAliasedName(JavaField field) {
@@ -415,21 +416,21 @@ public final class FindInStatement<IN, T extends Entity<T>, RESULT> extends Mult
     }
 
     private String predicateClauseDeclarations() {
-        return hasPredicate() ? predicate.declarations() : "";
+        return hasPredicateClause() ? predicateClause.declarations() : "";
     }
 
     private String predicateClause() {
-        return hasPredicate() ? predicate.getClause() : "";
+        return hasPredicateClause() ? predicateClause.getClause() : "";
     }
 
     @Override
-    public String toDebugString(IN in) {
-        return "findIn(" + toDebugParams(in) +
-                (isFindByIndex() ? " by index " + escape(indexName) : "") +
-                (hasPredicate() ? ", filter [" + predicate.toDebugString() + "]" : "") +
-                (hasOrderBy() ? ", orderBy [" + orderBy + "]" : "") +
-                (hasLimit() ? ", limit [" + limit + "]" : "") +
-                ")";
+    public Object toDebugString(IN in) {
+        return lazyDebugMsg("findIn(%s%s%s%s%s)",
+                toDebugParams(in),
+                (isFindByIndex() ? ", index [" + indexName + "]" : ""),
+                (hasPredicateClause() ? lazyDebugMsg(", filter [%s]", predicateClause.predicate) : ""),
+                (hasOrderBy() ? ", orderBy [" + orderBy + "]" : ""),
+                (hasLimit() ? ", limit [" + limit + "]" : ""));
     }
 
     private boolean isFindByIndex() {
@@ -444,16 +445,15 @@ public final class FindInStatement<IN, T extends Entity<T>, RESULT> extends Mult
         return orderBy != null;
     }
 
-    private boolean hasPredicate() {
-        return predicate != null;
+    private boolean hasPredicateClause() {
+        return predicateClause != null;
     }
 
-    private static class PredicateClause<T extends Entity<T>> extends PredicateStatement<Class<Void>, T, T> {
+    private static final class PredicateClause<T extends Entity<T>> extends PredicateStatement<Class<Void>, T, T> {
         private final YqlPredicate predicate;
 
         public PredicateClause(TableDescriptor<T> tableDescriptor, EntitySchema<T> schema, YqlPredicate predicate) {
             super(tableDescriptor, schema, schema, Void.class, __ -> predicate);
-
             this.predicate = predicate;
         }
 
@@ -468,11 +468,12 @@ public final class FindInStatement<IN, T extends Entity<T>, RESULT> extends Mult
 
         @Override
         public String getQuery(String tablespace) {
-            return "SELECT 1";
+            throw new UnsupportedOperationException("FindInStatement.PredicateClause.getQuery()");
         }
 
-        public String toDebugString() {
-            return toDebugString(Void.TYPE);
+        @Override
+        public String toString() {
+            return "FindInStatement.PredicateClause[" + predicate + "]";
         }
 
         public Map<String, ValueProtos.TypedValue> toQueryParameters() {
@@ -480,8 +481,8 @@ public final class FindInStatement<IN, T extends Entity<T>, RESULT> extends Mult
         }
 
         @Override
-        public String toDebugString(Class<Void> in) {
-            return predicate.toString();
+        public Object toDebugString(Class<Void> in) {
+            throw new UnsupportedOperationException("FindInStatement.PredicateClause.toDebugString()");
         }
     }
 }
