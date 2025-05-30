@@ -18,6 +18,7 @@ import static java.util.Collections.singletonMap;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
 import static tech.ydb.yoj.repository.db.EntityIdSchema.isIdField;
+import static tech.ydb.yoj.util.lang.Strings.debugResult;
 
 public abstract class MultipleVarsYqlStatement<PARAMS, ENTITY extends Entity<ENTITY>, RESULT> extends YqlStatement<PARAMS, ENTITY, RESULT> {
     public static final String listName = "$Input";
@@ -90,15 +91,8 @@ public abstract class MultipleVarsYqlStatement<PARAMS, ENTITY extends Entity<ENT
 
     protected abstract Function<PARAMS, Map<String, Object>> flattenInputVariables();
 
-    protected String toDebugParams(PARAMS params) {
-        if (params instanceof Collection<?> c) {
-            return switch (c.size()) {
-                case 0 -> "[]";
-                case 1 -> "[" + c.iterator().next() + "]";
-                default -> "[" + c.iterator().next() + ",...](" + c.size() + ")";
-            };
-        }
-        return String.valueOf(params);
+    protected Object toDebugParams(PARAMS params) {
+        return debugResult(params);
     }
 
     public abstract static class Simple<PARAMS, ENTITY extends Entity<ENTITY>>

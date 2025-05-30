@@ -39,13 +39,15 @@ public interface Statement<PARAMS, RESULT> {
     String getQuery(String tablespace);
 
     /**
-     * Returns debug representation of this query with the specified parameter values.
+     * Returns a debug representation (possibly a lazy one) of this query with the specified parameter values.
+     * Calling {@code toString()} on the debug representation will return a {@code String} with a textual representation
+     * of the statement and its parameters.
      *
      * @param params parameter values.
      *               Might be {@code null} depending on the statement type, e.g. for DELETE statements.
      * @return debug representation of the query parameterized with {@code params}
      */
-    String toDebugString(PARAMS params);
+    Object toDebugString(PARAMS params);
 
     // Parameters
 
