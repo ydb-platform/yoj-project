@@ -19,6 +19,7 @@ import java.util.stream.Stream;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toMap;
+import static tech.ydb.yoj.util.lang.Strings.lazyDebugMsg;
 
 public class FindRangeStatement<ENTITY extends Entity<ENTITY>, ID extends Entity.Id<ENTITY>, RESULT> extends YqlStatement<Range<ID>, ENTITY, RESULT> {
     @Getter
@@ -58,8 +59,8 @@ public class FindRangeStatement<ENTITY extends Entity<ENTITY>, ID extends Entity
     }
 
     @Override
-    public String toDebugString(Range<ID> idRange) {
-        return "find(" + idRange + ")";
+    public Object toDebugString(Range<ID> idRange) {
+        return lazyDebugMsg("find(%s)", idRange);
     }
 
     @Override
