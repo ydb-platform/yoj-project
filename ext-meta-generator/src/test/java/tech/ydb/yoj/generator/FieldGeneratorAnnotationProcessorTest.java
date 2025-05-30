@@ -76,7 +76,10 @@ public class FieldGeneratorAnnotationProcessorTest {
     @Test
     public void kotlinSourceClass() {
         // Prepare
-        SourceFile sourceFile = SourceFile.Companion.fromPath(new File("src/test/resources/input/KotlinDataClass.kt"));
+        SourceFile sourceFile = SourceFile.Companion.fromPath(
+                new File("src/test/resources/input/KotlinDataClass.kt"),
+                false
+        );
         KotlinCompilation compilation = new KotlinCompilation();
         compilation.setAnnotationProcessors(List.of(
                 new FieldGeneratorAnnotationProcessor()
