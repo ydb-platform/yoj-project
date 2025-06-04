@@ -548,9 +548,6 @@ public class YdbTable<T extends Entity<T>> implements Table<T> {
     @NonNull
     public T postLoad(T e) {
         T e1 = e.postLoad();
-        if (e1 != e) {
-            executor.getTransactionLocal().log().debug("    postLoad(%s) has diff", e1.getId());
-        }
         executor.getTransactionLocal().firstLevelCache(tableDescriptor).put(e1);
         executor.getTransactionLocal().projectionCache().load(e1);
         return e1;
