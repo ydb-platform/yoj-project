@@ -318,10 +318,10 @@ public class YdbRepositoryIntegrationTest extends RepositoryTest {
                 });
     }
 
-    @SneakyThrows
     @Test
+    @SneakyThrows
     public void truncated() {
-        int maxPageSizeBiggerThatReal = 100_000;
+        int maxPageSizeBiggerThatReal = 10_001;
         ListRequest.Builder<Project> builder = ListRequest.builder(Project.class);
         { // because we can't set pageSize bigger than 1k - we set it with reflection
             Field pageSizeField = builder.getClass().getDeclaredField("pageSize");

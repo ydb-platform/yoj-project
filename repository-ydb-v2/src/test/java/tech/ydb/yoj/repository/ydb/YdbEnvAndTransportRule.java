@@ -22,6 +22,9 @@ import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 
 public final class YdbEnvAndTransportRule implements TestRule {
+    public static final String YDB_VERSION = "24.4.4";
+    public static final int TABLESERVICE_MAX_RESULT_ROWS = 10_000;
+
     private final Instant started = Instant.now();
     private final GrpcTransportRule transportRule = new GrpcTransportRule();
 
@@ -33,7 +36,8 @@ public final class YdbEnvAndTransportRule implements TestRule {
                 List<Throwable> errors = new ArrayList<>();
                 try {
                     Map<String, String> evm = new HashMap<>();
-                    evm.put("YDB_DOCKER_IMAGE", "docker.io/ydbplatform/local-ydb:24.4.4");
+                    evm.put("YDB_DOCKER_IMAGE", "docker.io/ydbplatform/local-ydb:" + YDB_VERSION);
+                    evm.put("YDB_KQP_RESULT_ROWS_LIMIT", String.valueOf(TABLESERVICE_MAX_RESULT_ROWS));
 
                     Statement ydbEnrichedStatement;
 
