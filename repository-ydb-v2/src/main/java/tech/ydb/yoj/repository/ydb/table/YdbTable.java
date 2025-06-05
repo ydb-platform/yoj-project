@@ -51,7 +51,6 @@ import javax.annotation.Nullable;
 import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.Set;
 import java.util.function.BiFunction;
 import java.util.function.Function;
@@ -330,14 +329,22 @@ public class YdbTable<T extends Entity<T>> implements Table<T> {
     }
 
     @Override
-    public List<T> find(@Nullable String indexName, @Nullable FilterExpression<T> filter, @Nullable OrderExpression<T> orderBy, @Nullable Integer limit, @Nullable Long offset) {
+    public List<T> find(
+            @Nullable String indexName,
+            @Nullable FilterExpression<T> filter, @Nullable OrderExpression<T> orderBy,
+            @Nullable Integer limit, @Nullable Long offset
+    ) {
         List<YqlStatementPart<?>> statements = buildStatementParts(indexName, filter, orderBy, limit, offset);
 
         return find(statements);
     }
 
     @Override
-    public <ID extends Entity.Id<T>> List<ID> findIds(@Nullable String indexName, @Nullable FilterExpression<T> filter, @Nullable OrderExpression<T> orderBy, @Nullable Integer limit, @Nullable Long offset) {
+    public <ID extends Entity.Id<T>> List<ID> findIds(
+            @Nullable String indexName,
+            @Nullable FilterExpression<T> filter, @Nullable OrderExpression<T> orderBy,
+            @Nullable Integer limit, @Nullable Long offset
+    ) {
         List<YqlStatementPart<?>> statements = buildStatementParts(indexName, filter, orderBy, limit, offset);
 
         return findIds(statements);
@@ -347,10 +354,8 @@ public class YdbTable<T extends Entity<T>> implements Table<T> {
     public <V extends View> List<V> find(
             Class<V> viewType,
             @Nullable String indexName,
-            @Nullable FilterExpression<T> filter,
-            @Nullable OrderExpression<T> orderBy,
-            @Nullable Integer limit,
-            @Nullable Long offset,
+            @Nullable FilterExpression<T> filter, @Nullable OrderExpression<T> orderBy,
+            @Nullable Integer limit, @Nullable Long offset,
             boolean distinct
     ) {
         List<YqlStatementPart<?>> statements = buildStatementParts(indexName, filter, orderBy, limit, offset);
@@ -359,7 +364,11 @@ public class YdbTable<T extends Entity<T>> implements Table<T> {
     }
 
     @Override
-    public <ID extends Id<T>> List<T> find(Set<ID> ids, @Nullable FilterExpression<T> filter, @Nullable OrderExpression<T> orderBy, @Nullable Integer limit) {
+    public <ID extends Id<T>> List<T> find(
+            Set<ID> ids,
+            @Nullable FilterExpression<T> filter, @Nullable OrderExpression<T> orderBy,
+            @Nullable Integer limit
+    ) {
         if (ids.isEmpty()) {
             return List.of();
         }
@@ -374,7 +383,11 @@ public class YdbTable<T extends Entity<T>> implements Table<T> {
     }
 
     @Override
-    public <ID extends Entity.Id<T>> List<T> findUncached(Set<ID> ids, @Nullable FilterExpression<T> filter, @Nullable OrderExpression<T> orderBy, @Nullable Integer limit) {
+    public <ID extends Entity.Id<T>> List<T> findUncached(
+            Set<ID> ids,
+            @Nullable FilterExpression<T> filter, @Nullable OrderExpression<T> orderBy,
+            @Nullable Integer limit
+    ) {
         if (ids.isEmpty()) {
             return List.of();
         }
@@ -383,7 +396,12 @@ public class YdbTable<T extends Entity<T>> implements Table<T> {
     }
 
     @Override
-    public <V extends View, ID extends Id<T>> List<V> find(Class<V> viewType, Set<ID> ids, @Nullable FilterExpression<T> filter, @Nullable OrderExpression<T> orderBy, @Nullable Integer limit) {
+    public <V extends View, ID extends Id<T>> List<V> find(
+            Class<V> viewType,
+            Set<ID> ids,
+            @Nullable FilterExpression<T> filter, @Nullable OrderExpression<T> orderBy,
+            @Nullable Integer limit
+    ) {
         if (ids.isEmpty()) {
             return List.of();
         }
@@ -395,7 +413,11 @@ public class YdbTable<T extends Entity<T>> implements Table<T> {
     }
 
     @Override
-    public <K> List<T> find(String indexName, Set<K> keys, @Nullable FilterExpression<T> filter, @Nullable OrderExpression<T> orderBy, @Nullable Integer limit) {
+    public <K> List<T> find(
+            String indexName,
+            Set<K> keys,
+            @Nullable FilterExpression<T> filter, @Nullable OrderExpression<T> orderBy,
+            @Nullable Integer limit) {
         if (keys.isEmpty()) {
             return List.of();
         }
@@ -406,7 +428,13 @@ public class YdbTable<T extends Entity<T>> implements Table<T> {
     }
 
     @Override
-    public <V extends View, K> List<V> find(Class<V> viewType, String indexName, Set<K> keys, @Nullable FilterExpression<T> filter, @Nullable OrderExpression<T> orderBy, @Nullable Integer limit) {
+    public <V extends View, K> List<V> find(
+            Class<V> viewType,
+            String indexName,
+            Set<K> keys,
+            @Nullable FilterExpression<T> filter, @Nullable OrderExpression<T> orderBy,
+            @Nullable Integer limit
+    ) {
         if (keys.isEmpty()) {
             return List.of();
         }
@@ -418,22 +446,27 @@ public class YdbTable<T extends Entity<T>> implements Table<T> {
     }
 
     public static <T extends Entity<T>> List<YqlStatementPart<? extends YqlStatementPart<?>>> buildStatementParts(
-            @Nullable FilterExpression<T> filter, @Nullable OrderExpression<T> orderBy, @Nullable Integer limit, @Nullable Long offset) {
+            @Nullable FilterExpression<T> filter, @Nullable OrderExpression<T> orderBy,
+            @Nullable Integer limit, @Nullable Long offset
+    ) {
         return buildStatementParts(null, filter, orderBy, limit, offset);
     }
 
     public static <T extends Entity<T>> List<YqlStatementPart<? extends YqlStatementPart<?>>> buildStatementParts(
-            @Nullable String indexName, @Nullable FilterExpression<T> filter, @Nullable OrderExpression<T> orderBy, @Nullable Integer limit, @Nullable Long offset) {
-        Optional<Integer> limitO = Optional.ofNullable(limit);
-        Optional<Long> offsetO = Optional.ofNullable(offset);
-
+            @Nullable String indexName,
+            @Nullable FilterExpression<T> filter, @Nullable OrderExpression<T> orderBy,
+            @Nullable Integer limit, @Nullable Long offset
+    ) {
         YqlPredicate yqlFilter = filter == null ? null : YqlListingQuery.toYqlPredicate(filter);
         YqlOrderBy yqlOrderBy = orderBy == null ? null : YqlListingQuery.toYqlOrderBy(orderBy);
 
-        YqlLimit yqlLimit = null;
-        if (offsetO.orElse(0L) != 0L || limit != null) {
-            yqlLimit = YqlLimit.range(offsetO.orElse(0L), offsetO.orElse(0L)
-                    + limitO.orElseThrow(() -> new IllegalArgumentException("offset > 0 with limit=null is not supported")));
+        YqlLimit yqlLimit;
+        long offsetOrZero = offset == null ? 0L : offset;
+        if (limit == null) {
+            Preconditions.checkArgument(offsetOrZero == 0L, "nonzero offset without limit is not supported");
+            yqlLimit = null;
+        } else {
+            yqlLimit = YqlLimit.range(offsetOrZero, offsetOrZero + limit);
         }
 
         YqlView yqlView = indexName == null ? null : YqlView.index(indexName);
