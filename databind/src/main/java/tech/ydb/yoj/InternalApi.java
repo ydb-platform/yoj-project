@@ -18,7 +18,7 @@ import static java.lang.annotation.RetentionPolicy.SOURCE;
  * Annotates internal YOJ implementation details (classes, interfaces, methods, fields, constants, etc.) that need to be
  * {@code public} to be used from different and/or multiple packages, but are not stable even across minor YOJ releases.
  * <p>Non-{@code public} (e.g., package-private) classes, interfaces, methods, fields, constants etc. in YOJ are assumed
- * to be internal implementation details regardless of the presence of an {@code &#64;InternalApi} annotation on them.
+ * to be internal implementation details regardless of the presence of an {@code @InternalApi} annotation on them.
  */
 @Target({TYPE, FIELD, METHOD, PARAMETER, CONSTRUCTOR, ANNOTATION_TYPE, PACKAGE, MODULE, RECORD_COMPONENT})
 @Retention(SOURCE)

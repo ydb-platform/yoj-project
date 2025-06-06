@@ -3,6 +3,7 @@ package tech.ydb.yoj.repository.db;
 import com.google.common.reflect.TypeToken;
 import lombok.AccessLevel;
 import lombok.Getter;
+import tech.ydb.yoj.DeprecationWarnings;
 import tech.ydb.yoj.ExperimentalApi;
 import tech.ydb.yoj.databind.expression.FilterExpression;
 import tech.ydb.yoj.databind.expression.OrderExpression;
@@ -23,8 +24,22 @@ public abstract class AbstractDelegatingTable<T extends Entity<T>> implements Ta
         this.target = target;
     }
 
+    /**
+     * @deprecated This constructor uses reflection tricks to guess entity type for the table,
+     * and will be removed in YOJ 3.0.0.
+     * Please use {@link AbstractDelegatingTable#AbstractDelegatingTable(Class)} or
+     * {@link AbstractDelegatingTable#AbstractDelegatingTable(TableDescriptor)} instead.
+     */
+    @Deprecated(forRemoval = true)
     protected AbstractDelegatingTable() {
+        DeprecationWarnings.warnOnce("new AbstractDelegatingTable()",
+                "Nullary AbstractDelegatingTable constructor will be removed in YOJ 3.0.0. "
+                + "Please use 1-arg Class<T> or TableDescriptor<T> constructor instead");
         this.target = BaseDb.current(BaseDb.class).table(resolveEntityType());
+    }
+
+    protected AbstractDelegatingTable(Class<T> entityType) {
+        this.target = BaseDb.current(BaseDb.class).table(entityType);
     }
 
     @ExperimentalApi(issue = "https://github.com/ydb-platform/yoj-project/issues/32")
@@ -36,6 +51,11 @@ public abstract class AbstractDelegatingTable<T extends Entity<T>> implements Ta
     private Class<T> resolveEntityType() {
         return (Class<T>) (new TypeToken<T>(getClass()) {
         }).getRawType();
+    }
+
+    @Override
+    public TableQueryBuilder<T> query() {
+        return target.query();
     }
 
     @Override

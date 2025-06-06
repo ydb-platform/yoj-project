@@ -1,6 +1,7 @@
 package tech.ydb.yoj.repository.db.list;
 
 import lombok.NonNull;
+import tech.ydb.yoj.InternalApi;
 import tech.ydb.yoj.databind.expression.AndExpr;
 import tech.ydb.yoj.databind.expression.FilterExpression;
 import tech.ydb.yoj.databind.expression.ListExpr;
@@ -13,6 +14,8 @@ import tech.ydb.yoj.databind.expression.values.FieldValue;
 import tech.ydb.yoj.databind.schema.Schema;
 import tech.ydb.yoj.databind.schema.Schema.JavaField;
 import tech.ydb.yoj.repository.db.Entity;
+import tech.ydb.yoj.repository.db.EntitySchema;
+import tech.ydb.yoj.repository.db.TableQueryImpl;
 import tech.ydb.yoj.util.function.StreamSupplier;
 
 import javax.annotation.Nullable;
@@ -37,10 +40,17 @@ import static tech.ydb.yoj.repository.db.EntityIdSchema.SORT_ENTITY_BY_ID;
 public final class InMemoryQueries {
     public static <T extends Entity<T>> ListResult<T> list(@NonNull StreamSupplier<T> streamSupplier,
                                                            @NonNull ListRequest<T> request) {
+        var schema = request.getSchema();
+        if (!(schema instanceof EntitySchema<T> entitySchema)) {
+            throw new IllegalArgumentException("Expected EntitySchema but got schema of type "
+                    + schema.getClass().getName());
+        }
+
         return ListResult.forPage(
                 request,
-                find(
+                TableQueryImpl.find(
                         streamSupplier,
+                        entitySchema,
                         request.getFilter(),
                         request.getOrderBy(),
                         request.getPageSize() + 1,
@@ -49,6 +59,14 @@ public final class InMemoryQueries {
         );
     }
 
+    /**
+     * @deprecated End-users should use {@link #list(StreamSupplier, ListRequest)} instead of this implementation detail.
+     * Internal YOJ implementation should instead call
+     * {@link tech.ydb.yoj.repository.db.TableQueryImpl#find(StreamSupplier, EntitySchema, FilterExpression, OrderExpression, Integer, Long)}.
+     * <p>This method will be removed in YOJ 2.7.0.
+     */
+    @InternalApi
+    @Deprecated(forRemoval = true)
     public static <T extends Entity<T>> List<T> find(@NonNull StreamSupplier<T> streamSupplier,
                                                      @Nullable FilterExpression<T> filter,
                                                      @Nullable OrderExpression<T> orderBy,
