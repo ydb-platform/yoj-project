@@ -26,10 +26,12 @@ import static tech.ydb.yoj.databind.expression.ScalarExpr.Operator.ENDS_WITH;
 import static tech.ydb.yoj.databind.expression.ScalarExpr.Operator.EQ;
 import static tech.ydb.yoj.databind.expression.ScalarExpr.Operator.GT;
 import static tech.ydb.yoj.databind.expression.ScalarExpr.Operator.GTE;
+import static tech.ydb.yoj.databind.expression.ScalarExpr.Operator.ICONTAINS;
 import static tech.ydb.yoj.databind.expression.ScalarExpr.Operator.LT;
 import static tech.ydb.yoj.databind.expression.ScalarExpr.Operator.LTE;
 import static tech.ydb.yoj.databind.expression.ScalarExpr.Operator.NEQ;
 import static tech.ydb.yoj.databind.expression.ScalarExpr.Operator.NOT_CONTAINS;
+import static tech.ydb.yoj.databind.expression.ScalarExpr.Operator.NOT_ICONTAINS;
 import static tech.ydb.yoj.databind.expression.ScalarExpr.Operator.STARTS_WITH;
 
 @RequiredArgsConstructor(access = PRIVATE)
@@ -258,6 +260,18 @@ public final class FilterBuilder<T> {
         @NonNull
         public FilterBuilder<T> doesNotContain(@NonNull String value) {
             current = finisher.apply(new ScalarExpr<>(schema, generated, field, NOT_CONTAINS, fieldValue(value)));
+            return FilterBuilder.this;
+        }
+
+        @NonNull
+        public FilterBuilder<T> containsIgnoreCase(@NonNull String value) {
+            current = finisher.apply(new ScalarExpr<>(schema, generated, field, ICONTAINS, fieldValue(value)));
+            return FilterBuilder.this;
+        }
+
+        @NonNull
+        public FilterBuilder<T> doesNotContainIgnoreCase(@NonNull String value) {
+            current = finisher.apply(new ScalarExpr<>(schema, generated, field, NOT_ICONTAINS, fieldValue(value)));
             return FilterBuilder.this;
         }
 
