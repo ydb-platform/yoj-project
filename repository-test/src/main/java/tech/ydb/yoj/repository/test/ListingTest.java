@@ -544,6 +544,24 @@ public abstract class ListingTest extends RepositoryTestSupport {
     }
 
     @Test
+    public void iContains() {
+        LogEntry e1 = new LogEntry(new LogEntry.Id("log1", 1L), LogEntry.Level.ERROR, "earliest msg");
+        LogEntry notInOutput = new LogEntry(new LogEntry.Id("log2", 2L), LogEntry.Level.DEBUG, "will be ignored");
+        LogEntry e2 = new LogEntry(new LogEntry.Id("log1", 4L), LogEntry.Level.WARN, "middle msg");
+        LogEntry e3 = new LogEntry(new LogEntry.Id("log1", 5L), LogEntry.Level.INFO, "latest msg");
+        db.tx(() -> db.logEntries().insert(e1, e2, notInOutput, e3));
+
+        db.tx(() -> {
+            ListResult<LogEntry> page = listLogEntries(ListRequest.builder(LogEntry.class)
+                    .pageSize(100)
+                    .filter(fb -> fb.where("message").iContains("MsG"))
+                    .build());
+            assertThat(page).containsExactly(e1, e2, e3);
+            assertThat(page.isLastPage()).isTrue();
+        });
+    }
+
+    @Test
     public void notContains() {
         LogEntry e1 = new LogEntry(new LogEntry.Id("log1", 1L), LogEntry.Level.ERROR, "earliest msg");
         LogEntry inOutput = new LogEntry(new LogEntry.Id("log2", 2L), LogEntry.Level.DEBUG, "will be ignored");
