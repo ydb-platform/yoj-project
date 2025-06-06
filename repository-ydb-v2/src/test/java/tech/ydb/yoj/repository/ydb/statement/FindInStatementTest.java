@@ -92,7 +92,7 @@ public class FindInStatementTest {
                 ENTITY_SCHEMA, ENTITY_SCHEMA, IDS, null, null, null
         );
 
-        assertThat(statement.toDebugString(IDS)).isNotBlank();
+        assertThat(statement.toDebugString(IDS)).asString().isNotBlank();
     }
 
     @Test
@@ -101,7 +101,7 @@ public class FindInStatementTest {
                 ENTITY_SCHEMA, ENTITY_SCHEMA, IDS, null, DEFAULT_ORDER, null
         );
 
-        assertThat(statement.toDebugString(IDS)).isNotBlank();
+        assertThat(statement.toDebugString(IDS)).asString().isNotBlank();
     }
 
     @Test
