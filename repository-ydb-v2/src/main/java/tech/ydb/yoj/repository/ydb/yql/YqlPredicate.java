@@ -190,19 +190,19 @@ public abstract class YqlPredicate implements YqlStatementPart<YqlPredicate> {
         return new LikePredicate<>(NOT_LIKE, fieldPath, value, escape);
     }
 
-    public static YqlPredicate iLike(@NonNull String fieldPath, @NonNull String value) {
-        return iLike(fieldPath, value, null);
+    public static YqlPredicate likeIgnoreCase(@NonNull String fieldPath, @NonNull String value) {
+        return likeIgnoreCase(fieldPath, value, null);
     }
 
-    public static YqlPredicate iLike(@NonNull String fieldPath, @NonNull String value, @Nullable Character escape) {
+    public static YqlPredicate likeIgnoreCase(@NonNull String fieldPath, @NonNull String value, @Nullable Character escape) {
         return new LikePredicate<>(ILIKE, fieldPath, value, escape);
     }
 
-    public static YqlPredicate notILike(@NonNull String fieldPath, @NonNull String value) {
-        return notILike(fieldPath, value, null);
+    public static YqlPredicate notLikeIgnoreCase(@NonNull String fieldPath, @NonNull String value) {
+        return notLikeIgnoreCase(fieldPath, value, null);
     }
 
-    public static YqlPredicate notILike(@NonNull String fieldPath, @NonNull String value, @Nullable Character escape) {
+    public static YqlPredicate notLikeIgnoreCase(@NonNull String fieldPath, @NonNull String value, @Nullable Character escape) {
         return new LikePredicate<>(NOT_ILIKE, fieldPath, value, escape);
     }
 
@@ -979,20 +979,20 @@ public abstract class YqlPredicate implements YqlStatementPart<YqlPredicate> {
             return finisher.apply(YqlPredicate.notLike(fieldPath, value, escape));
         }
 
-        public YqlPredicate iLike(@NonNull String value) {
-            return iLike(value, null);
+        public YqlPredicate likeIgnoreCase(@NonNull String value) {
+            return likeIgnoreCase(value, null);
         }
 
-        public YqlPredicate iLike(@NonNull String value, @Nullable Character escape) {
-            return finisher.apply(YqlPredicate.iLike(fieldPath, value, escape));
+        public YqlPredicate likeIgnoreCase(@NonNull String value, @Nullable Character escape) {
+            return finisher.apply(YqlPredicate.likeIgnoreCase(fieldPath, value, escape));
         }
 
-        public YqlPredicate notILike(@NonNull String value) {
-            return notILike(value, null);
+        public YqlPredicate notLikeIgnoreCase(@NonNull String value) {
+            return notLikeIgnoreCase(value, null);
         }
 
-        public YqlPredicate notILike(@NonNull String value, @Nullable Character escape) {
-            return finisher.apply(YqlPredicate.notILike(fieldPath, value, escape));
+        public YqlPredicate notLikeIgnoreCase(@NonNull String value, @Nullable Character escape) {
+            return finisher.apply(YqlPredicate.notLikeIgnoreCase(fieldPath, value, escape));
         }
 
         public YqlPredicate isNull() {

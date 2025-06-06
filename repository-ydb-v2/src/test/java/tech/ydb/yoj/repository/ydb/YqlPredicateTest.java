@@ -15,14 +15,14 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static tech.ydb.yoj.repository.ydb.yql.YqlPredicate.eq;
 import static tech.ydb.yoj.repository.ydb.yql.YqlPredicate.gt;
 import static tech.ydb.yoj.repository.ydb.yql.YqlPredicate.gte;
-import static tech.ydb.yoj.repository.ydb.yql.YqlPredicate.iLike;
+import static tech.ydb.yoj.repository.ydb.yql.YqlPredicate.likeIgnoreCase;
 import static tech.ydb.yoj.repository.ydb.yql.YqlPredicate.in;
 import static tech.ydb.yoj.repository.ydb.yql.YqlPredicate.like;
 import static tech.ydb.yoj.repository.ydb.yql.YqlPredicate.lt;
 import static tech.ydb.yoj.repository.ydb.yql.YqlPredicate.lte;
 import static tech.ydb.yoj.repository.ydb.yql.YqlPredicate.neq;
 import static tech.ydb.yoj.repository.ydb.yql.YqlPredicate.not;
-import static tech.ydb.yoj.repository.ydb.yql.YqlPredicate.notILike;
+import static tech.ydb.yoj.repository.ydb.yql.YqlPredicate.notLikeIgnoreCase;
 import static tech.ydb.yoj.repository.ydb.yql.YqlPredicate.notLike;
 import static tech.ydb.yoj.repository.ydb.yql.YqlPredicate.where;
 
@@ -101,43 +101,43 @@ public class YqlPredicateTest {
     }
 
     @Test
-    public void rel_iLike_fluent() {
-        assertThat(where("status").iLike("%OK%").toYql(schema)).isEqualToIgnoringCase("`status` ILIKE ?");
+    public void rel_likeIgnoreCase_fluent() {
+        assertThat(where("status").likeIgnoreCase("%OK%").toYql(schema)).isEqualToIgnoringCase("`status` ILIKE ?");
     }
 
     @Test
-    public void rel_iLike_chained() {
-        assertThat(iLike("status", "%OK%").toYql(schema)).isEqualToIgnoringCase("`status` ILIKE ?");
+    public void rel_likeIgnoreCase_chained() {
+        assertThat(YqlPredicate.likeIgnoreCase("status", "%OK%").toYql(schema)).isEqualToIgnoringCase("`status` ILIKE ?");
     }
 
     @Test
-    public void rel_not_iLike_fluent() {
-        assertThat(not(where("status").iLike("%OK%")).toYql(schema)).isEqualToIgnoringCase("`status` NOT ILIKE ?");
+    public void rel_not_likeIgnoreCase_fluent() {
+        assertThat(not(where("status").likeIgnoreCase("%OK%")).toYql(schema)).isEqualToIgnoringCase("`status` NOT ILIKE ?");
     }
 
     @Test
-    public void rel_not_iLike_chained() {
-        assertThat(not(iLike("status", "%OK%")).toYql(schema)).isEqualToIgnoringCase("`status` NOT ILIKE ?");
+    public void rel_not_likeIgnoreCase_chained() {
+        assertThat(not(YqlPredicate.likeIgnoreCase("status", "%OK%")).toYql(schema)).isEqualToIgnoringCase("`status` NOT ILIKE ?");
     }
 
     @Test
-    public void rel_notILike_fluent() {
-        assertThat(where("status").notILike("%OK%").toYql(schema)).isEqualToIgnoringCase("`status` NOT ILIKE ?");
+    public void rel_notLikeIgnoreCase_fluent() {
+        assertThat(where("status").notLikeIgnoreCase("%OK%").toYql(schema)).isEqualToIgnoringCase("`status` NOT ILIKE ?");
     }
 
     @Test
-    public void rel_notILike_chained() {
-        assertThat(notILike("status", "%OK%").toYql(schema)).isEqualToIgnoringCase("`status` NOT ILIKE ?");
+    public void rel_notLikeIgnoreCase_chained() {
+        assertThat(YqlPredicate.notLikeIgnoreCase("status", "%OK%").toYql(schema)).isEqualToIgnoringCase("`status` NOT ILIKE ?");
     }
 
     @Test
-    public void rel_not_notILike_fluent() {
-        assertThat(not(where("status").notILike("%OK%")).toYql(schema)).isEqualToIgnoringCase("`status` ILIKE ?");
+    public void rel_not_notLikeIgnoreCase_fluent() {
+        assertThat(not(where("status").notLikeIgnoreCase("%OK%")).toYql(schema)).isEqualToIgnoringCase("`status` ILIKE ?");
     }
 
     @Test
-    public void rel_not_notILike_chained() {
-        assertThat(not(notILike("status", "%OK%")).toYql(schema)).isEqualToIgnoringCase("`status` ILIKE ?");
+    public void rel_not_notLikeIgnoreCase_chained() {
+        assertThat(not(YqlPredicate.notLikeIgnoreCase("status", "%OK%")).toYql(schema)).isEqualToIgnoringCase("`status` ILIKE ?");
     }
 
     @Test
@@ -181,43 +181,43 @@ public class YqlPredicateTest {
     }
 
     @Test
-    public void rel_iLike_escape_fluent() {
-        assertThat(where("status").iLike("%OK/_%", '/').toYql(schema)).isEqualToIgnoringCase("`status` ILIKE ? ESCAPE '/'");
+    public void rel_likeIgnoreCase_escape_fluent() {
+        assertThat(where("status").likeIgnoreCase("%OK/_%", '/').toYql(schema)).isEqualToIgnoringCase("`status` ILIKE ? ESCAPE '/'");
     }
 
     @Test
-    public void rel_iLike_escape_chained() {
-        assertThat(iLike("status", "%OK/_%", '/').toYql(schema)).isEqualToIgnoringCase("`status` ILIKE ? ESCAPE '/'");
+    public void rel_likeIgnoreCase_escape_chained() {
+        assertThat(likeIgnoreCase("status", "%OK/_%", '/').toYql(schema)).isEqualToIgnoringCase("`status` ILIKE ? ESCAPE '/'");
     }
 
     @Test
-    public void rel_not_iLike_escape_fluent() {
-        assertThat(not(where("status").iLike("%OK/_%", '/')).toYql(schema)).isEqualToIgnoringCase("`status` NOT ILIKE ? ESCAPE '/'");
+    public void rel_not_likeIgnoreCase_escape_fluent() {
+        assertThat(not(where("status").likeIgnoreCase("%OK/_%", '/')).toYql(schema)).isEqualToIgnoringCase("`status` NOT ILIKE ? ESCAPE '/'");
     }
 
     @Test
-    public void rel_not_iLike_escape_chained() {
-        assertThat(not(iLike("status", "%OK/_%", '/')).toYql(schema)).isEqualToIgnoringCase("`status` NOT ILIKE ? ESCAPE '/'");
+    public void rel_not_likeIgnoreCase_escape_chained() {
+        assertThat(not(likeIgnoreCase("status", "%OK/_%", '/')).toYql(schema)).isEqualToIgnoringCase("`status` NOT ILIKE ? ESCAPE '/'");
     }
 
     @Test
-    public void rel_notILike_escape_fluent() {
-        assertThat(where("status").notILike("%OK/_%", '/').toYql(schema)).isEqualToIgnoringCase("`status` NOT ILIKE ? ESCAPE '/'");
+    public void rel_notLikeIgnoreCase_escape_fluent() {
+        assertThat(where("status").notLikeIgnoreCase("%OK/_%", '/').toYql(schema)).isEqualToIgnoringCase("`status` NOT ILIKE ? ESCAPE '/'");
     }
 
     @Test
-    public void rel_notILike_escape_chained() {
-        assertThat(notILike("status", "%OK/_%", '/').toYql(schema)).isEqualToIgnoringCase("`status` NOT ILIKE ? ESCAPE '/'");
+    public void rel_notLikeIgnoreCase_escape_chained() {
+        assertThat(notLikeIgnoreCase("status", "%OK/_%", '/').toYql(schema)).isEqualToIgnoringCase("`status` NOT ILIKE ? ESCAPE '/'");
     }
 
     @Test
-    public void rel_not_notILike_escape_fluent() {
-        assertThat(not(where("status").notILike("%OK/_%", '/')).toYql(schema)).isEqualToIgnoringCase("`status` ILIKE ? ESCAPE '/'");
+    public void rel_not_notLikeIgnoreCase_escape_fluent() {
+        assertThat(not(where("status").notLikeIgnoreCase("%OK/_%", '/')).toYql(schema)).isEqualToIgnoringCase("`status` ILIKE ? ESCAPE '/'");
     }
 
     @Test
-    public void rel_not_notILike_escape_chained() {
-        assertThat(not(notILike("status", "%OK/_%", '/')).toYql(schema)).isEqualToIgnoringCase("`status` ILIKE ? ESCAPE '/'");
+    public void rel_not_notLikeIgnoreCase_escape_chained() {
+        assertThat(not(notLikeIgnoreCase("status", "%OK/_%", '/')).toYql(schema)).isEqualToIgnoringCase("`status` ILIKE ? ESCAPE '/'");
     }
 
     @Test

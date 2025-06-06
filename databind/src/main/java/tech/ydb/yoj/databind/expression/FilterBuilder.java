@@ -264,13 +264,13 @@ public final class FilterBuilder<T> {
         }
 
         @NonNull
-        public FilterBuilder<T> iContains(@NonNull String value) {
+        public FilterBuilder<T> containsIgnoreCase(@NonNull String value) {
             current = finisher.apply(new ScalarExpr<>(schema, generated, field, ICONTAINS, fieldValue(value)));
             return FilterBuilder.this;
         }
 
         @NonNull
-        public FilterBuilder<T> doesNotIContain(@NonNull String value) {
+        public FilterBuilder<T> doesNotContainIgnoreCase(@NonNull String value) {
             current = finisher.apply(new ScalarExpr<>(schema, generated, field, NOT_ICONTAINS, fieldValue(value)));
             return FilterBuilder.this;
         }

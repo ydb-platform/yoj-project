@@ -554,7 +554,7 @@ public abstract class ListingTest extends RepositoryTestSupport {
         db.tx(() -> {
             ListResult<LogEntry> page = listLogEntries(ListRequest.builder(LogEntry.class)
                     .pageSize(100)
-                    .filter(fb -> fb.where("message").iContains("MsG"))
+                    .filter(fb -> fb.where("message").containsIgnoreCase("MsG"))
                     .build());
             assertThat(page).containsExactly(e1, e2, e3);
             assertThat(page.isLastPage()).isTrue();

@@ -19,6 +19,7 @@ import javax.annotation.Nullable;
 import java.util.Comparator;
 import java.util.IdentityHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
 import java.util.function.Function;
@@ -94,8 +95,8 @@ public final class InMemoryQueries {
                     case CONTAINS -> obj -> contains((String) getActual.apply(obj), (String) expected);
                     case NOT_CONTAINS -> obj -> !contains((String) getActual.apply(obj), (String) expected);
                     case STARTS_WITH -> obj -> startsWith((String) getActual.apply(obj), (String) expected);
-                    case ICONTAINS -> obj -> iContains((String) getActual.apply(obj), (String) expected);
-                    case NOT_ICONTAINS -> obj -> !iContains((String) getActual.apply(obj), (String) expected);
+                    case ICONTAINS -> obj -> containsIgnoreCase((String) getActual.apply(obj), (String) expected);
+                    case NOT_ICONTAINS -> obj -> !containsIgnoreCase((String) getActual.apply(obj), (String) expected);
                     case ENDS_WITH -> obj -> endsWith((String) getActual.apply(obj), (String) expected);
                 };
             }
@@ -207,12 +208,12 @@ public final class InMemoryQueries {
         return input.contains(substring);
     }
 
-    private static boolean iContains(@Nullable String input, @Nullable String substring) {
+    private static boolean containsIgnoreCase(@Nullable String input, @Nullable String substring) {
         if (input == null || substring == null) {
             return false;
         }
 
-        return input.toLowerCase().contains(substring.toLowerCase());
+        return input.toLowerCase(Locale.ROOT).contains(substring.toLowerCase(Locale.ROOT));
     }
 
 
