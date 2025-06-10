@@ -1,5 +1,6 @@
 package tech.ydb.yoj.repository.ydb.statement;
 
+import com.google.common.base.Preconditions;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import tech.ydb.proto.ValueProtos;
@@ -31,6 +32,9 @@ public class FindRangeStatement<ENTITY extends Entity<ENTITY>, ID extends Entity
             Range<ID> range
     ) {
         super(tableDescriptor, schema, outSchema);
+        Preconditions.checkArgument(range.getType() == schema.getIdSchema(),
+                "ID schema mismatch: Range was constructed with a different ID schema than the YdbTable");
+
         this.params = Stream.of(RangeBound.values())
                 .flatMap(b -> toParams(b.map(range).keySet(), b))
                 .collect(toList());

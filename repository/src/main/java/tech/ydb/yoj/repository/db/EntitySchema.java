@@ -15,9 +15,11 @@ import java.util.Map;
 
 import static java.lang.String.format;
 import static lombok.AccessLevel.PACKAGE;
+import static tech.ydb.yoj.repository.db.EntityIdSchema.ID_FIELD_NAME;
 
 public final class EntitySchema<T extends Entity<T>> extends Schema<T> {
     private static final Type ENTITY_TYPE_PARAMETER = Entity.class.getTypeParameters()[0];
+    private static final Type ENTITY_ID_TYPE_PARAMETER = Entity.Id.class.getTypeParameters()[0];
 
     @Getter(PACKAGE)
     private final SchemaRegistry registry;
@@ -46,51 +48,49 @@ public final class EntitySchema<T extends Entity<T>> extends Schema<T> {
     }
 
     private EntitySchema(SchemaKey<T> key, Reflector reflector, SchemaRegistry registry) {
-        super(checkEntityType(key), reflector);
+        super(key, reflector);
+        checkEntityType();
+
         this.registry = registry;
     }
 
-    private static <T extends Entity<T>> SchemaKey<T> checkEntityType(SchemaKey<T> key) {
-        Class<T> entityType = key.clazz();
+    private void checkEntityType() {
+        Class<T> entityType = reflectType.getRawType();
 
         if (!Entity.class.isAssignableFrom(entityType)) {
             throw new IllegalArgumentException(format(
                     "Entity type [%s] must implement [%s]", entityType.getName(), Entity.class));
         }
 
-        Class<?> entityTypeFromEntityIface = resolveEntityTypeFromEntityIface(entityType);
+        TypeToken<T> entityGenericType = TypeToken.of(entityType);
+        Class<?> entityTypeFromEntityIface = entityGenericType.resolveType(ENTITY_TYPE_PARAMETER).getRawType();
         if (!entityTypeFromEntityIface.equals(entityType)) {
             throw new IllegalArgumentException(format(
                     "Entity type [%s] must implement [%s] specified by the same type, but it is specified by [%s]",
                     entityType.getName(), Entity.class, entityTypeFromEntityIface.getName()));
         }
 
-        Class<?> idFieldType;
-        try {
-            idFieldType = entityType.getDeclaredField(EntityIdSchema.ID_FIELD_NAME).getType();
-        } catch (NoSuchFieldException e) {
-            throw new IllegalArgumentException(format(
-                    "Entity type [%s] does not contain a mandatory \"%s\" field",
-                    entityType.getName(), EntityIdSchema.ID_FIELD_NAME));
-        }
+        ReflectField idField = reflectType.getFields().stream()
+                .filter(field -> ID_FIELD_NAME.equals(field.getName()))
+                .findAny()
+                .orElseThrow(() -> new IllegalArgumentException(format(
+                        "Entity type [%s] does not contain a mandatory \"%s\" field",
+                        entityType.getName(), ID_FIELD_NAME))
+                );
 
+        Class<?> idFieldType = idField.getType();
         if (!Entity.Id.class.isAssignableFrom(idFieldType)) {
             throw new IllegalArgumentException(format(
                     "Entity ID type [%s] must implement [%s]", idFieldType.getName(), Entity.Id.class));
         }
 
-        Class<?> entityTypeFromIdType = EntityIdSchema.resolveEntityType(idFieldType);
+        TypeToken<?> idFieldGenericType = TypeToken.of(idFieldType);
+        Class<?> entityTypeFromIdType = idFieldGenericType.resolveType(ENTITY_ID_TYPE_PARAMETER).getRawType();
         if (!entityTypeFromIdType.equals(entityType)) {
             throw new IllegalArgumentException(format(
                     "An identifier field \"%s\" has a type [%s] that is not an identifier type for an entity of type [%s]",
-                    EntityIdSchema.ID_FIELD_NAME, idFieldType.getName(), entityType.getName()));
+                    ID_FIELD_NAME, idFieldType.getName(), entityType.getName()));
         }
-
-        return key;
-    }
-
-    static Class<?> resolveEntityTypeFromEntityIface(Class<?> entityType) {
-        return TypeToken.of(entityType).resolveType(ENTITY_TYPE_PARAMETER).getRawType();
     }
 
     @Override

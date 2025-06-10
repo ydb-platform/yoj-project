@@ -3,6 +3,7 @@ package tech.ydb.yoj.repository.test.inmemory;
 import com.google.common.base.Stopwatch;
 import com.google.common.collect.Iterables;
 import lombok.Getter;
+import tech.ydb.yoj.DeprecationWarnings;
 import tech.ydb.yoj.repository.BaseDb;
 import tech.ydb.yoj.repository.db.Entity;
 import tech.ydb.yoj.repository.db.RepositoryTransaction;
@@ -57,7 +58,7 @@ public class InMemoryRepositoryTransaction implements BaseDb, RepositoryTransact
 
     @Override
     public <T extends Entity<T>> Table<T> table(Class<T> c) {
-        return new InMemoryTable<>(getMemory(c));
+        return new InMemoryTable<>(this, c);
     }
 
     @Override
@@ -65,8 +66,13 @@ public class InMemoryRepositoryTransaction implements BaseDb, RepositoryTransact
         return new InMemoryTable<>(this, tableDescriptor);
     }
 
-    @Deprecated // use other constructor of InMemoryTable
+    /**
+     * @deprecated {@code DbMemory} and this method will be removed in YOJ 3.0.0.
+     */
+    @Deprecated(forRemoval = true)
     public final <T extends Entity<T>> InMemoryTable.DbMemory<T> getMemory(Class<T> c) {
+        DeprecationWarnings.warnOnce("InMemoryTable.getMemory",
+                "InMemoryTable.getMemory(Class<T>) will be removed in YOJ 3.0.0. Please stop using this method"); 
         return new InMemoryTable.DbMemory<>(c, this);
     }
 

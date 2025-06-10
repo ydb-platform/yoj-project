@@ -3,7 +3,9 @@ package tech.ydb.yoj.repository.db;
 import com.google.common.base.Preconditions;
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
+import tech.ydb.yoj.DeprecationWarnings;
 import tech.ydb.yoj.ExperimentalApi;
+import tech.ydb.yoj.InternalApi;
 import tech.ydb.yoj.databind.expression.FilterBuilder;
 import tech.ydb.yoj.databind.expression.FilterExpression;
 import tech.ydb.yoj.databind.expression.OrderBuilder;
@@ -20,6 +22,7 @@ import static lombok.AccessLevel.PRIVATE;
 
 public final class TableQueryBuilder<T extends Entity<T>> {
     private final Table<T> table;
+    private final EntitySchema<T> schema;
 
     private Set<? extends Entity.Id<T>> ids;
     private Set<?> keys;
@@ -33,8 +36,34 @@ public final class TableQueryBuilder<T extends Entity<T>> {
 
     private OrderExpression<T> orderBy = null;
 
+    /**
+     * @deprecated Please use {@link TableQueryBuilder#TableQueryBuilder(Table, EntitySchema)} constructor instead.
+     */
+    @InternalApi
+    @Deprecated(forRemoval = true)
     public TableQueryBuilder(@NonNull Table<T> table) {
+        this(table, EntitySchema.of(table.getType()));
+        DeprecationWarnings.warnOnce("new TableQueryBuilder(Table)",
+                "Please use the 2-arg TableQueryBuilder constructor if you're implementing a table for new type of DB; "
+                        + "and delegate to Table.query() in all other scenarios");
+    }
+
+    /**
+     * Creates a query DSL for the specified table and entity schema.
+     * <p><strong>This constructor is an implementation detail</strong>, and should only be used when implementing
+     * a foundational type of table for a new type of database (e.g., what {@code YdbTable} is to YDB, and
+     * {@code InMemoryTable} is to in-memory YOJ DB implementation for tests).
+     * <p>In all other situations, you should obtain a {@code TableQueryBuilder} by calling {@link Table#query()}, and
+     * use whatever the {@code Table} returns. This includes implementing wrappers for {@code Table} (both subclasses
+     * of {@code AbstractDelegatingTable} and raw implementations of the {@code Table} interface).
+     *
+     * @param table  table which will run the queries
+     * @param schema entity schema to use for the queries
+     */
+    @InternalApi
+    public TableQueryBuilder(@NonNull Table<T> table, @NonNull EntitySchema<T> schema) {
         this.table = table;
+        this.schema = schema;
     }
 
     public long count() {
@@ -151,7 +180,7 @@ public final class TableQueryBuilder<T extends Entity<T>> {
         if (filterBuilder == null) {
             Preconditions.checkState(filter == null, "You can't use both .where/.and/.or and .filter methods");
 
-            filterBuilder = EntityExpressions.newFilterBuilder(table.getType());
+            filterBuilder = EntityExpressions.newFilterBuilder(schema);
         }
         return filterBuilder;
     }
@@ -205,7 +234,7 @@ public final class TableQueryBuilder<T extends Entity<T>> {
     @NonNull
     @ExperimentalApi(issue = "https://github.com/ydb-platform/yoj-project/issues/115")
     public TableQueryBuilder<T> unordered() {
-        return orderBy(EntityExpressions.unordered(table.getType()));
+        return orderBy(EntityExpressions.unordered(schema));
     }
 
     @NonNull
@@ -216,11 +245,11 @@ public final class TableQueryBuilder<T extends Entity<T>> {
 
     @NonNull
     public TableQueryBuilder<T> orderBy(@NonNull UnaryOperator<OrderBuilder<T>> orderBuilderOp) {
-        return orderBy(orderBuilderOp.apply(EntityExpressions.newOrderBuilder(table.getType())).build());
+        return orderBy(orderBuilderOp.apply(EntityExpressions.newOrderBuilder(schema)).build());
     }
 
     public TableQueryBuilder<T> defaultOrder() {
-        orderBy = EntityExpressions.defaultOrder(table.getType());
+        orderBy = EntityExpressions.defaultOrder(schema);
         return this;
     }
 
@@ -258,7 +287,7 @@ public final class TableQueryBuilder<T extends Entity<T>> {
     }
 
     private FilterExpression<T> buildFilterExpression(UnaryOperator<FilterBuilder<T>> filterBuilderOp) {
-        return filterBuilderOp.apply(EntityExpressions.newFilterBuilder(table.getType())).build();
+        return filterBuilderOp.apply(EntityExpressions.newFilterBuilder(schema)).build();
     }
 
     @RequiredArgsConstructor(access = PRIVATE)

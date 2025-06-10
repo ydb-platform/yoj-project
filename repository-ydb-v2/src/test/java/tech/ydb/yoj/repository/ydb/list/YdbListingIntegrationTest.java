@@ -41,7 +41,7 @@ public class YdbListingIntegrationTest extends ListingTest {
         assertThat(predicate.toYql(EntitySchema.of(Complex.class))).isEqualTo("(`id_a` = ?) AND (`id_b` = ?)");
 
         db.tx(() -> {
-            ListResult<Complex> page = listComplex(listRequest);
+            ListResult<Complex> page = db.complexes().list(listRequest);
             assertThat(page).containsExactly(c3, c2, c1);
             assertThat(page.isLastPage()).isTrue();
         });
