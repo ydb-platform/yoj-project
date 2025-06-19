@@ -15,7 +15,7 @@ Configuration:
       level: error
     - name: io.netty
       level: error
-    - name: tech.ydb.yoj.repository.db
+    - name: tech.ydb.yoj
       level: debug
     - name: tech.ydb
       level: info

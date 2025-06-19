@@ -21,6 +21,7 @@ public class TxOptions {
 
     boolean firstLevelCache;
 
+    @NonNull
     TransactionLog.Level logLevel;
 
     boolean logStatementOnSuccess;
@@ -32,6 +33,8 @@ public class TxOptions {
     boolean dryRun;
 
     boolean immediateWrites;
+
+    QueryStatsMode queryStats;
 
     public static TxOptions create(@NonNull IsolationLevel isolationLevel) {
         return builder()

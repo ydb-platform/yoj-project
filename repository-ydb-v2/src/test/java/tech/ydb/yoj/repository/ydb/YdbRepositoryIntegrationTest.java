@@ -34,8 +34,10 @@ import tech.ydb.yoj.databind.schema.Column;
 import tech.ydb.yoj.databind.schema.ObjectSchema;
 import tech.ydb.yoj.repository.db.EntitySchema;
 import tech.ydb.yoj.repository.db.IsolationLevel;
+import tech.ydb.yoj.repository.db.QueryStatsMode;
 import tech.ydb.yoj.repository.db.Repository;
 import tech.ydb.yoj.repository.db.RepositoryTransaction;
+import tech.ydb.yoj.repository.db.StdTxManager;
 import tech.ydb.yoj.repository.db.TableDescriptor;
 import tech.ydb.yoj.repository.db.Tx;
 import tech.ydb.yoj.repository.db.bulk.BulkParams;
@@ -988,6 +990,33 @@ public class YdbRepositoryIntegrationTest extends RepositoryTest {
         });
 
         assertThat(findFirstTableThenSecond).isEqualTo(findSecondTableThenFirst);
+    }
+
+    @Test
+    public void queryStatsCollectionMode() {
+        db.tx(() -> {
+            for (int i = 0; i < 1_000; i++) {
+                var ue = new UniqueProject(new UniqueProject.Id("id" + i), "valuableName-" + i, i);
+                db.table(UniqueProject.class).save(ue);
+            }
+        });
+
+        var found = new StdTxManager(repository)
+                .withName("query-stats")
+                .withVerboseLogging()
+                .withQueryStats(QueryStatsMode.FULL)
+                .readOnly()
+                .noFirstLevelCache()
+                .withStatementIsolationLevel(IsolationLevel.SNAPSHOT)
+                .run(() -> db.table(UniqueProject.class).query()
+                        .where("id").in(List.of(
+                                new UniqueProject.Id("id501"),
+                                new UniqueProject.Id("id502"),
+                                new UniqueProject.Id("id503"),
+                                new UniqueProject.Id("id999")
+                        ))
+                        .find());
+        assertThat(found).hasSize(4);
     }
 
     @AllArgsConstructor

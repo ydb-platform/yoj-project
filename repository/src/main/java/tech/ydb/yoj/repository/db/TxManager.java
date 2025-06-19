@@ -1,5 +1,6 @@
 package tech.ydb.yoj.repository.db;
 
+import lombok.NonNull;
 import tech.ydb.yoj.repository.db.cache.TransactionLog;
 import tech.ydb.yoj.repository.db.exception.DeadlineExceededException;
 import tech.ydb.yoj.repository.db.exception.OptimisticLockException;
@@ -141,7 +142,14 @@ public interface TxManager {
      *
      * @param timeout transaction timeout
      */
-    TxManager withTimeout(Duration timeout);
+    TxManager withTimeout(@NonNull Duration timeout);
+
+    /**
+     * Changes query statistics collection mode for this transaction's queries. (No statistics are collected by default.)
+     *
+     * @param queryStats statistics collection mode
+     */
+    TxManager withQueryStats(@NonNull QueryStatsMode queryStats);
 
     /**
      * Performs the specified action inside a transaction. The action must be idempotent, because it might be executed

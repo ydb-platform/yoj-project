@@ -164,12 +164,17 @@ public final class StdTxManager implements TxManager, TxManagerState {
     }
 
     @Override
-    public TxManager withTimeout(Duration timeout) {
+    public TxManager withTimeout(@NonNull Duration timeout) {
         return withOptions(this.options.withTimeoutOptions(new TxOptions.TimeoutOptions(timeout)));
     }
 
     @Override
-    public TxManager withLogLevel(TransactionLog.Level level) {
+    public TxManager withQueryStats(@NonNull QueryStatsMode queryStats) {
+        return withOptions(this.options.withQueryStats(queryStats));
+    }
+
+    @Override
+    public TxManager withLogLevel(@NonNull TransactionLog.Level level) {
         return withOptions(this.options.withLogLevel(level));
     }
 
