@@ -268,7 +268,7 @@ public class YdbRepositoryTransaction<REPO extends YdbRepository>
     }
 
     private String getYql(Statement<?, ?> statement) {
-        return "--!syntax_v1\n" + statement.getQuery(repo.getTablespace());
+        return statement.getQuery(repo.getTablespace());
     }
 
     private static <PARAMS> Params getSdkParams(Statement<PARAMS, ?> statement, PARAMS params) {
