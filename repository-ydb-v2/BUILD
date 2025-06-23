@@ -25,6 +25,7 @@ java_library(
         "@java_contribs_stable//:tech_ydb_ydb_sdk_core",
         "@java_contribs_stable//:tech_ydb_ydb_sdk_scheme",
         "@java_contribs_stable//:tech_ydb_ydb_sdk_table",
+        "@java_contribs_stable//:tech_ydb_ydb_sdk_topic",
     ],
 )
 
@@ -65,5 +66,6 @@ java_test_suite(
         "@java_contribs_stable//:tech_ydb_ydb_sdk_core",
         "@java_contribs_stable//:tech_ydb_ydb_sdk_scheme",
         "@java_contribs_stable//:tech_ydb_ydb_sdk_table",
+        "@java_contribs_stable//:tech_ydb_ydb_sdk_topic",
     ],
 )

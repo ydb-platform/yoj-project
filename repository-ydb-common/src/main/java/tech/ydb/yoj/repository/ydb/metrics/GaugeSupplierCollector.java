@@ -6,11 +6,13 @@ import io.prometheus.client.SimpleCollector;
 import lombok.experimental.Accessors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import tech.ydb.yoj.InternalApi;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Supplier;
 
+@InternalApi
 public class GaugeSupplierCollector extends SimpleCollector<GaugeSupplierCollector.Child> implements Collector.Describable {
     private static final Logger log = LoggerFactory.getLogger(GaugeSupplierCollector.class);
 

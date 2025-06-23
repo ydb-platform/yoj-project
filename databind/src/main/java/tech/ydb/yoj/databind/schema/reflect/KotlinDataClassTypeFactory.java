@@ -9,8 +9,8 @@ import java.lang.reflect.Method;
 
 import static java.util.Arrays.stream;
 
-public final class KotlinDataClassTypeFactory implements TypeFactory {
-    public static final TypeFactory instance = new KotlinDataClassTypeFactory();
+/*package*/ final class KotlinDataClassTypeFactory implements TypeFactory {
+    public static final TypeFactory INSTANCE = new KotlinDataClassTypeFactory();
 
     private static final int KIND_CLASS = 1;
 

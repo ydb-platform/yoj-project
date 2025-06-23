@@ -1,27 +1,30 @@
 package tech.ydb.yoj.repository.ydb.yql;
 
 import com.google.common.base.Preconditions;
-import lombok.EqualsAndHashCode;
 import lombok.NonNull;
+import lombok.Value;
 import lombok.With;
-import lombok.experimental.FieldDefaults;
+import tech.ydb.yoj.DeprecationWarnings;
 import tech.ydb.yoj.repository.db.Entity;
 import tech.ydb.yoj.repository.db.EntitySchema;
 
-import java.util.List;
-
-import static lombok.AccessLevel.PRIVATE;
-
 /**
  * Represents a {@code LIMIT ... [OFFSET ...]} clause in a YQL statement.
+ * <br>Note that YDB does <strong>not</strong> support {@code OFFSET} without {@code LIMIT}, so "row offset" cannot be set directly.
+ * To return the maximum possible amount of rows, you must know the YDB ResultSet row limit (e.g., defined by {@code YDB_KQP_RESULT_ROWS_LIMIT}
+ * environment variable for local YDB-in-Docker), and use {@link YqlLimit#range(long, long) YqlLimit.range(offset, max rows + offset)}.
+ * If you have a specific limit {@code < max rows}, it's much better to use {@link YqlLimit#range(long, long) YqlLimit.range(offset, limit + offset)},
+ * of course.
  *
  * @see #top(long)
  * @see #range(long, long)
  * @see #toYql(EntitySchema)
  */
-@EqualsAndHashCode
-@FieldDefaults(makeFinal = true, level = PRIVATE)
-public final class YqlLimit implements YqlStatementPart<YqlLimit> {
+@Value
+public class YqlLimit implements YqlStatementPart<YqlLimit> {
+    /**
+     * Gives a {@code LIMIT} clause that will always return an empty range ({@code LIMIT 0}).
+     */
     public static final YqlLimit EMPTY = new YqlLimit(0, 0);
 
     @With
@@ -40,17 +43,15 @@ public final class YqlLimit implements YqlStatementPart<YqlLimit> {
      * Creates a limit clause to fetch rows in the half-open range {@code [from, to)}.
      *
      * @param from first row index, counting from 0, inclusive
-     * @param to   last row index, counting from 0, exclusive
-     * @return limit clause to fetch rows in range {@code [from, to)}
+     * @param to   last row index, counting from 0, exclusive. Must be {@code >= from}
+     * @return limit clause to fetch {@code (to - from)} rows in range {@code [from, to)}
      */
     public static YqlLimit range(long from, long to) {
         Preconditions.checkArgument(from >= 0, "from must be >= 0");
         Preconditions.checkArgument(to >= 0, "to must be >= 0");
         Preconditions.checkArgument(to >= from, "to must be >= from");
 
-        long limit = to - from;
-        long offset = limit == 0 ? 0 : from;
-        return limit == 0 ? EMPTY : new YqlLimit(limit, offset);
+        return to == from ? EMPTY : new YqlLimit(to - from, from);
     }
 
     /**
@@ -73,11 +74,22 @@ public final class YqlLimit implements YqlStatementPart<YqlLimit> {
         return EMPTY;
     }
 
+    /**
+     * @deprecated Please calculate the maximum number of rows fetched by this {@code LIMIT} clause by using {@code YqlLimit.getLimit()} and
+     * {@code YqlLimit.getOffset()} instead.
+     */
+    @Deprecated(forRemoval = true)
     public long size() {
+        DeprecationWarnings.warnOnce("YqlLimit.size()",
+                "Please calculate range size using YqlLimit.getLimit() and YqlLimit.getOffset() instead of calling YqlLimit.size()");
         return limit;
     }
 
+    /**
+     * @return {@code true} if this {@code YqlLimit} represents an empty range ({@code LIMIT 0}); {@code false} otherwise
+     */
     public boolean isEmpty() {
+        // Does not need to check the offset because with limit == 0, the offset is irrelevant, the DB will return no rows anyway!
         return limit == 0;
     }
 
@@ -98,12 +110,7 @@ public final class YqlLimit implements YqlStatementPart<YqlLimit> {
 
     @Override
     public <T extends Entity<T>> String toYql(@NonNull EntitySchema<T> schema) {
-        return size() + (offset == 0 ? "" : " OFFSET " + offset);
-    }
-
-    @Override
-    public List<? extends YqlStatementPart<?>> combine(@NonNull List<? extends YqlLimit> other) {
-        throw new UnsupportedOperationException("Multiple LIMIT specifications are not supported");
+        return limit + (offset == 0 ? "" : " OFFSET " + offset);
     }
 
     @Override

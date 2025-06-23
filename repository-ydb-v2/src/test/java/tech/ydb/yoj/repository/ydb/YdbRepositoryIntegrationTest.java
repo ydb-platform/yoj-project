@@ -17,7 +17,7 @@ import lombok.Value;
 import lombok.experimental.Delegate;
 import org.assertj.core.api.Assertions;
 import org.junit.Assert;
-import org.junit.Ignore;
+import org.junit.ClassRule;
 import org.junit.Test;
 import tech.ydb.common.transaction.TxMode;
 import tech.ydb.core.grpc.YdbHeaders;
@@ -28,25 +28,26 @@ import tech.ydb.proto.discovery.DiscoveryProtos;
 import tech.ydb.proto.discovery.v1.DiscoveryServiceGrpc;
 import tech.ydb.proto.scheme.v1.SchemeServiceGrpc;
 import tech.ydb.proto.table.v1.TableServiceGrpc;
+import tech.ydb.proto.topic.v1.TopicServiceGrpc;
 import tech.ydb.table.Session;
-import tech.ydb.table.SessionPoolStats;
-import tech.ydb.table.TableClient;
 import tech.ydb.yoj.databind.schema.Column;
 import tech.ydb.yoj.databind.schema.ObjectSchema;
 import tech.ydb.yoj.repository.db.EntitySchema;
 import tech.ydb.yoj.repository.db.IsolationLevel;
+import tech.ydb.yoj.repository.db.QueryStatsMode;
 import tech.ydb.yoj.repository.db.Repository;
 import tech.ydb.yoj.repository.db.RepositoryTransaction;
+import tech.ydb.yoj.repository.db.StdTxManager;
 import tech.ydb.yoj.repository.db.TableDescriptor;
 import tech.ydb.yoj.repository.db.Tx;
 import tech.ydb.yoj.repository.db.bulk.BulkParams;
 import tech.ydb.yoj.repository.db.exception.ConversionException;
-import tech.ydb.yoj.repository.db.exception.DeadlineExceededException;
 import tech.ydb.yoj.repository.db.exception.RetryableException;
 import tech.ydb.yoj.repository.db.exception.UnavailableException;
 import tech.ydb.yoj.repository.db.list.ListRequest;
 import tech.ydb.yoj.repository.db.readtable.ReadTableParams;
 import tech.ydb.yoj.repository.test.RepositoryTest;
+import tech.ydb.yoj.repository.test.entity.TestEntities;
 import tech.ydb.yoj.repository.test.sample.TestDb;
 import tech.ydb.yoj.repository.test.sample.TestDbImpl;
 import tech.ydb.yoj.repository.test.sample.model.Bubble;
@@ -57,9 +58,9 @@ import tech.ydb.yoj.repository.test.sample.model.Project;
 import tech.ydb.yoj.repository.test.sample.model.Supabubble2;
 import tech.ydb.yoj.repository.test.sample.model.TtlEntity;
 import tech.ydb.yoj.repository.test.sample.model.TypeFreak;
+import tech.ydb.yoj.repository.test.sample.model.UniqueProject;
 import tech.ydb.yoj.repository.test.sample.model.WithUnflattenableField;
 import tech.ydb.yoj.repository.ydb.client.SessionManager;
-import tech.ydb.yoj.repository.ydb.client.YdbSessionManager;
 import tech.ydb.yoj.repository.ydb.compatibility.YdbSchemaCompatibilityChecker;
 import tech.ydb.yoj.repository.ydb.exception.ResultTruncatedException;
 import tech.ydb.yoj.repository.ydb.exception.YdbRepositoryException;
@@ -83,19 +84,14 @@ import tech.ydb.yoj.repository.ydb.yql.YqlView;
 import java.lang.reflect.Field;
 import java.time.Duration;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ForkJoinPool;
-import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
-import static java.util.stream.Collectors.toList;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 import static org.assertj.core.api.Assertions.assertThatIllegalStateException;
@@ -108,6 +104,9 @@ public class YdbRepositoryIntegrationTest extends RepositoryTest {
             new IndexedEntity(new IndexedEntity.Id("1.0"), "key1.0", "value1.0", "value2.0");
     private final IndexedEntity e2 =
             new IndexedEntity(new IndexedEntity.Id("1.1"), "key1.1", "value1.1", "value2.1");
+
+    @ClassRule
+    public static final YdbEnvAndTransportRule ydbEnvAndTransport = new YdbEnvAndTransportRule();
 
     @Override
     protected Repository createRepository() {
@@ -122,7 +121,7 @@ public class YdbRepositoryIntegrationTest extends RepositoryTest {
 
     @Override
     protected Repository createTestRepository() {
-        return new TestYdbRepository(getProxyServerConfig());
+        return new TestYdbRepository(getRealYdbConfig(), ydbEnvAndTransport.getGrpcTransport());
     }
 
     @SneakyThrows
@@ -151,31 +150,20 @@ public class YdbRepositoryIntegrationTest extends RepositoryTest {
                 .addService(new ProxyYdbTableService(channel))
                 .addService(proxyDiscoveryService)
                 .addService(new DelegateSchemeServiceImplBase(SchemeServiceGrpc.newStub(channel)))
+                .addService(new DelegateTopicServiceImplBase(TopicServiceGrpc.newStub(channel)))
                 .build();
         proxyServer.start();
         Runtime.getRuntime().addShutdownHook(new Thread(proxyServer::shutdown));
 
         int port = proxyServer.getPort();
         proxyDiscoveryService.setPort(port);
-        return YdbConfig.createForTesting("localhost", proxyServer.getPort(), config.getTablespace(), config.getDatabase())
+        return YdbConfig
+                .createForTesting("localhost", proxyServer.getPort(), config.getTablespace(), config.getDatabase())
                 .withDiscoveryEndpoint("localhost:" + port);
     }
 
     protected YdbConfig getRealYdbConfig() {
-        return TestYdbConfig.get();
-    }
-
-    @Test
-    @Ignore
-    public void cleanupDB() {
-        YdbConfig cfg = getRealYdbConfig();
-        var hostAndPort = cfg.getHostAndPort();
-        new TestYdbRepository(YdbConfig.createForTesting(
-                hostAndPort.getHost(),
-                hostAndPort.getPort(),
-                "/local/ycloud/",
-                null
-        )).dropDb();
+        return ydbEnvAndTransport.getYdbConfig();
     }
 
     @Test
@@ -286,8 +274,7 @@ public class YdbRepositoryIntegrationTest extends RepositoryTest {
     public void transactionLevel() {
         Project expected = new Project(new Project.Id("RO"), "readonly");
 
-        TestYdbRepository repository = new TestYdbRepository(getRealYdbConfig());
-        SessionManager sessionManager = repository.getSessionManager();
+        SessionManager sessionManager = ((YdbRepository) this.repository).getSessionManager();
         TestDb db = new TestDbImpl<>(this.repository);
 
         Session firstSession = sessionManager.getSession();
@@ -323,20 +310,20 @@ public class YdbRepositoryIntegrationTest extends RepositoryTest {
         assertThat(actual2).isEqualTo(expected2);
 
         db.readOnly()
-            .withStatementIsolationLevel(IsolationLevel.SNAPSHOT)
-            .run(() ->  {
-                Project actualSnapshot1 = db.projects().find(expected1.getId());
-                assertThat(actualSnapshot1).isEqualTo(expected1);
+                .withStatementIsolationLevel(IsolationLevel.SNAPSHOT)
+                .run(() -> {
+                    Project actualSnapshot1 = db.projects().find(expected1.getId());
+                    assertThat(actualSnapshot1).isEqualTo(expected1);
 
-                Project actualSnapshot2 = db.projects().find(expected2.getId());
-                assertThat(actualSnapshot2).isEqualTo(expected2);
-            });
+                    Project actualSnapshot2 = db.projects().find(expected2.getId());
+                    assertThat(actualSnapshot2).isEqualTo(expected2);
+                });
     }
 
-    @SneakyThrows
     @Test
+    @SneakyThrows
     public void truncated() {
-        int maxPageSizeBiggerThatReal = 100_000;
+        int maxPageSizeBiggerThatReal = 10_001;
         ListRequest.Builder<Project> builder = ListRequest.builder(Project.class);
         { // because we can't set pageSize bigger than 1k - we set it with reflection
             Field pageSizeField = builder.getClass().getDeclaredField("pageSize");
@@ -397,56 +384,6 @@ public class YdbRepositoryIntegrationTest extends RepositoryTest {
     public void subdirTable() {
         Assertions.assertThat(((YdbRepository) repository).getSchemaOperations().getTableNames(true))
                 .contains("subdir/SubdirEntity");
-    }
-
-    @Test
-    @Ignore("Flaky test")
-    public void sessionsNotLeak() throws InterruptedException {
-        long sessionGetTimeout = ((YdbRepository) repository).getConfig().getSessionCreationTimeout().toMillis();
-        YdbSessionManager sessionManager = (YdbSessionManager) ((YdbRepository) repository).getSessionManager();
-        TableClient sessionClient = sessionManager.getTableClient();
-
-        int sessionPoolSize = sessionClient.sessionPoolStats().getMaxSize();
-        assertThat(sessionClient.sessionPoolStats().getAcquiredCount())
-                .isEqualTo(0);
-
-        List<Session> sessions = IntStream.range(0, sessionPoolSize)
-                .mapToObj(i -> sessionManager.getSession())
-                .collect(toList());
-        assertThat(sessionClient.sessionPoolStats().getAcquiredCount())
-                .isEqualTo(sessionPoolSize);
-        assertThat(sessionClient.sessionPoolStats().getIdleCount())
-                .isEqualTo(0);
-
-        Session[] secondSessions = new Session[sessionPoolSize];
-        for (int i = 0; i < sessionPoolSize; i++) {
-            int finalI = i;
-            ForkJoinPool.commonPool().execute(() -> {
-                try {
-                    secondSessions[finalI] = sessionManager.getSession();
-                } catch (Exception ignored) {
-                }
-            });
-        }
-
-        Thread.sleep(sessionGetTimeout / 2); // after that sessions already pended
-        assertThat(sessionClient.sessionPoolStats().getPendingAcquireCount())
-                .isEqualTo(sessionPoolSize);
-
-        Thread.sleep(sessionGetTimeout / 2);// deadline was reached
-
-        sessions.forEach(sessionManager::release);
-        ForkJoinPool.commonPool().awaitTermination(5, TimeUnit.SECONDS);
-
-        SessionPoolStats stats = sessionClient.sessionPoolStats();
-        long acquiredSessions = Arrays.stream(secondSessions).filter(Objects::nonNull).count();
-
-        assertThat(stats.getAcquiredCount()).isEqualTo(acquiredSessions);
-        assertThat(stats.getIdleCount()).isEqualTo(sessionPoolSize - acquiredSessions);
-        assertThat(stats.getPendingAcquireCount()).isEqualTo(0);
-
-        Arrays.stream(secondSessions).filter(Objects::nonNull)
-                .forEach(sessionManager::release);
     }
 
     @Test
@@ -746,42 +683,6 @@ public class YdbRepositoryIntegrationTest extends RepositoryTest {
     }
 
     @Test
-    @Ignore("Flaky test with bad assumptions")
-    public void checkThatOperationTimesOutIfGrpsDeadlineIsSet() throws InterruptedException {
-        final long timeoutMillis = 60;
-        long longOperationTimeout = 200;
-        long expectedNumberOfProjects = 10_000;
-
-        var projects = new ArrayList<Project>();
-        for (var i = 0; i < expectedNumberOfProjects; i++) {
-            String projectId = String.valueOf(i);
-            projects.add(new Project(new Project.Id(projectId), projectId));
-        }
-
-        db.tx(() -> {
-            db.projects().bulkUpsert(projects, BulkParams.DEFAULT);
-        });
-
-        assertThatExceptionOfType(DeadlineExceededException.class).isThrownBy(() -> {
-            var executor = Executors.newSingleThreadScheduledExecutor();
-            io.grpc.Context.current().withDeadlineAfter(timeoutMillis, TimeUnit.MILLISECONDS, executor).run(() -> {
-                db.tx(() -> {
-                    db.projects().deleteAll();
-                });
-            });
-        });
-
-        //wait for operation to complete, in case in wasn't cancelled
-        Thread.sleep(longOperationTimeout);
-
-        //check that operation is cancelled and changes aren't applied
-        long actualNumberOfProjects = db.tx(() -> {
-            return db.projects().countAll();
-        });
-        assertThat(actualNumberOfProjects).isEqualTo(expectedNumberOfProjects);
-    }
-
-    @Test
     public void testTransactionTakesTimeoutFromGrpcContext() {
         int[] timeoutsMin = IntStream.range(3, 12).toArray();
 
@@ -903,41 +804,59 @@ public class YdbRepositoryIntegrationTest extends RepositoryTest {
     }
 
     private void checkTxRetryableOnRequestError(StatusCodesProtos.StatusIds.StatusCode statusCode) {
-        RepositoryTransaction tx = repository.startTransaction();
-        runWithModifiedStatusCode(
-                statusCode,
-                () -> {
-                    assertThatExceptionOfType(RetryableException.class)
-                            .isThrownBy(tx.table(Project.class)::findAll);
+        YdbRepository proxiedRepository = new YdbRepository(getProxyServerConfig());
 
-                    // This rollback is only a silent DB rollback, since the last transaction statement was exceptional.
-                    // We check that this call does not throw.
-                    tx.rollback();
-                }
-        );
+        try {
+            RepositoryTransaction tx = proxiedRepository.startTransaction();
+            runWithModifiedStatusCode(
+                    statusCode,
+                    () -> {
+                        assertThatExceptionOfType(RetryableException.class)
+                                .isThrownBy(tx.table(Project.class)::findAll);
+
+                        // This rollback is only a silent DB rollback, since the last transaction statement was exceptional.
+                        // We check that this call does not throw.
+                        tx.rollback();
+                    }
+            );
+        } finally {
+            proxiedRepository.shutdown();
+        }
     }
 
     private void checkTxRetryableOnFlushingError(StatusCodesProtos.StatusIds.StatusCode statusCode) {
-        runWithModifiedStatusCode(
-                statusCode,
-                () -> {
-                    RepositoryTransaction tx = repository.startTransaction();
-                    tx.table(Project.class).save(new Project(new Project.Id("1"), "x"));
-                    assertThatExceptionOfType(RetryableException.class)
-                            .isThrownBy(tx::commit);
-                }
-        );
+        YdbRepository proxiedRepository = new YdbRepository(getProxyServerConfig());
+
+        try {
+            runWithModifiedStatusCode(
+                    statusCode,
+                    () -> {
+                        RepositoryTransaction tx = proxiedRepository.startTransaction();
+                        tx.table(Project.class).save(new Project(new Project.Id("1"), "x"));
+                        assertThatExceptionOfType(RetryableException.class)
+                                .isThrownBy(tx::commit);
+                    }
+            );
+        } finally {
+            proxiedRepository.shutdown();
+        }
     }
 
     private void checkTxNonRetryableOnCommit(StatusCodesProtos.StatusIds.StatusCode statusCode) {
-        RepositoryTransaction tx = repository.startTransaction();
-        tx.table(Project.class).findAll();
+        YdbRepository proxiedRepository = new YdbRepository(getProxyServerConfig());
 
-        runWithModifiedStatusCode(
-                statusCode,
-                () -> assertThatExceptionOfType(UnavailableException.class)
-                        .isThrownBy(tx::commit)
-        );
+        try {
+            RepositoryTransaction tx = proxiedRepository.startTransaction();
+            tx.table(Project.class).findAll();
+
+            runWithModifiedStatusCode(
+                    statusCode,
+                    () -> assertThatExceptionOfType(UnavailableException.class)
+                            .isThrownBy(tx::commit)
+            );
+        } finally {
+            proxiedRepository.shutdown();
+        }
     }
 
     static StatusCodesProtos.StatusIds.StatusCode statusCode = null;
@@ -1017,10 +936,99 @@ public class YdbRepositoryIntegrationTest extends RepositoryTest {
         }
     }
 
+    @Test
+    public void unordered() {
+        // YDB tends to return data in index-order, not "by PK ascending" order, if we don't force the result order
+        IndexedEntity ie1 = new IndexedEntity(new IndexedEntity.Id("abc"), "z", "v1-1", "v1-2");
+        IndexedEntity ie2 = new IndexedEntity(new IndexedEntity.Id("def"), "y", "v2-1", "v2-2");
+        db.tx(() -> db.indexedTable().insert(ie1, ie2));
+
+        var results = db.tx(() -> db.indexedTable().query()
+                .where("keyId").gte("a")
+                .limit(2)
+                .index(IndexedEntity.KEY_INDEX)
+                .unordered()
+                .find());
+        assertThat(results).containsExactly(ie2, ie1);
+    }
+
+    @Test
+    public void multipleTablesSameEntitySameTransaction() {
+        UniqueProject ue = new UniqueProject(new UniqueProject.Id("id1"), "valuableName", 1);
+        db.tx(() -> db.table(UniqueProject.class).save(ue));
+
+        List<UniqueProject> findFirstTableThenSecond = db.tx(() -> {
+            var p1 = db.table(UniqueProject.class).find(ue.getId());
+            var p2 = db.table(TestEntities.SECOND_UNIQUE_PROJECT_TABLE).find(ue.getId());
+            return Stream.of(p1, p2).filter(Objects::nonNull).toList();
+        });
+
+        List<UniqueProject> findSecondTableThenFirst = db.tx(() -> {
+            var p1 = db.table(TestEntities.SECOND_UNIQUE_PROJECT_TABLE).find(ue.getId());
+            var p2 = db.table(UniqueProject.class).find(ue.getId());
+            return Stream.of(p1, p2).filter(Objects::nonNull).toList();
+        });
+
+        assertThat(findFirstTableThenSecond).isEqualTo(findSecondTableThenFirst);
+    }
+
+    @Test
+    public void multipleTablesSameEntitySameTransactionQueryView() {
+        UniqueProject ue = new UniqueProject(new UniqueProject.Id("id1"), "valuableName", 1);
+        db.tx(() -> db.table(UniqueProject.class).save(ue));
+
+        List<UniqueProject.NameView> findFirstTableThenSecond = db.tx(() -> {
+            var n1 = db.table(UniqueProject.class).find(UniqueProject.NameView.class, ue.getId());
+            var n2 = db.table(TestEntities.SECOND_UNIQUE_PROJECT_TABLE).find(UniqueProject.NameView.class, ue.getId());
+            return Stream.of(n1, n2).filter(Objects::nonNull).toList();
+        });
+
+        List<UniqueProject.NameView> findSecondTableThenFirst = db.tx(() -> {
+            var n1 = db.table(TestEntities.SECOND_UNIQUE_PROJECT_TABLE).find(UniqueProject.NameView.class, ue.getId());
+            var n2 = db.table(UniqueProject.class).find(UniqueProject.NameView.class, ue.getId());
+            return Stream.of(n1, n2).filter(Objects::nonNull).toList();
+        });
+
+        assertThat(findFirstTableThenSecond).isEqualTo(findSecondTableThenFirst);
+    }
+
+    @Test
+    public void queryStatsCollectionMode() {
+        db.tx(() -> {
+            for (int i = 0; i < 1_000; i++) {
+                var ue = new UniqueProject(new UniqueProject.Id("id" + i), "valuableName-" + i, i);
+                db.table(UniqueProject.class).save(ue);
+            }
+        });
+
+        var found = new StdTxManager(repository)
+                .withName("query-stats")
+                .withVerboseLogging()
+                .withQueryStats(QueryStatsMode.FULL)
+                .readOnly()
+                .noFirstLevelCache()
+                .withStatementIsolationLevel(IsolationLevel.SNAPSHOT)
+                .run(() -> db.table(UniqueProject.class).query()
+                        .where("id").in(List.of(
+                                new UniqueProject.Id("id501"),
+                                new UniqueProject.Id("id502"),
+                                new UniqueProject.Id("id503"),
+                                new UniqueProject.Id("id999")
+                        ))
+                        .find());
+        assertThat(found).hasSize(4);
+    }
+
     @AllArgsConstructor
     private static class DelegateSchemeServiceImplBase extends SchemeServiceGrpc.SchemeServiceImplBase {
         @Delegate
         final SchemeServiceGrpc.SchemeServiceStub schemeServiceStub;
+    }
+
+    @AllArgsConstructor
+    private static class DelegateTopicServiceImplBase extends TopicServiceGrpc.TopicServiceImplBase {
+        @Delegate
+        final TopicServiceGrpc.TopicServiceStub topicServiceStub;
     }
 
     private static class ProxyDiscoveryService extends DiscoveryServiceGrpc.DiscoveryServiceImplBase {

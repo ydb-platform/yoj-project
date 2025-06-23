@@ -132,13 +132,18 @@ public abstract class DelegatingTxManager implements TxManager {
     }
 
     @Override
-    public TxManager withLogStatementOnSuccess(boolean logStatementOnSuccess) {
+    public final TxManager withLogStatementOnSuccess(boolean logStatementOnSuccess) {
         return createTxManager(this.delegate.withLogStatementOnSuccess(logStatementOnSuccess));
     }
 
     @Override
-    public final TxManager withTimeout(Duration timeout) {
+    public final TxManager withTimeout(@NonNull Duration timeout) {
         return createTxManager(this.delegate.withTimeout(timeout));
+    }
+
+    @Override
+    public final TxManager withQueryStats(@NonNull QueryStatsMode queryStats) {
+        return createTxManager(this.delegate.withQueryStats(queryStats));
     }
 
     @Override

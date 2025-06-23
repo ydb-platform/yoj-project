@@ -2,6 +2,7 @@ package tech.ydb.yoj.repository.ydb.bulk;
 
 import com.google.protobuf.NullValue;
 import tech.ydb.proto.ValueProtos;
+import tech.ydb.yoj.InternalApi;
 import tech.ydb.yoj.databind.schema.Schema;
 import tech.ydb.yoj.repository.db.Entity;
 import tech.ydb.yoj.repository.db.EntitySchema;
@@ -11,6 +12,7 @@ import tech.ydb.yoj.repository.ydb.yql.YqlType;
 import java.util.HashMap;
 import java.util.Map;
 
+@InternalApi
 public final class BulkMapperImpl<E extends Entity<E>> implements BulkMapper<E> {
     private final TableDescriptor<E> tableDescriptor;
     private final EntitySchema<E> srcSchema;

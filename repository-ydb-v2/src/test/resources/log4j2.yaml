@@ -15,7 +15,16 @@ Configuration:
       level: error
     - name: io.netty
       level: error
-    - name: tech.ydb.yoj.repository.db
+    - name: tech.ydb.yoj
       level: debug
     - name: tech.ydb
       level: info
+    # @see https://java.testcontainers.org/supported_docker_environment/logging_config/
+    - name: org.testcontainers
+      level: info
+    - name: tc
+      level: info
+    - name: com.github.dockerjava
+      level: warn
+    - name: com.github.dockerjava.zerodep.shaded.org.apache.hc.client5.http.wire
+      level: "off" # must be quoted, otherwise YAML parsers interpret this as a boolean value

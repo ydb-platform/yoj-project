@@ -27,7 +27,9 @@ import static java.util.stream.Collectors.toList;
 import static lombok.AccessLevel.PRIVATE;
 import static tech.ydb.yoj.repository.ydb.yql.YqlPredicate.IsNullPredicate.IsNullType.IS_NOT_NULL;
 import static tech.ydb.yoj.repository.ydb.yql.YqlPredicate.IsNullPredicate.IsNullType.IS_NULL;
+import static tech.ydb.yoj.repository.ydb.yql.YqlPredicate.LikePredicate.Type.ILIKE;
 import static tech.ydb.yoj.repository.ydb.yql.YqlPredicate.LikePredicate.Type.LIKE;
+import static tech.ydb.yoj.repository.ydb.yql.YqlPredicate.LikePredicate.Type.NOT_ILIKE;
 import static tech.ydb.yoj.repository.ydb.yql.YqlPredicate.LikePredicate.Type.NOT_LIKE;
 import static tech.ydb.yoj.repository.ydb.yql.YqlPredicate.Rel.EQ;
 import static tech.ydb.yoj.repository.ydb.yql.YqlPredicate.Rel.GT;
@@ -188,6 +190,22 @@ public abstract class YqlPredicate implements YqlStatementPart<YqlPredicate> {
         return new LikePredicate<>(NOT_LIKE, fieldPath, value, escape);
     }
 
+    public static YqlPredicate likeIgnoreCase(@NonNull String fieldPath, @NonNull String value) {
+        return likeIgnoreCase(fieldPath, value, null);
+    }
+
+    public static YqlPredicate likeIgnoreCase(@NonNull String fieldPath, @NonNull String value, @Nullable Character escape) {
+        return new LikePredicate<>(ILIKE, fieldPath, value, escape);
+    }
+
+    public static YqlPredicate notLikeIgnoreCase(@NonNull String fieldPath, @NonNull String value) {
+        return notLikeIgnoreCase(fieldPath, value, null);
+    }
+
+    public static YqlPredicate notLikeIgnoreCase(@NonNull String fieldPath, @NonNull String value, @Nullable Character escape) {
+        return new LikePredicate<>(NOT_ILIKE, fieldPath, value, escape);
+    }
+
     public static YqlPredicate alwaysTrue() {
         return TruePredicate.INSTANCE;
     }
@@ -229,7 +247,7 @@ public abstract class YqlPredicate implements YqlStatementPart<YqlPredicate> {
     }
 
     /**
-     * @return stream of statement parameter specifications, if this YQL predicate uses parameters
+     * @return a fresh stream of statement parameter specifications, if this YQL predicate uses parameters; an fresh empty stream otherwise
      */
     public Stream<YqlPredicateParam<?>> paramStream() {
         return Stream.empty();
@@ -570,6 +588,28 @@ public abstract class YqlPredicate implements YqlStatementPart<YqlPredicate> {
                 @Override
                 public Type negate() {
                     return LIKE;
+                }
+            },
+            ILIKE {
+                @Override
+                public String toYql() {
+                    return "ILIKE";
+                }
+
+                @Override
+                public Type negate() {
+                    return NOT_ILIKE;
+                }
+            },
+            NOT_ILIKE {
+                @Override
+                public String toYql() {
+                    return "NOT ILIKE";
+                }
+
+                @Override
+                public Type negate() {
+                    return ILIKE;
                 }
             };
 
@@ -937,6 +977,22 @@ public abstract class YqlPredicate implements YqlStatementPart<YqlPredicate> {
 
         public YqlPredicate notLike(@NonNull String value, @Nullable Character escape) {
             return finisher.apply(YqlPredicate.notLike(fieldPath, value, escape));
+        }
+
+        public YqlPredicate likeIgnoreCase(@NonNull String value) {
+            return likeIgnoreCase(value, null);
+        }
+
+        public YqlPredicate likeIgnoreCase(@NonNull String value, @Nullable Character escape) {
+            return finisher.apply(YqlPredicate.likeIgnoreCase(fieldPath, value, escape));
+        }
+
+        public YqlPredicate notLikeIgnoreCase(@NonNull String value) {
+            return notLikeIgnoreCase(value, null);
+        }
+
+        public YqlPredicate notLikeIgnoreCase(@NonNull String value, @Nullable Character escape) {
+            return finisher.apply(YqlPredicate.notLikeIgnoreCase(fieldPath, value, escape));
         }
 
         public YqlPredicate isNull() {

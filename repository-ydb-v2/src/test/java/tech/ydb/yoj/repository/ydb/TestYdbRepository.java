@@ -2,6 +2,7 @@ package tech.ydb.yoj.repository.ydb;
 
 import io.grpc.ClientInterceptor;
 import tech.ydb.auth.AuthProvider;
+import tech.ydb.core.grpc.GrpcTransport;
 import tech.ydb.yoj.repository.db.IsolationLevel;
 import tech.ydb.yoj.repository.db.RepositoryTransaction;
 import tech.ydb.yoj.repository.db.Table;
@@ -21,6 +22,7 @@ import tech.ydb.yoj.repository.test.sample.model.EntityWithValidation;
 import tech.ydb.yoj.repository.test.sample.model.IndexedEntity;
 import tech.ydb.yoj.repository.test.sample.model.LogEntry;
 import tech.ydb.yoj.repository.test.sample.model.MultiWrappedEntity;
+import tech.ydb.yoj.repository.test.sample.model.MultiWrappedEntity2;
 import tech.ydb.yoj.repository.test.sample.model.NetworkAppliance;
 import tech.ydb.yoj.repository.test.sample.model.Primitive;
 import tech.ydb.yoj.repository.test.sample.model.Project;
@@ -51,6 +53,10 @@ public class TestYdbRepository extends YdbRepository {
 
     public TestYdbRepository(YdbConfig config) {
         super(config);
+    }
+
+    public TestYdbRepository(YdbConfig config, GrpcTransport transport) {
+        super(config, transport);
     }
 
     public TestYdbRepository(YdbConfig config, AuthProvider authProvider, List<ClientInterceptor> interceptors) {
@@ -154,6 +160,11 @@ public class TestYdbRepository extends YdbRepository {
         @Override
         public Table<MultiWrappedEntity> multiWrappedIdEntities() {
             return table(MultiWrappedEntity.class);
+        }
+
+        @Override
+        public Table<MultiWrappedEntity2> multiWrappedEntities2() {
+            return table(MultiWrappedEntity2.class);
         }
     }
 

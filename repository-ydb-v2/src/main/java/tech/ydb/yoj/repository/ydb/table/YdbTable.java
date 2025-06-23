@@ -3,8 +3,8 @@ package tech.ydb.yoj.repository.ydb.table;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Sets;
 import com.google.common.reflect.TypeToken;
-import lombok.Getter;
 import lombok.NonNull;
+import tech.ydb.yoj.InternalApi;
 import tech.ydb.yoj.databind.expression.FilterExpression;
 import tech.ydb.yoj.databind.expression.OrderExpression;
 import tech.ydb.yoj.repository.db.Entity;
@@ -14,6 +14,7 @@ import tech.ydb.yoj.repository.db.EntitySchema;
 import tech.ydb.yoj.repository.db.Range;
 import tech.ydb.yoj.repository.db.Table;
 import tech.ydb.yoj.repository.db.TableDescriptor;
+import tech.ydb.yoj.repository.db.TableQueryImpl;
 import tech.ydb.yoj.repository.db.Tx;
 import tech.ydb.yoj.repository.db.ViewSchema;
 import tech.ydb.yoj.repository.db.bulk.BulkParams;
@@ -50,7 +51,6 @@ import javax.annotation.Nullable;
 import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.Set;
 import java.util.function.BiFunction;
 import java.util.function.Function;
@@ -65,11 +65,10 @@ import static java.util.stream.Stream.concat;
 import static tech.ydb.yoj.repository.db.EntityExpressions.defaultOrder;
 
 public class YdbTable<T extends Entity<T>> implements Table<T> {
-    @Getter
     private final Class<T> type;
-    private final QueryExecutor executor;
-    private final EntitySchema<T> schema;
     private final TableDescriptor<T> tableDescriptor;
+    private final EntitySchema<T> schema;
+    private final QueryExecutor executor;
 
     public YdbTable(Class<T> type, QueryExecutor executor) {
         this.type = type;
@@ -90,6 +89,25 @@ public class YdbTable<T extends Entity<T>> implements Table<T> {
         this.executor = new CheckingQueryExecutor(executor);
         this.schema = EntitySchema.of(type);
         this.tableDescriptor = tableDescriptor;
+    }
+
+    @Override
+    public final Class<T> getType() {
+        return type;
+    }
+
+    @Override
+    public final TableDescriptor<T> getTableDescriptor() {
+        return tableDescriptor;
+    }
+
+    public final EntitySchema<T> getSchema() {
+        return schema;
+    }
+
+    @InternalApi
+    protected final QueryExecutor getExecutor() {
+        return executor;
     }
 
     @SuppressWarnings("unchecked")
@@ -246,11 +264,16 @@ public class YdbTable<T extends Entity<T>> implements Table<T> {
         if (id.isPartial()) {
             throw new IllegalArgumentException("Cannot use partial id in find method");
         }
-        return executor.getTransactionLocal().firstLevelCache().get(id, __ -> {
+        return executor.getTransactionLocal().firstLevelCache(tableDescriptor).get(id, __ -> {
             var statement = new FindYqlStatement<>(tableDescriptor, schema, schema);
             List<T> res = postLoad(executor.execute(statement, id));
             return res.isEmpty() ? null : res.get(0);
         });
+    }
+
+    @Override
+    public <ID extends Entity.Id<T>> List<T> find(Set<ID> ids) {
+        return TableQueryImpl.find(this, getFirstLevelCache(), ids);
     }
 
     @Override
@@ -306,14 +329,22 @@ public class YdbTable<T extends Entity<T>> implements Table<T> {
     }
 
     @Override
-    public List<T> find(@Nullable String indexName, @Nullable FilterExpression<T> filter, @Nullable OrderExpression<T> orderBy, @Nullable Integer limit, @Nullable Long offset) {
+    public List<T> find(
+            @Nullable String indexName,
+            @Nullable FilterExpression<T> filter, @Nullable OrderExpression<T> orderBy,
+            @Nullable Integer limit, @Nullable Long offset
+    ) {
         List<YqlStatementPart<?>> statements = buildStatementParts(indexName, filter, orderBy, limit, offset);
 
         return find(statements);
     }
 
     @Override
-    public <ID extends Entity.Id<T>> List<ID> findIds(@Nullable String indexName, @Nullable FilterExpression<T> filter, @Nullable OrderExpression<T> orderBy, @Nullable Integer limit, @Nullable Long offset) {
+    public <ID extends Entity.Id<T>> List<ID> findIds(
+            @Nullable String indexName,
+            @Nullable FilterExpression<T> filter, @Nullable OrderExpression<T> orderBy,
+            @Nullable Integer limit, @Nullable Long offset
+    ) {
         List<YqlStatementPart<?>> statements = buildStatementParts(indexName, filter, orderBy, limit, offset);
 
         return findIds(statements);
@@ -323,10 +354,8 @@ public class YdbTable<T extends Entity<T>> implements Table<T> {
     public <V extends View> List<V> find(
             Class<V> viewType,
             @Nullable String indexName,
-            @Nullable FilterExpression<T> filter,
-            @Nullable OrderExpression<T> orderBy,
-            @Nullable Integer limit,
-            @Nullable Long offset,
+            @Nullable FilterExpression<T> filter, @Nullable OrderExpression<T> orderBy,
+            @Nullable Integer limit, @Nullable Long offset,
             boolean distinct
     ) {
         List<YqlStatementPart<?>> statements = buildStatementParts(indexName, filter, orderBy, limit, offset);
@@ -335,7 +364,11 @@ public class YdbTable<T extends Entity<T>> implements Table<T> {
     }
 
     @Override
-    public <ID extends Id<T>> List<T> find(Set<ID> ids, @Nullable FilterExpression<T> filter, @Nullable OrderExpression<T> orderBy, @Nullable Integer limit) {
+    public <ID extends Id<T>> List<T> find(
+            Set<ID> ids,
+            @Nullable FilterExpression<T> filter, @Nullable OrderExpression<T> orderBy,
+            @Nullable Integer limit
+    ) {
         if (ids.isEmpty()) {
             return List.of();
         }
@@ -343,13 +376,18 @@ public class YdbTable<T extends Entity<T>> implements Table<T> {
         List<T> found = postLoad(findUncached(ids, filter, orderBy, limit));
         if (!isPartialIdMode && ids.size() > found.size()) {
             Set<Id<T>> foundIds = found.stream().map(Entity::getId).collect(toSet());
-            Sets.difference(ids, foundIds).forEach(executor.getTransactionLocal().firstLevelCache()::putEmpty);
+            FirstLevelCache<T> cache = executor.getTransactionLocal().firstLevelCache(tableDescriptor);
+            Sets.difference(ids, foundIds).forEach(cache::putEmpty);
         }
         return found;
     }
 
     @Override
-    public <ID extends Entity.Id<T>> List<T> findUncached(Set<ID> ids, @Nullable FilterExpression<T> filter, @Nullable OrderExpression<T> orderBy, @Nullable Integer limit) {
+    public <ID extends Entity.Id<T>> List<T> findUncached(
+            Set<ID> ids,
+            @Nullable FilterExpression<T> filter, @Nullable OrderExpression<T> orderBy,
+            @Nullable Integer limit
+    ) {
         if (ids.isEmpty()) {
             return List.of();
         }
@@ -358,7 +396,12 @@ public class YdbTable<T extends Entity<T>> implements Table<T> {
     }
 
     @Override
-    public <V extends View, ID extends Id<T>> List<V> find(Class<V> viewType, Set<ID> ids, @Nullable FilterExpression<T> filter, @Nullable OrderExpression<T> orderBy, @Nullable Integer limit) {
+    public <V extends View, ID extends Id<T>> List<V> find(
+            Class<V> viewType,
+            Set<ID> ids,
+            @Nullable FilterExpression<T> filter, @Nullable OrderExpression<T> orderBy,
+            @Nullable Integer limit
+    ) {
         if (ids.isEmpty()) {
             return List.of();
         }
@@ -370,7 +413,11 @@ public class YdbTable<T extends Entity<T>> implements Table<T> {
     }
 
     @Override
-    public <K> List<T> find(String indexName, Set<K> keys, @Nullable FilterExpression<T> filter, @Nullable OrderExpression<T> orderBy, @Nullable Integer limit) {
+    public <K> List<T> find(
+            String indexName,
+            Set<K> keys,
+            @Nullable FilterExpression<T> filter, @Nullable OrderExpression<T> orderBy,
+            @Nullable Integer limit) {
         if (keys.isEmpty()) {
             return List.of();
         }
@@ -381,7 +428,13 @@ public class YdbTable<T extends Entity<T>> implements Table<T> {
     }
 
     @Override
-    public <V extends View, K> List<V> find(Class<V> viewType, String indexName, Set<K> keys, @Nullable FilterExpression<T> filter, @Nullable OrderExpression<T> orderBy, @Nullable Integer limit) {
+    public <V extends View, K> List<V> find(
+            Class<V> viewType,
+            String indexName,
+            Set<K> keys,
+            @Nullable FilterExpression<T> filter, @Nullable OrderExpression<T> orderBy,
+            @Nullable Integer limit
+    ) {
         if (keys.isEmpty()) {
             return List.of();
         }
@@ -393,22 +446,27 @@ public class YdbTable<T extends Entity<T>> implements Table<T> {
     }
 
     public static <T extends Entity<T>> List<YqlStatementPart<? extends YqlStatementPart<?>>> buildStatementParts(
-            @Nullable FilterExpression<T> filter, @Nullable OrderExpression<T> orderBy, @Nullable Integer limit, @Nullable Long offset) {
+            @Nullable FilterExpression<T> filter, @Nullable OrderExpression<T> orderBy,
+            @Nullable Integer limit, @Nullable Long offset
+    ) {
         return buildStatementParts(null, filter, orderBy, limit, offset);
     }
 
     public static <T extends Entity<T>> List<YqlStatementPart<? extends YqlStatementPart<?>>> buildStatementParts(
-            @Nullable String indexName, @Nullable FilterExpression<T> filter, @Nullable OrderExpression<T> orderBy, @Nullable Integer limit, @Nullable Long offset) {
-        Optional<Integer> limitO = Optional.ofNullable(limit);
-        Optional<Long> offsetO = Optional.ofNullable(offset);
-
+            @Nullable String indexName,
+            @Nullable FilterExpression<T> filter, @Nullable OrderExpression<T> orderBy,
+            @Nullable Integer limit, @Nullable Long offset
+    ) {
         YqlPredicate yqlFilter = filter == null ? null : YqlListingQuery.toYqlPredicate(filter);
         YqlOrderBy yqlOrderBy = orderBy == null ? null : YqlListingQuery.toYqlOrderBy(orderBy);
 
-        YqlLimit yqlLimit = null;
-        if (offsetO.orElse(0L) != 0L || limit != null) {
-            yqlLimit = YqlLimit.range(offsetO.orElse(0L), offsetO.orElse(0L)
-                    + limitO.orElseThrow(() -> new IllegalArgumentException("offset > 0 with limit=null is not supported")));
+        YqlLimit yqlLimit;
+        long offsetOrZero = offset == null ? 0L : offset;
+        if (limit == null) {
+            Preconditions.checkArgument(offsetOrZero == 0L, "nonzero offset without limit is not supported");
+            yqlLimit = null;
+        } else {
+            yqlLimit = YqlLimit.range(offsetOrZero, offsetOrZero + limit);
         }
 
         YqlView yqlView = indexName == null ? null : YqlView.index(indexName);
@@ -463,6 +521,7 @@ public class YdbTable<T extends Entity<T>> implements Table<T> {
     }
 
     @Override
+    @Deprecated
     public void update(Entity.Id<T> id, Changeset changeset) {
         UpdateModel.ById<Id<T>> model = new UpdateModel.ById<>(id, changeset.toMap());
         executor.pendingExecute(new UpdateByIdStatement<>(tableDescriptor, schema, model), model);
@@ -472,7 +531,7 @@ public class YdbTable<T extends Entity<T>> implements Table<T> {
     public T insert(T t) {
         T entityToSave = t.preSave();
         executor.pendingExecute(new InsertYqlStatement<>(tableDescriptor, schema), entityToSave);
-        executor.getTransactionLocal().firstLevelCache().put(entityToSave);
+        executor.getTransactionLocal().firstLevelCache(tableDescriptor).put(entityToSave);
         executor.getTransactionLocal().projectionCache().save(entityToSave);
         return t;
     }
@@ -481,7 +540,7 @@ public class YdbTable<T extends Entity<T>> implements Table<T> {
     public T save(T t) {
         T entityToSave = t.preSave();
         executor.pendingExecute(new UpsertYqlStatement<>(tableDescriptor, schema), entityToSave);
-        executor.getTransactionLocal().firstLevelCache().put(entityToSave);
+        executor.getTransactionLocal().firstLevelCache(tableDescriptor).put(entityToSave);
         executor.getTransactionLocal().projectionCache().save(entityToSave);
         return t;
     }
@@ -489,7 +548,7 @@ public class YdbTable<T extends Entity<T>> implements Table<T> {
     @Override
     public void delete(Entity.Id<T> id) {
         executor.pendingExecute(new DeleteByIdStatement<>(tableDescriptor, schema), id);
-        executor.getTransactionLocal().firstLevelCache().putEmpty(id);
+        executor.getTransactionLocal().firstLevelCache(tableDescriptor).putEmpty(id);
         executor.getTransactionLocal().projectionCache().delete(id);
     }
 
@@ -514,19 +573,15 @@ public class YdbTable<T extends Entity<T>> implements Table<T> {
         executor.getTransactionLocal().projectionCache().save(entityToSave);
     }
 
-    @Override
-    public FirstLevelCache getFirstLevelCache() {
-        return executor.getTransactionLocal().firstLevelCache();
+    public FirstLevelCache<T> getFirstLevelCache() {
+        return executor.getTransactionLocal().firstLevelCache(tableDescriptor);
     }
 
     @Override
     @NonNull
     public T postLoad(T e) {
         T e1 = e.postLoad();
-        if (e1 != e) {
-            executor.getTransactionLocal().log().debug("    postLoad(%s) has diff", e1.getId());
-        }
-        executor.getTransactionLocal().firstLevelCache().put(e1);
+        executor.getTransactionLocal().firstLevelCache(tableDescriptor).put(e1);
         executor.getTransactionLocal().projectionCache().load(e1);
         return e1;
     }
@@ -596,6 +651,15 @@ public class YdbTable<T extends Entity<T>> implements Table<T> {
         }
     }
 
+    /**
+     * @deprecated Blindly setting entity fields is not recommended. Use {@code Table.modifyIfPresent()} instead, unless you
+     * have specific requirements.
+     * <p>Blind updates disrupt query merging mechanism, so you typically won't able to run multiple blind update statements
+     * in the same transaction, or interleave them with upserts ({@code Table.save()}) and inserts.
+     * <p>Blind updates also do not update projections because they do not load the entity before performing the update;
+     * this can cause projections to be inconsistent with the main entity.
+     */
+    @Deprecated
     public <ID extends Id<T>> void updateIn(Collection<ID> ids, Changeset changeset) {
         var params = new UpdateInStatement.UpdateInStatementInput<>(ids, changeset.toMap());
 

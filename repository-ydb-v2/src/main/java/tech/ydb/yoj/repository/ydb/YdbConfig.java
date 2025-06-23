@@ -1,6 +1,8 @@
 package tech.ydb.yoj.repository.ydb;
 
 import com.google.common.net.HostAndPort;
+import lombok.AccessLevel;
+import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.NonNull;
 import lombok.Value;
@@ -26,6 +28,7 @@ public class YdbConfig {
                 database,
                 null,
                 HostAndPort.fromParts(host, port),
+                null,
                 SESSION_CREATE_TIMEOUT_DEFAULT,
                 SESSION_CREATE_RETRY_COUNT_DEFAULT,
                 SESSION_KEEP_ALIVE_TIME_DEFAULT,
@@ -60,6 +63,9 @@ public class YdbConfig {
     String discoveryEndpoint;
     @With
     HostAndPort hostAndPort;
+
+    @With
+    BalancingConfig balancingConfig;
 
     @With
     Duration sessionCreationTimeout;
@@ -135,5 +141,41 @@ public class YdbConfig {
 
     public boolean isUseSingleChannelTransport() {
         return Optional.ofNullable(useSingleChannelTransport).orElse(false);
+    }
+
+    @Value
+    @AllArgsConstructor(access = AccessLevel.PRIVATE)
+    public static class BalancingConfig {
+        Policy policy;
+        String preferableLocation;
+
+        /**
+         * Use all available cluster nodes regardless datacenter locality
+         */
+        public static BalancingConfig useAllNodes() {
+            return new BalancingConfig(Policy.USE_ALL_NODES, null);
+        }
+
+        /**
+         * Use preferable location (data center)
+         *
+         * @param preferableLocation a name of location
+         */
+        public static BalancingConfig usePreferableLocation(@NonNull String preferableLocation) {
+            return new BalancingConfig(Policy.USE_PREFERABLE_LOCATION, preferableLocation);
+        }
+
+        /**
+         * Detecting of local DC by the latency measuring
+         */
+        public static BalancingConfig detectLocalDc() {
+            return new BalancingConfig(Policy.DETECT_LOCAL_DC, null);
+        }
+
+        public enum Policy {
+            USE_ALL_NODES,
+            USE_PREFERABLE_LOCATION,
+            DETECT_LOCAL_DC,
+        }
     }
 }

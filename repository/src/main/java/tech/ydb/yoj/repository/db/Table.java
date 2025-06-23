@@ -1,11 +1,10 @@
 package tech.ydb.yoj.repository.db;
 
-import com.google.common.collect.Sets;
 import lombok.NonNull;
+import tech.ydb.yoj.InternalApi;
 import tech.ydb.yoj.databind.expression.FilterExpression;
 import tech.ydb.yoj.databind.expression.OrderExpression;
 import tech.ydb.yoj.repository.db.bulk.BulkParams;
-import tech.ydb.yoj.repository.db.cache.FirstLevelCache;
 import tech.ydb.yoj.repository.db.list.ListRequest;
 import tech.ydb.yoj.repository.db.list.ListResult;
 import tech.ydb.yoj.repository.db.list.ViewListResult;
@@ -15,8 +14,6 @@ import tech.ydb.yoj.repository.db.statement.Changeset;
 import javax.annotation.CheckForNull;
 import javax.annotation.Nullable;
 import java.util.Collection;
-import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -26,7 +23,6 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static java.util.stream.Collectors.toList;
-import static java.util.stream.Collectors.toSet;
 import static java.util.stream.Stream.concat;
 
 public interface Table<T extends Entity<T>> {
@@ -38,8 +34,12 @@ public interface Table<T extends Entity<T>> {
 
     Class<T> getType();
 
+    TableDescriptor<T> getTableDescriptor();
+
     @CheckForNull
     T find(Entity.Id<T> id);
+
+    <ID extends Entity.Id<T>> List<T> find(Set<ID> ids);
 
     <V extends View> V find(Class<V> viewType, Entity.Id<T> id);
 
@@ -157,11 +157,7 @@ public interface Table<T extends Entity<T>> {
     default <ID extends Entity.Id<T>> Stream<ID> readTableIds() {
         return readTableIds(ReadTableParams.getDefault());
     }
-
-    default FirstLevelCache getFirstLevelCache() {
-        return null;
-    }
-
+  
     @NonNull
     default <X extends Exception> T find(Entity.Id<T> id, Supplier<? extends X> throwIfAbsent) throws X {
         T found = find(id);
@@ -261,80 +257,25 @@ public interface Table<T extends Entity<T>> {
     }
 
     default ListResult<T> list(ListRequest<T> request) {
-        List<T> nextPage = toQueryBuilder(request).find();
+        List<T> nextPage = TableQueryImpl.toQueryBuilder(this, request).find();
         return ListResult.forPage(request, postLoad(nextPage));
     }
 
     default <V extends Table.View> ViewListResult<T, V> list(Class<V> viewType, ListRequest<T> request) {
-        List<V> nextPage = toQueryBuilder(request).find(viewType);
+        List<V> nextPage = TableQueryImpl.toQueryBuilder(this, request).find(viewType);
         return ViewListResult.forPage(request, viewType, nextPage);
-    }
-
-    default <ID extends Entity.Id<T>> List<T> find(Set<ID> ids) {
-        if (ids.isEmpty()) {
-            return List.of();
-        }
-
-        var orderBy = EntityExpressions.defaultOrder(getType());
-        var cache = getFirstLevelCache();
-        var isPartialIdMode = ids.iterator().next().isPartial();
-
-        var foundInCache = ids.stream()
-                .filter(cache::containsKey)
-                .map(cache::peek)
-                .flatMap(Optional::stream)
-                .collect(Collectors.toMap(Entity::getId, Function.identity()));
-        var remainingIds = Sets.difference(ids, foundInCache.keySet());
-        var foundInDb = findUncached(remainingIds, null, orderBy, null);
-
-        var merged = new HashMap<Entity.Id<T>, T>();
-
-        // some entries found in db with partial id query may already be in cache (after update/delete),
-        // so we must return actual entries from cache
-        for (var entry : foundInDb) {
-            var id = entry.getId();
-            if (cache.containsKey(id)) {
-                var cached = cache.peek(id);
-                cached.ifPresent(t -> merged.put(id, t));
-                // not present means marked as deleted in cache
-            } else {
-                merged.put(id, this.postLoad(entry));
-            }
-        }
-
-        // add entries found in cache and not fetched from db
-        for (var pair : foundInCache.entrySet()) {
-            var id = pair.getKey();
-            var entry = pair.getValue();
-            merged.put(id, entry);
-        }
-
-        if (!isPartialIdMode) {
-            Set<Entity.Id<T>> foundInDbIds = foundInDb.stream().map(Entity::getId).collect(toSet());
-            Set<Entity.Id<T>> foundInCacheIds = new HashSet<>(foundInCache.keySet());
-            Sets.difference(Sets.difference(ids, foundInDbIds), foundInCacheIds).forEach(cache::putEmpty);
-        }
-
-        return merged.values().stream().sorted(EntityIdSchema.SORT_ENTITY_BY_ID).collect(Collectors.toList());
     }
 
     default void bulkUpsert(List<T> input, BulkParams params) {
         throw new UnsupportedOperationException();
     }
-
-    default TableQueryBuilder<T> toQueryBuilder(ListRequest<T> request) {
-        return query()
-                .index(request.getIndex())
-                .filter(request.getFilter())
-                .orderBy(request.getOrderBy())
-                .offset(request.getOffset())
-                .limit(request.getPageSize() + 1);
-    }
-
+  
+    @InternalApi
     default List<T> postLoad(List<T> list) {
         return list.stream().map(this::postLoad).collect(Collectors.toList());
     }
 
+    @InternalApi
     default T postLoad(T e) {
         return e.postLoad();
     }
@@ -347,6 +288,14 @@ public interface Table<T extends Entity<T>> {
         return new TableQueryBuilder<>(this);
     }
 
+    /**
+     * @deprecated Blindly setting entity fields is not recommended. Use {@code Table.modifyIfPresent()} instead, unless you
+     * have specific requirements.
+     * <p>Blind updates disrupt query merging mechanism, so you typically won't able to run multiple blind update statements
+     * in the same transaction, or interleave them with upserts ({@code Table.save()}) and inserts.
+     * <p>Blind updates also do not update projections because they do not load the entity before performing the update;
+     * this can cause projections to be inconsistent with the main entity.
+     */
     @Deprecated
     void update(Entity.Id<T> id, Changeset changeset);
 

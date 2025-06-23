@@ -8,6 +8,15 @@ import tech.ydb.yoj.repository.ydb.yql.YqlType;
 
 import java.util.stream.Stream;
 
+/**
+ * @deprecated Blindly setting entity fields is not recommended. Use {@code Table.modifyIfPresent()} instead, unless you
+ * have specific requirements.
+ * <p>Blind updates disrupt query merging mechanism, so you typically won't able to run multiple blind update statements
+ * in the same transaction, or interleave them with upserts ({@code Table.save()}) and inserts.
+ * <p>Blind updates also do not update projections because they do not load the entity before performing the update;
+ * this can cause projections to be inconsistent with the main entity.
+ */
+@Deprecated
 @Getter
 public final class UpdateSetParam extends PredicateStatement.Param {
     private static final String PREFIX = "set_";

@@ -8,7 +8,7 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 
-final class InMemoryStorage {
+/*package*/ final class InMemoryStorage {
     private final Map<TableDescriptor<?>, InMemoryDataShard<?>> shards;
     private final Map<Long, Set<TableDescriptor<?>>> uncommited = new HashMap<>();
 
@@ -48,7 +48,7 @@ final class InMemoryStorage {
 
         Set<TableDescriptor<?>> uncommitedTables = uncommited.remove(txId);
         for (TableDescriptor<?> tableDescriptor : uncommitedTables) {
-            shards.get(tableDescriptor).commit(txId, currentVersion);
+            getInMemoryDataShard(tableDescriptor).commit(txId, currentVersion);
         }
     }
 
@@ -58,7 +58,7 @@ final class InMemoryStorage {
             return;
         }
         for (TableDescriptor<?> tableDescriptor : uncommitedTables) {
-            shards.get(tableDescriptor).rollback(txId);
+            getInMemoryDataShard(tableDescriptor).rollback(txId);
         }
     }
 
@@ -78,12 +78,18 @@ final class InMemoryStorage {
     private <T extends Entity<T>> TxDataShardImpl<T> getTxDataShard(
             TableDescriptor<T> tableDescriptor, long txId, long version, InMemoryTxLockWatcher watcher
     ) {
+        InMemoryDataShard<T> shard = getInMemoryDataShard(tableDescriptor);
+        return new TxDataShardImpl<>(shard, txId, version, watcher);
+    }
+
+    private <T extends Entity<T>> InMemoryDataShard<T> getInMemoryDataShard(TableDescriptor<T> tableDescriptor) {
         @SuppressWarnings("unchecked")
         InMemoryDataShard<T> shard = (InMemoryDataShard<T>) shards.get(tableDescriptor);
+
         if (shard == null) {
             throw new InMemoryRepositoryException("Table is not created: " + tableDescriptor.toDebugString());
         }
-        return new TxDataShardImpl<>(shard, txId, version, watcher);
+        return shard;
     }
 
     public synchronized void dropDb() {

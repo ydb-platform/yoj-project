@@ -66,6 +66,8 @@ public final class YqlListingQuery {
                     case GTE -> pred.gte(expected);
                     case CONTAINS -> pred.like(likePatternForContains((String) expected), LIKE_ESCAPE_CHAR);
                     case NOT_CONTAINS -> pred.notLike(likePatternForContains((String) expected), LIKE_ESCAPE_CHAR);
+                    case ICONTAINS -> pred.likeIgnoreCase(likePatternForContains((String) expected), LIKE_ESCAPE_CHAR);
+                    case NOT_ICONTAINS -> pred.notLikeIgnoreCase(likePatternForContains((String) expected), LIKE_ESCAPE_CHAR);
                     case STARTS_WITH -> pred.like(likePatternForStartsWith((String) expected), LIKE_ESCAPE_CHAR);
                     case ENDS_WITH -> pred.like(likePatternForEndsWith((String) expected), LIKE_ESCAPE_CHAR);
                 };
@@ -165,7 +167,9 @@ public final class YqlListingQuery {
     }
 
     public static <T extends Entity<T>> YqlOrderBy toYqlOrderBy(@NonNull OrderExpression<T> orderBy) {
-        return YqlOrderBy.orderBy(orderBy.getKeys().stream().map(YqlListingQuery::toSortKey).collect(toList()));
+        return orderBy.isUnordered()
+                ? YqlOrderBy.unordered()
+                : YqlOrderBy.orderBy(orderBy.getKeys().stream().map(YqlListingQuery::toSortKey).collect(toList()));
     }
 
     private static YqlOrderBy.SortKey toSortKey(SortKey k) {

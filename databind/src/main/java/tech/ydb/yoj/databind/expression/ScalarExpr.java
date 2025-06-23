@@ -249,6 +249,36 @@ public class ScalarExpr<T> extends LeafExpression<T> {
             public String toString() {
                 return "not contains";
             }
+        },
+        /**
+         * "Icontains" case-insensitive match for a substring in a string
+         * E.g., {@code name contains "abc"}
+         */
+        ICONTAINS {
+            @Override
+            public Operator negate() {
+                return NOT_ICONTAINS;
+            }
+
+            @Override
+            public String toString() {
+                return "icontains";
+            }
+        },
+        /**
+         * "Not icontains" case-insensitive absence of a substring in a string
+         * E.g., {@code name not icontains "abc"}
+         */
+        NOT_ICONTAINS {
+            @Override
+            public Operator negate() {
+                return ICONTAINS;
+            }
+
+            @Override
+            public String toString() {
+                return "not icontains";
+            }
         };
 
         @Nullable

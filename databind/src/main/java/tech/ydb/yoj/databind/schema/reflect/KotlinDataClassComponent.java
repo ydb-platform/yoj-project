@@ -18,7 +18,7 @@ import java.lang.reflect.Type;
 /**
  * Represents a Kotlin data class component for the purposes of YOJ data-binding.
  */
-public final class KotlinDataClassComponent extends ReflectFieldBase {
+/*package*/ final class KotlinDataClassComponent extends ReflectFieldBase {
     private final KProperty1.Getter<?, ?> getter;
 
     public KotlinDataClassComponent(Reflector reflector, String name, KProperty1<?, ?> property) {

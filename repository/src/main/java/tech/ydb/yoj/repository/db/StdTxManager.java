@@ -57,7 +57,7 @@ public final class StdTxManager implements TxManager, TxManagerState {
 
     private static final CallStack callStack = new CallStack();
 
-    private static final int DEFAULT_MAX_ATTEMPT_COUNT = 10;
+    private static final int DEFAULT_MAX_ATTEMPT_COUNT = 100;
     private static final double[] TX_ATTEMPTS_BUCKETS = new double[]
             {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 14, 16, 18, 20, 25, 35, 40, 45, 50, 60, 70, 80, 90, 100};
     private static final double[] DURATION_BUCKETS = {
@@ -164,12 +164,17 @@ public final class StdTxManager implements TxManager, TxManagerState {
     }
 
     @Override
-    public TxManager withTimeout(Duration timeout) {
+    public TxManager withTimeout(@NonNull Duration timeout) {
         return withOptions(this.options.withTimeoutOptions(new TxOptions.TimeoutOptions(timeout)));
     }
 
     @Override
-    public TxManager withLogLevel(TransactionLog.Level level) {
+    public TxManager withQueryStats(@NonNull QueryStatsMode queryStats) {
+        return withOptions(this.options.withQueryStats(queryStats));
+    }
+
+    @Override
+    public TxManager withLogLevel(@NonNull TransactionLog.Level level) {
         return withOptions(this.options.withLogLevel(level));
     }
 

@@ -6,7 +6,7 @@ import tech.ydb.yoj.repository.db.TableDescriptor;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-public class UpsertYqlStatementTest extends AbstractMultipleVarsYqlStatementTestBase {
+public class UpsertYqlStatementIntegrationTest extends AbstractMultipleVarsYqlStatementIntegrationTestBase {
 
     @Test
     public void testUpsert() {

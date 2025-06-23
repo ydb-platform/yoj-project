@@ -15,7 +15,7 @@ import java.util.Map;
 import java.util.Set;
 
 @RequiredArgsConstructor(access = AccessLevel.PRIVATE)
-public final class InMemoryTxLockWatcher {
+/*package*/ final class InMemoryTxLockWatcher {
     public static final InMemoryTxLockWatcher NO_LOCKS = new InMemoryTxLockWatcher(Map.of(), Map.of());
 
     private final Map<TableDescriptor<?>, Set<Entity.Id<?>>> readRows;

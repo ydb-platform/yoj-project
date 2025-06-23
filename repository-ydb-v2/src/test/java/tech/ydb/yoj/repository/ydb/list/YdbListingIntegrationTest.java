@@ -1,5 +1,6 @@
 package tech.ydb.yoj.repository.ydb.list;
 
+import org.junit.ClassRule;
 import org.junit.Test;
 import tech.ydb.yoj.databind.expression.FilterExpression;
 import tech.ydb.yoj.repository.db.EntitySchema;
@@ -8,8 +9,8 @@ import tech.ydb.yoj.repository.db.list.ListRequest;
 import tech.ydb.yoj.repository.db.list.ListResult;
 import tech.ydb.yoj.repository.test.ListingTest;
 import tech.ydb.yoj.repository.test.sample.model.Complex;
-import tech.ydb.yoj.repository.ydb.TestYdbConfig;
 import tech.ydb.yoj.repository.ydb.TestYdbRepository;
+import tech.ydb.yoj.repository.ydb.YdbEnvAndTransportRule;
 import tech.ydb.yoj.repository.ydb.yql.YqlListingQuery;
 import tech.ydb.yoj.repository.ydb.yql.YqlPredicate;
 
@@ -17,9 +18,12 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static tech.ydb.yoj.repository.db.EntityExpressions.newFilterBuilder;
 
 public class YdbListingIntegrationTest extends ListingTest {
+    @ClassRule
+    public static final YdbEnvAndTransportRule ydbEnvAndTransport = new YdbEnvAndTransportRule();
+
     @Override
     protected Repository createTestRepository() {
-        return new TestYdbRepository(TestYdbConfig.get());
+        return new TestYdbRepository(ydbEnvAndTransport.getYdbConfig(), ydbEnvAndTransport.getGrpcTransport());
     }
 
     @Test

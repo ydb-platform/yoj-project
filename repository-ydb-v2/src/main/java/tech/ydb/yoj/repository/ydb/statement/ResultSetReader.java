@@ -2,6 +2,7 @@ package tech.ydb.yoj.repository.ydb.statement;
 
 import lombok.NonNull;
 import tech.ydb.proto.ValueProtos;
+import tech.ydb.yoj.InternalApi;
 import tech.ydb.yoj.databind.schema.Schema;
 import tech.ydb.yoj.repository.db.exception.ConversionException;
 import tech.ydb.yoj.repository.ydb.yql.YqlType;
@@ -16,6 +17,7 @@ import static java.util.stream.Collectors.toMap;
 import static tech.ydb.yoj.repository.db.EntityIdSchema.isIdFieldName;
 import static tech.ydb.yoj.util.lang.BetterCollectors.toMapNullFriendly;
 
+@InternalApi
 public class ResultSetReader<RESULT> {
     private final Map<String, YqlType> fields;
     protected final Schema<RESULT> resultSchema;

@@ -13,7 +13,7 @@ import java.util.List;
 /**
  * Represents a record class for the purposes of YOJ data-binding.
  */
-public final class RecordType<R extends Record> implements ReflectType<R> {
+/*package*/ final class RecordType<R extends Record> implements ReflectType<R> {
     public static final StdReflector.TypeFactory FACTORY = new StdReflector.TypeFactory() {
         @Override
         public int priority() {

@@ -21,7 +21,7 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
-public class InMemoryRepositoryTransaction implements BaseDb, RepositoryTransaction, TransactionLocal.Holder {
+public class InMemoryRepositoryTransaction implements BaseDb, RepositoryTransaction {
     private final static AtomicLong txIdGenerator = new AtomicLong();
 
     private final long txId = txIdGenerator.incrementAndGet();

@@ -17,8 +17,11 @@ import tech.ydb.yoj.util.function.StreamSupplier;
 
 import javax.annotation.Nullable;
 import java.util.Comparator;
+import java.util.IdentityHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
+import java.util.UUID;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.Stream;
@@ -92,6 +95,8 @@ public final class InMemoryQueries {
                     case CONTAINS -> obj -> contains((String) getActual.apply(obj), (String) expected);
                     case NOT_CONTAINS -> obj -> !contains((String) getActual.apply(obj), (String) expected);
                     case STARTS_WITH -> obj -> startsWith((String) getActual.apply(obj), (String) expected);
+                    case ICONTAINS -> obj -> containsIgnoreCase((String) getActual.apply(obj), (String) expected);
+                    case NOT_ICONTAINS -> obj -> !containsIgnoreCase((String) getActual.apply(obj), (String) expected);
                     case ENDS_WITH -> obj -> endsWith((String) getActual.apply(obj), (String) expected);
                 };
             }
@@ -144,12 +149,18 @@ public final class InMemoryQueries {
     }
 
     public static <T extends Entity<T>> Comparator<T> toComparator(@NonNull OrderExpression<T> orderBy) {
+        if (orderBy.isUnordered()) {
+            // Produces a randomly-ordering, but stable Comparator. UUID.randomUUID() collisions are extremely unlikely, so we ignore them.
+            Map<Object, UUID> randomIds = new IdentityHashMap<>();
+            return Comparator.comparing(e -> randomIds.computeIfAbsent(e, __ -> UUID.randomUUID()));
+        }
+
         Schema<T> schema = orderBy.getSchema();
         return (a, b) -> {
             Map<String, Object> mapA = schema.flatten(a);
             Map<String, Object> mapB = schema.flatten(b);
             for (OrderExpression.SortKey sortKey : orderBy.getKeys()) {
-                for (JavaField field : sortKey.getField().flatten().collect(toList())) {
+                for (JavaField field : sortKey.getField().flatten().toList()) {
                     int res = compare(FieldValue.getComparable(mapA, field), FieldValue.getComparable(mapB, field));
                     if (res != 0) {
                         return sortKey.getOrder() == ASCENDING ? res : -res;
@@ -196,6 +207,15 @@ public final class InMemoryQueries {
         }
         return input.contains(substring);
     }
+
+    private static boolean containsIgnoreCase(@Nullable String input, @Nullable String substring) {
+        if (input == null || substring == null) {
+            return false;
+        }
+
+        return input.toLowerCase(Locale.ROOT).contains(substring.toLowerCase(Locale.ROOT));
+    }
+
 
     private static boolean startsWith(@Nullable String input, @Nullable String substring) {
         if (input == null || substring == null) {

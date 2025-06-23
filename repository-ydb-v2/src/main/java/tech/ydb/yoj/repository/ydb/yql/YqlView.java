@@ -1,16 +1,14 @@
 package tech.ydb.yoj.repository.ydb.yql;
 
-import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
-import lombok.EqualsAndHashCode;
 import lombok.NonNull;
+import lombok.RequiredArgsConstructor;
+import lombok.Value;
 import lombok.With;
-import lombok.experimental.FieldDefaults;
+import tech.ydb.yoj.DeprecationWarnings;
 import tech.ydb.yoj.databind.schema.Schema;
 import tech.ydb.yoj.repository.db.Entity;
 import tech.ydb.yoj.repository.db.EntitySchema;
-
-import java.util.List;
 
 import static lombok.AccessLevel.PRIVATE;
 
@@ -19,27 +17,23 @@ import static lombok.AccessLevel.PRIVATE;
  *
  * @see #toYql(EntitySchema)
  */
-@EqualsAndHashCode
-@FieldDefaults(makeFinal = true, level = PRIVATE)
+@Value
+@RequiredArgsConstructor(access = PRIVATE)
 public class YqlView implements YqlStatementPart<YqlView> {
     public static final String TYPE = "VIEW";
     public static final YqlView EMPTY = new YqlView("");
 
     @With
+    @NonNull
     String index;
-
-    private YqlView(String index) {
-        Preconditions.checkArgument(index != null, "index cannot be null");
-        this.index = index;
-    }
 
     /**
      * Creates a view clause to fetch rows using effective index
      *
-     * @param index index
+     * @param index index name; must not be {@code null}
      * @return view clause to fetch rows using index
      */
-    public static YqlView index(String index) {
+    public static YqlView index(@NonNull String index) {
         return new YqlView(index);
     }
 
@@ -51,7 +45,14 @@ public class YqlView implements YqlStatementPart<YqlView> {
         return EMPTY;
     }
 
+    /**
+     * @deprecated This method is confusingly named, because there also is a static constructor {@link YqlView#index(String)}.
+     * It will be removed in YOJ 3.0.0. Please use {@link #getIndex()} instead.
+     */
+    @Deprecated(forRemoval = true)
     public String index() {
+        DeprecationWarnings.warnOnce("YqlView.index()",
+                "YqlView.index() getter will be removed in YOJ 3.0.0. Please use YqlView.getIndex() instead");
         return index;
     }
 
@@ -84,11 +85,6 @@ public class YqlView implements YqlStatementPart<YqlView> {
         throw new IllegalStateException(
                 "Unable to find index [%s] for entity [%s]".formatted(index, schema.getTypeName())
         );
-    }
-
-    @Override
-    public List<? extends YqlStatementPart<?>> combine(@NonNull List<? extends YqlView> other) {
-        throw new UnsupportedOperationException("Multiple VIEW specifications are not supported");
     }
 
     @Override

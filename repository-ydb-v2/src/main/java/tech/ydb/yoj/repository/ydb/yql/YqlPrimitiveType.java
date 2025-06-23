@@ -49,6 +49,7 @@ import static tech.ydb.yoj.repository.db.common.CommonConverters.enumValueGetter
 import static tech.ydb.yoj.repository.db.common.CommonConverters.enumValueSetter;
 import static tech.ydb.yoj.repository.db.common.CommonConverters.opaqueObjectValueGetter;
 import static tech.ydb.yoj.repository.db.common.CommonConverters.opaqueObjectValueSetter;
+import static tech.ydb.yoj.repository.db.common.CommonConverters.uuidValue;
 import static tech.ydb.yoj.repository.db.common.CommonConverters.uuidValueGetter;
 import static tech.ydb.yoj.repository.db.common.CommonConverters.uuidValueSetter;
 
@@ -76,7 +77,8 @@ public class YqlPrimitiveType implements YqlType {
             Map.entry(PrimitiveTypeId.STRING, "String"),
             Map.entry(PrimitiveTypeId.UTF8, "Utf8"),
             Map.entry(PrimitiveTypeId.JSON, "Json"),
-            Map.entry(PrimitiveTypeId.JSON_DOCUMENT, "JsonDocument")
+            Map.entry(PrimitiveTypeId.JSON_DOCUMENT, "JsonDocument"),
+            Map.entry(PrimitiveTypeId.UUID, "Uuid")
     );
 
     private static final Setter BOOL_SETTER = (b, v) -> b.setBoolValue((Boolean) v);
@@ -111,6 +113,7 @@ public class YqlPrimitiveType implements YqlType {
     private static final Setter DURATION_UTF8_SETTER = (b, v) -> b.setTextValue(((Duration) v).truncatedTo(ChronoUnit.MICROS).toString());
     private static final Setter UUID_STRING_SETTER = uuidValueSetter(STRING_SETTER)::accept;
     private static final Setter UUID_UTF8_SETTER = uuidValueSetter(TEXT_SETTER)::accept;
+    private static final Setter UUID_NATIVE_SETTER = (b, v) -> b.mergeFrom(ProtoValue.fromUuid(uuidValue(v)));
 
     private static final Function<Type, Setter> ENUM_NAME_STRING_SETTERS = type -> enumValueSetter(type, STRING_SETTER)::accept;
     private static final Function<Type, Setter> ENUM_NAME_UTF8_SETTERS = type -> enumValueSetter(type, TEXT_SETTER)::accept;
@@ -153,6 +156,7 @@ public class YqlPrimitiveType implements YqlType {
     private static final Getter DURATION_UTF8_GETTER = v -> Duration.parse(v.getTextValue());
     private static final Getter UUID_STRING_GETTER = uuidValueGetter(STRING_GETTER)::apply;
     private static final Getter UUID_UTF8_GETTER = uuidValueGetter(TEXT_GETTER)::apply;
+    private static final Getter UUID_NATIVE_GETTER = ProtoValue::toUuid;
 
     private static final Getter CONTAINER_VALUE_GETTER = new YqlPrimitiveType.YdbContainerValueGetter();
 
@@ -209,6 +213,7 @@ public class YqlPrimitiveType implements YqlType {
 
         registerYqlType(UUID.class, PrimitiveTypeId.UTF8, null, true, UUID_UTF8_SETTER, UUID_UTF8_GETTER);
         registerYqlType(UUID.class, PrimitiveTypeId.STRING, null, false, UUID_STRING_SETTER, UUID_STRING_GETTER);
+        registerYqlType(UUID.class, PrimitiveTypeId.UUID, null, false, UUID_NATIVE_SETTER, UUID_NATIVE_GETTER);
 
         registerPrimitiveTypes();
 

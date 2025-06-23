@@ -1,9 +1,12 @@
 package tech.ydb.yoj.repository.db.cache;
 
+import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
+import tech.ydb.yoj.InternalApi;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.Supplier;
 
 import static java.util.stream.Collectors.joining;
 import static tech.ydb.yoj.repository.db.cache.TransactionLog.Level.DEBUG;
@@ -11,42 +14,64 @@ import static tech.ydb.yoj.repository.db.cache.TransactionLog.Level.INFO;
 
 @RequiredArgsConstructor
 public final class TransactionLog {
+    @NonNull
     private final Level logLevel;
-    private final List<String> messages = new ArrayList<>();
 
-    public void debug(String message) {
+    @NonNull
+    private final List<Object> messages = new ArrayList<>();
+
+    public void debug(Object message) {
         log(DEBUG, message);
     }
 
-    public void info(String message) {
+    public void debug(@NonNull Supplier<List<?>> messages) {
+        log(DEBUG, messages);
+    }
+
+    public void info(Object message) {
         log(INFO, message);
     }
 
-    public void debug(String message, Object... args) {
+    public void info(@NonNull Supplier<List<?>> messages) {
+        log(INFO, messages);
+    }
+
+    public void debug(@NonNull String message, Object... args) {
         log(DEBUG, message, args);
     }
 
-    public void info(String message, Object... args) {
+    public void info(@NonNull String message, Object... args) {
         log(INFO, message, args);
     }
 
-    private void log(Level level, String message, Object... args) {
+    private void log(@NonNull Level level, @NonNull String message, Object... args) {
         if (logLevel.acceptsMessageAt(level)) {
             log0(args.length == 0 ? message : String.format(message, args));
         }
     }
 
-    private void log(Level level, String message) {
+    private void log(@NonNull Level level, Object message) {
         if (logLevel.acceptsMessageAt(level)) {
             log0(message);
         }
     }
 
-    private void log0(String message) {
-        messages.add(message);
+    private void log(@NonNull Level level, @NonNull Supplier<List<?>> messages) {
+        if (logLevel.acceptsMessageAt(level)) {
+            log0(messages.get());
+        }
     }
 
-    public String format(String prefix) {
+    private void log0(Object message) {
+        this.messages.add(message);
+    }
+
+    private void log0(@NonNull List<?> messages) {
+        this.messages.addAll(messages);
+    }
+
+    @InternalApi
+    public String format(@NonNull String prefix) {
         return messages.stream().map(l -> "\n  " + prefix + l).collect(joining());
     }
 
@@ -68,7 +93,7 @@ public final class TransactionLog {
          */
         OFF;
 
-        public boolean acceptsMessageAt(Level level) {
+        public boolean acceptsMessageAt(@NonNull Level level) {
             return this.compareTo(level) <= 0;
         }
     }

@@ -18,6 +18,7 @@ import tech.ydb.yoj.repository.test.sample.model.EntityWithValidation;
 import tech.ydb.yoj.repository.test.sample.model.IndexedEntity;
 import tech.ydb.yoj.repository.test.sample.model.LogEntry;
 import tech.ydb.yoj.repository.test.sample.model.MultiWrappedEntity;
+import tech.ydb.yoj.repository.test.sample.model.MultiWrappedEntity2;
 import tech.ydb.yoj.repository.test.sample.model.NetworkAppliance;
 import tech.ydb.yoj.repository.test.sample.model.Primitive;
 import tech.ydb.yoj.repository.test.sample.model.Project;
@@ -135,6 +136,11 @@ public class TestInMemoryRepository extends InMemoryRepository {
         @Override
         public Table<MultiWrappedEntity> multiWrappedIdEntities() {
             return table(MultiWrappedEntity.class);
+        }
+
+        @Override
+        public Table<MultiWrappedEntity2> multiWrappedEntities2() {
+            return table(MultiWrappedEntity2.class);
         }
     }
 

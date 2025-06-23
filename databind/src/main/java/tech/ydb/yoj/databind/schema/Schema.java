@@ -23,8 +23,11 @@ import javax.annotation.Nullable;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Type;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -33,7 +36,6 @@ import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
-import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.function.UnaryOperator;
 import java.util.regex.Pattern;
@@ -43,14 +45,9 @@ import static com.google.common.collect.MoreCollectors.onlyElement;
 import static java.lang.String.format;
 import static java.util.Arrays.asList;
 import static java.util.stream.Collectors.toList;
-import static java.util.stream.Collectors.toMap;
-import static lombok.AccessLevel.PROTECTED;
 
 public abstract class Schema<T> {
     public static final String PATH_DELIMITER = ".";
-
-    @Getter(PROTECTED)
-    private final SchemaKey<T> schemaKey;
 
     @Getter
     private final List<JavaField> fields;
@@ -67,6 +64,10 @@ public abstract class Schema<T> {
 
     protected final ReflectType<T> reflectType;
 
+    private final Class<T> type;
+    private final NamingStrategy namingStrategy;
+
+    @Deprecated
     private final String staticName;
 
     protected Schema(@NonNull Class<T> type) {
@@ -86,12 +87,11 @@ public abstract class Schema<T> {
     }
 
     protected Schema(@NonNull SchemaKey<T> key, @NonNull Reflector reflector) {
-        Class<T> type = key.clazz();
-        NamingStrategy namingStrategy = key.namingStrategy();
+        this.type = key.clazz();
+        this.namingStrategy = key.namingStrategy();
 
         this.reflectType = reflector.reflectRootType(type);
 
-        this.schemaKey = key;
         this.staticName = namingStrategy.getNameForClass(type);
 
         this.fields = reflectType.getFields().stream().map(this::newRootJavaField).toList();
@@ -104,17 +104,24 @@ public abstract class Schema<T> {
         this.ttlModifier = prepareTtlModifier(extractTtlModifier(type));
         this.changefeeds = prepareChangefeeds(collectChangefeeds(type));
     }
-    
+
     protected Schema(Schema<?> schema, String subSchemaFieldPath) {
-        JavaField subSchemaField = schema.getField(subSchemaFieldPath);
+        this(schema.getField(subSchemaFieldPath), schema.getNamingStrategy());
+    }
 
+    protected Schema(JavaField subSchemaField, @Nullable NamingStrategy parentNamingStrategy) {
         @SuppressWarnings("unchecked") ReflectType<T> rt = (ReflectType<T>) subSchemaField.field.getReflectType();
+
         this.reflectType = rt;
+        this.type = rt.getRawType();
+        this.namingStrategy = parentNamingStrategy == null ? SUBFIELD_SCHEMA_NAMING_STRATEGY : parentNamingStrategy;
 
-        this.schemaKey = schema.schemaKey.withClazz(reflectType.getRawType());
-
-        this.staticName = schema.staticName;
-        this.globalIndexes = schema.globalIndexes;
+        // This is a subfield, *NOT* an Entity, so it has no table name, no TTL, no indexes and no changefeeds
+        // (And also, no useful naming strategy, because all field names have already been assigned by the moment you construct a subfield Schema!)
+        this.staticName = "";
+        this.ttlModifier = null;
+        this.globalIndexes = List.of();
+        this.changefeeds = List.of();
 
         if (subSchemaField.fields != null) {
             this.fields = subSchemaField.fields.stream().map(this::newRootJavaField).toList();
@@ -127,19 +134,22 @@ public abstract class Schema<T> {
                 this.fields = List.of();
             }
         }
-        this.ttlModifier = schema.ttlModifier;
-        this.changefeeds = schema.changefeeds;
     }
 
-    public String getTypeName() {
-        return getType().getSimpleName();
+    public final String getTypeName() {
+        return type.getSimpleName();
     }
 
     private void validateFieldNames() {
-        flattenFields().stream().collect(toMap(JavaField::getName, Function.identity(), ((x, y) -> {
-            throw new IllegalArgumentException("fields with same name `%s` detected: `{%s}` and `{%s}`"
-                    .formatted(x.getName(), x.getField(), y.getField()));
-        })));
+        Map<String, JavaField> fieldNames = new HashMap<>();
+        for (JavaField field : flattenFields()) {
+            String fieldName = field.getName();
+            JavaField existingField = fieldNames.putIfAbsent(fieldName, field);
+            if (existingField != null) {
+                throw new IllegalArgumentException("fields with same name \"%s\" detected: {%s} and {%s}"
+                        .formatted(fieldName, field.getField(), existingField.getField()));
+            }
+        }
     }
 
     private List<Index> prepareIndexes(List<GlobalIndex> indexes) {
@@ -245,13 +255,23 @@ public abstract class Schema<T> {
         var retentionPeriod = Duration.parse(changefeed.retentionPeriod());
         Preconditions.checkArgument(!(retentionPeriod.isNegative() || retentionPeriod.isZero()),
                 "RetentionPeriod value defined for %s must be positive", getType());
+        List<Changefeed.Consumer> consumers = Arrays.stream(changefeed.consumers())
+                .map(consumer -> new Changefeed.Consumer(
+                        consumer.name(),
+                        List.of(consumer.codecs()),
+                        Instant.parse(consumer.readFrom()),
+                        consumer.important()
+                ))
+                .toList();
+
         return new Changefeed(
                 changefeed.name(),
                 changefeed.mode(),
                 changefeed.format(),
                 changefeed.virtualTimestamps(),
                 retentionPeriod,
-                changefeed.initialScan()
+                changefeed.initialScan(),
+                consumers
         );
     }
 
@@ -264,23 +284,29 @@ public abstract class Schema<T> {
     }
 
     public final Class<T> getType() {
-        return schemaKey.clazz();
+        return type;
     }
 
     public final NamingStrategy getNamingStrategy() {
-        return schemaKey.namingStrategy();
+        return namingStrategy;
     }
 
     /**
-     * DEPRECATED: old method, use correct instance of {@link TableDescriptor}
-     * Returns the name of the table for data binding.
-     * <p>
-     * If the {@link Table} annotation is present, the field {@code name} should be used to
-     * specify the table name.
+     * @deprecated This method will be pulled down to {@code EntitySchema} in YOJ 3.0.0 or even earlier; and it might be removed in YOJ 3.x.
+     * <br>YOJ end-users <strong>should never</strong> use this method themselves. To customize table name, just add the {@link Table} annotation to
+     * an {@code Entity} and specify the desired name in the annotation's {@code name} field. To dynamically choose table name, use
+     * the {@code BaseDb.table(TableDescriptor)} method inside your transaction.
+     * <br>
+     * This method always had somewhat unclear semantics (it was never specified what it returns for anything that's not an {@code EntitySchema})
+     * and unnecessarily coupled the data-binding model ({@code Schema}s) to database concepts (tables, which have names, and implementation-defined
+     * syntax for names and paths).
      *
-     * @return the table name for data binding
+     * @return this {@code Schema}'s "name", as determined by {@code NamingStrategy}. For {@code EntitySchema}, this will be the <em>table name</em>
+     *         that's used if you don't obtain the table with an explicit {@code TableDescriptor}. Other instances of {@code Schema} are not
+     *         guaranteed to return anything meaningful and/or useful from this method, and might return an empty {@code String}
+     *         (but <em>not</em> {@code null}.)
      */
-    @Deprecated
+    @Deprecated(forRemoval = true)
     public final String getName() {
         return staticName;
     }
@@ -363,20 +389,15 @@ public abstract class Schema<T> {
 
     @Override
     public final int hashCode() {
-        return Objects.hashCode(staticName);
+        return Objects.hash(getClass(), getType(), getNamingStrategy());
     }
 
     @Override
     public final boolean equals(Object o) {
-        if (this == o) {
-            return true;
-        }
-        if (o == null || getClass() != o.getClass()) {
-            return false;
-        }
-
-        Schema<?> other = (Schema<?>) o;
-        return Objects.equals(staticName, other.staticName);
+        return o instanceof Schema<?> otherSchema
+                && otherSchema.getClass().equals(this.getClass())
+                && otherSchema.getType().equals(this.getType())
+                && otherSchema.getNamingStrategy().equals(this.getNamingStrategy());
     }
 
     @Override
@@ -386,7 +407,9 @@ public abstract class Schema<T> {
             schemaName = getClass().getName();
         }
 
-        return schemaName + " \"" + staticName + "\" [type=" + getType().getName() + "]";
+        String staticTableName = staticName.isEmpty() ? "" : " \"" + staticName + "\"";
+
+        return schemaName + staticTableName + " [type=" + getTypeName() + "]";
     }
 
     private static final class DummyCustomValueSubField implements ReflectField {
@@ -615,6 +638,41 @@ public abstract class Schema<T> {
         }
 
         /**
+         * @return the uppermost field that contains this flat field and is still {@link #isFlat() flat}; {@code this} if no such flat field exists
+         * @throws IllegalStateException if this field is not {@link #isFlat() flat}
+         */
+        @ExperimentalApi(issue = "https://github.com/ydb-platform/yoj-project/pull/130")
+        public JavaField getFlatRoot() {
+            Preconditions.checkState(isFlat(), "Cannot get flat parent for a non-flat field");
+
+            JavaField flatRoot = this;
+            while (flatRoot.parent != null && flatRoot.parent.getChildren().size() == 1) {
+                flatRoot = flatRoot.parent;
+            }
+            return flatRoot;
+        }
+
+        /**
+         * @param condition the condition for matching the fields
+         * @return the outermost flat child field that {@code this} field contains (including {@code this} itself!) that matches the {@code condition}
+         * @throws IllegalStateException if this field is not {@link #isFlat() flat}
+         */
+        @Nullable
+        @ExperimentalApi(issue = "https://github.com/ydb-platform/yoj-project/pull/130")
+        public JavaField findFlatChild(@NonNull Predicate<JavaField> condition) {
+            Preconditions.checkState(isFlat(), "Cannot get flat child for a non-flat field");
+
+            JavaField current = this;
+            while (current != null) {
+                if (condition.test(current)) {
+                    return current;
+                }
+                current = current.getChildren().isEmpty() ? null : current.getChildren().get(0);
+            }
+            return null;
+        }
+
+        /**
          * Determining that a java field is mapped in more than one database field.
          *
          * @return {@code 0} if java field does not map in the database fields, {@code 1} maps to single database field
@@ -813,5 +871,39 @@ public abstract class Schema<T> {
         Duration retentionPeriod;
 
         boolean initialScan;
+
+        @NonNull
+        List<Consumer> consumers;
+
+        @Value
+        public static class Consumer {
+            @NonNull
+            String name;
+
+            @NonNull
+            List<tech.ydb.yoj.databind.schema.Changefeed.Consumer.Codec> codecs;
+
+            @NonNull
+            Instant readFrom;
+
+            boolean important;
+        }
     }
+
+    private static final NamingStrategy SUBFIELD_SCHEMA_NAMING_STRATEGY = new NamingStrategy() {
+        @Override
+        public String getNameForClass(@NonNull Class<?> entityClass) {
+            throw new UnsupportedOperationException("Schema.SUBFIELD_SCHEMA_NAMING_STRATEGY.getNameForClass() must never be called");
+        }
+
+        @Override
+        public void assignFieldName(@NonNull JavaField javaField) {
+            throw new UnsupportedOperationException("Schema.SUBFIELD_SCHEMA_NAMING_STRATEGY.assignFieldName() must never be called");
+        }
+
+        @Override
+        public String toString() {
+            return "Schema.SUBFIELD_SCHEMA_NAMING_STRATEGY";
+        }
+    };
 }

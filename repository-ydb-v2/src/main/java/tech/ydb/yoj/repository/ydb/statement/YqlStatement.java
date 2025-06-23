@@ -4,6 +4,7 @@ import com.google.common.base.Preconditions;
 import com.google.protobuf.NullValue;
 import lombok.Getter;
 import tech.ydb.proto.ValueProtos;
+import tech.ydb.yoj.DeprecationWarnings;
 import tech.ydb.yoj.databind.schema.Schema;
 import tech.ydb.yoj.repository.db.Entity;
 import tech.ydb.yoj.repository.db.EntityIdSchema;
@@ -64,11 +65,10 @@ public abstract class YqlStatement<PARAMS, ENTITY extends Entity<ENTITY>, RESULT
             return;
         }
         for (Object o : result) {
-            if (o instanceof Entity) {
-                Entity<?> e = (Entity<?>) o;
-                cache.put(new RepositoryCache.Key(e.getClass(), e.getId()), e);
+            if (o instanceof Entity<?> e) {
+                cache.put(new RepositoryCache.Key(e.getClass(), tableDescriptor, e.getId()), e);
             } else {
-                // list should contains elements of the same type
+                // List contains elements of the same type, so if one of them is not suitable for caching, the others are not suitable as well
                 break;
             }
         }
@@ -78,8 +78,39 @@ public abstract class YqlStatement<PARAMS, ENTITY extends Entity<ENTITY>, RESULT
         return String.format("DECLARE %s AS %s;\n", name, type);
     }
 
+    /**
+     * Tries to combine/simplify the specified {@link YqlStatementPart statement part}s into a potentially smaller number of statement parts, e.g.,
+     * joining multiple {@code YqlPredicate}s into a single {@code AND} clause ({@code AndPredicate}).
+     * <br>Note that this method does not attempt to sort statement parts by {@link YqlStatementPart#getPriority() priority} or perform any
+     * YQL code generation at all.
+     * <p><strong>Warning:</strong> A closed/consumed or a partially consumed {@code Stream} could have <em>potentially</em> been passed
+     * to this method. But in all cases that we know of (both standard and custom {@code YqlStatement}s), this method was always fed a fresh stream,
+     * obtained by calling {@code someCollection.stream()}. This method is now replaced by the less error-prone {@link #mergeParts(Collection)}.
+     *
+     * @deprecated This method is deprecated and will be removed in YOJ 3.0.0. Please use {@link #mergeParts(Collection)} instead.
+     */
+    @Deprecated(forRemoval = true)
+    @SuppressWarnings("DataFlowIssue")
     protected static Stream<? extends YqlStatementPart<?>> mergeParts(Stream<? extends YqlStatementPart<?>> origParts) {
+        DeprecationWarnings.warnOnce("YqlStatement.mergeParts(Stream)",
+                "YqlStatement.mergeParts(Stream) is deprecated and will be removed in YOJ 3.0.0. Use YqlStatement.mergeParts(Collection) instead");
         return origParts
+                .collect(groupingBy(YqlStatementPart::getType))
+                .values().stream()
+                .flatMap(items -> combine(items).stream());
+    }
+
+    /**
+     * Tries to combine/simplify the specified {@link YqlStatementPart statement part}s into a potentially smaller number of statement parts, e.g.,
+     * joining multiple {@code YqlPredicate}s into a single {@code AND} clause ({@code AndPredicate}).
+     * <br>Note that this method does not attempt to sort statement parts by {@link YqlStatementPart#getPriority() priority} or perform any
+     * YQL code generation at all.
+     *
+     * @param origParts original collection of {@link YqlStatementPart statement parts}
+     * @return a fresh stream containing potentially combined {@link YqlStatementPart statement parts}
+     */
+    protected static Stream<? extends YqlStatementPart<?>> mergeParts(Collection<? extends YqlStatementPart<?>> origParts) {
+        return origParts.stream()
                 .collect(groupingBy(YqlStatementPart::getType))
                 .values().stream()
                 .flatMap(items -> combine(items).stream());
@@ -139,6 +170,10 @@ public abstract class YqlStatement<PARAMS, ENTITY extends Entity<ENTITY>, RESULT
 
     public int hashCode() {
         return getQuery("").hashCode();
+    }
+
+    public EntitySchema<ENTITY> getInSchema() {
+        return schema;
     }
 
     public Class<ENTITY> getInSchemaType() {

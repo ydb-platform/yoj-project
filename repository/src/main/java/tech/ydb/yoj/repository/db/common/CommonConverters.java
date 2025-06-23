@@ -4,6 +4,7 @@ import com.google.common.base.Preconditions;
 import lombok.SneakyThrows;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import tech.ydb.yoj.InternalApi;
 
 import javax.annotation.ParametersAreNonnullByDefault;
 import java.lang.reflect.Type;
@@ -17,6 +18,7 @@ import java.util.stream.Stream;
 import static java.lang.String.format;
 import static java.util.stream.Collectors.toUnmodifiableMap;
 
+@InternalApi
 @ParametersAreNonnullByDefault
 public final class CommonConverters {
     private static final Logger log = LoggerFactory.getLogger(CommonConverters.class);
@@ -111,6 +113,16 @@ public final class CommonConverters {
 
     public static <S> ThrowingGetter<S> uuidValueGetter(Function<S, Object> rawValueGetter) {
         return v -> deserializeUuidValue(rawValueGetter.apply(v));
+    }
+
+    public static UUID uuidValue(Object v) {
+        if (v instanceof String str) {
+            return UUID.fromString(str);
+        } else if (v instanceof UUID uuid) {
+            return uuid;
+        }
+        throw new IllegalArgumentException("Value must be an instance of java.util.UUID or a java.lang.String but is "
+                + v.getClass().getName());
     }
 
     public static Object deserializeUuidValue(Object v) {

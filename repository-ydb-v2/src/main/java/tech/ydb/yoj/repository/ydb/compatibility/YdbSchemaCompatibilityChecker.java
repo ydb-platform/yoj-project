@@ -5,7 +5,6 @@ import com.google.common.base.Preconditions;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
-import lombok.SneakyThrows;
 import lombok.Value;
 import lombok.With;
 import org.apache.commons.text.StringEscapeUtils;
@@ -16,6 +15,7 @@ import tech.ydb.core.UnexpectedResultException;
 import tech.ydb.yoj.databind.DbType;
 import tech.ydb.yoj.repository.db.Entity;
 import tech.ydb.yoj.repository.db.EntitySchema;
+import tech.ydb.yoj.repository.db.TableDescriptor;
 import tech.ydb.yoj.repository.ydb.YdbConfig;
 import tech.ydb.yoj.repository.ydb.YdbRepository;
 import tech.ydb.yoj.repository.ydb.client.YdbPaths;
@@ -42,7 +42,7 @@ import static java.util.stream.Collectors.toSet;
 public final class YdbSchemaCompatibilityChecker {
     private static final Logger log = LoggerFactory.getLogger(YdbSchemaCompatibilityChecker.class);
 
-    private final List<Class<? extends Entity>> entities;
+    private final List<TableDescriptor<?>> descriptors;
     private final Config config;
     private final YdbRepository repository;
     private final YdbConfig repositoryConfig;
@@ -51,12 +51,20 @@ public final class YdbSchemaCompatibilityChecker {
     private final List<String> canExecuteMessages = new ArrayList<>();
     private final List<String> incompatibleMessages = new ArrayList<>();
 
+    public YdbSchemaCompatibilityChecker(YdbRepository repository, List<TableDescriptor<?>> descriptors) {
+        this(repository, descriptors, Config.DEFAULT);
+    }
+
     public YdbSchemaCompatibilityChecker(List<Class<? extends Entity>> entities, YdbRepository repository) {
         this(entities, repository, Config.DEFAULT);
     }
 
     public YdbSchemaCompatibilityChecker(List<Class<? extends Entity>> entities, YdbRepository repository, Config config) {
-        this.entities = entities;
+        this(repository, toDescriptors(entities), config);
+    }
+
+    public YdbSchemaCompatibilityChecker(YdbRepository repository, List<TableDescriptor<?>> descriptors, Config config) {
+        this.descriptors = descriptors;
         this.config = config;
         this.repository = repository;
         this.repositoryConfig = this.repository.getConfig();
@@ -145,18 +153,16 @@ public final class YdbSchemaCompatibilityChecker {
                 .orElse(Objects.toString(repositoryConfig.getHostAndPort()));
     }
 
-    @SneakyThrows
     private Map<String, YdbSchemaOperations.Table> generateSchemeFromCode() {
-        return entities.stream()
+        return descriptors.stream()
                 .map(this::tableForEntity)
                 .collect(toMap(YdbSchemaOperations.Table::getName, Function.identity()));
     }
 
-    @SuppressWarnings("unchecked")
-    private YdbSchemaOperations.Table tableForEntity(Class<? extends Entity> c) {
-        EntitySchema<?> schema = EntitySchema.of(c);
+    private YdbSchemaOperations.Table tableForEntity(TableDescriptor<?> c) {
+        EntitySchema<?> schema = EntitySchema.of(c.entityType());
         return repository.getSchemaOperations()
-                .describeTable(schema.getName(), schema.flattenFields(), schema.flattenId(),
+                .describeTable(c.tableName(), schema.flattenFields(), schema.flattenId(),
                         schema.getGlobalIndexes(), schema.getTtlModifier());
     }
 
@@ -323,6 +329,7 @@ public final class YdbSchemaCompatibilityChecker {
             case UTF8 -> "PrimitiveType.utf8()";
             case JSON -> "PrimitiveType.json()";
             case JSON_DOCUMENT -> "PrimitiveType.jsonDocument()";
+            case UUID -> "PrimitiveType.uuid()";
         };
     }
 
@@ -464,6 +471,12 @@ public final class YdbSchemaCompatibilityChecker {
         String realName = globalName.substring(tablespace.length());
         return prefixes.stream()
                 .anyMatch(realName::startsWith);
+    }
+
+    private static List<TableDescriptor<?>> toDescriptors(List<Class<? extends Entity>> entities) {
+        List<TableDescriptor<?>> descriptors = new ArrayList<>();
+        entities.forEach(e -> descriptors.add(TableDescriptor.from(EntitySchema.of(e))));
+        return descriptors;
     }
 
     @Value

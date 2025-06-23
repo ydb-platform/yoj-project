@@ -36,21 +36,46 @@ public class YojTransactionAspect {
         try {
             String name = transactional.name().isBlank() ? getSimpleMethod(pjp.getSignature()) : transactional.name();
             TxManager localTx = tx.withName(name);
+
             if (Tx.Current.exists()) {
                 if (transactional.propagation() == YojTransactional.Propagation.NEVER) {
-                    throw new IllegalStateException("Transaction already exist!");
+                    throw new IllegalStateException("Transaction already exists (tried to start transaction '" + name + "')");
                 } else if (transactional.propagation() == YojTransactional.Propagation.REQUIRED) {
                     return pjp.proceed();
                 } else if (transactional.propagation() == YojTransactional.Propagation.REQUIRES_NEW) {
                     localTx = localTx.separate();
                 }
             }
+
             if (transactional.maxRetries() != YojTransactional.UNDEFINED) {
-                localTx = tx.withMaxRetries(transactional.maxRetries());
+                localTx = localTx.withMaxRetries(transactional.maxRetries());
             }
-            return transactional.readOnly() ? localTx.readOnly().run(() -> safeCall(pjp)) : localTx.tx(() -> safeCall(pjp));
+
+            validateIsolationLevel(name, transactional);
+
+            if (transactional.readOnly()) {
+                return localTx
+                    .readOnly()
+                    .noFirstLevelCache()
+                    .withStatementIsolationLevel(transactional.isolation())
+                    .run(() -> safeCall(pjp));
+            } else {
+                localTx = switch (transactional.writeMode()) {
+                    case UNSPECIFIED -> localTx;
+                    case DELAYED -> localTx.delayedWrites();
+                    case IMMEDIATE -> localTx.immediateWrites();
+                };
+
+                return localTx.tx(() -> safeCall(pjp));
+            }
         } catch (CallRetryableException | CallException e) {
             throw e.getCause();
+        }
+    }
+
+    private void validateIsolationLevel(String name, YojTransactional transactional) {
+        if (transactional.isolation().isReadWrite() && transactional.readOnly()) {
+            throw new IllegalStateException("Unsupported isolation level for read-only transaction '" + name + "': " + transactional.isolation());
         }
     }
 

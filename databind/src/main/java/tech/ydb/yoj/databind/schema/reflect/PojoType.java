@@ -20,7 +20,7 @@ import static java.util.Comparator.comparing;
  * POJO with an all-args constructor. Currently allowed to have a constructor without {@link ConstructorProperties}
  * annotation.
  */
-public final class PojoType<T> implements ReflectType<T> {
+/*package*/ final class PojoType<T> implements ReflectType<T> {
     public static final StdReflector.TypeFactory FACTORY = new StdReflector.TypeFactory() {
         @Override
         public int priority() {

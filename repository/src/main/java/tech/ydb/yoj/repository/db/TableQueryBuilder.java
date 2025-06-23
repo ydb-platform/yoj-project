@@ -3,10 +3,12 @@ package tech.ydb.yoj.repository.db;
 import com.google.common.base.Preconditions;
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
+import tech.ydb.yoj.ExperimentalApi;
 import tech.ydb.yoj.databind.expression.FilterBuilder;
 import tech.ydb.yoj.databind.expression.FilterExpression;
 import tech.ydb.yoj.databind.expression.OrderBuilder;
 import tech.ydb.yoj.databind.expression.OrderExpression;
+import tech.ydb.yoj.databind.schema.Schema;
 
 import javax.annotation.Nullable;
 import java.util.Collection;
@@ -195,6 +197,15 @@ public final class TableQueryBuilder<T extends Entity<T>> {
         } else {
             return null;
         }
+    }
+
+    /**
+     * @see OrderExpression#unordered(Schema)
+     */
+    @NonNull
+    @ExperimentalApi(issue = "https://github.com/ydb-platform/yoj-project/issues/115")
+    public TableQueryBuilder<T> unordered() {
+        return orderBy(EntityExpressions.unordered(table.getType()));
     }
 
     @NonNull
