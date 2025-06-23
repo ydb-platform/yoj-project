@@ -67,4 +67,24 @@ class EntityIdMap<T extends Entity<T>, E> extends AbstractMap<Entity.Id<T>, E> {
     public E remove(Object key) {
         return entries.remove(key);
     }
+
+    @Override
+    public void clear() {
+        entries.clear();
+    }
+
+    @Override
+    public boolean containsKey(Object key) {
+        return entries.containsKey(key);
+    }
+
+    @Override
+    public boolean containsValue(Object value) {
+        return entries.containsValue(value);
+    }
+
+    @Override
+    public int size() {
+        return entries.size();
+    }
 }
