@@ -21,15 +21,18 @@ import java.util.Set;
 import java.util.TreeMap;
 
 /*package*/ final class InMemoryDataShard<T extends Entity<T>> {
+    private static final String DEFAULT_MAP_IMPLEMENTATION = "treemap";
+    private static final String MAP_IMPLEMENTATION = System.getProperty("tech.ydb.yoj.repository.test.inmemory.impl", DEFAULT_MAP_IMPLEMENTATION);
+
     private final TableDescriptor<T> tableDescriptor;
     private final EntitySchema<T> schema;
-    private final TreeMap<Entity.Id<T>, InMemoryEntityLine> entityLines;
+    private final Map<Entity.Id<T>, InMemoryEntityLine> entityLines;
     private final Map<Long, Set<Entity.Id<T>>> uncommited = new HashMap<>();
 
     private InMemoryDataShard(
             TableDescriptor<T> tableDescriptor,
             EntitySchema<T> schema,
-            TreeMap<Entity.Id<T>, InMemoryEntityLine> entityLines
+            Map<Entity.Id<T>, InMemoryEntityLine> entityLines
     ) {
         this.tableDescriptor = tableDescriptor;
         this.schema = schema;
@@ -44,12 +47,17 @@ import java.util.TreeMap;
         );
     }
 
-    private static <T extends Entity<T>> TreeMap<Entity.Id<T>, InMemoryEntityLine> createEmptyLines(Class<T> type) {
+    private static <T extends Entity<T>> Map<Entity.Id<T>, InMemoryEntityLine> createEmptyLines(Class<T> type) {
+        if ("oninsert".equals(MAP_IMPLEMENTATION)) {
+            return new EntityIdMap<>(EntityIdSchema.getIdComparator(type));
+        } else if ("onget".equals(MAP_IMPLEMENTATION)) {
+            return new EntityIdMapOnGet<>(EntityIdSchema.getIdComparator(type));
+        }
         return new TreeMap<>(EntityIdSchema.getIdComparator(type));
     }
 
     public synchronized InMemoryDataShard<T> createSnapshot() {
-        TreeMap<Entity.Id<T>, InMemoryEntityLine> snapshotLines = createEmptyLines(tableDescriptor.entityType());
+        Map<Entity.Id<T>, InMemoryEntityLine> snapshotLines = createEmptyLines(tableDescriptor.entityType());
         for (Map.Entry<Entity.Id<T>, InMemoryEntityLine> entry : entityLines.entrySet()) {
             snapshotLines.put(entry.getKey(), entry.getValue().createSnapshot());
         }
