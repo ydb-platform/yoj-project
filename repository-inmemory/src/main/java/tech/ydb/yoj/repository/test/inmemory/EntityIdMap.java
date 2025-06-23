@@ -12,7 +12,7 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- * TreeMap<T, E> - is very expensive due to very complicated comparison login
+ * TreeMap<T, E> - is very expensive due to very complicated comparison log(n)
  */
 class EntityIdMap<T extends Entity<T>, E> extends AbstractMap<Entity.Id<T>, E> {
     private final Comparator<Entity.Id<T>> comparator;
