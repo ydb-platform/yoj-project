@@ -20,7 +20,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
 
-final class InMemoryDataShard<T extends Entity<T>> {
+/*package*/ final class InMemoryDataShard<T extends Entity<T>> {
     private static final String DEFAULT_MAP_IMPLEMENTATION = "treemap";
     private static final String MAP_IMPLEMENTATION = System.getProperty("tech.ydb.yoj.repository.test.inmemory.impl", DEFAULT_MAP_IMPLEMENTATION);
 
