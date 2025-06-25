@@ -13,8 +13,8 @@ import tech.ydb.core.Result;
 import tech.ydb.core.Status;
 import tech.ydb.core.grpc.GrpcTransport;
 import tech.ydb.proto.ValueProtos;
-import tech.ydb.proto.scheme.SchemeOperationProtos;
 import tech.ydb.scheme.SchemeClient;
+import tech.ydb.scheme.description.EntryType;
 import tech.ydb.scheme.description.ListDirectoryResult;
 import tech.ydb.table.Session;
 import tech.ydb.table.description.TableDescription;
@@ -265,7 +265,7 @@ public class YdbSchemaOperations {
 
     public List<String> getDirectoryNames() {
         return listDirectory(tablespace).stream()
-                .filter(e -> e.getType() == SchemeOperationProtos.Entry.Type.DIRECTORY)
+                .filter(e -> e.getType() == EntryType.DIRECTORY)
                 .map(DirectoryEntity::getName)
                 .collect(toList());
     }
@@ -301,9 +301,9 @@ public class YdbSchemaOperations {
         String tableDir = YdbPaths.join(canonicalPath, subDir);
         List<DirectoryEntity> result = new ArrayList<>();
         for (DirectoryEntity entity : listDirectory(tableDir)) {
-            if (recursive && entity.getType() == SchemeOperationProtos.Entry.Type.DIRECTORY) {
+            if (recursive && entity.getType() == EntryType.DIRECTORY) {
                 result.addAll(tables(canonicalPath, YdbPaths.join(subDir, entity.getName()), true));
-            } else if (entity.getType() == SchemeOperationProtos.Entry.Type.TABLE) {
+            } else if (entity.getType() == EntryType.TABLE) {
                 result.add(entity.withName(YdbPaths.join(subDir, entity.getName())));
             }
         }
@@ -422,25 +422,16 @@ public class YdbSchemaOperations {
 
     @SneakyThrows
     private List<DirectoryEntity> listDirectory(String directory) {
-        ListDirectoryResult result = schemeClient.listDirectory(directory).join()
-                .getValue();
+        ListDirectoryResult result = schemeClient.listDirectory(directory).join().getValue();
 
-        List<String> errors = new ArrayList<>();
-        List<DirectoryEntity> tables = result.getChildren().stream()
+        return result.getEntryChildren().stream()
                 .filter(entry -> switch (entry.getType()) {
                     case DIRECTORY, TABLE -> true;
-                    case COLUMN_STORE, COORDINATION_NODE -> false;
-                    default -> {
-                        errors.add(String.format("Unexpected entry type (%s:%s) in directory %s", entry.getType(), entry.getName(), directory));
-                        yield false;
-                    }
+                    // Just ignore directory entries unsupported by YOJ
+                    default -> false;
                 })
                 .map(tEntry -> new DirectoryEntity(tEntry.getType(), tEntry.getName()))
-                .collect(toList());
-        if (!errors.isEmpty()) {
-            throw new IllegalStateException(String.join(String.format("%n"), errors));
-        }
-        return tables;
+                .toList();
     }
 
     protected void mkdirs(String dir) {
@@ -458,7 +449,7 @@ public class YdbSchemaOperations {
 
     @Value
     private static class DirectoryEntity {
-        SchemeOperationProtos.Entry.Type type;
+        EntryType type;
         @With
         String name;
     }
