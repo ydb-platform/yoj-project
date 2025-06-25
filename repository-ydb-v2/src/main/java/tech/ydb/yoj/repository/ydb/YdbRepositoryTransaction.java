@@ -652,7 +652,7 @@ public class YdbRepositoryTransaction<REPO extends YdbRepository>
 
     private void trace(@NonNull Statement<?, ?> statement, Object params, Throwable thrown, Object results) {
         var txId = firstNonNullTxId;
-        var sessionId = session.getId();
+        var sessionId = session == null ? null : session.getId();
         var tablespace = repo.getTablespace();
         log.trace("{}", new StatementTraceEvent(
                 statement,
