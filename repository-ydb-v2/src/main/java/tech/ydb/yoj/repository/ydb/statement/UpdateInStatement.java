@@ -21,6 +21,7 @@ import java.util.stream.Collectors;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toMap;
 import static java.util.stream.Collectors.toUnmodifiableSet;
+import static tech.ydb.yoj.util.lang.Strings.lazyDebugMsg;
 
 /**
  * <p>Creates statement for {@code UPDATE table SET values=values WHERE PK IN (PK1, PK2, ...)}.</p>
@@ -172,8 +173,8 @@ public class UpdateInStatement<T extends Entity<T>, RESULT>
     }
 
     @Override
-    public String toDebugString(UpdateInStatementInput<T> in) {
-        return String.format("updateIn(%s)", in);
+    public Object toDebugString(UpdateInStatementInput<T> in) {
+        return lazyDebugMsg("updateIn(%s)", in);
     }
 
     private Set<String> nonNullFieldNames(Entity.Id<T> id) {

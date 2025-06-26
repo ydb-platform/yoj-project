@@ -2,7 +2,6 @@ package tech.ydb.yoj.repository.ydb;
 
 import com.google.common.base.Preconditions;
 import com.google.common.base.Stopwatch;
-import com.google.common.collect.Iterables;
 import io.grpc.Context;
 import io.grpc.Deadline;
 import lombok.Getter;
@@ -88,8 +87,13 @@ import static java.lang.Boolean.getBoolean;
 import static java.lang.String.format;
 import static java.util.stream.Collectors.toList;
 import static lombok.AccessLevel.PRIVATE;
+import static tech.ydb.yoj.repository.db.internal.RepositoryTransactionImpl.EMPTY_RESULT;
+import static tech.ydb.yoj.repository.db.internal.RepositoryTransactionImpl.logStatementError;
+import static tech.ydb.yoj.repository.db.internal.RepositoryTransactionImpl.logStatementResult;
 import static tech.ydb.yoj.repository.ydb.client.YdbValidator.validatePkConstraint;
 import static tech.ydb.yoj.repository.ydb.client.YdbValidator.validateTruncatedResults;
+import static tech.ydb.yoj.util.lang.Strings.debugResult;
+import static tech.ydb.yoj.util.lang.Strings.lazyDebugMsg;
 
 public class YdbRepositoryTransaction<REPO extends YdbRepository>
         implements BaseDb, RepositoryTransaction, YdbTable.QueryExecutor {
@@ -151,16 +155,16 @@ public class YdbRepositoryTransaction<REPO extends YdbRepository>
             rollback();
             throw t;
         }
-        endTransaction("commit", this::doCommit);
+        endTransaction("commit()", this::doCommit);
     }
 
     @Override
     public void rollback() {
         Interrupts.runInCleanupMode(() -> {
             try {
-                endTransaction("rollback", () -> {
+                endTransaction("rollback()", () -> {
                     Status status = YdbOperations.safeJoin(session.rollbackTransaction(txId, new RollbackTxSettings()));
-                    validate("rollback", status.getCode(), status.toString());
+                    validate("rollback()", status.getCode(), status.toString());
                 });
             } catch (Throwable t) {
                 log.info("Failed to rollback the transaction", t);
@@ -172,7 +176,7 @@ public class YdbRepositoryTransaction<REPO extends YdbRepository>
         try {
             Status status = YdbOperations.safeJoin(session.commitTransaction(txId, new CommitTxSettings()));
             validatePkConstraint(status.getIssues());
-            validate("commit", status.getCode(), status.toString());
+            validate("commit()", status.getCode(), status.toString());
         } catch (YdbComponentUnavailableException | YdbOverloadedException e) {
             throw new UnavailableException("Unknown transaction state: commit was sent, but result is unknown", e);
         }
@@ -243,7 +247,7 @@ public class YdbRepositoryTransaction<REPO extends YdbRepository>
         } finally {
             closeAction = actionName;
             if (session != null) {
-                transactionLocal.log().info("[[%s]] TOTAL (txId=%s,sessionId=%s)", sessionSw, firstNonNullTxId, session.getId());
+                transactionLocal.log().info("[[%s]] TOTAL (txId=%s,sessionId=%s)", sessionSw.stop(), firstNonNullTxId, session.getId());
                 // NB: We use getSessionManager() method to allow mocking YdbRepository
                 repo.getSessionManager().release(session);
                 session = null;
@@ -285,17 +289,19 @@ public class YdbRepositoryTransaction<REPO extends YdbRepository>
 
     @Override
     public <PARAMS, RESULT> List<RESULT> execute(Statement<PARAMS, RESULT> statement, PARAMS params) {
+        Object action = statement.toDebugString(params);
+
+        Stopwatch cacheSw = Stopwatch.createStarted();
         List<RESULT> result = statement.readFromCache(params, cache);
         if (result != null) {
-            String actionStr = statement.toDebugString(params);
-            String resultStr = debugResult(result);
-            transactionLocal.log().debug("[statement cache] %s -> %s", actionStr, resultStr);
+            Object cacheAction = lazyDebugMsg("[statement cache] %s", action);
+            logStatementResult(transactionLocal.log(), cacheSw.stop(), cacheAction, result);
             return result;
         }
 
         Exception thrown = null;
         try {
-            result = doCall(statement.toDebugString(params), () -> {
+            result = doCall(action, () -> {
                 if (options.isScan()) {
                     return options.getScanOptions().isUseNewSpliterator()
                             ? doExecuteScanQueryList(statement, params)
@@ -609,7 +615,7 @@ public class YdbRepositoryTransaction<REPO extends YdbRepository>
     private void doCall(String actionStr, Runnable call) {
         doCall(actionStr, () -> {
             call.run();
-            return null;
+            return EMPTY_RESULT;
         });
     }
 
@@ -624,29 +630,17 @@ public class YdbRepositoryTransaction<REPO extends YdbRepository>
         }
     }
 
-    private <R> R doCall(String actionStr, Supplier<R> call) {
+    private <R> R doCall(Object action, Supplier<R> call) {
         initSession();
 
         Stopwatch sw = Stopwatch.createStarted();
-        String resultStr = "";
         try {
             R result = call.get();
-            resultStr = (result == null ? "" : " -> " + debugResult(result));
+            logStatementResult(transactionLocal.log(), sw.stop(), action, result);
             return result;
         } catch (Exception e) {
-            resultStr = " => " + e.getClass().getName();
+            logStatementError(transactionLocal.log(), sw.stop(), action, e);
             throw e;
-        } finally {
-            transactionLocal.log().debug("[ %s ] %s", sw, actionStr + resultStr);
-        }
-    }
-
-    private static String debugResult(Object result) {
-        if (result instanceof Iterable) {
-            int size = Iterables.size((Iterable<?>) result);
-            return size == 1 ? String.valueOf(((Iterable<?>) result).iterator().next()) : "[" + size + "]";
-        } else {
-            return String.valueOf(result);
         }
     }
 
