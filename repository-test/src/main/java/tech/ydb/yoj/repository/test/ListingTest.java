@@ -19,8 +19,10 @@ import tech.ydb.yoj.repository.test.sample.model.LogEntry;
 import tech.ydb.yoj.repository.test.sample.model.Project;
 import tech.ydb.yoj.repository.test.sample.model.TypeFreak;
 import tech.ydb.yoj.repository.test.sample.model.TypeFreak.Status;
+import tech.ydb.yoj.repository.test.sample.model.annotations.UniqueEntityNative;
 
 import java.time.Instant;
+import java.util.UUID;
 
 import static java.time.temporal.ChronoUnit.MILLIS;
 import static java.util.Collections.emptyList;
@@ -124,6 +126,38 @@ public abstract class ListingTest extends RepositoryTestSupport {
                     .build());
             Assertions.assertThat(page).containsExactly(c2);
             assertThat(page.isLastPage()).isTrue();
+        });
+    }
+
+    @Test
+    public void uuid() {
+        UUID uuid1 = UUID.fromString("5bedcf4a-d2fb-4ff1-817f-98589adff554");
+        UUID uuid2 = UUID.fromString("5bedcf4a-d2fb-4ff1-817f-98589adff555");
+        UUID uuid3 = UUID.fromString("5bedcf4a-d2fb-4ff1-817f-98589adff556");
+        UUID uuid4 = UUID.fromString("5bedcf4a-d2fb-4ff1-817f-98589adff557");
+
+        UniqueEntityNative c1 = new UniqueEntityNative(new UniqueEntityNative.Id(uuid1), "c1");
+        UniqueEntityNative c2 = new UniqueEntityNative(new UniqueEntityNative.Id(uuid2), "c2");
+        UniqueEntityNative c3 = new UniqueEntityNative(new UniqueEntityNative.Id(uuid3), "c3");
+        UniqueEntityNative c4 = new UniqueEntityNative(new UniqueEntityNative.Id(uuid4), "c4");
+        db.tx(() -> db.table(UniqueEntityNative.class).insert(c1, c2, c3, c4));
+
+        db.tx(() -> {
+            ListResult<UniqueEntityNative> page1 = db.table(UniqueEntityNative.class).list(
+                    ListRequest.builder(UniqueEntityNative.class)
+                            .pageSize(3)
+                            .build()
+            );
+            assertThat(page1).containsExactly(c1, c2, c3);
+
+            ListResult<UniqueEntityNative> page2 = db.table(UniqueEntityNative.class).list(
+                    ListRequest.builder(UniqueEntityNative.class)
+                            .pageSize(3)
+                            .filter(fb -> fb.where("id").gt(c3.id()))
+                            .build()
+            );
+            assertThat(page2).containsExactly(c4);
+            assertThat(page2.isLastPage()).isTrue();
         });
     }
 
@@ -285,7 +319,7 @@ public abstract class ListingTest extends RepositoryTestSupport {
             ListResult<Complex> page = listComplex(ListRequest.builder(Complex.class)
                     .pageSize(100)
                     .filter(fb -> fb
-                            .where("id.a").in(999_999,999_000)
+                            .where("id.a").in(999_999, 999_000)
                             .and("id.b").in(15L, 13L)
                             .and("id.c").in("AAA", "CCC")
                             .and("id.d").in(Complex.Status.OK, Complex.Status.FAIL)
@@ -311,7 +345,7 @@ public abstract class ListingTest extends RepositoryTestSupport {
         db.tx(() -> {
             ListResult<Complex> page = listComplex(ListRequest.builder(Complex.class)
                     .pageSize(100)
-                    .filter(fb -> fb.where("id.a").in(999_999,999_000).and("id.b").gte(now).and("id.b").lt(nowPlus2))
+                    .filter(fb -> fb.where("id.a").in(999_999, 999_000).and("id.b").gte(now).and("id.b").lt(nowPlus2))
                     .orderBy(ob -> ob.orderBy("id.a").descending())
                     .build());
             Assertions.assertThat(page).containsExactlyInAnyOrder(c1, c2);
@@ -333,7 +367,7 @@ public abstract class ListingTest extends RepositoryTestSupport {
         db.tx(() -> {
             ListResult<Complex> page = listComplex(ListRequest.builder(Complex.class)
                     .pageSize(100)
-                    .filter(fb -> fb.where("id.a").in(999_999,999_000).and("id.b").in(now, nowPlus2))
+                    .filter(fb -> fb.where("id.a").in(999_999, 999_000).and("id.b").in(now, nowPlus2))
                     .orderBy(ob -> ob.orderBy("id.a").descending())
                     .build());
             Assertions.assertThat(page).containsExactly(c1, c3);

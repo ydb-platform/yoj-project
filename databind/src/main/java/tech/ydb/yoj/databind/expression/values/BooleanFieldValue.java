@@ -1,5 +1,6 @@
 package tech.ydb.yoj.databind.expression.values;
 
+import lombok.NonNull;
 import tech.ydb.yoj.databind.FieldValueType;
 import tech.ydb.yoj.databind.expression.IllegalExpressionException.FieldTypeError.BooleanFieldExpected;
 
@@ -27,6 +28,7 @@ public record BooleanFieldValue(boolean bool) implements FieldValue {
                 : invalidFieldValue(BooleanFieldExpected::new, p -> format("Specified a boolean value for non-boolean field \"%s\"", p));
     }
 
+    @NonNull
     @Override
     public String toString() {
         return Boolean.toString(bool);

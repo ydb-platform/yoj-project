@@ -30,6 +30,7 @@ public record ByteArrayFieldValue(@NonNull ByteArray byteArray) implements Field
                 : invalidFieldValue(ByteArrayFieldExpected::new, p -> format("Specified a ByteArray value for non-ByteArray field \"%s\"", p));
     }
 
+    @NonNull
     @Override
     public String toString() {
         return byteArray.toString();

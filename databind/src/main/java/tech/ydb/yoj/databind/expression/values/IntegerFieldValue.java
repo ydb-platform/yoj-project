@@ -1,5 +1,6 @@
 package tech.ydb.yoj.databind.expression.values;
 
+import lombok.NonNull;
 import tech.ydb.yoj.databind.FieldValueType;
 import tech.ydb.yoj.databind.expression.IllegalExpressionException.FieldTypeError.IntegerBadTimestamp;
 import tech.ydb.yoj.databind.expression.IllegalExpressionException.FieldTypeError.IntegerFieldExpected;
@@ -34,6 +35,7 @@ public record IntegerFieldValue(long num) implements FieldValue {
         };
     }
 
+    @NonNull
     @Override
     public String toString() {
         return Long.toString(num);

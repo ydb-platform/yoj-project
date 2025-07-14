@@ -43,6 +43,7 @@ public record TimestampFieldValue(@NonNull Instant timestamp) implements FieldVa
         }
     }
 
+    @NonNull
     @Override
     public String toString() {
         return "#" + timestamp + "#";

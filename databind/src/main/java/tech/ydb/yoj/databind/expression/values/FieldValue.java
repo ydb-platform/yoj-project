@@ -32,6 +32,16 @@ public sealed interface FieldValue extends tech.ydb.yoj.databind.expression.Fiel
 
     ValidationResult isValidValueOfType(Type fieldType, FieldValueType valueType);
 
+    /**
+     * Provides a human-readable representation of this {@code FieldValue}, potentially indicating
+     * this value's type (e.g., value will be in {@code "double quotes"} for {@code StringFieldValue}).
+     *
+     * @return human-readable representation of field value
+     */
+    @NonNull
+    @Override
+    String toString();
+
     @Override
     default Object getRaw(@NonNull JavaField field) {
         field = field.isFlat() ? field.toFlatField() : field;

@@ -68,6 +68,7 @@ public record StringFieldValue(@NonNull String str) implements FieldValue {
         return stream(enumClass.getEnumConstants()).anyMatch(c -> enumConstant.equals(((Enum<?>) c).name()));
     }
 
+    @NonNull
     @Override
     public String toString() {
         return "\"" + str + "\"";

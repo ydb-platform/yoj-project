@@ -57,6 +57,7 @@ public record TupleFieldValue(@NonNull Tuple tuple) implements FieldValue {
                 .orElse(ValidationResult.validFieldValue());
     }
 
+    @NonNull
     @Override
     public String toString() {
         return tuple.toString();

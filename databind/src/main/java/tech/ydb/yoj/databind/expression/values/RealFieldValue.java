@@ -1,5 +1,6 @@
 package tech.ydb.yoj.databind.expression.values;
 
+import lombok.NonNull;
 import tech.ydb.yoj.databind.FieldValueType;
 import tech.ydb.yoj.databind.expression.IllegalExpressionException.FieldTypeError.IntegerToRealInexact;
 import tech.ydb.yoj.databind.expression.IllegalExpressionException.FieldTypeError.RealFieldExpected;
@@ -37,6 +38,7 @@ public record RealFieldValue(double real) implements FieldValue {
         };
     }
 
+    @NonNull
     @Override
     public String toString() {
         return Double.toString(real);
