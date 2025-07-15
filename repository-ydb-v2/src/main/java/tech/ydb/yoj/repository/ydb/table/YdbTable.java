@@ -558,9 +558,16 @@ public class YdbTable<T extends Entity<T>> implements Table<T> {
      * If the entity has projections, its {@link Entity#createProjections() createProjections()}
      * method <strong>MUST NOT</strong> fail when called on a raw, non-{@link Entity#postLoad() post-loaded} entity.
      *
+     * @deprecated This method will be removed in YOJ 3.0.0, along with projection-related logic; because without projection magic&trade;,
+     * it will works the same as {@code Table.find()} + {@code Table.save()} (which will apply the {@code Entity.postLoad()} and
+     * {@code Entity.preSave()} and save the entity only if it has been changed by these calls).
+     *
+     * @see <a href="https://github.com/ydb-platform/yoj-project/issues/77">#77</a>
+     *
      * @param id   entity ID
      * @param <ID> entity ID type
      */
+    @Deprecated(forRemoval = true)
     public <ID extends Id<T>> void migrate(ID id) {
         var statement = new FindYqlStatement<>(tableDescriptor, schema, schema);
         List<T> foundRaw = executor.execute(statement, id);

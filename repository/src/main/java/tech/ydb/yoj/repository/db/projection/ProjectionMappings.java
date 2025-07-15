@@ -5,6 +5,7 @@ import com.google.common.collect.BiMap;
 import com.google.common.collect.HashBiMap;
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
+import tech.ydb.yoj.DeprecationWarnings;
 import tech.ydb.yoj.databind.schema.Schema;
 import tech.ydb.yoj.repository.db.Entity;
 import tech.ydb.yoj.repository.db.EntityIdSchema;
@@ -22,6 +23,11 @@ import java.util.function.UnaryOperator;
 import static java.util.stream.Collectors.toList;
 import static lombok.AccessLevel.PRIVATE;
 
+/**
+ * @see <a href="https://github.com/ydb-platform/yoj-project/issues/77">#77</a>
+ * @deprecated Projections will be removed from the core YOJ API in 3.0.0 and possibly reintroduced as an optional module.
+ */
+@Deprecated(forRemoval = true)
 public final class ProjectionMappings {
     private ProjectionMappings() {
     }
@@ -90,6 +96,9 @@ public final class ProjectionMappings {
     @NonNull
     public static <P extends Entity<P>, T extends Entity<T>> Map<String, String> strictFieldMapping(
             @NonNull Class<P> projectionType, @NonNull Class<T> entityType) {
+        DeprecationWarnings.warnOnce("ProjectionMappings.*fieldMapping", "You are using ProjectionMappings.{lenient,strict}FieldMapping(). "
+                + "Projections will be removed from YOJ core in YOJ 3.0.0. See https://github.com/ydb-platform/yoj-project/issues/77");
+
         EntitySchema<T> entitySchema = EntitySchema.of(entityType);
         Class<?> entityIdType = entitySchema.getIdSchema().getType();
         List<Schema.JavaField> projectionIdFields = EntityIdSchema.ofEntity(projectionType).getFields();
@@ -144,9 +153,15 @@ public final class ProjectionMappings {
 
     @NonNull
     public static <P extends Entity<P>> ListViaProjection<P> listViaProjection(@NonNull Class<P> projectionType) {
+        DeprecationWarnings.warnOnce("ProjectionMappings.listViaProjection", "You are using ProjectionMappings.listViaProjection(). "
+                + "Projections will be removed from YOJ core in YOJ 3.0.0. See https://github.com/ydb-platform/yoj-project/issues/77");
         return new ListViaProjection<>(projectionType);
     }
 
+    /**
+     * @see <a href="https://github.com/ydb-platform/yoj-project/issues/77">#77</a>
+     * @deprecated Projections will be removed from the core YOJ API in 3.0.0 and possibly reintroduced as an optional module.
+     */
     @RequiredArgsConstructor(access = PRIVATE)
     public static final class ListViaProjection<P extends Entity<P>> {
         private final Class<P> projectionType;
@@ -176,6 +191,10 @@ public final class ProjectionMappings {
             return new Listing<>(request, request.forEntity(projectionType, fieldMapping));
         }
 
+        /**
+         * @see <a href="https://github.com/ydb-platform/yoj-project/issues/77">#77</a>
+         * @deprecated Projections will be removed from the core YOJ API in 3.0.0 and possibly reintroduced as an optional module.
+         */
         @RequiredArgsConstructor(access = PRIVATE)
         public static final class Listing<T extends Entity<T>, P extends Entity<P>> {
             private final ListRequest<T> request;
@@ -192,6 +211,10 @@ public final class ProjectionMappings {
             }
         }
 
+        /**
+         * @see <a href="https://github.com/ydb-platform/yoj-project/issues/77">#77</a>
+         * @deprecated Projections will be removed from the core YOJ API in 3.0.0 and possibly reintroduced as an optional module.
+         */
         @RequiredArgsConstructor(access = PRIVATE)
         public static final class TransformedListing<T extends Entity<T>, P extends Entity<P>> {
             private final Listing<T, P> listing;

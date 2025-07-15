@@ -46,10 +46,12 @@ public final class TransactionLocal {
     /**
      * <strong>Warning:</strong> Unlike {@link #log()}, this method is not intended to be used by end-users,
      * only by the YOJ implementation itself.
-     * <p>Also, projection support <em>might</em> be dropped or seriously reworked in YOJ 3.x, so please
-     * do not rely on this implementation detail.
+     *
+     * @deprecated Projections will be removed from the core YOJ API in 3.0.0 and possibly reintroduced as an optional module.
+     * @see <a href="https://github.com/ydb-platform/yoj-project/issues/77">#77</a>
      */
     @InternalApi
+    @Deprecated(forRemoval = true)
     public ProjectionCache projectionCache() {
         return instance(projectionCacheSupplier);
     }
