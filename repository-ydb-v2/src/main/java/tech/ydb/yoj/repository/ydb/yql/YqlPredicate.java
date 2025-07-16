@@ -13,6 +13,7 @@ import tech.ydb.yoj.repository.ydb.statement.PredicateStatement;
 import javax.annotation.Nullable;
 import java.util.Collection;
 import java.util.List;
+import java.util.Objects;
 import java.util.Spliterator;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BiFunction;
@@ -124,7 +125,16 @@ public abstract class YqlPredicate implements YqlStatementPart<YqlPredicate> {
     }
 
     public static <T> YqlPredicate in(@NonNull String fieldPath, @NonNull Collection<@NonNull ? extends T> values) {
-        return values.isEmpty() ? alwaysFalse() : inPredicate(fieldPath, ImmutableList.copyOf(values), InType.IN);
+        if (values.isEmpty()) {
+            return alwaysFalse();
+        }
+
+        T onlyElement;
+        if ((onlyElement = onlyElementOrNull(values)) != null) {
+            return eq(fieldPath, onlyElement);
+        }
+
+        return inPredicate(fieldPath, ImmutableList.copyOf(values), InType.IN);
     }
 
     @SafeVarargs
@@ -134,7 +144,28 @@ public abstract class YqlPredicate implements YqlStatementPart<YqlPredicate> {
     }
 
     private static <T> YqlPredicate notIn(@NonNull String fieldPath, @NonNull Collection<@NonNull ? extends T> values) {
-        return values.isEmpty() ? alwaysTrue() : inPredicate(fieldPath, ImmutableList.copyOf(values), InType.NOT_IN);
+        if (values.isEmpty()) {
+            return alwaysTrue();
+        }
+
+        T onlyElement;
+        if ((onlyElement = onlyElementOrNull(values)) != null) {
+            return neq(fieldPath, onlyElement);
+        }
+
+        return inPredicate(fieldPath, ImmutableList.copyOf(values), InType.NOT_IN);
+    }
+
+    @Nullable
+    private static <T> T onlyElementOrNull(@NonNull Collection<@NonNull ? extends T> coll) {
+        if (coll.isEmpty()) {
+            return null;
+        }
+
+        var iter = coll.iterator();
+        var firstElement = iter.next();
+        boolean isOnlyElement = !iter.hasNext();
+        return isOnlyElement ? Objects.requireNonNull(firstElement) : null;
     }
 
     public static <T> YqlPredicate eq(@NonNull String fieldPath, @Nullable T value) {

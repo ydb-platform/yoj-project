@@ -348,6 +348,30 @@ public class YdbRepositoryIntegrationTest extends RepositoryTest {
                 .isThrownBy(() -> db.tx(() -> db.projects().findAll()));
     }
 
+    @Test
+    public void inSingleElementListOptimizedToEq() {
+        Project expected1 = new Project(new Project.Id("SP1"), "snapshot1");
+        Project expected2 = new Project(new Project.Id("SP2"), "snapshot2");
+        db.tx(() -> db.projects().insert(expected1, expected2));
+
+        List<Project> found = db.tx(() -> db.projects().query()
+                .where("id").in(expected1.getId())
+                .find());
+        assertThat(found).singleElement().isEqualTo(expected1);
+    }
+
+    @Test
+    public void notInSingleElementListOptimizedToNeq() {
+        Project expected1 = new Project(new Project.Id("SP1"), "snapshot1");
+        Project expected2 = new Project(new Project.Id("SP2"), "snapshot2");
+        db.tx(() -> db.projects().insert(expected1, expected2));
+
+        List<Project> found = db.tx(() -> db.projects().query()
+                .where("id").notIn(expected1.getId())
+                .find());
+        assertThat(found).singleElement().isEqualTo(expected2);
+    }
+
     private static void checkSession(SessionManager sessionManager, Session firstSession) {
         Session session = sessionManager.getSession();
         assertThat(session).isEqualTo(firstSession);
