@@ -470,7 +470,7 @@ public abstract class YqlPredicate implements YqlStatementPart<YqlPredicate> {
 
         @Override
         public YqlPredicate negate() {
-            return new LegacyRelPredicate<>(this.rel.negate(), this.fieldPath, this.param);
+            return new RelPredicate<>(this.rel.negate(), this.fieldPath, this.param);
         }
 
         @Override

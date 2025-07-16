@@ -15,15 +15,15 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static tech.ydb.yoj.repository.ydb.yql.YqlPredicate.eq;
 import static tech.ydb.yoj.repository.ydb.yql.YqlPredicate.gt;
 import static tech.ydb.yoj.repository.ydb.yql.YqlPredicate.gte;
-import static tech.ydb.yoj.repository.ydb.yql.YqlPredicate.likeIgnoreCase;
 import static tech.ydb.yoj.repository.ydb.yql.YqlPredicate.in;
 import static tech.ydb.yoj.repository.ydb.yql.YqlPredicate.like;
+import static tech.ydb.yoj.repository.ydb.yql.YqlPredicate.likeIgnoreCase;
 import static tech.ydb.yoj.repository.ydb.yql.YqlPredicate.lt;
 import static tech.ydb.yoj.repository.ydb.yql.YqlPredicate.lte;
 import static tech.ydb.yoj.repository.ydb.yql.YqlPredicate.neq;
 import static tech.ydb.yoj.repository.ydb.yql.YqlPredicate.not;
-import static tech.ydb.yoj.repository.ydb.yql.YqlPredicate.notLikeIgnoreCase;
 import static tech.ydb.yoj.repository.ydb.yql.YqlPredicate.notLike;
+import static tech.ydb.yoj.repository.ydb.yql.YqlPredicate.notLikeIgnoreCase;
 import static tech.ydb.yoj.repository.ydb.yql.YqlPredicate.where;
 
 public class YqlPredicateTest {
@@ -341,17 +341,34 @@ public class YqlPredicateTest {
     }
 
     @Test
+    public void inComplex_single() {
+        // id IN (('vla', 42)) <=> (id_zone, id_localId) = ('vla', 42)
+        YqlPredicate pred = where("id").in(new FakeComplexEntity.Id("vla", 42));
+
+        assertThat(pred.toYql(complexSchema)).isEqualToIgnoringCase("(`id_zone`, `id_localId`) = ?");
+    }
+
+    @Test
+    public void inComplex_single_negate() {
+        // id NOT IN (('vla', 42)) <=> (id_zone, id_localId) <> ('vla', 42)
+        YqlPredicate pred = where("id").in(new FakeComplexEntity.Id("vla", 42))
+                .negate();
+
+        assertThat(pred.toYql(complexSchema)).isEqualToIgnoringCase("(`id_zone`, `id_localId`) <> ?");
+    }
+
+    @Test
     public void inComplex() {
-        // id IN ('vla', 42)
-        YqlPredicate pred = where("id").in(new YqlPredicateTest.FakeComplexEntity.Id("vla", 42));
+        // id IN (('vla', 42), ('man', 35))
+        YqlPredicate pred = where("id").in(new FakeComplexEntity.Id("vla", 42), new FakeComplexEntity.Id("man", 35));
 
         assertThat(pred.toYql(complexSchema)).isEqualToIgnoringCase("(`id_zone`, `id_localId`) IN ?");
     }
 
     @Test
     public void inComplex_negate() {
-        // id NOT IN ('vla', 42)
-        YqlPredicate pred = where("id").in(new YqlPredicateTest.FakeComplexEntity.Id("vla", 42))
+        // id NOT IN (('vla', 42), ('man', 35)
+        YqlPredicate pred = where("id").in(new FakeComplexEntity.Id("vla", 42), new FakeComplexEntity.Id("man", 35))
                 .negate();
 
         assertThat(pred.toYql(complexSchema)).isEqualToIgnoringCase("(`id_zone`, `id_localId`) NOT IN ?");
