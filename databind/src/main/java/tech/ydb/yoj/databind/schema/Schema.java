@@ -186,7 +186,7 @@ public abstract class Schema<T> {
                 }
                 columns.add(field.getName());
             }
-            outputIndexes.add(new Index(name, List.copyOf(columns), index.type() == GlobalIndex.Type.UNIQUE));
+            outputIndexes.add(new Index(name, List.copyOf(columns), index.type() == GlobalIndex.Type.UNIQUE, index.type() == GlobalIndex.Type.GLOBAL_ASYNC));
         }
         return outputIndexes;
     }
@@ -833,7 +833,7 @@ public abstract class Schema<T> {
     @AllArgsConstructor
     public static class Index {
         public Index(@NonNull String indexName, @NonNull List<String> fieldNames) {
-            this(indexName, fieldNames, false);
+            this(indexName, fieldNames, false, false);
         }
 
         @NonNull
@@ -844,6 +844,8 @@ public abstract class Schema<T> {
         List<String> fieldNames;
 
         boolean unique;
+
+        boolean async;
     }
 
     @Value

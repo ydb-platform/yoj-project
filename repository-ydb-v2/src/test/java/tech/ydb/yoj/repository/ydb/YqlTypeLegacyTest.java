@@ -213,7 +213,7 @@ public class YqlTypeLegacyTest {
         var schema = ObjectSchema.of(GlobalIndexMultiIndex.class);
         Assert.assertEquals(List.of(
                         new Schema.Index("idx1", List.of("id_id1", "id_3")),
-                        new Schema.Index("idx2", List.of("id_2", "id_3"), true)),
+                        new Schema.Index("idx2", List.of("id_2", "id_3"), true, false)),
                 schema.getGlobalIndexes());
     }
 
