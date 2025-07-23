@@ -20,6 +20,7 @@ import org.junit.Assert;
 import org.junit.ClassRule;
 import org.junit.Test;
 import tech.ydb.common.transaction.TxMode;
+import tech.ydb.common.transaction.YdbTransaction;
 import tech.ydb.core.grpc.YdbHeaders;
 import tech.ydb.core.utils.Version;
 import tech.ydb.proto.OperationProtos;
@@ -30,6 +31,16 @@ import tech.ydb.proto.scheme.v1.SchemeServiceGrpc;
 import tech.ydb.proto.table.v1.TableServiceGrpc;
 import tech.ydb.proto.topic.v1.TopicServiceGrpc;
 import tech.ydb.table.Session;
+import tech.ydb.topic.TopicClient;
+import tech.ydb.topic.description.Consumer;
+import tech.ydb.topic.settings.AutoPartitioningStrategy;
+import tech.ydb.topic.settings.CreateTopicSettings;
+import tech.ydb.topic.settings.PartitioningSettings;
+import tech.ydb.topic.settings.ReaderSettings;
+import tech.ydb.topic.settings.ReceiveSettings;
+import tech.ydb.topic.settings.SendSettings;
+import tech.ydb.topic.settings.TopicReadSettings;
+import tech.ydb.topic.settings.WriterSettings;
 import tech.ydb.yoj.databind.schema.Column;
 import tech.ydb.yoj.databind.schema.ObjectSchema;
 import tech.ydb.yoj.repository.db.EntitySchema;
@@ -41,6 +52,7 @@ import tech.ydb.yoj.repository.db.StdTxManager;
 import tech.ydb.yoj.repository.db.TableDescriptor;
 import tech.ydb.yoj.repository.db.Tx;
 import tech.ydb.yoj.repository.db.bulk.BulkParams;
+import tech.ydb.yoj.repository.db.common.CommonConverters;
 import tech.ydb.yoj.repository.db.exception.ConversionException;
 import tech.ydb.yoj.repository.db.exception.RetryableException;
 import tech.ydb.yoj.repository.db.exception.UnavailableException;
@@ -63,6 +75,7 @@ import tech.ydb.yoj.repository.test.sample.model.WithUnflattenableField;
 import tech.ydb.yoj.repository.ydb.client.SessionManager;
 import tech.ydb.yoj.repository.ydb.compatibility.YdbSchemaCompatibilityChecker;
 import tech.ydb.yoj.repository.ydb.exception.ResultTruncatedException;
+import tech.ydb.yoj.repository.ydb.exception.YdbOverloadedException;
 import tech.ydb.yoj.repository.ydb.exception.YdbRepositoryException;
 import tech.ydb.yoj.repository.ydb.model.EntityChangeTtl;
 import tech.ydb.yoj.repository.ydb.model.EntityDropTtl;
@@ -88,10 +101,14 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.UUID;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 import static org.assertj.core.api.Assertions.assertThatIllegalStateException;
@@ -1041,6 +1058,205 @@ public class YdbRepositoryIntegrationTest extends RepositoryTest {
                         ))
                         .find());
         assertThat(found).hasSize(4);
+    }
+
+    @Test
+    public void transactionalTopicWrites() {
+        var uuid = UUID.randomUUID();
+        var topic = "transactionalTopic-" + uuid;
+        var producer = "topicProducer-" + uuid;
+        var consumer = "topicConsumer-" + uuid;
+        var reader = "topicReader-" + uuid;
+
+        var grpcTransport = ydbEnvAndTransport.getGrpcTransport();
+        var topicPath = grpcTransport.getDatabase() + "/" + topic;
+
+        try (var topicClient = TopicClient.newClient(grpcTransport).build()) {
+            topicClient.createTopic(topic, CreateTopicSettings.newBuilder()
+                    .addConsumer(Consumer.newBuilder().setName(consumer).build())
+                    .setPartitioningSettings(PartitioningSettings.newBuilder()
+                            .setAutoPartitioningStrategy(AutoPartitioningStrategy.DISABLED)
+                            .setMinActivePartitions(1)
+                            .setPartitionCountLimit(1)
+                            .build())
+                    .build()
+            ).join().expectSuccess("can't create a new topic");
+
+            var project = new Project(new Project.Id("topic-project"), "topic-project");
+            var data = CommonConverters.serializeOpaqueObjectValue(Project.class, project).getBytes(UTF_8);
+
+            try {
+                db.immediateWrites().tx(() -> {
+                    db.projects().save(project);
+
+                    var transaction = (YdbRepositoryTransaction<?>) Tx.Current.get().getRepositoryTransaction();
+                    var sdkTransaction = transaction.toSdkTransaction();
+                    write(topicClient, topicPath, producer, data, 5, sdkTransaction);
+                });
+
+                var messages = readAll(topicClient, topicPath, consumer, reader);
+                assertThat(messages)
+                        .hasSize(5)
+                        .allSatisfy(msg -> assertThat(msg.getData()).isEqualTo(data));
+            } finally {
+                topicClient.dropTopic(topic).join();
+            }
+        }
+    }
+
+    @Test
+    public void transactionalTopicWritesRetryThenCommit() {
+        var uuid = UUID.randomUUID();
+        var topic = "transactionalTopic-" + uuid;
+        var producer = "topicProducer-" + uuid;
+        var consumer = "topicConsumer-" + uuid;
+        var reader = "topicReader-" + uuid;
+
+        var grpcTransport = ydbEnvAndTransport.getGrpcTransport();
+        var topicPath = grpcTransport.getDatabase() + "/" + topic;
+
+        try (var topicClient = TopicClient.newClient(grpcTransport).build()) {
+            topicClient.createTopic(topic, CreateTopicSettings.newBuilder()
+                    .addConsumer(Consumer.newBuilder().setName(consumer).build())
+                    .setPartitioningSettings(PartitioningSettings.newBuilder()
+                            .setAutoPartitioningStrategy(AutoPartitioningStrategy.DISABLED)
+                            .setMinActivePartitions(1)
+                            .setPartitionCountLimit(1)
+                            .build())
+                    .build()
+            ).join().expectSuccess("can't create a new topic");
+
+            var project = new Project(new Project.Id("topic-project"), "topic-project");
+            var data = CommonConverters.serializeOpaqueObjectValue(Project.class, project).getBytes(UTF_8);
+
+            var retried = new AtomicBoolean();
+            try {
+                db.immediateWrites().tx(() -> {
+                    db.projects().save(project);
+
+                    var transaction = (YdbRepositoryTransaction<?>) Tx.Current.get().getRepositoryTransaction();
+                    var sdkTransaction = transaction.toSdkTransaction();
+                    write(topicClient, topicPath, producer, data, 1, sdkTransaction);
+
+                    if (!retried.getAndSet(true)) {
+                        throw new YdbOverloadedException("xxx", "yyy");
+                    }
+                });
+
+                var messages = readAll(topicClient, topicPath, consumer, reader);
+                assertThat(messages)
+                        .singleElement()
+                        .satisfies(msg -> assertThat(msg.getData()).isEqualTo(data));
+            } finally {
+                topicClient.dropTopic(topic).join();
+            }
+        }
+    }
+
+    @Test
+    public void transactionalTopicWritesRollbackReadNothing() {
+        var uuid = UUID.randomUUID();
+        var topic = "transactionalTopic-" + uuid;
+        var producer = "topicProducer-" + uuid;
+        var consumer = "topicConsumer-" + uuid;
+        var reader = "topicReader-" + uuid;
+
+        var grpcTransport = ydbEnvAndTransport.getGrpcTransport();
+        var topicPath = grpcTransport.getDatabase() + "/" + topic;
+
+        try (var topicClient = TopicClient.newClient(grpcTransport).build()) {
+            topicClient.createTopic(topic, CreateTopicSettings.newBuilder()
+                    .addConsumer(Consumer.newBuilder().setName(consumer).build())
+                    .setPartitioningSettings(PartitioningSettings.newBuilder()
+                            .setAutoPartitioningStrategy(AutoPartitioningStrategy.DISABLED)
+                            .setMinActivePartitions(1)
+                            .setPartitionCountLimit(1)
+                            .build())
+                    .build()
+            ).join().expectSuccess("can't create a new topic");
+
+            var project = new Project(new Project.Id("topic-project"), "topic-project");
+            var data = CommonConverters.serializeOpaqueObjectValue(Project.class, project).getBytes(UTF_8);
+
+            try {
+                assertThatIllegalStateException().isThrownBy(() -> db.immediateWrites().tx(() -> {
+                    db.projects().save(project);
+
+                    var transaction = (YdbRepositoryTransaction<?>) Tx.Current.get().getRepositoryTransaction();
+                    var sdkTransaction = transaction.toSdkTransaction();
+                    write(topicClient, topicPath, producer, data, 1, sdkTransaction);
+
+                    throw new IllegalStateException("I don't feel like it");
+                }));
+
+                var messages = readAll(topicClient, topicPath, consumer, reader);
+                assertThat(messages).isEmpty();
+            } finally {
+                topicClient.dropTopic(topic).join();
+            }
+        }
+    }
+
+    private List<tech.ydb.topic.read.Message> readAll(TopicClient topicClient, String topicPath, String consumer, String reader) {
+        var syncReader = topicClient.createSyncReader(ReaderSettings.newBuilder()
+                .setTopics(
+                        List.of(TopicReadSettings.newBuilder()
+                                .setPath(topicPath)
+                                .setPartitionIds(List.of(0L))
+                                .build())
+                )
+                .setConsumerName(consumer)
+                .setReaderName(reader)
+                .build());
+        try {
+            syncReader.initAndWait();
+
+            List<tech.ydb.topic.read.Message> messages = new ArrayList<>();
+            while (true) {
+                var msg = syncReader.receive(ReceiveSettings.newBuilder()
+                        .setTimeout(250, TimeUnit.MILLISECONDS)
+                        .build());
+                if (msg == null) {
+                    break;
+                }
+                messages.add(msg);
+                msg.commit().join();
+            }
+
+            return messages;
+        } catch (InterruptedException e) {
+            throw new RuntimeException(e);
+        } finally {
+            syncReader.shutdown();
+        }
+    }
+
+    private void write(TopicClient topicClient, String topicPath, String producer,
+                       byte[] data, int nCopies, YdbTransaction transaction) {
+        var syncWriter = topicClient.createSyncWriter(
+                WriterSettings.newBuilder()
+                        .setTopicPath(topicPath)
+                        .setProducerId(producer)
+                        .setPartitionId(0L)
+                        .build()
+        );
+
+        try {
+            syncWriter.initAndWait();
+            for (int i = 0; i < nCopies; i++) {
+                syncWriter.send(
+                        tech.ydb.topic.write.Message.of(data),
+                        SendSettings.newBuilder().setTransaction(transaction).build()
+                );
+            }
+            syncWriter.flush();
+        } finally {
+            try {
+                syncWriter.shutdown(30_000, TimeUnit.MILLISECONDS);
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            }
+        }
     }
 
     @AllArgsConstructor
