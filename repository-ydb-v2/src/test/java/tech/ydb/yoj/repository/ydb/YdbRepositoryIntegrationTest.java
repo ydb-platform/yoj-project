@@ -800,8 +800,7 @@ public class YdbRepositoryIntegrationTest extends RepositoryTest {
         String message = String.format("Altering index `%stable_with_indexes`.value_index is impossible: " +
                 "columns are changed: [value_id, valueId2] --> [value_id].\n", ts);
         message += String.format("ALTER TABLE `%stable_with_indexes` DROP INDEX `value_index`;\n", ts);
-        message += String.format("ALTER TABLE `%stable_with_indexes` ADD INDEX `value_index` GLOBAL ON (`value_id`);\n", ts);
-        message += String.format("ALTER TABLE `%stable_with_indexes` ADD INDEX `value_index2` GLOBAL ASYNC ON (`value_id`);", ts);
+        message += String.format("ALTER TABLE `%stable_with_indexes` ADD INDEX `value_index` GLOBAL ON (`value_id`);", ts);
         Assertions.assertThat(checker.getShouldExecuteMessages()).containsExactly(message);
     }
 
