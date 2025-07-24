@@ -105,6 +105,8 @@ public class YdbSchemaOperations {
         globalIndexes.forEach(index -> {
             if (index.isUnique()) {
                 builder.addGlobalUniqueIndex(index.getIndexName(), index.getFieldNames());
+            } else if (index.isAsync()) {
+                builder.addGlobalAsyncIndex(index.getIndexName(), index.getFieldNames());
             } else {
                 builder.addGlobalIndex(index.getIndexName(), index.getFieldNames());
             }
@@ -221,7 +223,7 @@ public class YdbSchemaOperations {
                 })
                 .toList();
         List<Index> ydbIndexes = indexes.stream()
-                .map(i -> new Index(i.getIndexName(), i.getFieldNames(), i.isUnique()))
+                .map(i -> new Index(i.getIndexName(), i.getFieldNames(), i.isUnique(), i.isAsync()))
                 .toList();
         TtlModifier tableTtl = ttlModifier == null
                 ? null
@@ -340,7 +342,7 @@ public class YdbSchemaOperations {
                         })
                         .toList(),
                 table.getIndexes().stream()
-                        .map(i -> new Index(i.getName(), i.getColumns(), i.getType() == TableIndex.Type.GLOBAL_UNIQUE))
+                        .map(i -> new Index(i.getName(), i.getColumns(), i.getType() == TableIndex.Type.GLOBAL_UNIQUE, i.getType() == TableIndex.Type.GLOBAL_ASYNC))
                         .toList(),
                 table.getTableTtl() == null || table.getTableTtl().getTtlMode() == TableTtl.TtlMode.NOT_SET
                         ? null
@@ -491,6 +493,7 @@ public class YdbSchemaOperations {
         String name;
         List<String> columns;
         boolean unique;
+        boolean async;
     }
 
     @Value

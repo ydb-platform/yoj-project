@@ -881,7 +881,8 @@ public class YdbRepositoryIntegrationTest extends RepositoryTest {
                         "\tPRIMARY KEY(`version_id`),\n" +
                         "\tINDEX `key_index` GLOBAL ON (`key_id`),\n" +
                         "\tINDEX `value_index` GLOBAL ON (`value_id`,`valueId2`),\n" +
-                        "\tINDEX `key2_index` GLOBAL ON (`key_id`,`valueId2`)\n" +
+                        "\tINDEX `key2_index` GLOBAL ON (`key_id`,`valueId2`),\n" +
+                        "\tINDEX `key3_index` GLOBAL ASYNC ON (`key_id`,`value_id`)\n" +
                         ");",
                 ts);
         Assert.assertEquals(expected, checker.getShouldExecuteMessages().get(0));
