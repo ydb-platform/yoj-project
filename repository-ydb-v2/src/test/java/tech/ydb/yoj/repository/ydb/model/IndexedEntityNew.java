@@ -10,6 +10,7 @@ import tech.ydb.yoj.repository.db.Entity;
 @GlobalIndex(name = "key_index", fields = {"keyId"})
 @GlobalIndex(name = "value_index", fields = {"valueId", "valueId2"})
 @GlobalIndex(name = "key2_index", fields = {"keyId", "valueId2"})
+@GlobalIndex(name = "key3_index", fields = {"keyId", "valueId"}, type = GlobalIndex.Type.GLOBAL_ASYNC)
 @Table(name = "new_table_with_indexes")
 public class IndexedEntityNew implements Entity<IndexedEntityNew> {
     @Column(name = "version_id")

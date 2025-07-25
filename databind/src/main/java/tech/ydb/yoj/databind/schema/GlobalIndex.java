@@ -38,6 +38,7 @@ public @interface GlobalIndex {
 
     enum Type {
         GLOBAL,
+        GLOBAL_ASYNC,
         UNIQUE
     }
 }

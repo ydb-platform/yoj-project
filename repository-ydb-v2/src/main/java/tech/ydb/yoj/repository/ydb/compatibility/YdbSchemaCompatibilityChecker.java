@@ -292,7 +292,7 @@ public final class YdbSchemaCompatibilityChecker {
 
     private static String builderDDLIndexes(YdbSchemaOperations.Table table) {
         return table.getIndexes().stream()
-                .map(idx -> "\t\t.addGlobalIndex(" + javaLiteral(idx.getName()) + ", " +
+                .map(idx -> (idx.isAsync() ? "\t\t.addGlobalAsyncIndex(" : "\t\t.addGlobalIndex(") + javaLiteral(idx.getName()) + ", " +
                         idx.getColumns().stream()
                                 .map(YdbSchemaCompatibilityChecker::javaLiteral)
                                 .collect(joining(", "))
@@ -352,8 +352,13 @@ public final class YdbSchemaCompatibilityChecker {
             return "\n";
         }
         return ",\n" + indexes.stream()
-                .map(idx -> "\tINDEX `" + idx.getName() + "` GLOBAL " + (idx.isUnique() ? "UNIQUE " : "") + "ON (" + indexColumns(idx.getColumns()) + ")")
-                .collect(Collectors.joining(",\n")) + "\n";
+            .map(idx -> "\t" + indexStatement(idx))
+            .collect(Collectors.joining(",\n")) + "\n";
+    }
+
+    private static String indexStatement(YdbSchemaOperations.Index idx) {
+        return String.format("INDEX `%s` GLOBAL %sON (%s)",
+            idx.getName(), idx.isUnique() ? "UNIQUE " : idx.isAsync() ? "ASYNC " : "", indexColumns(idx.getColumns()));
     }
 
     private static String indexColumns(List<String> columns) {
@@ -408,9 +413,7 @@ public final class YdbSchemaCompatibilityChecker {
                 .collect(toMap(YdbSchemaOperations.Index::getName, Function.identity()));
 
         Function<YdbSchemaOperations.Index, String> createIndex = i ->
-                String.format("ALTER TABLE `%s` ADD INDEX `%s` GLOBAL " + (i.isUnique() ? "UNIQUE " : "") + "ON (%s);",
-                        to.getName(), i.getName(), i.getColumns().stream().map(c -> "`" + c + "`").collect(joining(","))
-                );
+            String.format("ALTER TABLE `%s` ADD %s;", to.getName(), indexStatement(i));
 
         Function<YdbSchemaOperations.Index, String> dropIndex = i ->
                 String.format("ALTER TABLE `%s` DROP INDEX `%s`;", from.getName(), i.getName());
