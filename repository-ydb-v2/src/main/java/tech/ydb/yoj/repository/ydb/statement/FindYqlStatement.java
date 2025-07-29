@@ -11,6 +11,7 @@ import java.util.Collections;
 import java.util.List;
 
 import static java.util.stream.Collectors.toList;
+import static tech.ydb.yoj.util.lang.Strings.lazyDebugMsg;
 
 public class FindYqlStatement<PARAMS, ENTITY extends Entity<ENTITY>, RESULT> extends YqlStatement<PARAMS, ENTITY, RESULT> {
     public FindYqlStatement(
@@ -59,7 +60,7 @@ public class FindYqlStatement<PARAMS, ENTITY extends Entity<ENTITY>, RESULT> ext
     }
 
     @Override
-    public String toDebugString(PARAMS params) {
-        return "find(" + params + ")";
+    public Object toDebugString(PARAMS params) {
+        return lazyDebugMsg("find(%s)", params);
     }
 }

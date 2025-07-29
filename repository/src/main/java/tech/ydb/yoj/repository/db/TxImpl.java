@@ -11,6 +11,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Supplier;
 
+import static tech.ydb.yoj.util.lang.Strings.lazyDebugMsg;
+
 final class TxImpl implements Tx {
     private static final Logger log = LoggerFactory.getLogger(TxImpl.class);
 
@@ -79,15 +81,15 @@ final class TxImpl implements Tx {
             res = supplier.get();
             deferredBeforeCommit.forEach(Runnable::run);
         } catch (Throwable t) {
+            var logLines = formatExecutionLogMultiline("! ");
             doRollback(isBusinessException(t),
-                    String.format("[%s] runInTx(): Rollback as inconsistent with business exception %s%s", sw, t, formatExecutionLogMultiline("! ")));
-            log.debug("[{}] runInTx(): Rollback due to {}{}", sw, t, formatExecutionLogMultiline("! "), t);
+                    lazyDebugMsg("[%s] runInTx(): Rollback as inconsistent with business exception %s%s", sw, t, logLines));
+            log.debug("[{}] runInTx(): Rollback due to {}{}", sw, t, logLines, t);
             throw t;
         }
 
         if (dryRun) {
-            doRollback(true,
-                    String.format("[%s]" + "runInTx(): Rollback because dry-run transaction read inconsistent data", sw));
+            doRollback(true, lazyDebugMsg("[%s] runInTx(): Rollback because dry-run transaction read inconsistent data", sw));
             log.debug("[{}] runInTx(): Rollback due to dry-run mode {}", sw, formatExecutionLogMultiline("# "));
             return res;
         }
@@ -104,7 +106,7 @@ final class TxImpl implements Tx {
         return res;
     }
 
-    private void doRollback(boolean isBusinessException, String businessExceptionLogMessage) {
+    private void doRollback(boolean isBusinessException, Object businessExceptionLogMessage) {
         try {
             // Note that should we catch an InterruptedException from any place other than the transaction methods,
             // the transaction will remain in 'executed normally' state so the rollback call will go
@@ -112,7 +114,7 @@ final class TxImpl implements Tx {
             repositoryTransaction.rollback();
         } catch (OptimisticLockException optimisticRollbackException) {
             if (isBusinessException) {
-                log.debug(businessExceptionLogMessage);
+                log.debug("{}", businessExceptionLogMessage);
                 throw optimisticRollbackException;
             }
         }
@@ -122,7 +124,7 @@ final class TxImpl implements Tx {
         return !Interrupts.isInterruptException(th);
     }
 
-    private String formatExecutionLogMultiline(String prefix) {
+    private Object formatExecutionLogMultiline(String prefix) {
         return repositoryTransaction.getTransactionLocal().log().format(prefix);
     }
 }

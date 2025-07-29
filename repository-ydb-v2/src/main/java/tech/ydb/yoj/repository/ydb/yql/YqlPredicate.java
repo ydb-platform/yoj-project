@@ -1,6 +1,7 @@
 package tech.ydb.yoj.repository.ydb.yql;
 
 import com.google.common.base.Preconditions;
+import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import lombok.AllArgsConstructor;
 import lombok.NonNull;
@@ -429,7 +430,7 @@ public abstract class YqlPredicate implements YqlStatementPart<YqlPredicate> {
 
         @Override
         public String toString() {
-            return format("%s %s %s", fieldPath, rel, param.getValue());
+            return Strings.lenientFormat("%s %s %s", fieldPath, rel, param.getValue());
         }
     }
 
@@ -488,7 +489,7 @@ public abstract class YqlPredicate implements YqlStatementPart<YqlPredicate> {
 
         @Override
         public String toString() {
-            return format("%s %s %s", fieldPath, rel, param.getValue());
+            return Strings.lenientFormat("%s %s %s", fieldPath, rel, param.getValue());
         }
     }
 
@@ -595,7 +596,7 @@ public abstract class YqlPredicate implements YqlStatementPart<YqlPredicate> {
 
         @Override
         public String toString() {
-            return format("%s %s %s%s", fieldPath, type, param.getValue(), escape == null ? "" : " ESCAPE " + escape);
+            return Strings.lenientFormat("%s %s %s%s", fieldPath, type, param.getValue(), escape == null ? "" : " ESCAPE " + escape);
         }
 
         public enum Type {
@@ -674,7 +675,7 @@ public abstract class YqlPredicate implements YqlStatementPart<YqlPredicate> {
         @Override
         public <T extends Entity<T>> String toYql(@NonNull EntitySchema<T> schema) {
             if (isEmpty()) {
-                return alwaysFalse().toString();
+                return alwaysFalse().toYql(schema);
             }
 
             EntitySchema.JavaField field = schema.getField(fieldPath);
@@ -700,9 +701,8 @@ public abstract class YqlPredicate implements YqlStatementPart<YqlPredicate> {
 
         @Override
         public String toString() {
-            return format("%s %s (%s)", fieldPath, inType, param.getValue());
+            return Strings.lenientFormat("%s %s (%s)", fieldPath, inType, param.getValue());
         }
-
     }
 
     @AllArgsConstructor(access = PRIVATE)
@@ -734,7 +734,7 @@ public abstract class YqlPredicate implements YqlStatementPart<YqlPredicate> {
         @Override
         public <T extends Entity<T>> String toYql(@NonNull EntitySchema<T> schema) {
             if (isEmpty()) {
-                return alwaysFalse().toString();
+                return alwaysFalse().toYql(schema);
             }
 
             EntitySchema.JavaField field = schema.getField(fieldPath);
@@ -766,7 +766,7 @@ public abstract class YqlPredicate implements YqlStatementPart<YqlPredicate> {
 
         @Override
         public String toString() {
-            return format("%s %s (%s)", fieldPath, inType, param.getValue());
+            return Strings.lenientFormat("%s %s (%s)", fieldPath, inType, param.getValue());
         }
     }
 
@@ -791,19 +791,15 @@ public abstract class YqlPredicate implements YqlStatementPart<YqlPredicate> {
 
         @Override
         public YqlPredicate negate() {
-            switch (type) {
-                case IS_NULL:
-                    return new IsNullPredicate(fieldPath, IS_NOT_NULL);
-                case IS_NOT_NULL:
-                    return new IsNullPredicate(fieldPath, IS_NULL);
-                default:
-                    throw new UnsupportedOperationException("This should never happen");
-            }
+            return switch (type) {
+                case IS_NULL -> new IsNullPredicate(fieldPath, IS_NOT_NULL);
+                case IS_NOT_NULL -> new IsNullPredicate(fieldPath, IS_NULL);
+            };
         }
 
         @Override
         public String toString() {
-            return format("%s %s", fieldPath, type);
+            return Strings.lenientFormat("%s %s", fieldPath, type);
         }
 
         /*package*/ enum IsNullType {
@@ -865,7 +861,7 @@ public abstract class YqlPredicate implements YqlStatementPart<YqlPredicate> {
 
         @Override
         public String toString() {
-            return predicates.stream().map(p -> format("(%s)", p)).collect(joining(" && "));
+            return predicates.stream().map(p -> "(" + p + ")").collect(joining(" && "));
         }
     }
 
@@ -910,7 +906,7 @@ public abstract class YqlPredicate implements YqlStatementPart<YqlPredicate> {
 
         @Override
         public String toString() {
-            return predicates.stream().map(p -> format("(%s)", p)).collect(joining(" || "));
+            return predicates.stream().map(p -> "(" + p + ")").collect(joining(" || "));
         }
     }
 
@@ -943,7 +939,7 @@ public abstract class YqlPredicate implements YqlStatementPart<YqlPredicate> {
 
         @Override
         public String toString() {
-            return format("!(%s)", opposite);
+            return "!(" + opposite + ")";
         }
     }
 
