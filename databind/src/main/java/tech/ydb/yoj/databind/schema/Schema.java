@@ -1,6 +1,5 @@
 package tech.ydb.yoj.databind.schema;
 
-import com.google.common.annotations.Beta;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Lists;
 import lombok.AllArgsConstructor;
@@ -577,12 +576,20 @@ public abstract class Schema<T> {
             this.name = newName;
         }
 
-        @Beta
+        /**
+         * @deprecated Projections will be removed from the core YOJ API in 3.0.0 and possibly reintroduced as an optional module.
+         * @see <a href="https://github.com/ydb-platform/yoj-project/issues/77">#77</a>
+         */
+        @Deprecated(forRemoval = true)
         public String getRawPath() {
             return getRawSubPath(0);
         }
 
-        @Beta
+        /**
+         * @deprecated Projections will be removed from the core YOJ API in 3.0.0 and possibly reintroduced as an optional module.
+         * @see <a href="https://github.com/ydb-platform/yoj-project/issues/77">#77</a>
+         */
+        @Deprecated(forRemoval = true)
         public String getRawSubPath(int start) {
             List<String> components = new ArrayList<>();
             JavaField p = this;
