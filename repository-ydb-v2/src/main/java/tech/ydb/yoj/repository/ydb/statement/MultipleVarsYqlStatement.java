@@ -53,7 +53,9 @@ public abstract class MultipleVarsYqlStatement<PARAMS, ENTITY extends Entity<ENT
     }
 
     private static boolean isOptional(Schema.JavaField f) {
-        return !isIdField(f);
+        // TODO(nvamelichev): When we consider all ID fields required by default (see EntityIdFieldNullability), the isIdField(f) check should be removed
+        boolean required = isIdField(f) || f.isRequired();
+        return !required;
     }
 
     @Override

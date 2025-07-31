@@ -1,5 +1,7 @@
 package tech.ydb.yoj.util.lang;
 
+import com.google.common.base.Preconditions;
+
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.lang.annotation.Annotation;
@@ -55,11 +57,13 @@ public final class Annotations {
     private static <A extends Annotation> A findInDepth(Class<A> annotation, @Nonnull AnnotatedElement component) {
         Set<Annotation> visited = new HashSet<>();
         Set<Annotation> annotationToExamine = getAnnotations(component);
+
+        Set<A> found = new HashSet<>();
         while (!annotationToExamine.isEmpty()) {
             Annotation candidate = annotationToExamine.iterator().next();
             if (visited.add(candidate)) {
-                if (candidate.annotationType() == annotation) {
-                    return (A) candidate;
+                if (candidate.annotationType().equals(annotation)) {
+                    found.add((A) candidate);
                 } else {
                     nonJdkAnnotations(candidate.annotationType().getDeclaredAnnotations())
                             .forEach(annotationToExamine::add);
@@ -67,7 +71,15 @@ public final class Annotations {
             }
             annotationToExamine.remove(candidate);
         }
-        return null;
+
+        if (found.isEmpty()) {
+            return null;
+        }
+
+        var iter = found.iterator();
+        A firstFound = iter.next();
+        Preconditions.checkArgument(!iter.hasNext(), "Got multiple (meta-)annotations matching %s on '%s'", annotation.getCanonicalName(), component);
+        return firstFound;
     }
 
     private static Set<Annotation> getAnnotations(AnnotatedElement component) {
@@ -79,8 +91,7 @@ public final class Annotations {
     }
 
     private static Stream<Annotation> nonJdkAnnotations(Annotation[] annotations) {
-        return Arrays.stream(annotations)
-                .filter(da -> !jdkClass(da.annotationType()));
+        return Arrays.stream(annotations).filter(da -> !jdkClass(da.annotationType()));
     }
 
     static boolean jdkClass(Class<?> type) {
