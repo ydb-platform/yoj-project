@@ -22,6 +22,8 @@ import tech.ydb.yoj.repository.db.Table;
 import tech.ydb.yoj.repository.db.Tx;
 import tech.ydb.yoj.repository.db.TxManager;
 import tech.ydb.yoj.repository.db.TxOptions;
+import tech.ydb.yoj.repository.db.common.CommonConverters;
+import tech.ydb.yoj.repository.db.common.CommonConverters.EnumDeserializer;
 import tech.ydb.yoj.repository.db.exception.ConversionException;
 import tech.ydb.yoj.repository.db.exception.DropTableException;
 import tech.ydb.yoj.repository.db.exception.EntityAlreadyExistsException;
@@ -32,6 +34,7 @@ import tech.ydb.yoj.repository.db.exception.UnavailableException;
 import tech.ydb.yoj.repository.db.list.ListRequest;
 import tech.ydb.yoj.repository.db.list.ListResult;
 import tech.ydb.yoj.repository.db.readtable.ReadTableParams;
+import tech.ydb.yoj.repository.db.statement.Changeset;
 import tech.ydb.yoj.repository.test.entity.TestEntities;
 import tech.ydb.yoj.repository.test.sample.TestDb;
 import tech.ydb.yoj.repository.test.sample.TestDbImpl;
@@ -44,6 +47,7 @@ import tech.ydb.yoj.repository.test.sample.model.Complex.Id;
 import tech.ydb.yoj.repository.test.sample.model.DetachedEntity;
 import tech.ydb.yoj.repository.test.sample.model.DetachedEntityId;
 import tech.ydb.yoj.repository.test.sample.model.EntityWithValidation;
+import tech.ydb.yoj.repository.test.sample.model.EnumEntity;
 import tech.ydb.yoj.repository.test.sample.model.IndexedEntity;
 import tech.ydb.yoj.repository.test.sample.model.MultiLevelDirectory;
 import tech.ydb.yoj.repository.test.sample.model.MultiWrappedEntity2;
@@ -595,7 +599,8 @@ public abstract class RepositoryTest extends RepositoryTestSupport {
 
             // this loop calls tryAdvance() on spliterator one time after tryAdvance() says false
             while (true) {
-                if (!spliterator.tryAdvance(__ -> {})) {
+                if (!spliterator.tryAdvance(__ -> {
+                })) {
                     return;
                 }
             }
@@ -2951,6 +2956,87 @@ public abstract class RepositoryTest extends RepositoryTestSupport {
                 .where("id").lt(new MultiWrappedEntity2.Id(new MultiWrappedEntity2.WrapperOfIdStringValue(MultiWrappedEntity2.IdStringValue.fromString("xyzzy-central1:0"))))
                 .find()
         )).isEmpty();
+    }
+
+    @Test
+    public void lenientEnumBehaviorExplicit() {
+        try {
+            CommonConverters.defineEnumDeserializer(EnumDeserializer.LENIENT);
+            lenientEnumBehaviorTestImpl();
+        } finally {
+            CommonConverters.useDefaultEnumDeserializer();
+        }
+    }
+
+    @Test
+    public void lenientEnumBehaviorImplicit() {
+        // NB: Currently the implicit system property uses LENIENT deserializer, but this will change in YOJ 2.7.0!
+        CommonConverters.useDefaultEnumDeserializer();
+        lenientEnumBehaviorTestImpl();
+    }
+
+    @Test
+    public void strictEnumBehaviorExplicit() {
+        try {
+            CommonConverters.defineEnumDeserializer(EnumDeserializer.STRICT);
+            strictEnumBehaviorTestImpl();
+        } finally {
+            CommonConverters.useDefaultEnumDeserializer();
+        }
+    }
+
+    private void lenientEnumBehaviorTestImpl() {
+        var entity1 = new EnumEntity(new EnumEntity.Id("qee1"), EnumEntity.IpVersion.IPV6, EnumEntity.NetworkType.OVERLAY);
+        var entity2 = new EnumEntity(new EnumEntity.Id("qee2"), EnumEntity.IpVersion.IPV4, EnumEntity.NetworkType.UNDERLAY_V4);
+        var entity3 = new EnumEntity(new EnumEntity.Id("qee3"), EnumEntity.IpVersion.IPV6, EnumEntity.NetworkType.UNDERLAY_V6);
+        db.tx(() -> db.table(EnumEntity.class).insert(entity1, entity2, entity3));
+        db.tx(() -> db.table(EnumEntity.class).update(entity2.id(), new Changeset()
+                .set("ipVersion", "ipv4") // the lowercase of IPV4.name(), which IS allowed by the LENIENT enum deserializer
+                .set("networkType", "underlay-v4") // this uses toString() to convert enums, and "underlay-v4" corresponds to a UNDERLAY_V4 constant
+        ));
+        db.tx(() -> db.table(EnumEntity.class).update(entity3.id(), new Changeset()
+                .set("ipVersion", "IPV5") // mwahahahahah! This is an unknown constant which the LENIENT enum deserializer will turn into null (!!)
+                .set("networkType", "zz") // same here!!!
+        ));
+
+        db.tx(() -> {
+            assertThat(db.table(EnumEntity.class).find(entity1.id())).isEqualTo(entity1);
+
+            // lowercase 'ipv4' treated as 'IPV4' constant
+            assertThat(db.table(EnumEntity.class).find(entity2.id())).isEqualTo(entity2);
+            // unknown constant 'IPV5' treated as null (!!)
+            assertThat(db.table(EnumEntity.class).find(entity3.id())).isEqualTo(entity3.withIpVersion(null).withNetworkType(null));
+        });
+    }
+
+    private void strictEnumBehaviorTestImpl() {
+        var entity1 = new EnumEntity(new EnumEntity.Id("qee1"), EnumEntity.IpVersion.IPV6, EnumEntity.NetworkType.OVERLAY);
+        var entity2 = new EnumEntity(new EnumEntity.Id("qee2"), EnumEntity.IpVersion.IPV4, EnumEntity.NetworkType.UNDERLAY_V4);
+        var entity3 = new EnumEntity(new EnumEntity.Id("qee3"), EnumEntity.IpVersion.IPV4, EnumEntity.NetworkType.UNDERLAY_V4);
+        var entity4 = new EnumEntity(new EnumEntity.Id("qee4"), EnumEntity.IpVersion.IPV6, EnumEntity.NetworkType.UNDERLAY_V6);
+        db.tx(() -> db.table(EnumEntity.class).insert(entity1, entity2, entity3, entity4));
+        db.tx(() -> db.table(EnumEntity.class).update(entity2.id(), new Changeset()
+                .set("ipVersion", "IPV4") // IPV4.name(), verbatim
+                .set("networkType", "underlay-v4") // this uses toString() to convert enums, and "underlay-v4" corresponds to a UNDERLAY_V4 constant
+        ));
+        db.tx(() -> db.table(EnumEntity.class).update(entity3.id(), new Changeset()
+                .set("ipVersion", "ipv4") // the lowercase of IPV4.name(), which IS NOT allowed by the STRICT enum deserializer
+                .set("networkType", "underlay-v4") // this uses toString() to convert enums, and "underlay-v4" corresponds to a UNDERLAY_V4 constant
+        ));
+        db.tx(() -> db.table(EnumEntity.class).update(entity4.id(), new Changeset()
+                .set("ipVersion", "IPV5") // mwahahahahah! This is an unknown constant which the STRICT enum deserializer disallows (!!)
+                .set("networkType", "zz") // same here!!!
+        ));
+
+        db.tx(() -> {
+            assertThat(db.table(EnumEntity.class).find(entity1.id())).isEqualTo(entity1);
+            assertThat(db.table(EnumEntity.class).find(entity2.id())).isEqualTo(entity2);
+
+            // lowercase 'ipv4' leads to ConversionError
+            assertThatExceptionOfType(ConversionException.class).isThrownBy(() -> db.table(EnumEntity.class).find(entity3.id()));
+            // unknown constants 'IPV5' and 'zz' lead to ConversionError
+            assertThatExceptionOfType(ConversionException.class).isThrownBy(() -> db.table(EnumEntity.class).find(entity4.id()));
+        });
     }
 
     protected void runInTx(Consumer<RepositoryTransaction> action) {

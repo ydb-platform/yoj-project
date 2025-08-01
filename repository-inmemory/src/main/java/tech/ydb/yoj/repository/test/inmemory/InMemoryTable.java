@@ -23,7 +23,7 @@ import tech.ydb.yoj.repository.db.readtable.ReadTableParams;
 import tech.ydb.yoj.repository.db.statement.Changeset;
 
 import javax.annotation.Nullable;
-import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -79,19 +79,12 @@ public class InMemoryTable<T extends Entity<T>> implements Table<T> {
     @Override
     @Deprecated
     public void update(Entity.Id<T> id, Changeset changeset) {
-        T found = find(id);
-        if (found == null) {
-            return;
-        }
-        Map<String, Object> cells = new HashMap<>(schema.flatten(found));
+        Map<String, Object> patch = new LinkedHashMap<>();
+        changeset.toMap().forEach((k, v) -> patch.putAll(schema.flattenOneField(k, v)));
 
-        changeset.toMap().forEach((k, v) -> {
-            cells.putAll(schema.flattenOneField(k, v));
-        });
-
-        T newInstance = schema.newInstance(cells);
-
-        save(newInstance);
+        transaction.getWatcher().markRowRead(tableDescriptor, id);
+        transaction.doInWriteTransaction("update(" + id + ", " + changeset + ")", tableDescriptor, shard -> shard.update(id, patch));
+        transaction.getTransactionLocal().firstLevelCache(tableDescriptor).remove(id);
     }
 
     @Override

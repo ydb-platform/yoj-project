@@ -17,10 +17,12 @@ import tech.ydb.yoj.repository.db.exception.ConversionException;
 
 import java.lang.reflect.Type;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 
 import static java.lang.String.format;
 import static java.util.Collections.unmodifiableMap;
@@ -41,6 +43,30 @@ import static org.eclipse.collections.impl.tuple.Tuples.pair;
             newValues.add(pair(column, value));
         }
         return new Columns(Maps.immutable.<String, Object>empty().newWithAllKeyValues(newValues));
+    }
+
+    public Columns patch(EntitySchema<?> schema, Map<String, Object> patch) {
+        Set<String> columnNames = new HashSet<>(schema.flattenFieldNames());
+        for (String column : patch.keySet()) {
+            if (!columnNames.contains(column)) {
+                String message = format("Invalid patch: unknown column name '%s'; does not belong to entity <%s>", column, schema.getTypeName());
+                throw new ConversionException(message);
+            }
+        }
+
+        List<Pair<String, Object>> newValues = new ArrayList<>();
+        for (Schema.JavaField field : schema.flattenFields()) {
+            String column = field.getName();
+            if (patch.containsKey(column)) {
+                Object value = serialize(field, patch.get(column));
+                newValues.add(pair(column, value));
+            }
+        }
+        return new Columns(map.newWithAllKeyValues(newValues));
+    }
+
+    public Map<String, Object> toMutableMap() {
+        return this.map.toMap();
     }
 
     public <T> T toSchema(Schema<T> schema) {
@@ -120,7 +146,7 @@ import static org.eclipse.collections.impl.tuple.Tuples.pair;
                 default -> throw new IllegalStateException("Don't know how to deserialize field: " + field);
             };
 
-            return CustomValueTypes.postconvert(field, deserialized);
+            return deserialized == null ? null : CustomValueTypes.postconvert(field, deserialized);
         } catch (Exception e) {
             throw new ConversionException("Could not deserialize value of type <" + type + ">", e);
         }

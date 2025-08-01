@@ -525,6 +525,7 @@ public class YdbTable<T extends Entity<T>> implements Table<T> {
     public void update(Entity.Id<T> id, Changeset changeset) {
         UpdateModel.ById<Id<T>> model = new UpdateModel.ById<>(id, changeset.toMap());
         executor.pendingExecute(new UpdateByIdStatement<>(tableDescriptor, schema, model), model);
+        executor.getTransactionLocal().firstLevelCache(tableDescriptor).remove(id);
     }
 
     @Override

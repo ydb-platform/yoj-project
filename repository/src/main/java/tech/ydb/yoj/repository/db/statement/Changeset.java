@@ -1,6 +1,7 @@
 package tech.ydb.yoj.repository.db.statement;
 
 import lombok.NonNull;
+import lombok.ToString;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -13,6 +14,7 @@ import java.util.Map;
  * <p>Blind updates also do not update projections because they do not load the entity before performing the update;
  * this can cause projections to be inconsistent with the main entity.
  */
+@ToString
 @Deprecated
 public final class Changeset {
     private final Map<String, Object> newValues = new LinkedHashMap<>();

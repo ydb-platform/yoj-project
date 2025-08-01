@@ -67,5 +67,6 @@ java_test_suite(
         "@java_contribs_stable//:tech_ydb_ydb_sdk_scheme",
         "@java_contribs_stable//:tech_ydb_ydb_sdk_table",
         "@java_contribs_stable//:tech_ydb_ydb_sdk_topic",
+        "@java_contribs_stable//:uk_org_webcompere_system_stubs_junit4",
     ],
 )

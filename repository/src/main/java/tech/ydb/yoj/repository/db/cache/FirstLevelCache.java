@@ -64,6 +64,15 @@ public interface FirstLevelCache<E extends Entity<E>> {
     void putEmpty(@NonNull Entity.Id<E> id);
 
     /**
+     * Removes the entity with the specified ID from the first-level cache, forcing a reload from the DB on the next read operation.
+     * <p>Unlike {@link #putEmpty(Entity.Id)}, this does not indicate that the entity does not exist; only that it's in such a state in DB
+     * that a reload is needed.
+     *
+     * @param id              entity ID
+     */
+    void remove(@NonNull Entity.Id<E> id);
+
+    /**
      * Checks whether there is an entry in the L1 cache for an entity with the specified ID (either for an entity existing, or for an entity
      * being nonexistent).
      *
