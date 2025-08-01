@@ -47,6 +47,11 @@ import java.util.function.Function;
     }
 
     @Override
+    public void remove(Entity.@NonNull Id<E> id) {
+        // NOOP
+    }
+
+    @Override
     public boolean containsKey(@NonNull Entity.Id<E> id) {
         return false;
     }

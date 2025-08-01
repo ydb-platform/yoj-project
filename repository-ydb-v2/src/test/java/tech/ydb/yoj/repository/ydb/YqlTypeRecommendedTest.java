@@ -25,7 +25,6 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
-import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 
 public class YqlTypeRecommendedTest {
@@ -62,16 +61,15 @@ public class YqlTypeRecommendedTest {
                 .isThrownBy(() -> YqlType.of(schema.getField("object")).toYql(new NonSerializableObject()));
     }
 
-    @Test
-    public void unknownEnumValuesAreDeserializedAsNull() {
+    @Test(expected = ConversionException.class)
+    public void unknownEnumValuesCauseConversionExceptionOnDeserialization() {
         record WithEmptyEnum(EmptyEnum emptyEnum) {
         }
 
         Schema<WithEmptyEnum> schema = new Schema<>(WithEmptyEnum.class) {
         };
 
-        assertThat(YqlType.of(schema.getField("emptyEnum")).fromYql(ValueProtos.Value.newBuilder().setTextValue("UZHOS").build()))
-                .isNull();
+        YqlType.of(schema.getField("emptyEnum")).fromYql(ValueProtos.Value.newBuilder().setTextValue("UZHOS").build());
     }
 
     @Test
