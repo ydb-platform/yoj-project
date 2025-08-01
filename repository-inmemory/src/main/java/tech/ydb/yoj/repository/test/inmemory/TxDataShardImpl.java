@@ -6,6 +6,7 @@ import tech.ydb.yoj.repository.db.Table;
 
 import javax.annotation.Nullable;
 import java.util.List;
+import java.util.Map;
 
 @RequiredArgsConstructor
 /*package*/ final class TxDataShardImpl<T extends Entity<T>> implements ReadOnlyTxDataShard<T>, WriteTxDataShard<T> {
@@ -39,6 +40,11 @@ import java.util.List;
     @Override
     public void save(T entity) {
         shard.save(txId, version, entity);
+    }
+
+    @Override
+    public void update(Entity.Id<T> id, Map<String, Object> patch) {
+        shard.update(txId, version, id, watcher, patch);
     }
 
     @Override

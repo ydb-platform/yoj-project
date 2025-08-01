@@ -26,6 +26,7 @@ import tech.ydb.yoj.databind.schema.CustomValueTypeInfo;
 import tech.ydb.yoj.databind.schema.Schema.JavaField;
 import tech.ydb.yoj.repository.DbTypeQualifier;
 import tech.ydb.yoj.repository.db.common.CommonConverters;
+import tech.ydb.yoj.repository.db.common.CommonConverters.EnumDeserializer;
 import tech.ydb.yoj.repository.db.exception.ConversionException;
 import tech.ydb.yoj.util.lang.BetterCollectors;
 
@@ -356,14 +357,14 @@ public class YqlPrimitiveType implements YqlType {
 
     /**
      * @deprecated This method will be removed in YOJ 3.0.0.
-     * Call {@link #useRecommendedMappingFor(FieldValueType[]) useNewMappingFor(STRING, ENUM, UUID)} instead, if you wish to map Strings, Enums and
-     * UUIDs to {@code UTF8} ({@code TEXT}) YDB column type (i.e., UTF-8 encoded text).
+     * Call {@link #useRecommendedMappingFor(FieldValueType[]) useRecommendedMappingFor(STRING, ENUM, UUID)} instead, if you wish to map Strings,
+     * enums and UUIDs to {@code UTF8} ({@code TEXT}) YDB column type (i.e., UTF-8 encoded text).
      */
     @Deprecated(forRemoval = true)
     public static void changeStringDefaultTypeToUtf8() {
         DeprecationWarnings.warnOnce("YqlPrimitiveType.changeStringDefaultTypeToUtf8()",
                 "You are using YqlPrimitiveType.changeStringDefaultTypeToUtf8() which will be removed in YOJ 3.0.0."
-                        + "Please use YqlPrimitiveType.useNewMappingFor(STRING, ENUM, UUID) if you wish to use to map Strings, Enums and UUIDs "
+                        + "Please use YqlPrimitiveType.useRecommendedMappingFor(STRING, ENUM, UUID) if you wish to use to map Strings, enums and UUIDs "
                         + "to `UTF8` (`TEXT`) YDB column type (i.e., UTF-8 encoded text).");
         useRecommendedMappingFor(FieldValueType.STRING, FieldValueType.ENUM, FieldValueType.UUID);
     }
@@ -377,7 +378,7 @@ public class YqlPrimitiveType implements YqlType {
     public static void resetStringDefaultTypeToDefaults() {
         DeprecationWarnings.warnOnce("YqlPrimitiveType.resetStringDefaultTypeToDefaults()",
                 "You are using YqlPrimitiveType.resetStringDefaultTypeToDefaults() which will be removed in YOJ 3.0.0. "
-                        + "Please use YqlPrimitiveType.useLegacyMappingFor(STRING, ENUM, UUID) if you wish to use to map Strings, Enums and UUIDs "
+                        + "Please use YqlPrimitiveType.useLegacyMappingFor(STRING, ENUM, UUID) if you wish to use to map Strings, enums and UUIDs "
                         + "to `STRING` (`BYTES`) YDB column type (i.e., byte array).");
         useLegacyMappingFor(FieldValueType.STRING, FieldValueType.ENUM, FieldValueType.UUID);
     }
@@ -391,15 +392,21 @@ public class YqlPrimitiveType implements YqlType {
      *
      * @param fieldValueTypes field value types to use legacy mapping for
      * @deprecated We <strong>STRONGLY</strong> advise against using the legacy mapping in new projects.
-     * Please call {@link #useRecommendedMappingFor(FieldValueType...) useNewMappingFor(FieldValueType.values())} instead,
+     * Please call {@link #useRecommendedMappingFor(FieldValueType...) useRecommendedMappingFor(FieldValueType.values())} instead,
      * and annotate custom-mapped columns with {@link Column &#64;Column} where a different mapping is desired.
+     *
+     * @see FieldValueType
+     * @see CommonConverters#defineEnumDeserializer(EnumDeserializer)
      */
     @Deprecated
     public static void useLegacyMappingFor(FieldValueType... fieldValueTypes) {
         typeMappingExplicitlySet = true;
         for (var fvt : fieldValueTypes) {
             switch (fvt) {
-                case STRING, ENUM -> VALUE_DEFAULT_YQL_TYPES.put(fvt, new ValueYqlTypeSelector(fvt, PrimitiveTypeId.STRING, null));
+                case STRING, ENUM -> {
+                    CommonConverters.defineEnumDeserializer(EnumDeserializer.LENIENT);
+                    VALUE_DEFAULT_YQL_TYPES.put(fvt, new ValueYqlTypeSelector(fvt, PrimitiveTypeId.STRING, null));
+                }
                 case UUID -> {
                     var selector = new YqlTypeSelector(Instant.class, PrimitiveTypeId.STRING, null);
                     JAVA_DEFAULT_YQL_TYPES.put(UUID.class, selector);
@@ -417,20 +424,26 @@ public class YqlPrimitiveType implements YqlType {
     /**
      * Uses the recommended field value type &harr; YDB column type mapping for the specified field value type(s).
      * <p>
-     * In new projects, we <strong>STRONGLY</strong> advise you to call {@code useNewMappingFor(FieldValueType.values())} before using
+     * In new projects, we <strong>STRONGLY</strong> advise you to call {@code useRecommendedMappingFor(FieldValueType.values())} before using
      * any YOJ features. This will eventually become the default mapping, and this call will become a no-op and might even be removed
      * in a future version of YOJ.
-     * <p>You can apply the new mapping partially, <em>e.g.</em> {@code useNewMappingFor(STRING, ENUM, UUID)} to map String, Enums and UUIDs
+     * <p>You can apply the new mapping partially, <em>e.g.</em> {@code useRecommendedMappingFor(STRING, ENUM, UUID)} to map String, enums and UUIDs
      * to {@code UTF8} ({@code TEXT}) YDB column type (i.e., UTF-8 encoded text).
      *
      * @param fieldValueTypes field value types to use the new mapping for
+     *
+     * @see FieldValueType
+     * @see CommonConverters#defineEnumDeserializer(EnumDeserializer)
      */
     @ExperimentalApi(issue = "https://github.com/ydb-platform/yoj-project/issues/20")
     public static void useRecommendedMappingFor(FieldValueType... fieldValueTypes) {
         typeMappingExplicitlySet = true;
         for (var fvt : fieldValueTypes) {
             switch (fvt) {
-                case STRING, ENUM -> VALUE_DEFAULT_YQL_TYPES.put(fvt, new ValueYqlTypeSelector(fvt, PrimitiveTypeId.UTF8, null));
+                case STRING, ENUM -> {
+                    CommonConverters.defineEnumDeserializer(EnumDeserializer.STRICT);
+                    VALUE_DEFAULT_YQL_TYPES.put(fvt, new ValueYqlTypeSelector(fvt, PrimitiveTypeId.UTF8, null));
+                }
                 case UUID -> {
                     var selector = new YqlTypeSelector(Instant.class, PrimitiveTypeId.UTF8, null);
                     JAVA_DEFAULT_YQL_TYPES.put(UUID.class, selector);
