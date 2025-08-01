@@ -18,7 +18,7 @@ public class YdbTableHint {
     PartitioningSettings partitioningSettings;
     TablePreset tablePreset;
 
-    public static YdbTableHint int64Range(int start, int end) {
+    public static YdbTableHint int64Range(long start, long end) {
         return new YdbTableHint(
                 new PartitioningPolicy()
                         .setAutoPartitioning(AutoPartitioningPolicy.DISABLED)
