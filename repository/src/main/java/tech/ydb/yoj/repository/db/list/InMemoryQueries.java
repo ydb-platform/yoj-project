@@ -103,28 +103,20 @@ public final class InMemoryQueries {
 
             @Override
             public Predicate<T> visitNullExpr(@NonNull NullExpr<T> nullExpr) {
-                switch (nullExpr.getOperator()) {
-                    case IS_NULL:
-                        return nullExpr::isActualValueNull;
-                    case IS_NOT_NULL:
-                        return not(nullExpr::isActualValueNull);
-                    default:
-                        throw new UnsupportedOperationException("Unsupported operator in nullability expression: " + nullExpr.getOperator());
-                }
+                return switch (nullExpr.getOperator()) {
+                    case IS_NULL -> nullExpr::isActualValueNull;
+                    case IS_NOT_NULL -> not(nullExpr::isActualValueNull);
+                };
             }
 
             @Override
             public Predicate<T> visitListExpr(@NonNull ListExpr<T> listExpr) {
                 Function<T, Comparable<?>> getActual = listExpr::getActualValue;
                 List<Comparable<?>> expected = listExpr.getExpectedValues();
-                switch (listExpr.getOperator()) {
-                    case IN:
-                        return obj -> expected.contains(getActual.apply(obj));
-                    case NOT_IN:
-                        return obj -> !expected.contains(getActual.apply(obj));
-                    default:
-                        throw new UnsupportedOperationException("Unsupported operator in filter expression: " + listExpr.getOperator());
-                }
+                return switch (listExpr.getOperator()) {
+                    case IN -> obj -> expected.contains(getActual.apply(obj));
+                    case NOT_IN -> obj -> !expected.contains(getActual.apply(obj));
+                };
             }
 
             @Override
@@ -148,7 +140,7 @@ public final class InMemoryQueries {
         });
     }
 
-    public static <T extends Entity<T>> Comparator<T> toComparator(@NonNull OrderExpression<T> orderBy) {
+    public static <T> Comparator<T> toComparator(@NonNull OrderExpression<T> orderBy) {
         if (orderBy.isUnordered()) {
             // Produces a randomly-ordering, but stable Comparator. UUID.randomUUID() collisions are extremely unlikely, so we ignore them.
             Map<Object, UUID> randomIds = new IdentityHashMap<>();

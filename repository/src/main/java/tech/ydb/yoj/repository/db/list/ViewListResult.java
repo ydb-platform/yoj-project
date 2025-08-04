@@ -45,10 +45,12 @@ public final class ViewListResult<T extends Entity<T>, V extends Table.View> ext
     }
 
     @NonNull
-    private static <T extends Entity<T>, V extends Table.View> ViewSchema<V> getViewSchema(@NonNull ListRequest<T> request, @NonNull Class<V> viewClass) {
+    private static <T extends Entity<T>, V extends Table.View> ViewSchema<V> getViewSchema(
+            @NonNull ListRequest<T> request,
+            @NonNull Class<V> viewClass
+    ) {
         if (!(request.getSchema() instanceof EntitySchema<?> entitySchema)) {
-            throw new IllegalArgumentException("Expected ListRequest for an entity, but got a non-entity schema of type "
-                    + "<" + request.getSchema().getClass().getName() + ">");
+            throw new IllegalArgumentException("Expected ListRequest for an entity, but got a non-entity schema: " + request.getSchema());
         }
         return entitySchema.getViewSchema(viewClass);
     }
