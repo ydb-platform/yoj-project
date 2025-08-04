@@ -42,8 +42,8 @@ public class PojoSchemaTest {
     @Before
     public void setUp() {
         schema = EntitySchema.of(SampleEntity.class);
-        viewSchema = ViewSchema.of(SampleEntityView.class);
-        idSchema = EntityIdSchema.of(SampleEntity.Id.class);
+        viewSchema = schema.getViewSchema(SampleEntityView.class);
+        idSchema = schema.getIdSchema();
     }
 
     @After

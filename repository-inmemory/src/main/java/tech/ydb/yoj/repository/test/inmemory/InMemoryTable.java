@@ -51,7 +51,9 @@ public class InMemoryTable<T extends Entity<T>> implements Table<T> {
     }
 
     public InMemoryTable(InMemoryRepositoryTransaction transaction, Class<T> type) {
-        this(transaction, TableDescriptor.from(EntitySchema.of(type)));
+        this.schema = EntitySchema.of(type);
+        this.tableDescriptor = TableDescriptor.from(schema);
+        this.transaction = transaction;
     }
 
     public InMemoryTable(InMemoryRepositoryTransaction transaction, TableDescriptor<T> tableDescriptor) {
@@ -62,7 +64,7 @@ public class InMemoryTable<T extends Entity<T>> implements Table<T> {
 
     @Override
     public List<T> findAll() {
-        transaction.getWatcher().markTableRead(tableDescriptor);
+        transaction.getWatcher().markTableRead(tableDescriptor, schema);
         return findAll0();
     }
 
@@ -92,9 +94,7 @@ public class InMemoryTable<T extends Entity<T>> implements Table<T> {
         }
         Map<String, Object> cells = new HashMap<>(schema.flatten(found));
 
-        changeset.toMap().forEach((k, v) -> {
-            cells.putAll(schema.flattenOneField(k, v));
-        });
+        changeset.toMap().forEach((k, v) -> cells.putAll(schema.flattenOneField(k, v)));
 
         T newInstance = schema.newInstance(cells);
 
@@ -285,7 +285,7 @@ public class InMemoryTable<T extends Entity<T>> implements Table<T> {
         Set<Map<String, Object>> idsSet = ids.stream().map(idSchema::flatten).collect(toUnmodifiableSet());
         Set<Set<String>> idFieldsSet = idsSet.stream().map(Map::keySet).collect(toUnmodifiableSet());
 
-        Preconditions.checkArgument(idFieldsSet.size() > 0, "ids must have at least one non-null field");
+        Preconditions.checkArgument(!idFieldsSet.isEmpty(), "ids must have at least one non-null field");
         Preconditions.checkArgument(idFieldsSet.size() == 1, "ids must have nulls in the same fields");
 
         Set<String> idFields = Iterables.getOnlyElement(idFieldsSet);
@@ -349,7 +349,7 @@ public class InMemoryTable<T extends Entity<T>> implements Table<T> {
         Set<Map<String, Object>> keysSet = keys.stream().map(keySchema::flatten).collect(toUnmodifiableSet());
         Set<Set<String>> keyFieldsSet = keysSet.stream().map(Map::keySet).collect(toUnmodifiableSet());
 
-        Preconditions.checkArgument(keyFieldsSet.size() != 0, "keys should have at least one non-null field");
+        Preconditions.checkArgument(!keyFieldsSet.isEmpty(), "keys should have at least one non-null field");
         Preconditions.checkArgument(keyFieldsSet.size() == 1, "keys should have nulls in the same fields");
 
         Set<String> keyFields = Iterables.getOnlyElement(keyFieldsSet);
@@ -377,7 +377,7 @@ public class InMemoryTable<T extends Entity<T>> implements Table<T> {
         );
 
         for (Map<String, Object> id : keysSet) {
-            transaction.getWatcher().markRangeRead(tableDescriptor, id);
+            transaction.getWatcher().markRangeRead(tableDescriptor, schema, id);
         }
 
         Stream<T> result = getAllEntries().stream()
@@ -413,7 +413,7 @@ public class InMemoryTable<T extends Entity<T>> implements Table<T> {
         EntityIdSchema<Entity.Id<T>> idSchema = schema.getIdSchema();
         if (idSchema.flattenFieldNames().size() != idSchema.flatten(id).size()) {
             // Partial key, will throw error when not searching by PK prefix
-            transaction.getWatcher().markRangeRead(tableDescriptor, Range.create(id, id));
+            transaction.getWatcher().markRangeRead(tableDescriptor, Range.create(idSchema, id));
         } else {
             transaction.getWatcher().markRowRead(tableDescriptor, id);
         }
@@ -482,7 +482,8 @@ public class InMemoryTable<T extends Entity<T>> implements Table<T> {
         Preconditions.checkArgument(1 <= batchSize && batchSize <= 5000,
                 "batchSize must be in range [1, 5000], got %s", batchSize);
 
-        Range<ID> range = partial == null ? null : Range.create(partial);
+        EntityIdSchema<ID> idSchema = schema.getIdSchema();
+        Range<ID> range = partial == null ? null : Range.create(idSchema, partial);
         markRangeRead(range);
 
         return streamPartial0(range);
@@ -515,7 +516,8 @@ public class InMemoryTable<T extends Entity<T>> implements Table<T> {
         Preconditions.checkArgument(1 <= batchSize && batchSize <= 10000,
                 "batchSize must be in range [1, 10000], got %s", batchSize);
 
-        Range<ID> range = partial == null ? null : Range.create(partial);
+        EntityIdSchema<ID> idSchema = schema.getIdSchema();
+        Range<ID> range = partial == null ? null : Range.create(idSchema, partial);
         markRangeRead(range);
 
         return streamPartial0(range).map(e -> (ID) e.getId());
@@ -523,7 +525,7 @@ public class InMemoryTable<T extends Entity<T>> implements Table<T> {
 
     private <ID extends Entity.Id<T>> void markRangeRead(Range<ID> range) {
         if (range == null) {
-            transaction.getWatcher().markTableRead(tableDescriptor);
+            transaction.getWatcher().markTableRead(tableDescriptor, schema);
         } else {
             transaction.getWatcher().markRangeRead(tableDescriptor, range);
         }
@@ -552,15 +554,16 @@ public class InMemoryTable<T extends Entity<T>> implements Table<T> {
         @SuppressWarnings("unchecked")
         ID id = (ID) e.getId();
         ID from = params.getFromKey();
+        EntityIdSchema<ID> idSchema = schema.getIdSchema();
         if (from != null) {
-            int compare = EntityIdSchema.ofEntity(id.getType()).compare(id, from);
+            int compare = idSchema.compare(id, from);
             if (params.isFromInclusive() ? compare < 0 : compare <= 0) {
                 return false;
             }
         }
         ID to = params.getToKey();
         if (to != null) {
-            int compare = EntityIdSchema.ofEntity(id.getType()).compare(id, to);
+            int compare = idSchema.compare(id, to);
             return params.isToInclusive() ? compare <= 0 : compare < 0;
         }
         return true;
@@ -589,7 +592,7 @@ public class InMemoryTable<T extends Entity<T>> implements Table<T> {
             return null;
         }
 
-        ViewSchema<V> viewSchema = ViewSchema.of(viewType);
+        ViewSchema<V> viewSchema = schema.getViewSchema(viewType);
         return Columns.fromEntity(schema, entity).toSchema(viewSchema);
     }
 

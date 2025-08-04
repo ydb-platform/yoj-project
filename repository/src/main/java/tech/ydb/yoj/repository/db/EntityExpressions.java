@@ -42,4 +42,36 @@ public final class EntityExpressions {
                 .orderBy(new OrderExpression.SortKey(schema(entityType).getField(EntityIdSchema.ID_FIELD_NAME), sortOrder))
                 .build();
     }
+
+    /**
+     * @see FilterBuilder#forSchema(Schema)
+     */
+    public static <T extends Entity<T>> FilterBuilder<T> newFilterBuilder(@NonNull EntitySchema<T> schema) {
+        return FilterBuilder.forSchema(schema);
+    }
+
+    /**
+     * @see OrderBuilder#forSchema(Schema)
+     */
+    public static <T extends Entity<T>> OrderBuilder<T> newOrderBuilder(@NonNull EntitySchema<T> schema) {
+        return OrderBuilder.forSchema(schema);
+    }
+
+    /**
+     * @see OrderExpression#unordered(Schema)
+     */
+    @ExperimentalApi(issue = "https://github.com/ydb-platform/yoj-project/issues/115")
+    public static <T extends Entity<T>> OrderExpression<T> unordered(@NonNull EntitySchema<T> schema) {
+        return OrderExpression.unordered(schema);
+    }
+
+    public static <T extends Entity<T>> OrderExpression<T> defaultOrder(@NonNull EntitySchema<T> schema) {
+        return orderById(schema, ASCENDING);
+    }
+
+    public static <T extends Entity<T>> OrderExpression<T> orderById(EntitySchema<T> schema, OrderExpression.SortOrder sortOrder) {
+        return newOrderBuilder(schema)
+                .orderBy(new OrderExpression.SortKey(schema.getField(EntityIdSchema.ID_FIELD_NAME), sortOrder))
+                .build();
+    }
 }

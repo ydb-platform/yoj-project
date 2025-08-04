@@ -32,13 +32,9 @@ abstract class BatchFindSpliterator<R, T extends Entity<T>, ID extends Entity.Id
 
     protected abstract List<R> find(YqlStatementPart<?> part, YqlStatementPart<?>... otherParts);
 
-    BatchFindSpliterator(Class<T> entityType, int batchSize) {
-        this(entityType, null, batchSize);
-    }
-
-    BatchFindSpliterator(Class<T> entityType, ID partial, int batchSize) {
+    BatchFindSpliterator(EntityIdSchema<ID> idSchema, ID partial, int batchSize) {
         this.batchSize = batchSize;
-        this.idSchema = EntityIdSchema.ofEntity(entityType);
+        this.idSchema = idSchema;
         this.orderById = YqlOrderBy.orderBy(this.idSchema
                 .flattenFields().stream()
                 .map(s -> new YqlOrderBy.SortKey(s.getPath(), YqlOrderBy.SortOrder.ASC))
@@ -46,7 +42,7 @@ abstract class BatchFindSpliterator<R, T extends Entity<T>, ID extends Entity.Id
         );
         this.top = YqlLimit.top(batchSize);
         if (partial != null) {
-            Range<ID> range = Range.create(partial);
+            Range<ID> range = Range.create(this.idSchema, partial);
             Map<String, Object> eqMap = range.getEqMap();
             this.initialPartialPredicates = this.idSchema
                     .flattenFields().stream()
@@ -84,9 +80,9 @@ abstract class BatchFindSpliterator<R, T extends Entity<T>, ID extends Entity.Id
     }
 
     private List<R> next() {
-        if (lastPartialId.size() != 0 && lastPartialId.size() <= initialPartialPredicates.size()) {
-            // we need this if because YDB has bug for queries like
-            // SELECT * FROM table WHERE id = 'id' and id > 'id'
+        if (!lastPartialId.isEmpty() && lastPartialId.size() <= initialPartialPredicates.size()) {
+            // We need this short-circuiting because certain versions of YDB had a bug for queries like
+            // SELECT * FROM table WHERE id = 'id' AND id > 'id'
             return List.of();
         }
 

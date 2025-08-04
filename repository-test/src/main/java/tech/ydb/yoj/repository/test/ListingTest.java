@@ -1,6 +1,5 @@
 package tech.ydb.yoj.repository.test;
 
-import org.assertj.core.api.Assertions;
 import org.junit.Test;
 import tech.ydb.yoj.databind.expression.FilterExpression;
 import tech.ydb.yoj.databind.expression.OrderExpression;
@@ -72,7 +71,7 @@ public abstract class ListingTest extends RepositoryTestSupport {
                     .orderBy(orderBy)
                     .filter(filter)
                     .build());
-            Assertions.assertThat(page1).containsExactly(p3);
+            assertThat(page1).containsExactly(p3);
 
             ListResult<Project> page2 = listProjects(ListRequest.builder(Project.class)
                     .pageSize(1)
@@ -80,7 +79,7 @@ public abstract class ListingTest extends RepositoryTestSupport {
                     .filter(filter)
                     .offset(1)
                     .build());
-            Assertions.assertThat(page2).containsExactly(p2);
+            assertThat(page2).containsExactly(p2);
 
             ListResult<Project> page3 = listProjects(ListRequest.builder(Project.class)
                     .pageSize(1)
@@ -88,7 +87,7 @@ public abstract class ListingTest extends RepositoryTestSupport {
                     .filter(filter)
                     .offset(2)
                     .build());
-            Assertions.assertThat(page3).containsExactly(p1);
+            assertThat(page3).containsExactly(p1);
             assertThat(page3.isLastPage()).isTrue();
         });
     }
@@ -106,7 +105,7 @@ public abstract class ListingTest extends RepositoryTestSupport {
                     .pageSize(3)
                     .filter(fb -> fb.where("id.a").eq(999_999))
                     .build());
-            Assertions.assertThat(page).containsExactly(c3, c2, c1);
+            assertThat(page).containsExactly(c3, c2, c1);
             assertThat(page.isLastPage()).isTrue();
         });
     }
@@ -124,7 +123,7 @@ public abstract class ListingTest extends RepositoryTestSupport {
                     .pageSize(3)
                     .filter(fb -> fb.where("id.c").eq("UUU"))
                     .build());
-            Assertions.assertThat(page).containsExactly(c2);
+            assertThat(page).containsExactly(c2);
             assertThat(page.isLastPage()).isTrue();
         });
     }
@@ -203,7 +202,7 @@ public abstract class ListingTest extends RepositoryTestSupport {
             ListResult<Complex> page = listComplex(ListRequest.builder(Complex.class)
                     .pageSize(4)
                     .build());
-            Assertions.assertThat(page).containsExactly(c4, c3, c2, c1);
+            assertThat(page).containsExactly(c4, c3, c2, c1);
             assertThat(page.isLastPage()).isTrue();
         });
     }
@@ -222,7 +221,7 @@ public abstract class ListingTest extends RepositoryTestSupport {
                     .pageSize(3)
                     .filter(fb -> fb.where("id.a").eq(1).and("id.b").gte(100L).and("id.b").lte(300L))
                     .build());
-            Assertions.assertThat(page).containsExactly(c1, c2, c3);
+            assertThat(page).containsExactly(c1, c2, c3);
             assertThat(page.isLastPage()).isTrue();
         });
     }
@@ -254,7 +253,7 @@ public abstract class ListingTest extends RepositoryTestSupport {
                 .pageSize(1)
                 .build()));
 
-        Assertions.assertThat(lst).isEmpty();
+        assertThat(lst).isEmpty();
         assertThat(lst.isLastPage()).isTrue();
     }
 
@@ -302,7 +301,7 @@ public abstract class ListingTest extends RepositoryTestSupport {
                     .filter(filter)
                     .orderBy(orderBy)
                     .build());
-            Assertions.assertThat(page).containsExactlyInAnyOrder(p1, p2, p3);
+            assertThat(page).containsExactlyInAnyOrder(p1, p2, p3);
             assertThat(page.isLastPage()).isTrue();
         });
     }
@@ -326,7 +325,7 @@ public abstract class ListingTest extends RepositoryTestSupport {
                     )
                     .orderBy(ob -> ob.orderBy("id").descending())
                     .build());
-            Assertions.assertThat(page).containsExactly(c1, c3);
+            assertThat(page).containsExactly(c1, c3);
             assertThat(page.isLastPage()).isTrue();
         });
     }
@@ -348,7 +347,7 @@ public abstract class ListingTest extends RepositoryTestSupport {
                     .filter(fb -> fb.where("id.a").in(999_999, 999_000).and("id.b").gte(now).and("id.b").lt(nowPlus2))
                     .orderBy(ob -> ob.orderBy("id.a").descending())
                     .build());
-            Assertions.assertThat(page).containsExactlyInAnyOrder(c1, c2);
+            assertThat(page).containsExactlyInAnyOrder(c1, c2);
             assertThat(page.isLastPage()).isTrue();
         });
     }
@@ -370,7 +369,7 @@ public abstract class ListingTest extends RepositoryTestSupport {
                     .filter(fb -> fb.where("id.a").in(999_999, 999_000).and("id.b").in(now, nowPlus2))
                     .orderBy(ob -> ob.orderBy("id.a").descending())
                     .build());
-            Assertions.assertThat(page).containsExactly(c1, c3);
+            assertThat(page).containsExactly(c1, c3);
             assertThat(page.isLastPage()).isTrue();
         });
     }
@@ -389,7 +388,7 @@ public abstract class ListingTest extends RepositoryTestSupport {
                             .where("id").eq("uuid002").or("id").eq("uuid777")
                             .build())
                     .build());
-            Assertions.assertThat(page).containsExactly(p1, p2);
+            assertThat(page).containsExactly(p1, p2);
             assertThat(page.isLastPage()).isTrue();
         });
     }
@@ -408,7 +407,7 @@ public abstract class ListingTest extends RepositoryTestSupport {
                             .where("id").eq("uuid002").or("id").eq("uuid777")
                             .build()))
                     .build());
-            Assertions.assertThat(page).containsExactly(inOutput);
+            assertThat(page).containsExactly(inOutput);
             assertThat(page.isLastPage()).isTrue();
         });
     }
@@ -427,7 +426,7 @@ public abstract class ListingTest extends RepositoryTestSupport {
                             .where("id").gt("uuid002")
                             .build()))
                     .build());
-            Assertions.assertThat(page).containsExactly(p1);
+            assertThat(page).containsExactly(p1);
             assertThat(page.isLastPage()).isTrue();
         });
     }
@@ -446,7 +445,7 @@ public abstract class ListingTest extends RepositoryTestSupport {
                             .where("id").in("uuid002", "uuid777")
                             .build()))
                     .build());
-            Assertions.assertThat(page).containsExactly(inOutput);
+            assertThat(page).containsExactly(inOutput);
             assertThat(page.isLastPage()).isTrue();
         });
     }
@@ -502,7 +501,7 @@ public abstract class ListingTest extends RepositoryTestSupport {
                             .where("customNamedColumn").eq("CUSTOM NAMED COLUMN")
                             .build())
                     .build());
-            Assertions.assertThat(page).containsExactly(tf);
+            assertThat(page).containsExactly(tf);
             assertThat(page.isLastPage()).isTrue();
         });
     }
@@ -699,6 +698,29 @@ public abstract class ListingTest extends RepositoryTestSupport {
                     .filter(fb -> fb.where("message").endsWith("%_"))
                     .build());
             assertThat(page).containsExactly(e1, e3);
+            assertThat(page.isLastPage()).isTrue();
+        });
+    }
+
+
+    @Test
+    public void view() {
+        LogEntry e1 = new LogEntry(new LogEntry.Id("log1", 1L), LogEntry.Level.ERROR, "earliest msg");
+        LogEntry notInOutput = new LogEntry(new LogEntry.Id("log2", 2L), LogEntry.Level.DEBUG, "will be ignored");
+        LogEntry e2 = new LogEntry(new LogEntry.Id("log1", 4L), LogEntry.Level.WARN, "middle msg");
+        LogEntry e3 = new LogEntry(new LogEntry.Id("log1", 5L), LogEntry.Level.INFO, "latest msg");
+        db.tx(() -> db.logEntries().insert(e1, e2, notInOutput, e3));
+
+        db.tx(() -> {
+            ViewListResult<LogEntry, LogEntry.Message> page = listLogMessages(ListRequest.builder(LogEntry.class)
+                    .pageSize(100)
+                    .filter(fb -> fb.where("id.logId").eq("log1"))
+                    .build());
+            assertThat(page).containsExactly(
+                    new LogEntry.Message(new LogEntry.Id("log1", 1L), "earliest msg"),
+                    new LogEntry.Message(new LogEntry.Id("log1", 4L), "middle msg"),
+                    new LogEntry.Message(new LogEntry.Id("log1", 5L), "latest msg")
+            );
             assertThat(page.isLastPage()).isTrue();
         });
     }

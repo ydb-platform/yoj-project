@@ -7,7 +7,6 @@ import tech.ydb.yoj.repository.db.EntitySchema;
 import tech.ydb.yoj.repository.db.Range;
 import tech.ydb.yoj.repository.db.Table;
 import tech.ydb.yoj.repository.db.TableDescriptor;
-import tech.ydb.yoj.repository.db.ViewSchema;
 import tech.ydb.yoj.repository.db.exception.EntityAlreadyExistsException;
 import tech.ydb.yoj.repository.db.exception.OptimisticLockException;
 
@@ -39,25 +38,26 @@ import java.util.TreeMap;
         this.entityLines = entityLines;
     }
 
-    public InMemoryDataShard(TableDescriptor<T> tableDescriptor) {
+    public InMemoryDataShard(TableDescriptor<T> tableDescriptor, EntitySchema<T> schema) {
         this(
                 tableDescriptor,
-                EntitySchema.of(tableDescriptor.entityType()),
-                createEmptyLines(tableDescriptor.entityType())
+                schema,
+                createEmptyLines(schema)
         );
     }
 
-    private static <T extends Entity<T>> Map<Entity.Id<T>, InMemoryEntityLine> createEmptyLines(Class<T> type) {
+    private static <T extends Entity<T>> Map<Entity.Id<T>, InMemoryEntityLine> createEmptyLines(EntitySchema<T> schema) {
+        EntityIdSchema<Entity.Id<T>> idSchema = schema.getIdSchema();
         if ("oninsert".equals(MAP_IMPLEMENTATION)) {
-            return new EntityIdMap<>(EntityIdSchema.getIdComparator(type));
+            return new EntityIdMap<>(idSchema);
         } else if ("onget".equals(MAP_IMPLEMENTATION)) {
-            return new EntityIdMapOnGet<>(EntityIdSchema.getIdComparator(type));
+            return new EntityIdMapOnGet<>(idSchema);
         }
-        return new TreeMap<>(EntityIdSchema.getIdComparator(type));
+        return new TreeMap<>(idSchema);
     }
 
     public synchronized InMemoryDataShard<T> createSnapshot() {
-        Map<Entity.Id<T>, InMemoryEntityLine> snapshotLines = createEmptyLines(tableDescriptor.entityType());
+        Map<Entity.Id<T>, InMemoryEntityLine> snapshotLines = createEmptyLines(schema);
         for (Map.Entry<Entity.Id<T>, InMemoryEntityLine> entry : entityLines.entrySet()) {
             snapshotLines.put(entry.getKey(), entry.getValue().createSnapshot());
         }
@@ -133,7 +133,7 @@ import java.util.TreeMap;
             return null;
         }
         Columns columns = entityLine.get(txId, version);
-        return columns != null ? columns.toSchema(ViewSchema.of(viewType)) : null;
+        return columns != null ? columns.toSchema(schema.getViewSchema(viewType)) : null;
     }
 
     public synchronized List<T> findAll(long txId, long version, InMemoryTxLockWatcher watcher) {

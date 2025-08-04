@@ -1,6 +1,7 @@
 package tech.ydb.yoj.repository.test.inmemory;
 
 import tech.ydb.yoj.repository.db.Entity;
+import tech.ydb.yoj.repository.db.EntitySchema;
 import tech.ydb.yoj.repository.db.TableDescriptor;
 
 import java.util.HashMap;
@@ -108,7 +109,10 @@ import java.util.Set;
         if (containsTable(tableDescriptor)) {
             return;
         }
-        shards.put(tableDescriptor, new InMemoryDataShard<>(tableDescriptor));
+
+        // TODO(nvamelichev): In the future, InMemoryStorage/SchemaOperations should take SchemaRegistry instead of assuming the default one...
+        EntitySchema<T> schema = EntitySchema.of(tableDescriptor.entityType());
+        shards.put(tableDescriptor, new InMemoryDataShard<>(tableDescriptor, schema));
     }
 
     public synchronized boolean dropTable(TableDescriptor<?> tableDescriptor) {

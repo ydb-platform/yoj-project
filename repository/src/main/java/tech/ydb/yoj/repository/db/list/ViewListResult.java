@@ -3,6 +3,7 @@ package tech.ydb.yoj.repository.db.list;
 import lombok.NonNull;
 import tech.ydb.yoj.databind.schema.Schema;
 import tech.ydb.yoj.repository.db.Entity;
+import tech.ydb.yoj.repository.db.EntitySchema;
 import tech.ydb.yoj.repository.db.Table;
 import tech.ydb.yoj.repository.db.ViewSchema;
 
@@ -33,7 +34,9 @@ public final class ViewListResult<T extends Entity<T>, V extends Table.View> ext
         int pageSize = request.getPageSize();
         boolean lastPage = entries.size() <= pageSize;
         List<V> itemsToReturn = lastPage ? entries : entries.subList(0, pageSize);
-        return new ViewListResult<>(itemsToReturn, ViewSchema.of(viewClass), lastPage, request);
+
+        ViewSchema<V> viewSchema = getViewSchema(request, viewClass);
+        return new ViewListResult<>(itemsToReturn, viewSchema, lastPage, request);
     }
 
     @NonNull
@@ -41,19 +44,28 @@ public final class ViewListResult<T extends Entity<T>, V extends Table.View> ext
         return new ViewListResult<>(this.getEntries(), this.getResultSchema(), isLastPage(), getRequest().withParams(overrideParams));
     }
 
+    @NonNull
+    private static <T extends Entity<T>, V extends Table.View> ViewSchema<V> getViewSchema(@NonNull ListRequest<T> request, @NonNull Class<V> viewClass) {
+        if (!(request.getSchema() instanceof EntitySchema<?> entitySchema)) {
+            throw new IllegalArgumentException("Expected ListRequest for an entity, but got a non-entity schema of type "
+                    + "<" + request.getSchema().getClass().getName() + ">");
+        }
+        return entitySchema.getViewSchema(viewClass);
+    }
+
     public static final class ViewListResultBuilder<T extends Entity<T>, V extends Table.View> extends Builder<T, V, ViewListResult<T, V>> {
         private final Class<V> viewType;
 
         private ViewListResultBuilder(Class<V> viewType, ListRequest<T> request) {
             super(request);
-
             this.viewType = viewType;
         }
 
         @NonNull
         @Override
         public ViewListResult<T, V> build() {
-            return new ViewListResult<>(entries, ViewSchema.of(viewType), lastPage, request);
+            ViewSchema<V> viewSchema = getViewSchema(request, viewType);
+            return new ViewListResult<>(entries, viewSchema, lastPage, request);
         }
     }
 }

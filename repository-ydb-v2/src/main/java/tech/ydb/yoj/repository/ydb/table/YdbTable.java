@@ -178,7 +178,7 @@ public class YdbTable<T extends Entity<T>> implements Table<T> {
             BiFunction<YqlStatementPart<?>, YqlStatementPart<?>[], List<R>> findMethod
     ) {
         Preconditions.checkArgument(1 <= batchSize && batchSize <= 5000, "batchSize must be in range [1, 5000], got %s", batchSize);
-        return StreamSupport.stream(new BatchFindSpliterator<>(type, partial, batchSize) {
+        return StreamSupport.stream(new BatchFindSpliterator<>(schema.getIdSchema(), partial, batchSize) {
             @Override
             protected Entity.Id<T> getId(R r) {
                 return idMapper.apply(r);
@@ -199,7 +199,7 @@ public class YdbTable<T extends Entity<T>> implements Table<T> {
     @Override
     public <ID extends Entity.Id<T>> Stream<ID> streamPartialIds(ID partial, int batchSize) {
         Preconditions.checkArgument(1 <= batchSize && batchSize <= 10000, "batchSize must be in range [1, 10000], got %s", batchSize);
-        return StreamSupport.stream(new BatchFindSpliterator<>(type, partial, batchSize) {
+        return StreamSupport.stream(new BatchFindSpliterator<>(schema.getIdSchema(), partial, batchSize) {
             @Override
             protected ID getId(ID id) {
                 return id;
@@ -214,7 +214,7 @@ public class YdbTable<T extends Entity<T>> implements Table<T> {
 
     @Override
     public <V extends View> List<V> findAll(Class<V> viewType) {
-        ViewSchema<V> viewSchema = ViewSchema.of(viewType);
+        ViewSchema<V> viewSchema = schema.getViewSchema(viewType);
         var statement = new FindAllYqlStatement<>(tableDescriptor, schema, viewSchema);
         return executor.execute(statement, null);
     }
@@ -246,7 +246,7 @@ public class YdbTable<T extends Entity<T>> implements Table<T> {
 
     @Override
     public <V extends ViewId<T>, ID extends Id<T>> Stream<V> readTable(Class<V> viewClass, ReadTableParams<ID> params) {
-        ViewSchema<V> viewSchema = ViewSchema.of(viewClass);
+        ViewSchema<V> viewSchema = schema.getViewSchema(viewClass);
         ReadTableMapper<ID, V> mapper = new EntityIdKeyMapper<>(tableDescriptor, schema, viewSchema);
         return readTableStream(mapper, params);
     }
@@ -278,7 +278,7 @@ public class YdbTable<T extends Entity<T>> implements Table<T> {
 
     @Override
     public <V extends View> V find(Class<V> viewType, Entity.Id<T> id) {
-        ViewSchema<V> viewSchema = ViewSchema.of(viewType);
+        ViewSchema<V> viewSchema = schema.getViewSchema(viewType);
         var statement = new FindYqlStatement<>(tableDescriptor, schema, viewSchema);
         List<V> res = executor.execute(statement, id);
         return res.isEmpty() ? null : res.get(0);
@@ -292,14 +292,14 @@ public class YdbTable<T extends Entity<T>> implements Table<T> {
 
     @Override
     public <V extends View, ID extends Entity.Id<T>> List<V> find(Class<V> viewType, Range<ID> range) {
-        ViewSchema<V> viewSchema = ViewSchema.of(viewType);
+        ViewSchema<V> viewSchema = schema.getViewSchema(viewType);
         var statement = new FindRangeStatement<>(tableDescriptor, schema, viewSchema, range);
         return executor.execute(statement, range);
     }
 
     @Override
     public <V extends View, ID extends Entity.Id<T>> List<V> find(Class<V> viewType, Set<ID> ids) {
-        return find(viewType, ids, null, defaultOrder(type), null);
+        return find(viewType, ids, null, defaultOrder(schema), null);
     }
 
     public final List<T> find(YqlStatementPart<?> part, YqlStatementPart<?>... otherParts) {
@@ -405,7 +405,7 @@ public class YdbTable<T extends Entity<T>> implements Table<T> {
         if (ids.isEmpty()) {
             return List.of();
         }
-        ViewSchema<V> viewSchema = ViewSchema.of(viewType);
+        ViewSchema<V> viewSchema = schema.getViewSchema(viewType);
         var statement = FindInStatement.from(
                 tableDescriptor, schema, viewSchema, ids, filter, orderBy, limit
         );
@@ -438,7 +438,7 @@ public class YdbTable<T extends Entity<T>> implements Table<T> {
         if (keys.isEmpty()) {
             return List.of();
         }
-        ViewSchema<V> viewSchema = ViewSchema.of(viewType);
+        ViewSchema<V> viewSchema = schema.getViewSchema(viewType);
         var statement = FindInStatement.from(
                 tableDescriptor, schema, viewSchema, indexName, keys, filter, orderBy, limit
         );
@@ -487,7 +487,7 @@ public class YdbTable<T extends Entity<T>> implements Table<T> {
     }
 
     public <V extends View> List<V> find(Class<V> viewType, Collection<? extends YqlStatementPart<?>> parts, boolean distinct) {
-        ViewSchema<V> viewSchema = ViewSchema.of(viewType);
+        ViewSchema<V> viewSchema = schema.getViewSchema(viewType);
         var statement = FindStatement.from(tableDescriptor, schema, viewSchema, parts, distinct);
         return executor.execute(statement, parts);
     }
@@ -497,14 +497,14 @@ public class YdbTable<T extends Entity<T>> implements Table<T> {
     }
 
     private <ID extends Entity.Id<T>> List<ID> findIds(Collection<? extends YqlStatementPart<?>> parts) {
-        EntityIdSchema<ID> idSchema = EntityIdSchema.ofEntity(type);
+        EntityIdSchema<ID> idSchema = schema.getIdSchema();
         var statement = FindStatement.from(tableDescriptor, schema, idSchema, parts, false);
         return executor.execute(statement, parts);
     }
 
     @Override
     public <ID extends Entity.Id<T>> List<ID> findIds(Range<ID> range) {
-        EntityIdSchema<ID> idSchema = EntityIdSchema.ofEntity(type);
+        EntityIdSchema<ID> idSchema = schema.getIdSchema();
         var statement = new FindRangeStatement<>(tableDescriptor, schema, idSchema, range);
         return executor.execute(statement, range);
     }
@@ -514,8 +514,8 @@ public class YdbTable<T extends Entity<T>> implements Table<T> {
         if (partialIds.isEmpty()) {
             return List.of();
         }
-        OrderExpression<T> order = defaultOrder(type);
-        EntityIdSchema<ID> idSchema = EntityIdSchema.ofEntity(type);
+        OrderExpression<T> order = defaultOrder(schema);
+        EntityIdSchema<ID> idSchema = schema.getIdSchema();
         var statement = FindInStatement.from(tableDescriptor, schema, idSchema, partialIds, null, order, null);
         return executor.execute(statement, partialIds);
     }

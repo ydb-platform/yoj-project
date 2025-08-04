@@ -33,13 +33,13 @@ import java.util.Set;
         readRanges.computeIfAbsent(tableDescriptor, __ -> new ArrayList<>()).add(range);
     }
 
-    public <T extends Entity<T>, ID extends Entity.Id<T>> void markRangeRead(TableDescriptor<T> tableDescriptor, Map<String, Object> map) {
-        Range<ID> range = Range.create(EntitySchema.of(tableDescriptor.entityType()).getIdSchema(), map);
+    public <T extends Entity<T>, ID extends Entity.Id<T>> void markRangeRead(TableDescriptor<T> tableDescriptor, EntitySchema<T> schema, Map<String, Object> map) {
+        Range<ID> range = Range.create(schema.getIdSchema(), map);
         markRangeRead(tableDescriptor, range);
     }
 
-    public <T extends Entity<T>, ID extends Entity.Id<T>> void markTableRead(TableDescriptor<T> tableDescriptor) {
-        Range<ID> range = Range.create(EntitySchema.of(tableDescriptor.entityType()).getIdSchema(), Map.of());
+    public <T extends Entity<T>, ID extends Entity.Id<T>> void markTableRead(TableDescriptor<T> tableDescriptor, EntitySchema<T> schema) {
+        Range<ID> range = Range.create(schema.getIdSchema(), Map.of());
         markRangeRead(tableDescriptor, range);
     }
 

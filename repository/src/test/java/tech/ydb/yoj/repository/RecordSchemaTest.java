@@ -37,8 +37,8 @@ public class RecordSchemaTest {
     @Before
     public void setUp() {
         schema = EntitySchema.of(SampleEntity.class);
-        viewSchema = ViewSchema.of(SampleEntityView.class);
-        idSchema = EntityIdSchema.of(SampleEntity.Id.class);
+        idSchema = schema.getIdSchema();
+        viewSchema = schema.getViewSchema(SampleEntityView.class);
     }
 
     @After

@@ -27,18 +27,22 @@ public class Range<ID extends Entity.Id<?>> {
         return create(partial, partial);
     }
 
-    @SuppressWarnings({"unchecked"})
+    @SuppressWarnings("unchecked")
     public static <ID extends Entity.Id<?>> Range<ID> create(@NonNull ID min, @NonNull ID max) {
-        Preconditions.checkArgument(min.getClass() == max.getClass(), "Min and max must be instances of the same class");
-        EntityIdSchema<ID> type = (EntityIdSchema<ID>) EntityIdSchema.of(min.getClass());
-        Map<String, Object> mn = type.flatten(min);
-        Map<String, Object> mx = type.flatten(max);
-
-        return create(type, mn, mx);
+        return create((EntityIdSchema<ID>) EntityIdSchema.of(min.getClass()), min, max);
     }
 
-    public static <ID extends Entity.Id<?>> Range<ID> create(EntityIdSchema<ID> type, Map<String, Object> map) {
-        return create(type, map, map);
+    public static <ID extends Entity.Id<?>> Range<ID> create(@NonNull EntityIdSchema<ID> type, @NonNull ID partial) {
+        return create(type, type.flatten(partial));
+    }
+
+    public static <ID extends Entity.Id<?>> Range<ID> create(@NonNull EntityIdSchema<ID> type, @NonNull ID min, @NonNull ID max) {
+        Preconditions.checkArgument(min.getClass().equals(max.getClass()), "Min and max must be instances of the same class");
+        return create(type, type.flatten(min), type.flatten(max));
+    }
+
+    public static <ID extends Entity.Id<?>> Range<ID> create(@NonNull EntityIdSchema<ID> type, @NonNull Map<String, Object> eqMap) {
+        return create(type, eqMap, eqMap);
     }
 
     @SuppressWarnings({"unchecked", "rawtypes"})
@@ -109,7 +113,7 @@ public class Range<ID extends Entity.Id<?>> {
 
     @Override
     public String toString() {
-        ArrayList<String> list = new ArrayList<>();
+        List<String> list = new ArrayList<>();
         eqMap.forEach((k, v) -> list.add(k + "=" + v));
         minMap.forEach((k, v) -> list.add(k + ">=" + v));
         maxMap.forEach((k, v) -> list.add(k + "<=" + v));

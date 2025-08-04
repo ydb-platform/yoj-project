@@ -109,4 +109,8 @@ public final class EntitySchema<T extends Entity<T>> extends Schema<T> {
     public Map<String, Object> flattenId(Entity.Id<T> idValue) {
         return getIdSchema().flatten(idValue);
     }
+
+    public <V extends Table.View> ViewSchema<V> getViewSchema(Class<V> viewClass) {
+        return ViewSchema.of(getRegistry(), viewClass, getNamingStrategy());
+    }
 }
