@@ -5,6 +5,11 @@ import java.util.List;
 import java.util.function.Supplier;
 import java.util.stream.Stream;
 
+/**
+ * @see <a href="https://github.com/ydb-platform/yoj-project/issues/77">#77</a>
+ * @deprecated Projections will be removed from the core YOJ API in 3.0.0 and possibly reintroduced as an optional module.
+ */
+@Deprecated(forRemoval = true)
 public class EntityList extends LinkedList<Entity<?>> {
     public static EntityList create() {
         return new EntityList();
