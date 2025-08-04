@@ -144,7 +144,7 @@ public final class EntityIdSchema<ID extends Entity.Id<?>> extends Schema<ID> im
         return entitySchema.getRegistry().getOrCreate(EntityIdSchema.class, (k, r) -> new EntityIdSchema<>(entitySchema), key);
     }
 
-    static Class<?> resolveEntityType(Class<?> idType) {
+    static Class<?> resolveEntityType(Type idType) {
         return TypeToken.of(idType).resolveType(ENTITY_TYPE_PARAMETER).getRawType();
     }
 

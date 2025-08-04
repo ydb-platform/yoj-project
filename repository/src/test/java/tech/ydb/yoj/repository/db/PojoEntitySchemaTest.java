@@ -43,6 +43,8 @@ public class PojoEntitySchemaTest {
     @Test
     public void testEntitySchemaEntityIncorrectIdType() {
         assertThatIllegalArgumentException().isThrownBy(() -> EntitySchema.of(EntityIncorrectIdType.class));
+        assertThatIllegalArgumentException().isThrownBy(() -> EntitySchema.of(EntityIncorrectIdExplicitGeneric.class));
+        assertThatIllegalArgumentException().isThrownBy(() -> EntitySchema.of(EntityIncorrectRawTypeEntityId.class));
     }
 
     @Test(expected = IllegalArgumentException.class)
@@ -93,6 +95,27 @@ public class PojoEntitySchemaTest {
 
         @Override
         public Id<EntityIncorrectIdType> getId() {
+            return null;
+        }
+    }
+
+    @Value
+    static class EntityIncorrectIdExplicitGeneric implements Entity<EntityIncorrectIdExplicitGeneric> {
+        Entity.Id<CorrectEntity> id;
+
+        @Override
+        public Id<EntityIncorrectIdExplicitGeneric> getId() {
+            return null;
+        }
+    }
+
+    @Value
+    static class EntityIncorrectRawTypeEntityId implements Entity<EntityIncorrectRawTypeEntityId> {
+        @SuppressWarnings("rawtypes")
+        Entity.Id id;
+
+        @Override
+        public Id<EntityIncorrectRawTypeEntityId> getId() {
             return null;
         }
     }

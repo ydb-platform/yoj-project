@@ -47,6 +47,8 @@ public final class EntitySchema<T extends Entity<T>> extends Schema<T> {
 
     private EntitySchema(SchemaKey<T> key, Reflector reflector, SchemaRegistry registry) {
         super(checkEntityType(key), reflector);
+        checkIdField();
+
         this.registry = registry;
     }
 
@@ -55,38 +57,40 @@ public final class EntitySchema<T extends Entity<T>> extends Schema<T> {
 
         if (!Entity.class.isAssignableFrom(entityType)) {
             throw new IllegalArgumentException(format(
-                    "Entity type [%s] must implement [%s]", entityType.getName(), Entity.class));
+                    "Entity type [%s] must implement [%s]", entityType.getName(), Entity.class.getName()
+            ));
         }
 
         Class<?> entityTypeFromEntityIface = resolveEntityTypeFromEntityIface(entityType);
         if (!entityTypeFromEntityIface.equals(entityType)) {
             throw new IllegalArgumentException(format(
                     "Entity type [%s] must implement [%s] specified by the same type, but it is specified by [%s]",
-                    entityType.getName(), Entity.class, entityTypeFromEntityIface.getName()));
-        }
-
-        Class<?> idFieldType;
-        try {
-            idFieldType = entityType.getDeclaredField(EntityIdSchema.ID_FIELD_NAME).getType();
-        } catch (NoSuchFieldException e) {
-            throw new IllegalArgumentException(format(
-                    "Entity type [%s] does not contain a mandatory \"%s\" field",
-                    entityType.getName(), EntityIdSchema.ID_FIELD_NAME));
-        }
-
-        if (!Entity.Id.class.isAssignableFrom(idFieldType)) {
-            throw new IllegalArgumentException(format(
-                    "Entity ID type [%s] must implement [%s]", idFieldType.getName(), Entity.Id.class));
-        }
-
-        Class<?> entityTypeFromIdType = EntityIdSchema.resolveEntityType(idFieldType);
-        if (!entityTypeFromIdType.equals(entityType)) {
-            throw new IllegalArgumentException(format(
-                    "An identifier field \"%s\" has a type [%s] that is not an identifier type for an entity of type [%s]",
-                    EntityIdSchema.ID_FIELD_NAME, idFieldType.getName(), entityType.getName()));
+                    entityType.getName(), Entity.class.getName(), entityTypeFromEntityIface.getName()
+            ));
         }
 
         return key;
+    }
+
+    private void checkIdField() {
+        JavaField idField = findField(EntityIdSchema.ID_FIELD_NAME)
+                .orElseThrow(() -> new IllegalArgumentException(format(
+                        "Entity type [%s] does not contain a mandatory \"%s\" field",
+                        getType().getName(), EntityIdSchema.ID_FIELD_NAME
+                )));
+
+        if (!Entity.Id.class.isAssignableFrom(idField.getRawType())) {
+            throw new IllegalArgumentException(format(
+                    "Entity ID type [%s] must implement %s", idField.getType().getTypeName(), Entity.Id.class.getName()
+            ));
+        }
+
+        Class<?> entityTypeFromIdType = EntityIdSchema.resolveEntityType(idField.getType());
+        if (!entityTypeFromIdType.equals(getType())) {
+            throw new IllegalArgumentException(format(
+                    "An identifier field \"%s\" has a type [%s] that is not an identifier type for an entity of type [%s]",
+                    EntityIdSchema.ID_FIELD_NAME, idField.getType().getTypeName(), getType().getTypeName()));
+        }
     }
 
     static Class<?> resolveEntityTypeFromEntityIface(Class<?> entityType) {
