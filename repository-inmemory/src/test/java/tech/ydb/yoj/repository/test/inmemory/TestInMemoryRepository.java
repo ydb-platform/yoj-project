@@ -11,6 +11,7 @@ import tech.ydb.yoj.repository.test.sample.TestEntityOperations;
 import tech.ydb.yoj.repository.test.sample.TestEntityOperations.BubbleTable;
 import tech.ydb.yoj.repository.test.sample.TestEntityOperations.ComplexTable;
 import tech.ydb.yoj.repository.test.sample.TestEntityOperations.IndexedTable;
+import tech.ydb.yoj.repository.test.sample.TestEntityOperations.Supabubble2Table;
 import tech.ydb.yoj.repository.test.sample.model.Bubble;
 import tech.ydb.yoj.repository.test.sample.model.Complex;
 import tech.ydb.yoj.repository.test.sample.model.DetachedEntity;
@@ -105,7 +106,7 @@ public class TestInMemoryRepository extends InMemoryRepository {
 
         @Override
         public Supabubble2Table supabubbles2() {
-            return new Supabubble2InMemoryTable(getMemory(Supabubble2.class));
+            return new Supabubble2InMemoryTable(table(Supabubble2.class));
         }
 
         @Override
@@ -144,9 +145,9 @@ public class TestInMemoryRepository extends InMemoryRepository {
         }
     }
 
-    private static class Supabubble2InMemoryTable extends InMemoryTable<Supabubble2> implements TestEntityOperations.Supabubble2Table {
-        public Supabubble2InMemoryTable(DbMemory<Supabubble2> memory) {
-            super(memory);
+    private static class Supabubble2InMemoryTable extends AbstractDelegatingTable<Supabubble2> implements Supabubble2Table {
+        public Supabubble2InMemoryTable(Table<Supabubble2> target) {
+            super(target);
         }
     }
 

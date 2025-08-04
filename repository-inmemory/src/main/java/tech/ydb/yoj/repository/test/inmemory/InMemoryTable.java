@@ -3,6 +3,7 @@ package tech.ydb.yoj.repository.test.inmemory;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
+import tech.ydb.yoj.DeprecationWarnings;
 import tech.ydb.yoj.databind.expression.FilterExpression;
 import tech.ydb.yoj.databind.expression.OrderExpression;
 import tech.ydb.yoj.databind.schema.ObjectSchema;
@@ -38,9 +39,15 @@ public class InMemoryTable<T extends Entity<T>> implements Table<T> {
     private final TableDescriptor<T> tableDescriptor;
     private final InMemoryRepositoryTransaction transaction;
 
-    @Deprecated // Don't use DbMemory, use other constructor instead
+    /**
+     * @deprecated {@code DbMemory} and this {@code InMemoryTable} constructor will be removed in YOJ 2.7.0.
+     * Please use other {@code InMemoryTable} constructors instead.
+     */
+    @Deprecated(forRemoval = true)
     public InMemoryTable(DbMemory<T> memory) {
         this(memory.transaction(), memory.type());
+        DeprecationWarnings.warnOnce("new InMemoryTable(DbMemory)",
+                "Please do not use the InMemoryTable(DbMemory<T>) constructor, it will be removed in YOJ 2.7.0");
     }
 
     public InMemoryTable(InMemoryRepositoryTransaction transaction, Class<T> type) {
@@ -586,8 +593,12 @@ public class InMemoryTable<T extends Entity<T>> implements Table<T> {
         return Columns.fromEntity(schema, entity).toSchema(viewSchema);
     }
 
-
-    @Deprecated // Legacy. Using only for creating InMemoryTable. Use constructor of InMemoryTable instead
+    /**
+     * @deprecated Legacy class, used only for creating {@code InMemoryTable}.
+     * This class will be removed in YOJ 2.7.0.
+     * Please use the {@code InMemoryTable(InMemoryRepositoryTransaction, Class)} constructor instead of {@code InMemoryTable(DbMemory)} constructor.
+     */
+    @Deprecated(forRemoval = true)
     public record DbMemory<T extends Entity<T>>(
             Class<T> type,
             InMemoryRepositoryTransaction transaction
