@@ -1,10 +1,16 @@
 package tech.ydb.yoj.repository.db;
 
 import com.google.common.collect.Sets;
+import lombok.NonNull;
 import tech.ydb.yoj.InternalApi;
+import tech.ydb.yoj.databind.expression.FilterExpression;
+import tech.ydb.yoj.databind.expression.OrderExpression;
 import tech.ydb.yoj.repository.db.cache.FirstLevelCache;
+import tech.ydb.yoj.repository.db.list.InMemoryQueries;
 import tech.ydb.yoj.repository.db.list.ListRequest;
+import tech.ydb.yoj.util.function.StreamSupplier;
 
+import javax.annotation.Nullable;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -12,7 +18,9 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
+import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
 
 /**
@@ -25,14 +33,16 @@ public final class TableQueryImpl {
     private TableQueryImpl() {
     }
 
+    @NonNull
     public static <E extends Entity<E>, ID extends Entity.Id<E>> List<E> find(
-            Table<E> table, FirstLevelCache<E> cache, Set<ID> ids
+            @NonNull Table<E> table, @NonNull EntitySchema<E> schema, @NonNull FirstLevelCache<E> cache,
+            @NonNull Set<ID> ids
     ) {
         if (ids.isEmpty()) {
             return List.of();
         }
 
-        var orderBy = EntityExpressions.defaultOrder(table.getType());
+        var orderBy = EntityExpressions.defaultOrder(schema);
         var isPartialIdMode = ids.iterator().next().isPartial();
 
         var foundInCache = ids.stream()
@@ -71,15 +81,49 @@ public final class TableQueryImpl {
             Sets.difference(Sets.difference(ids, foundInDbIds), foundInCacheIds).forEach(cache::putEmpty);
         }
 
-        return merged.values().stream().sorted(EntityIdSchema.SORT_ENTITY_BY_ID).collect(Collectors.toList());
+        return merged.values().stream()
+                .sorted(schema.defaultOrder())
+                .collect(toList());
     }
 
-    public static <E extends Entity<E>> TableQueryBuilder<E> toQueryBuilder(Table<E> table, ListRequest<E> request) {
+    @NonNull
+    public static <E extends Entity<E>> TableQueryBuilder<E> toQueryBuilder(@NonNull Table<E> table, @NonNull ListRequest<E> request) {
         return table.query()
                 .index(request.getIndex())
                 .filter(request.getFilter())
                 .orderBy(request.getOrderBy())
                 .offset(request.getOffset())
                 .limit(request.getPageSize() + 1);
+    }
+
+    public static <T extends Entity<T>> List<T> find(@NonNull StreamSupplier<T> streamSupplier,
+                                                     @NonNull EntitySchema<T> schema,
+                                                     @Nullable FilterExpression<T> filter,
+                                                     @Nullable OrderExpression<T> orderBy,
+                                                     @Nullable Integer limit,
+                                                     @Nullable Long offset) {
+        if (limit == null && offset != null && offset > 0) {
+            throw new IllegalArgumentException("offset > 0 with limit=null is not supported");
+        }
+
+        try (Stream<T> stream = streamSupplier.stream()) {
+            Stream<T> foundStream = stream;
+            if (filter != null) {
+                foundStream = foundStream.filter(InMemoryQueries.toPredicate(filter));
+            }
+            if (orderBy != null) {
+                foundStream = foundStream.sorted(InMemoryQueries.toComparator(orderBy));
+            } else {
+                foundStream = foundStream.sorted(schema.defaultOrder());
+            }
+
+            foundStream = foundStream.skip(offset == null ? 0L : offset);
+
+            if (limit != null) {
+                foundStream = foundStream.limit(limit);
+            }
+
+            return foundStream.collect(toList());
+        }
     }
 }
