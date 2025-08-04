@@ -114,6 +114,7 @@ public final class FilterBuilder<T> {
 
     public FilterBuilder<T> where(@NonNull FilterExpression<T> first) {
         Preconditions.checkState(current == null, "FilterBuilder.where(FilterExpression) can only be called once");
+        Preconditions.checkArgument(first.getSchema() == schema, "Cannot use FilterExpression created for a different schema");
         current = first;
         return this;
     }

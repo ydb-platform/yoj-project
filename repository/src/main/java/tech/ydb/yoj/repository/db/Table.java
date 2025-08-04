@@ -36,6 +36,8 @@ public interface Table<T extends Entity<T>> {
 
     TableDescriptor<T> getTableDescriptor();
 
+    EntitySchema<T> getSchema();
+
     @CheckForNull
     T find(Entity.Id<T> id);
 

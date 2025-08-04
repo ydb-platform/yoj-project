@@ -151,7 +151,7 @@ public final class TableQueryBuilder<T extends Entity<T>> {
         if (filterBuilder == null) {
             Preconditions.checkState(filter == null, "You can't use both .where/.and/.or and .filter methods");
 
-            filterBuilder = EntityExpressions.newFilterBuilder(table.getType());
+            filterBuilder = EntityExpressions.newFilterBuilder(table.getSchema());
         }
         return filterBuilder;
     }
@@ -205,22 +205,24 @@ public final class TableQueryBuilder<T extends Entity<T>> {
     @NonNull
     @ExperimentalApi(issue = "https://github.com/ydb-platform/yoj-project/issues/115")
     public TableQueryBuilder<T> unordered() {
-        return orderBy(EntityExpressions.unordered(table.getType()));
+        return orderBy(EntityExpressions.unordered(table.getSchema()));
     }
 
     @NonNull
     public TableQueryBuilder<T> orderBy(@Nullable OrderExpression<T> orderBy) {
+        Preconditions.checkArgument(orderBy == null || orderBy.getSchema() == table.getSchema(),
+                "Cannot use OrderExpression created for a different schema");
         this.orderBy = orderBy;
         return this;
     }
 
     @NonNull
     public TableQueryBuilder<T> orderBy(@NonNull UnaryOperator<OrderBuilder<T>> orderBuilderOp) {
-        return orderBy(orderBuilderOp.apply(EntityExpressions.newOrderBuilder(table.getType())).build());
+        return orderBy(orderBuilderOp.apply(EntityExpressions.newOrderBuilder(table.getSchema())).build());
     }
 
     public TableQueryBuilder<T> defaultOrder() {
-        orderBy = EntityExpressions.defaultOrder(table.getType());
+        orderBy = EntityExpressions.defaultOrder(table.getSchema());
         return this;
     }
 
@@ -228,6 +230,8 @@ public final class TableQueryBuilder<T extends Entity<T>> {
     public TableQueryBuilder<T> filter(@Nullable FilterExpression<T> filter) {
         Preconditions.checkState(filterBuilder == null, "You can't use both .filter and .where/.and/.or methods");
 
+        Preconditions.checkArgument(filter == null || filter.getSchema() == table.getSchema(),
+                "Cannot use FilterExpression created for a different schema");
         this.filter = filter;
         return this;
     }
@@ -258,7 +262,7 @@ public final class TableQueryBuilder<T extends Entity<T>> {
     }
 
     private FilterExpression<T> buildFilterExpression(UnaryOperator<FilterBuilder<T>> filterBuilderOp) {
-        return filterBuilderOp.apply(EntityExpressions.newFilterBuilder(table.getType())).build();
+        return filterBuilderOp.apply(EntityExpressions.newFilterBuilder(table.getSchema())).build();
     }
 
     @RequiredArgsConstructor(access = PRIVATE)

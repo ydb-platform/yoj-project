@@ -101,6 +101,7 @@ public class YdbTable<T extends Entity<T>> implements Table<T> {
         return tableDescriptor;
     }
 
+    @Override
     public final EntitySchema<T> getSchema() {
         return schema;
     }
