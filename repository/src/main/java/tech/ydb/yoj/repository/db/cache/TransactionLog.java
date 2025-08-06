@@ -3,6 +3,7 @@ package tech.ydb.yoj.repository.db.cache;
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
 import tech.ydb.yoj.InternalApi;
+import tech.ydb.yoj.util.function.LazyToString;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -11,6 +12,7 @@ import java.util.function.Supplier;
 import static java.util.stream.Collectors.joining;
 import static tech.ydb.yoj.repository.db.cache.TransactionLog.Level.DEBUG;
 import static tech.ydb.yoj.repository.db.cache.TransactionLog.Level.INFO;
+import static tech.ydb.yoj.util.lang.Strings.lazyDebugMsg;
 
 @RequiredArgsConstructor
 public final class TransactionLog {
@@ -46,7 +48,7 @@ public final class TransactionLog {
 
     private void log(@NonNull Level level, @NonNull String message, Object... args) {
         if (logLevel.acceptsMessageAt(level)) {
-            log0(args.length == 0 ? message : String.format(message, args));
+            log0(args.length == 0 ? message : lazyDebugMsg(message, args));
         }
     }
 
@@ -71,8 +73,8 @@ public final class TransactionLog {
     }
 
     @InternalApi
-    public String format(@NonNull String prefix) {
-        return messages.stream().map(l -> "\n  " + prefix + l).collect(joining());
+    public Object format(@NonNull String prefix) {
+        return LazyToString.of(() -> messages.stream().map(l -> "\n  " + prefix + l).collect(joining()));
     }
 
     /**

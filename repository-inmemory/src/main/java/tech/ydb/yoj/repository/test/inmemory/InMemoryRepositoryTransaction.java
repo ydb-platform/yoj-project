@@ -1,7 +1,6 @@
 package tech.ydb.yoj.repository.test.inmemory;
 
 import com.google.common.base.Stopwatch;
-import com.google.common.collect.Iterables;
 import lombok.Getter;
 import tech.ydb.yoj.DeprecationWarnings;
 import tech.ydb.yoj.repository.BaseDb;
@@ -22,8 +21,12 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
+import static tech.ydb.yoj.repository.db.internal.RepositoryTransactionImpl.EMPTY_RESULT;
+import static tech.ydb.yoj.repository.db.internal.RepositoryTransactionImpl.logStatementError;
+import static tech.ydb.yoj.repository.db.internal.RepositoryTransactionImpl.logStatementResult;
+
 public class InMemoryRepositoryTransaction implements BaseDb, RepositoryTransaction {
-    private final static AtomicLong txIdGenerator = new AtomicLong();
+    private static final AtomicLong txIdGenerator = new AtomicLong();
 
     private final long txId = txIdGenerator.incrementAndGet();
     private final Stopwatch txStopwatch = Stopwatch.createStarted();
@@ -115,7 +118,7 @@ public class InMemoryRepositoryTransaction implements BaseDb, RepositoryTransact
             }
         } finally {
             closeAction = action;
-            transactionLocal.log().info("[[%s]] TOTAL (since tx start)", txStopwatch);
+            transactionLocal.log().info("[[%s]] TOTAL (since tx start)", txStopwatch.stop());
         }
     }
 
@@ -132,7 +135,7 @@ public class InMemoryRepositoryTransaction implements BaseDb, RepositoryTransact
     }
 
     final <T extends Entity<T>> void doInWriteTransaction(
-            String log, TableDescriptor<T> tableDescriptor, Consumer<WriteTxDataShard<T>> consumer
+            Object action, TableDescriptor<T> tableDescriptor, Consumer<WriteTxDataShard<T>> consumer
     ) {
         if (options.isScan()) {
             throw new IllegalTransactionScanException("Mutable operations");
@@ -141,7 +144,7 @@ public class InMemoryRepositoryTransaction implements BaseDb, RepositoryTransact
             throw new IllegalTransactionIsolationLevelException("Mutable operations", options.getIsolationLevel());
         }
 
-        Runnable query = () -> logTransaction(log, () -> {
+        Runnable query = () -> logTransaction(action, () -> {
             WriteTxDataShard<T> shard = storage.getWriteTxDataShard(tableDescriptor, txId, getVersion());
             consumer.accept(shard);
 
@@ -156,7 +159,7 @@ public class InMemoryRepositoryTransaction implements BaseDb, RepositoryTransact
     }
 
     final <T extends Entity<T>, R> R doInTransaction(
-            String action, TableDescriptor<T> tableDescriptor, Function<ReadOnlyTxDataShard<T>, R> func
+            Object action, TableDescriptor<T> tableDescriptor, Function<ReadOnlyTxDataShard<T>, R> func
     ) {
         return logTransaction(action, () -> {
             InMemoryTxLockWatcher findWatcher = hasWrites ? watcher : InMemoryTxLockWatcher.NO_LOCKS;
@@ -172,14 +175,14 @@ public class InMemoryRepositoryTransaction implements BaseDb, RepositoryTransact
         });
     }
 
-    private void logTransaction(String action, Runnable runnable) {
+    private void logTransaction(Object action, Runnable runnable) {
         logTransaction(action, () -> {
             runnable.run();
-            return null;
+            return EMPTY_RESULT;
         });
     }
 
-    private <R> R logTransaction(String action, Supplier<R> supplier) {
+    private <R> R logTransaction(Object action, Supplier<R> supplier) {
         if (closeAction != null) {
             throw new IllegalStateException("Transaction already closed by " + closeAction);
         }
@@ -187,22 +190,11 @@ public class InMemoryRepositoryTransaction implements BaseDb, RepositoryTransact
         Stopwatch sw = Stopwatch.createStarted();
         try {
             R result = supplier.get();
-            transactionLocal.log().debug("[ %s ] %s -> %s", sw, action, printResult(result));
+            logStatementResult(transactionLocal.log(), sw.stop(), action, result);
             return result;
         } catch (Throwable t) {
-            transactionLocal.log().debug("[ %s ] %s => %s", sw, action, t);
+            logStatementError(transactionLocal.log(), sw.stop(), action, t);
             throw t;
-        }
-    }
-
-    private String printResult(Object result) {
-        if (result instanceof Iterable<?>) {
-            long size = Iterables.size((Iterable<?>) result);
-            return size == 1
-                    ? String.valueOf(Iterables.getOnlyElement((Iterable<?>) result))
-                    : "[" + size + "]";
-        } else {
-            return String.valueOf(result);
         }
     }
 }

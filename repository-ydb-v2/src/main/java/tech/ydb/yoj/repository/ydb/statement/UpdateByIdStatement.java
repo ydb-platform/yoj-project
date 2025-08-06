@@ -18,6 +18,7 @@ import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toMap;
 import static java.util.stream.Collectors.toUnmodifiableSet;
 import static java.util.stream.Stream.concat;
+import static tech.ydb.yoj.util.lang.Strings.lazyDebugMsg;
 
 /**
  * @deprecated Blindly setting entity fields is not recommended. Use {@code Table.modifyIfPresent()} instead, unless you
@@ -88,8 +89,8 @@ public final class UpdateByIdStatement<ENTITY extends Entity<ENTITY>, ID extends
     }
 
     @Override
-    public String toDebugString(UpdateModel.ById<ID> idById) {
-        return "updateById(" + idById.getId() + ")";
+    public Object toDebugString(UpdateModel.ById<ID> idById) {
+        return lazyDebugMsg("updateById(%s)", idById.getId());
     }
 
     @Override

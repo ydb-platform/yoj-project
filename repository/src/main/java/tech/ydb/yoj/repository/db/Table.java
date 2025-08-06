@@ -5,6 +5,7 @@ import tech.ydb.yoj.InternalApi;
 import tech.ydb.yoj.databind.expression.FilterExpression;
 import tech.ydb.yoj.databind.expression.OrderExpression;
 import tech.ydb.yoj.repository.db.bulk.BulkParams;
+import tech.ydb.yoj.repository.db.internal.TableQueryImpl;
 import tech.ydb.yoj.repository.db.list.ListRequest;
 import tech.ydb.yoj.repository.db.list.ListResult;
 import tech.ydb.yoj.repository.db.list.ViewListResult;

@@ -12,6 +12,7 @@ import java.util.List;
 
 import static java.util.Comparator.comparing;
 import static java.util.stream.Collectors.joining;
+import static tech.ydb.yoj.util.lang.Strings.lazyDebugMsg;
 
 public class CountAllStatement<ENTITY extends Entity<ENTITY>> extends PredicateStatement<Collection<? extends YqlStatementPart<?>>, ENTITY, Count> {
     private final List<YqlStatementPart<?>> parts;
@@ -41,7 +42,7 @@ public class CountAllStatement<ENTITY extends Entity<ENTITY>> extends PredicateS
     }
 
     @Override
-    public String toDebugString(Collection<? extends YqlStatementPart<?>> yqlStatementParts) {
-        return "count(" + parts + ")";
+    public Object toDebugString(Collection<? extends YqlStatementPart<?>> yqlStatementParts) {
+        return parts.isEmpty() ? "count()" : lazyDebugMsg("count(%s)", parts);
     }
 }
