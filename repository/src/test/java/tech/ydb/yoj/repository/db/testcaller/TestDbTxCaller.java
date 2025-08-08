@@ -1,17 +1,22 @@
 package tech.ydb.yoj.repository.db.testcaller;
 
+import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
+import lombok.With;
 import tech.ydb.yoj.repository.db.IsolationLevel;
 import tech.ydb.yoj.repository.db.Repository;
 import tech.ydb.yoj.repository.db.RepositoryTransaction;
 import tech.ydb.yoj.repository.db.StdTxManager;
 import tech.ydb.yoj.repository.db.Tx;
+import tech.ydb.yoj.repository.db.TxNameGenerator;
 import tech.ydb.yoj.repository.db.TxOptions;
 import tech.ydb.yoj.repository.db.cache.TransactionLocal;
 import tech.ydb.yoj.repository.testcaller.TestTxCaller;
 
+import javax.annotation.Nullable;
 import java.util.Set;
 
+import static lombok.AccessLevel.PRIVATE;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -21,13 +26,20 @@ import static org.mockito.Mockito.when;
  * This is a copy of {@link TestTxCaller}
  * for testing calls from different packages.
  */
-@RequiredArgsConstructor
+@With
+@RequiredArgsConstructor(access = PRIVATE)
 public class TestDbTxCaller {
+    @Nullable
     private final String explicitName;
+
+    @NonNull
     private final Set<String> skipCallerPackages;
 
-    public TestDbTxCaller(String explicitName) {
-        this(explicitName, Set.of());
+    @NonNull
+    private final TxNameGenerator txNameGenerator;
+
+    public TestDbTxCaller(@Nullable String explicitName) {
+        this(explicitName, Set.of(), explicitName == null ? TxNameGenerator.SHORT : TxNameGenerator.NONE);
     }
 
     public String getTxName() {
@@ -36,7 +48,9 @@ public class TestDbTxCaller {
         when(rt.getTransactionLocal()).thenReturn(new TransactionLocal(TxOptions.create(IsolationLevel.SERIALIZABLE_READ_WRITE)));
         when(repo.startTransaction(any(TxOptions.class))).thenReturn(rt);
 
-        var tx = new StdTxManager(repo).withSkipCallerPackages(skipCallerPackages);
+        var tx = new StdTxManager(repo)
+                .withSkipCallerPackages(skipCallerPackages)
+                .withTxNameGenerator(txNameGenerator);
         if (explicitName != null) {
             tx = tx.withName(explicitName);
         }

@@ -21,6 +21,7 @@ import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatIllegalStateException;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
@@ -54,7 +55,9 @@ public class StdTxManagerTest {
 
     @Test
     public void testNotDbChildPackage_FromStackWalker_Auto_SkipCallerPackage() {
-        var name = new TestTxCaller(null, Set.of(TestTxCaller.class.getPackageName())).getTxName();
+        var name = new TestTxCaller(null)
+                .withSkipCallerPackages(Set.of(TestTxCaller.class.getPackageName()))
+                .getTxName();
         assertThat(name).isEqualTo("StdTxManTes#testNotDbChiPac_FroStaWal_Aut_SkiCalPac");
     }
 
@@ -68,6 +71,80 @@ public class StdTxManagerTest {
     @Test
     public void testNotDbPackage_FromStackWalker_User() {
         var name = new TestTxCaller("omg").getTxName();
+        assertThat(name).isEqualTo("omg");
+    }
+
+    // explicitly TxNameGenerator.LONG
+    @Test
+    public void testDbChildPackage_FromStackWalker_Auto_Long() {
+        var name = new TestDbTxCaller(null)
+                .withTxNameGenerator(TxNameGenerator.LONG)
+                .getTxName();
+        assertThat(name).isEqualTo("TestDbTxCaller.getTxName");
+    }
+
+    @Test
+    public void testNotDbChildPackage_FromStackWalker_Auto_Long() {
+        var name = new TestTxCaller(null)
+                .withTxNameGenerator(TxNameGenerator.LONG)
+                .getTxName();
+        assertThat(name).isEqualTo("TestTxCaller.getTxName");
+    }
+
+    @Test
+    public void testNotDbChildPackage_FromStackWalker_Auto_Long_SkipCallerPackage() {
+        var name = new TestTxCaller(null)
+                .withTxNameGenerator(TxNameGenerator.LONG)
+                .withSkipCallerPackages(Set.of(TestTxCaller.class.getPackageName()))
+                .getTxName();
+        assertThat(name).isEqualTo("StdTxManagerTest.testNotDbChildPackage_FromStackWalker_Auto_Long_SkipCallerPackage");
+    }
+
+    @Test
+    public void testNotDbPackage_Same_Long() {
+        var nameOld = new TestTxCaller(null).withTxNameGenerator(TxNameGenerator.LONG).getTxName();
+        var nameNew = new TestTxCaller(null).withTxNameGenerator(TxNameGenerator.LONG).getTxName();
+        assertThat(nameNew).isEqualTo(nameOld);
+    }
+
+    // explicitly TxNameGenerator.NONE
+    @Test
+    public void testDbChildPackage_FromStackWalker_ForceExplicitName_Auto_MustFail() {
+        assertThatIllegalStateException().isThrownBy(() ->
+                new TestDbTxCaller(null)
+                        .withTxNameGenerator(TxNameGenerator.NONE)
+                        .getTxName()
+        );
+    }
+
+    @Test
+    public void testNotDbChildPackage_FromStackWalker_ForceExplicitName_Auto_MustFail() {
+        assertThatIllegalStateException().isThrownBy(() ->
+                new TestTxCaller(null)
+                        .withTxNameGenerator(TxNameGenerator.NONE)
+                        .getTxName()
+        );
+    }
+
+    @Test
+    public void testNotDbChildPackage_FromStackWalker_SkipCallerPackage_ForceExplicitName_Auto_MustFail() {
+        assertThatIllegalStateException().isThrownBy(() ->
+                new TestTxCaller(null)
+                        .withTxNameGenerator(TxNameGenerator.NONE)
+                        .withSkipCallerPackages(Set.of(TestTxCaller.class.getPackageName()))
+                        .getTxName()
+        );
+    }
+
+    @Test
+    public void testNotDbPackage_ForceExplicitName_MustNotFail() {
+        var name = new TestTxCaller("omg").withTxNameGenerator(TxNameGenerator.NONE).getTxName();
+        assertThat(name).isEqualTo("omg");
+    }
+
+    @Test
+    public void testDbPackage_ForceExplicitName_MustNotFail() {
+        var name = new TestDbTxCaller("omg").withTxNameGenerator(TxNameGenerator.NONE).getTxName();
         assertThat(name).isEqualTo("omg");
     }
 
