@@ -46,10 +46,14 @@ public final class CallStack {
             return findFrame();
         }
 
-        @SuppressWarnings("unchecked")
         public <T> T map(Function<StackFrame, T> mapper) {
+            return map(mapper, null);
+        }
+
+        @SuppressWarnings("unchecked")
+        public <T> T map(Function<StackFrame, T> mapper, Object extraKey) {
             StackFrame frame = findFrame();
-            return (T) mapperCache.computeIfAbsent(new FrameKey(frame), __ -> mapper.apply(frame));
+            return (T) mapperCache.computeIfAbsent(new FrameKey(frame, extraKey), __ -> mapper.apply(frame));
         }
 
         private StackFrame findFrame() {
@@ -68,9 +72,9 @@ public final class CallStack {
         }
     }
 
-    private record FrameKey(String className, String methodName, int lineNumber) {
-        FrameKey(StackFrame frame) {
-            this(frame.getClassName(), frame.getMethodName(), frame.getLineNumber());
+    private record FrameKey(String className, String methodName, int lineNumber, Object extraKey) {
+        FrameKey(StackFrame frame, Object extraKey) {
+            this(frame.getClassName(), frame.getMethodName(), frame.getLineNumber(), extraKey);
         }
     }
 }
