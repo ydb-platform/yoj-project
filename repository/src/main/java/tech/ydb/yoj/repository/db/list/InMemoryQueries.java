@@ -13,6 +13,9 @@ import tech.ydb.yoj.databind.expression.values.FieldValue;
 import tech.ydb.yoj.databind.schema.Schema;
 import tech.ydb.yoj.databind.schema.Schema.JavaField;
 import tech.ydb.yoj.repository.db.Entity;
+import tech.ydb.yoj.repository.db.EntityIdSchema;
+import tech.ydb.yoj.repository.db.EntitySchema;
+import tech.ydb.yoj.repository.db.TableQueryImpl;
 import tech.ydb.yoj.util.function.StreamSupplier;
 
 import javax.annotation.Nullable;
@@ -29,18 +32,26 @@ import java.util.stream.Stream;
 import static java.util.function.Predicate.not;
 import static java.util.stream.Collectors.toList;
 import static tech.ydb.yoj.databind.expression.OrderExpression.SortOrder.ASCENDING;
-import static tech.ydb.yoj.repository.db.EntityIdSchema.SORT_ENTITY_BY_ID;
 
 /**
  * Utilities for in-memory filtering and sorting objects that have a {@link Schema} (mostly {@link Entity entities}).
  */
 public final class InMemoryQueries {
+    @Deprecated(forRemoval = true)
+    private static final Comparator<Entity<?>> ENTITY_DEFAULT_ORDER_VIA_REFLECTION = Comparator.comparing(
+            Entity::getId, (a, b) -> EntityIdSchema.ofEntity(a.getType()).compare(a, b)
+    );
+
     public static <T extends Entity<T>> ListResult<T> list(@NonNull StreamSupplier<T> streamSupplier,
                                                            @NonNull ListRequest<T> request) {
+        if (!(request.getSchema() instanceof EntitySchema<T> entitySchema)) {
+            throw new IllegalArgumentException("Expected ListRequest for an entity, but got a non-entity schema: " + request.getSchema());
+        }
         return ListResult.forPage(
                 request,
-                find(
+                TableQueryImpl.find(
                         streamSupplier,
+                        entitySchema,
                         request.getFilter(),
                         request.getOrderBy(),
                         request.getPageSize() + 1,
@@ -49,6 +60,10 @@ public final class InMemoryQueries {
         );
     }
 
+    /**
+     * @deprecated This method is an implementation detail leaked into the public YOJ API. It will be removed in YOJ 2.7.0.
+     */
+    @Deprecated(forRemoval = true)
     public static <T extends Entity<T>> List<T> find(@NonNull StreamSupplier<T> streamSupplier,
                                                      @Nullable FilterExpression<T> filter,
                                                      @Nullable OrderExpression<T> orderBy,
@@ -66,7 +81,7 @@ public final class InMemoryQueries {
             if (orderBy != null) {
                 foundStream = foundStream.sorted(toComparator(orderBy));
             } else {
-                foundStream = foundStream.sorted(SORT_ENTITY_BY_ID);
+                foundStream = foundStream.sorted(ENTITY_DEFAULT_ORDER_VIA_REFLECTION);
             }
 
             foundStream = foundStream.skip(offset == null ? 0L : offset);

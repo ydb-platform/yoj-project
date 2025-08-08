@@ -3,6 +3,7 @@ package tech.ydb.yoj.repository.db;
 import com.google.common.base.Preconditions;
 import com.google.common.reflect.TypeToken;
 import lombok.NonNull;
+import tech.ydb.yoj.DeprecationWarnings;
 import tech.ydb.yoj.databind.CustomValueTypes;
 import tech.ydb.yoj.databind.FieldValueType;
 import tech.ydb.yoj.databind.schema.Schema;
@@ -42,11 +43,33 @@ public final class EntityIdSchema<ID extends Entity.Id<?>> extends Schema<ID> im
     private static final String ID_SUBFIELD_PATH_PREFIX = ID_FIELD_NAME + PATH_DELIMITER;
     private static final String ID_SUBFIELD_NAME_PREFIX = ID_FIELD_NAME + NAME_DELIMITER;
 
+    /**
+     * @deprecated This constant will be removed in YOJ 2.7.0.
+     * <p>If you need a {@link Comparator} to manually sort entities by ID ascending,
+     * use {@link EntitySchema#defaultOrder()} if you have an entity schema,
+     * or {@code Comparator.comparing(Entity::getId, idSchema)} if you have an entity ID schema.
+     * <p>To obtain entity schema or entity ID schema, see {@code EntitySchema.of()},
+     * {@link EntitySchema#getIdSchema()} and {@code EntityIdSchema.{of, from, ofEntity}()}.
+     */
+    @Deprecated(forRemoval = true)
     public static final Comparator<Entity<?>> SORT_ENTITY_BY_ID = Comparator.comparing(
-            Entity::getId, (a, b) -> EntityIdSchema.ofEntity(a.getType()).compare(a, b)
+            Entity::getId, (a, b) -> {
+                DeprecationWarnings.warnOnce("EntityIdSchema[" + a.getClass().getName() + "].SORT_ENTITY_BY_ID",
+                        "EntityIdSchema.SORT_ENTITY_BY_ID constant will be removed in YOJ 2.7.0. "
+                                + "Please use EntitySchema.defaultOrder() if you have an entity schema, or "
+                                + "Comparator.comparing(Entity::getId, idSchema) if you have an entity ID schema.");
+                return EntityIdSchema.ofEntity(a.getType()).compare(a, b);
+            }
     );
 
+    /**
+     * @deprecated This method serves no useful purpose and will be removed in YOJ 2.7.0.
+     * <p>If you need a {@link Comparator} for entity IDs, use the {@code EntityIdSchema} instance as it already implements {@code Comparator<ID>}.
+     */
+    @Deprecated(forRemoval = true)
     public static <T extends Entity<T>> Comparator<Entity.Id<T>> getIdComparator(Class<T> type) {
+        DeprecationWarnings.warnOnce("EntityIdSchema.getIdComparator(" + type.getName() + ")",
+                "EntityIdSchema.getIdComparator(Class) method will be removed in YOJ 2.7.0. Please use the EntityIdSchema itself as the comparator");
         return Comparator.comparing(
                 id -> id, (a, b) -> EntityIdSchema.ofEntity(type).compare(a, b)
         );
