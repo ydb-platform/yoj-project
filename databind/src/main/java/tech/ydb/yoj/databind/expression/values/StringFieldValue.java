@@ -1,11 +1,11 @@
 package tech.ydb.yoj.databind.expression.values;
 
-import com.google.common.reflect.TypeToken;
 import lombok.NonNull;
 import tech.ydb.yoj.databind.FieldValueType;
 import tech.ydb.yoj.databind.expression.IllegalExpressionException.FieldTypeError.StringFieldExpected;
 import tech.ydb.yoj.databind.expression.IllegalExpressionException.FieldTypeError.UnknownEnumConstant;
 import tech.ydb.yoj.databind.expression.IllegalExpressionException.FieldTypeError.UuidFieldExpected;
+import tech.ydb.yoj.databind.schema.reflect.Types;
 
 import java.lang.reflect.Type;
 import java.util.Optional;
@@ -23,7 +23,7 @@ public record StringFieldValue(@NonNull String str) implements FieldValue {
         return switch (valueType) {
             case STRING -> Optional.of(str);
             case ENUM -> {
-                @SuppressWarnings({"rawtypes", "unchecked"}) var enumType = (Class<Enum>) TypeToken.of(fieldType).getRawType();
+                @SuppressWarnings({"rawtypes", "unchecked"}) var enumType = (Class<Enum>) Types.getRawType(fieldType);
                 @SuppressWarnings("unchecked") var enumValue = (Comparable<?>) Enum.valueOf(enumType, str);
                 yield Optional.of(enumValue);
             }
@@ -45,7 +45,7 @@ public record StringFieldValue(@NonNull String str) implements FieldValue {
     public ValidationResult isValidValueOfType(Type fieldType, FieldValueType valueType) {
         return switch (valueType) {
             case STRING -> validFieldValue();
-            case ENUM -> enumHasConstant(TypeToken.of(fieldType).getRawType(), str)
+            case ENUM -> enumHasConstant(Types.getRawType(fieldType), str)
                     ? validFieldValue()
                     : invalidFieldValue(p -> new UnknownEnumConstant(p, str), p -> format("Unknown enum constant for field \"%s\": \"%s\"", p, str));
             case UUID -> isValidUuid()
