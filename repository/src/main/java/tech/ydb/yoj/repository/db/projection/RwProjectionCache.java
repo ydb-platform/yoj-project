@@ -7,6 +7,7 @@ import tech.ydb.yoj.DeprecationWarnings;
 import tech.ydb.yoj.InternalApi;
 import tech.ydb.yoj.repository.db.Entity;
 import tech.ydb.yoj.repository.db.RepositoryTransaction;
+import tech.ydb.yoj.repository.db.Table;
 
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -60,21 +61,28 @@ public class RwProjectionCache implements ProjectionCache {
 
         oldProjections.values().stream()
                 .filter(e -> !newProjections.containsKey(e.getId()))
-                .forEach(e -> deleteEntity(transaction, e.getId()));
+                .forEach(e -> deleteEntity(transaction, e));
         newProjections.values().stream()
                 .filter(e -> !e.equals(oldProjections.get(e.getId())))
                 .forEach(e -> saveEntity(transaction, e));
     }
 
-    private <T extends Entity<T>> void deleteEntity(RepositoryTransaction transaction, Entity.Id<T> entityId) {
-        transaction.table(entityId.getType()).delete(entityId);
+    private <T extends Entity<T>> void deleteEntity(RepositoryTransaction transaction, Entity<T> entity) {
+        table(transaction, entity).delete(entity.getId());
     }
 
     private <T extends Entity<T>> void saveEntity(RepositoryTransaction transaction, Entity<T> entity) {
         @SuppressWarnings("unchecked")
         T castedEntity = (T) entity;
 
-        transaction.table(entity.getId().getType()).save(castedEntity);
+        table(transaction, entity).save(castedEntity);
+    }
+
+    private <T extends Entity<T>> Table<T> table(RepositoryTransaction transaction, Entity<T> entity) {
+        @SuppressWarnings("unchecked")
+        Class<T> entityType = (Class<T>) entity.getClass();
+
+        return transaction.table(entityType);
     }
 
     private Entity<?> mergeOldProjections(Entity<?> p1, Entity<?> p2) {
