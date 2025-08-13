@@ -3,6 +3,7 @@ package tech.ydb.yoj.repository.db;
 import com.google.common.base.Preconditions;
 import com.google.common.reflect.TypeToken;
 import lombok.NonNull;
+import tech.ydb.yoj.ExperimentalApi;
 import tech.ydb.yoj.databind.CustomValueTypes;
 import tech.ydb.yoj.databind.FieldValueType;
 import tech.ydb.yoj.databind.schema.Schema;
@@ -88,6 +89,16 @@ public final class EntityIdSchema<ID extends Entity.Id<?>> extends Schema<ID> im
     @Override
     protected boolean isFlattenable(ReflectField field) {
         return true;
+    }
+
+    @Override
+    @ExperimentalApi(issue = "https://github.com/ydb-platform/yoj-project/issues/149")
+    protected boolean isRequiredField(ReflectField field) {
+        return switch (EntityIdFieldNullability.get()) {
+            case ALWAYS_NULL -> false;
+            case USE_COLUMN_ANNOTATION -> super.isRequiredField(field);
+            case ALWAYS_NOT_NULL -> true;
+        };
     }
 
     public static <T extends Entity<T>, ID extends Entity.Id<T>> EntityIdSchema<ID> ofEntity(Class<T> entityType) {

@@ -127,7 +127,15 @@ public abstract class Schema<T> {
             this.fields = subSchemaField.fields.stream().map(this::newRootJavaField).toList();
         } else {
             if (subSchemaField.getCustomValueTypeInfo() != null) {
-                var dummyField = new JavaField(new DummyCustomValueSubField(subSchemaField), subSchemaField, __ -> true);
+                // Even if custom value type is a record/POJO/... that contains subfields, we treat it as a flat single-column value
+                // because that's what a custom value type's ValueConverter returns: a single value fit for a database column.
+                // (Remember, we do not allow ValueConverter.toColumn() to return a COMPOSITE value or a value of a custom value type)
+                var dummyField = new JavaField(
+                        new DummyCustomValueSubField(subSchemaField),
+                        subSchemaField,
+                        __ -> true,
+                        this::isRequiredField
+                );
                 dummyField.setName(subSchemaField.getName());
                 this.fields = List.of(dummyField);
             } else {
@@ -187,11 +195,11 @@ public abstract class Schema<T> {
                 columns.add(field.getName());
             }
             outputIndexes.add(Index.builder()
-                .indexName(name)
-                .fieldNames(List.copyOf(columns))
-                .unique(index.type() == GlobalIndex.Type.UNIQUE)
-                .async(index.type() == GlobalIndex.Type.GLOBAL_ASYNC)
-                .build());
+                    .indexName(name)
+                    .fieldNames(List.copyOf(columns))
+                    .unique(index.type() == GlobalIndex.Type.UNIQUE)
+                    .async(index.type() == GlobalIndex.Type.GLOBAL_ASYNC)
+                    .build());
         }
         return outputIndexes;
     }
@@ -249,7 +257,7 @@ public abstract class Schema<T> {
     }
 
     private JavaField newRootJavaField(@NonNull ReflectField field) {
-        return new JavaField(field, null, this::isFlattenable);
+        return new JavaField(field, null, this::isFlattenable, this::isRequiredField);
     }
 
     private JavaField newRootJavaField(@NonNull JavaField javaField) {
@@ -285,6 +293,19 @@ public abstract class Schema<T> {
      * @return {@code true} if the composite field can be flattened to a single field; {@code false otherwise}
      */
     protected boolean isFlattenable(ReflectField field) {
+        return false;
+    }
+
+    /**
+     * @param field field
+     * @return {@code true} if this field is required; {@code false} otherwise
+     */
+    @ExperimentalApi(issue = "https://github.com/ydb-platform/yoj-project/issues/149")
+    protected boolean isRequiredField(ReflectField field) {
+        var column = field.getColumn();
+        if (column != null) {
+            return column.notNull();
+        }
         return false;
     }
 
@@ -492,6 +513,9 @@ public abstract class Schema<T> {
         private final FieldValueType valueType;
         @Getter
         private final boolean flattenable;
+
+        private final boolean required;
+
         @Getter
         private String name;
         @Getter
@@ -499,15 +523,18 @@ public abstract class Schema<T> {
 
         private final List<JavaField> fields;
 
-        private JavaField(ReflectField field, JavaField parent, Predicate<ReflectField> isFlattenable) {
+        private JavaField(ReflectField field, JavaField parent, Predicate<ReflectField> isFlattenable, Predicate<ReflectField> isRequired) {
             this.field = field;
             this.parent = parent;
             this.flattenable = isFlattenable.test(field);
+
+            this.required = (parent != null && parent.required) || isRequired.test(field);
+
             this.path = parent == null ? field.getName() : parent.getPath() + PATH_DELIMITER + field.getName();
             this.valueType = field.getValueType();
             if (valueType.isComposite()) {
                 this.fields = field.getChildren().stream()
-                        .map(f -> new JavaField(f, this, isFlattenable))
+                        .map(f -> new JavaField(f, this, isFlattenable, isRequired))
                         .toList();
 
                 if (flattenable && isFlat()) {
@@ -522,6 +549,7 @@ public abstract class Schema<T> {
             this.field = javaField.field;
             this.parent = parent;
             this.flattenable = javaField.flattenable;
+            this.required = javaField.required;
             this.name = javaField.name;
             this.path = javaField.path;
             this.valueType = javaField.valueType;
@@ -536,7 +564,7 @@ public abstract class Schema<T> {
          * If the {@link Column} annotation is present, the field {@code dbType} may be used to
          * specify the DB column type.
          *
-         * @return the DB column type for data binding if specified, {@code null} otherwise
+         * @return the DB column type for data binding if specified, {@link DbType#DEFAULT} otherwise
          * @see Column
          */
         public DbType getDbType() {
@@ -781,6 +809,27 @@ public abstract class Schema<T> {
         @ExperimentalApi(issue = "https://github.com/ydb-platform/yoj-project/issues/24")
         public <J, C extends Comparable<? super C>> CustomValueTypeInfo<J, C> getCustomValueTypeInfo() {
             return (CustomValueTypeInfo<J, C>) field.getCustomValueTypeInfo();
+        }
+
+        /**
+         * @return {@code true} if the database column does accept {@code NULL}; {@code false} otherwise
+         * @see Column#notNull()
+         * @see #isRequired()
+         * @see <a href="https://github.com/ydb-platform/yoj-project/issues/149">#149</a>
+         */
+        @ExperimentalApi(issue = "https://github.com/ydb-platform/yoj-project/issues/149")
+        public boolean isOptional() {
+            return !required;
+        }
+
+        /**
+         * @return {@code true} if the database column does not accept {@code NULL}; {@code false} otherwise
+         * @see Column#notNull()
+         * @see <a href="https://github.com/ydb-platform/yoj-project/issues/149">#149</a>
+         */
+        @ExperimentalApi(issue = "https://github.com/ydb-platform/yoj-project/issues/149")
+        public boolean isRequired() {
+            return required;
         }
 
         @Override

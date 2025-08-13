@@ -274,6 +274,11 @@ public final class YdbSchemaCompatibilityChecker {
     }
 
     private String makeAddColumn(YdbSchemaOperations.Table table, YdbSchemaOperations.Column c) {
+        if (c.isNotNull()) {
+            throw new IllegalArgumentException("Trying to add a NOT NULL column `" + c.getName() + "` but YDB does not support adding "
+                    + "NOT NULL columns to existing tables, even with a DEFAULT value");
+        }
+
         if (config.useBuilderDDLSyntax) {
             return "DDLQuery.addColumn(" + builderDDLTableNameLiteral(table) + ", " +
                     javaLiteral(c.getName()) + ", " +
@@ -302,7 +307,7 @@ public final class YdbSchemaCompatibilityChecker {
 
     private static String builderDDLColumns(YdbSchemaOperations.Table table) {
         return table.getColumns().stream()
-                .map(c -> "\t\t.addNullableColumn(" + javaLiteral(c.getName()) + ", " +
+                .map(c -> "\t\t.add" + (c.isNotNull() ? "NotNull" : "Nullable") + "Column(" + javaLiteral(c.getName()) + ", " +
                         typeToDDL(c.getType()) + ")\n")
                 .collect(joining(""));
     }
@@ -335,7 +340,7 @@ public final class YdbSchemaCompatibilityChecker {
 
     private static String columns(YdbSchemaOperations.Table table) {
         return table.getColumns().stream()
-                .map(c -> "\t`" + c.getName() + "` " + c.getType())
+                .map(c -> "\t`" + c.getName() + "` " + c.getType() + (c.isNotNull() ? " NOT NULL" : ""))
                 .collect(joining(",\n"));
     }
 
@@ -352,13 +357,13 @@ public final class YdbSchemaCompatibilityChecker {
             return "\n";
         }
         return ",\n" + indexes.stream()
-            .map(idx -> "\t" + indexStatement(idx))
-            .collect(Collectors.joining(",\n")) + "\n";
+                .map(idx -> "\t" + indexStatement(idx))
+                .collect(Collectors.joining(",\n")) + "\n";
     }
 
     private static String indexStatement(YdbSchemaOperations.Index idx) {
         return String.format("INDEX `%s` GLOBAL %sON (%s)",
-            idx.getName(), idx.isUnique() ? "UNIQUE " : idx.isAsync() ? "ASYNC " : "", indexColumns(idx.getColumns()));
+                idx.getName(), idx.isUnique() ? "UNIQUE " : idx.isAsync() ? "ASYNC " : "", indexColumns(idx.getColumns()));
     }
 
     private static String indexColumns(List<String> columns) {
@@ -413,7 +418,7 @@ public final class YdbSchemaCompatibilityChecker {
                 .collect(toMap(YdbSchemaOperations.Index::getName, Function.identity()));
 
         Function<YdbSchemaOperations.Index, String> createIndex = i ->
-            String.format("ALTER TABLE `%s` ADD %s;", to.getName(), indexStatement(i));
+                String.format("ALTER TABLE `%s` ADD %s;", to.getName(), indexStatement(i));
 
         Function<YdbSchemaOperations.Index, String> dropIndex = i ->
                 String.format("ALTER TABLE `%s` DROP INDEX `%s`;", from.getName(), i.getName());
@@ -461,7 +466,14 @@ public final class YdbSchemaCompatibilityChecker {
         if (column.isPrimary() != newColumn.isPrimary()) {
             return "primary_key changed: " + column.isPrimary() + " --> " + newColumn.isPrimary();
         }
+        if (column.isNotNull() != newColumn.isNotNull()) {
+            return "nullability changed: " + nullabilityStr(column) + " --> " + nullabilityStr(newColumn);
+        }
         return "type changed: " + column.getType() + " --> " + newColumn.getType();
+    }
+
+    private String nullabilityStr(YdbSchemaOperations.Column column) {
+        return column.isNotNull() ? "NOT NULL" : "NULL";
     }
 
     private boolean containsPrefix(String globalName, Set<String> prefixes) {
