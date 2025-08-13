@@ -174,6 +174,11 @@ public class InMemoryTable<T extends Entity<T>> implements Table<T> {
     }
 
     @Override
+    public EntitySchema<T> getSchema() {
+        return schema;
+    }
+
+    @Override
     public T find(Entity.Id<T> id) {
         if (id.isPartial()) {
             throw new IllegalArgumentException("Cannot use partial id in find method");
