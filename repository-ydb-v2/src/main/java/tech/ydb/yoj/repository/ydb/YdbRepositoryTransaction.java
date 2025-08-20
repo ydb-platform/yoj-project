@@ -42,9 +42,12 @@ import tech.ydb.yoj.repository.BaseDb;
 import tech.ydb.yoj.repository.db.Entity;
 import tech.ydb.yoj.repository.db.IsolationLevel;
 import tech.ydb.yoj.repository.db.QueryStatsMode;
+import tech.ydb.yoj.repository.db.QueryTracingFilter;
+import tech.ydb.yoj.repository.db.QueryType;
 import tech.ydb.yoj.repository.db.RepositoryTransaction;
 import tech.ydb.yoj.repository.db.Table;
 import tech.ydb.yoj.repository.db.TableDescriptor;
+import tech.ydb.yoj.repository.db.Tx;
 import tech.ydb.yoj.repository.db.TxOptions;
 import tech.ydb.yoj.repository.db.bulk.BulkParams;
 import tech.ydb.yoj.repository.db.cache.RepositoryCache;
@@ -484,7 +487,7 @@ public class YdbRepositoryTransaction<REPO extends YdbRepository>
                                             )
                                     )
                     )
-            ).toArray(tech.ydb.table.values.Value[]::new);
+            ).toArray(Value[]::new);
 
             var settings = new BulkUpsertSettings();
             settings.setTimeout(params.getTimeout());
@@ -651,6 +654,11 @@ public class YdbRepositoryTransaction<REPO extends YdbRepository>
     }
 
     private void trace(@NonNull Statement<?, ?> statement, Object params, Throwable thrown, Object results) {
+        var tracingFilter = options.getTracingFilter();
+        if (!shouldTrace(tracingFilter, statement, thrown)) {
+            return;
+        }
+
         var txId = firstNonNullTxId;
         var sessionId = session == null ? null : session.getId();
         var tablespace = repo.getTablespace();
@@ -659,6 +667,31 @@ public class YdbRepositoryTransaction<REPO extends YdbRepository>
                 txId, sessionId, tablespace,
                 params, thrown, results
         ));
+    }
+
+    private boolean shouldTrace(@Nullable QueryTracingFilter tracingFilter, @NonNull Statement<?, ?> statement, Throwable thrown) {
+        if (tracingFilter == null || tracingFilter == QueryTracingFilter.ENABLE_ALL) {
+            return true;
+        }
+        if (tracingFilter == QueryTracingFilter.DISABLE_ALL) {
+            return false;
+        }
+
+        // NB: we have to return txName = "???" for a RepositoryTransaction has been created not by TxManager+Tx,
+        // but manually by calling Repository.startTransaction() (and thus has no Tx.Current thread-local value).
+        // I (@nvamelichev) know of NO production code that uses that low-level YOJ API directly, except for YOJ tests.
+        var txName = Tx.Current.exists() ? Tx.Current.get().getName() : "???";
+
+        var queryType = switch (statement.getQueryType()) {
+            case UNTYPED -> QueryType.GENERIC;
+            case SELECT -> QueryType.FIND;
+            case INSERT -> QueryType.INSERT;
+            case UPSERT -> QueryType.SAVE;
+            case UPDATE -> QueryType.UPDATE;
+            case DELETE, DELETE_ALL -> QueryType.DELETE;
+        };
+
+        return tracingFilter.shouldTrace(txName, options, queryType, thrown);
     }
 
     private List<?> logQueryStats(QueryStats queryStats) {

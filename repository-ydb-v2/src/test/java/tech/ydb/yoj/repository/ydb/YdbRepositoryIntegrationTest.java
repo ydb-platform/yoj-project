@@ -11,10 +11,13 @@ import io.grpc.stub.MetadataUtils;
 import io.grpc.stub.StreamObserver;
 import io.netty.handler.ssl.util.InsecureTrustManagerFactory;
 import lombok.AllArgsConstructor;
+import lombok.NonNull;
 import lombok.Setter;
 import lombok.SneakyThrows;
 import lombok.Value;
 import lombok.experimental.Delegate;
+import org.apache.logging.log4j.Level;
+import org.apache.logging.log4j.core.config.Configurator;
 import org.assertj.core.api.Assertions;
 import org.junit.Assert;
 import org.junit.ClassRule;
@@ -42,10 +45,12 @@ import tech.ydb.topic.settings.SendSettings;
 import tech.ydb.topic.settings.TopicReadSettings;
 import tech.ydb.topic.settings.WriterSettings;
 import tech.ydb.yoj.databind.schema.Column;
+import tech.ydb.yoj.databind.schema.GlobalIndex;
 import tech.ydb.yoj.databind.schema.ObjectSchema;
 import tech.ydb.yoj.repository.db.EntitySchema;
 import tech.ydb.yoj.repository.db.IsolationLevel;
 import tech.ydb.yoj.repository.db.QueryStatsMode;
+import tech.ydb.yoj.repository.db.RecordEntity;
 import tech.ydb.yoj.repository.db.Repository;
 import tech.ydb.yoj.repository.db.RepositoryTransaction;
 import tech.ydb.yoj.repository.db.StdTxManager;
@@ -104,6 +109,7 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
@@ -1059,6 +1065,70 @@ public class YdbRepositoryIntegrationTest extends RepositoryTest {
                         ))
                         .find());
         assertThat(found).hasSize(4);
+    }
+
+    @tech.ydb.yoj.databind.schema.Table(name = "UniqueProject")
+    @GlobalIndex(name = "unique_name", fields = {"name"}, type = GlobalIndex.Type.UNIQUE)
+    private record ToStringCountingProject(
+            Id id,
+            String name,
+            int version
+    ) implements RecordEntity<ToStringCountingProject> {
+        private static final AtomicInteger toStringCallCounter = new AtomicInteger();
+
+        public static void startCounting() {
+            toStringCallCounter.set(0);
+        }
+
+        @NonNull
+        @Override
+        public String toString() {
+            toStringCallCounter.incrementAndGet();
+            return "Project[id=" + id + ", name=" + name + ", version=" + version + "]";
+        }
+
+        public record Id(String value) implements RecordEntity.Id<ToStringCountingProject> {
+        }
+    }
+
+    @Test
+    public void customQueryTracingFilter() {
+        Configurator.setLevel(YdbRepositoryTransaction.class.getCanonicalName(), Level.TRACE);
+        try {
+            var filterCallCount = new AtomicInteger();
+            var txMgr1 = db.withName("with-query-tracing")
+                    .withTracingFilter((_1, _2, _3, _4) -> {
+                        filterCallCount.incrementAndGet();
+                        return true;
+                    })
+                    .immediateWrites();
+            var project3 = new ToStringCountingProject(new ToStringCountingProject.Id("id3"), "name-3", 3);
+            txMgr1.tx(() -> {
+                db.table(ToStringCountingProject.class).insert(new ToStringCountingProject(new ToStringCountingProject.Id("id1"), "name-1", 1));
+                db.table(ToStringCountingProject.class).insert(new ToStringCountingProject(new ToStringCountingProject.Id("id2"), "name-2", 2));
+                db.table(ToStringCountingProject.class).insert(project3);
+                db.table(ToStringCountingProject.class).insert(new ToStringCountingProject(new ToStringCountingProject.Id("id4"), "name-4", 4));
+            });
+
+            ToStringCountingProject.startCounting();
+            var txMgr2 = txMgr1.withName("no-query-tracing")
+                    .noQueryTracing()
+                    .readOnly()
+                    .noFirstLevelCache()
+                    .withStatementIsolationLevel(IsolationLevel.SNAPSHOT);
+            var found = txMgr2.run(() -> db.table(ToStringCountingProject.class).find(new ToStringCountingProject.Id("id3")));
+            assertThat(found).isEqualTo(project3);
+
+            // Allow only 1 call to toString() in logging of debug result, but not the second one in TRACE:
+            assertThat(ToStringCountingProject.toStringCallCounter)
+                    .withFailMessage("expected 1 call to UniqueProjectWithSurprise.toString() but got %s", ToStringCountingProject.toStringCallCounter)
+                    .hasValue(1);
+
+            // Allow only 4 calls to our custom QueryTracingFilter (only from txMgr1, not from txMgr2)
+            assertThat(filterCallCount).hasValue(4);
+        } finally {
+            Configurator.setLevel(YdbRepositoryTransaction.class.getCanonicalName(), (Level) null);
+        }
     }
 
     @Test

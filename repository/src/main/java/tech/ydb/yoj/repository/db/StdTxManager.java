@@ -181,6 +181,11 @@ public final class StdTxManager implements TxManager, TxManagerState {
     }
 
     @Override
+    public TxManager withTracingFilter(@NonNull QueryTracingFilter tracingFilter) {
+        return withOptions(this.options.withTracingFilter(tracingFilter));
+    }
+
+    @Override
     public TxManager withLogLevel(@NonNull TransactionLog.Level level) {
         return withOptions(this.options.withLogLevel(level));
     }

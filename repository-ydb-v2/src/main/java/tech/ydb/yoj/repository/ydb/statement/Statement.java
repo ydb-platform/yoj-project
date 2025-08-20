@@ -107,6 +107,9 @@ public interface Statement<PARAMS, RESULT> {
      */
     QueryType getQueryType();
 
+    /**
+     * Query type (for query merging purposes).
+     */
     enum QueryType {
         UNTYPED,
         SELECT,

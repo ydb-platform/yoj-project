@@ -5,6 +5,7 @@ import lombok.Builder;
 import lombok.NonNull;
 import lombok.Value;
 import lombok.With;
+import tech.ydb.yoj.ExperimentalApi;
 import tech.ydb.yoj.repository.db.cache.TransactionLog;
 
 import java.time.Duration;
@@ -35,6 +36,14 @@ public class TxOptions {
     boolean immediateWrites;
 
     QueryStatsMode queryStats;
+
+    /**
+     * <strong>Experimental API:</strong> Filters which queries will be traced (=logged at {@code TRACE} level into YOJ logs), and which won't.
+     * <p>Without a filter, all statements are logged at {@code TRACE} log level (but are immediately thrown away by the logging library,
+     * in most cases, because in production environments YOJ loggers will be set to a {@code DEBUG} level <em>at most</em>.)
+     */
+    @ExperimentalApi(issue = "https://github.com/ydb-platform/yoj-project/issues/162")
+    QueryTracingFilter tracingFilter;
 
     public static TxOptions create(@NonNull IsolationLevel isolationLevel) {
         return builder()
