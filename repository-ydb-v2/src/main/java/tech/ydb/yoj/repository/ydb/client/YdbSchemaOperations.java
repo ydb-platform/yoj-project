@@ -100,7 +100,11 @@ public class YdbSchemaOperations {
                     .orElseThrow(() -> new CreateTableException(String.format("Can't create table '%s'%n"
                             + "Can't find yql primitive type '%s' in YDB SDK", name, yqlType)));
             ValueProtos.Type typeProto = ValueProtos.Type.newBuilder().setTypeId(yqlType).build();
-            builder.addNullableColumn(c.getName(), YdbConverter.convertProtoPrimitiveTypeToSDK(typeProto));
+            if (c.isOptional()) {
+                builder.addNullableColumn(c.getName(), YdbConverter.convertProtoPrimitiveTypeToSDK(typeProto));
+            } else {
+                builder.addNonnullColumn(c.getName(), YdbConverter.convertProtoPrimitiveTypeToSDK(typeProto));
+            }
         });
         List<String> primaryKeysNames = primaryKeys.stream().map(Schema.JavaField::getName).collect(toList());
         builder.setPrimaryKeys(primaryKeysNames);
@@ -220,8 +224,9 @@ public class YdbSchemaOperations {
                 .map(c -> {
                     String columnName = c.getName();
                     String simpleType = YqlType.of(c).getYqlType().name();
+                    boolean isNotNull = c.isRequired();
                     boolean isPrimaryKey = primaryKeysNames.contains(columnName);
-                    return new Column(columnName, simpleType, isPrimaryKey);
+                    return new Column(columnName, simpleType, isPrimaryKey, isNotNull);
                 })
                 .toList();
         List<Index> ydbIndexes = indexes.stream()
@@ -339,8 +344,9 @@ public class YdbSchemaOperations {
                         .map(c -> {
                             String columnName = c.getName();
                             String simpleType = safeUnwrapOptional(c.getType()).toPb().getTypeId().name();
+                            boolean isNotNull = isNotNull(c.getType());
                             boolean isPrimaryKey = table.getPrimaryKeys().contains(columnName);
-                            return new Column(columnName, simpleType, isPrimaryKey);
+                            return new Column(columnName, simpleType, isPrimaryKey, isNotNull);
                         })
                         .toList(),
                 table.getIndexes().stream()
@@ -354,6 +360,17 @@ public class YdbSchemaOperations {
 
     private Type safeUnwrapOptional(Type type) {
         return type.getKind() == Type.Kind.OPTIONAL ? type.unwrapOptional() : type;
+    }
+
+    private boolean isNotNull(Type type) {
+        if (type.getKind() == Type.Kind.VOID || type.getKind() == Type.Kind.NULL) {
+            // This should never happen: Both Void and Null type can only have NULL as their value, having such columns is pointless.
+            throw new IllegalStateException("Void and Null types should never be used for columns");
+        }
+
+        // Optional<...> explicitly allows for NULL, other kinds should be NOT NULL by default
+        // (incl. Lists, Structs, Tuples, Variants are not supported as columns (yet?) but they can be...)
+        return type.getKind() != Type.Kind.OPTIONAL;
     }
 
     public void removeTablespace() {
@@ -478,6 +495,7 @@ public class YdbSchemaOperations {
         String name;
         String type;
         boolean primary;
+        boolean notNull;
     }
 
     @Value
