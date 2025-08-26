@@ -28,7 +28,7 @@ jobs:
       - name: Build with Maven
         run: mvn $MAVEN_ARGS verify
   integration-test:
-    name: Build YOJ - YDB Repository Integration Tests
+    name: Build YOJ - YDB Repository Integration Tests [TableService]
     runs-on: ubuntu-latest
 
     env:
@@ -45,7 +45,45 @@ jobs:
           cache: 'maven'
 
       - name: Build with Maven
-        run: mvn $MAVEN_ARGS -Plombok,integration-test -am -pl :yoj-repository-ydb-v2 verify
+        run: mvn $MAVEN_ARGS -Plombok,integration-test -DargLine='-Dtech.ydb.yoj.repository.ydb.client.impl=table' -am -pl :yoj-repository-ydb-v2 verify
+  integration-test-queryservice:
+    name: Build YOJ - YDB Repository Integration Tests [QueryService]
+    runs-on: ubuntu-latest
+
+    env:
+      MAVEN_ARGS: --batch-mode --update-snapshots -Dstyle.color=always
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          java-version: 17
+          distribution: 'temurin'
+          cache: 'maven'
+
+      - name: Build with Maven
+        run: mvn $MAVEN_ARGS -Plombok,integration-test -DargLine='-Dtech.ydb.yoj.repository.ydb.client.impl=query' -am -pl :yoj-repository-ydb-v2 verify
+  integration-test-queryservice-unlimited:
+    name: Build YOJ - YDB Repository Integration Tests [QueryService, unlimited rows]
+    runs-on: ubuntu-latest
+
+    env:
+      MAVEN_ARGS: --batch-mode --update-snapshots -Dstyle.color=always
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          java-version: 17
+          distribution: 'temurin'
+          cache: 'maven'
+
+      - name: Build with Maven
+        run: mvn $MAVEN_ARGS -Plombok,integration-test -DargLine='-Dtech.ydb.yoj.repository.ydb.client.impl=query -Dtech.ydb.yoj.repository.ydb.client.resultRowsLimit=-1' -am -pl :yoj-repository-ydb-v2 verify
   javadoc-and-source:
     name: Validate JavaDoc
     runs-on: ubuntu-latest

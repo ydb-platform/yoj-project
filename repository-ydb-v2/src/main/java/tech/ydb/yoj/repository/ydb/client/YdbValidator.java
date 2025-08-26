@@ -1,5 +1,6 @@
 package tech.ydb.yoj.repository.ydb.client;
 
+import com.google.common.annotations.VisibleForTesting;
 import io.grpc.Context;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
@@ -30,6 +31,12 @@ import static lombok.AccessLevel.PRIVATE;
 
 @InternalApi
 public final class YdbValidator {
+    @VisibleForTesting
+    public static final String PROP_RESULT_ROWS_LIMIT = "tech.ydb.yoj.repository.ydb.client.resultRowsLimit";
+
+    @VisibleForTesting
+    public static final int TABLESERVICE_MAX_RESULT_ROWS = 10_000;
+
     private static final Logger log = LoggerFactory.getLogger(YdbValidator.class);
 
     private YdbValidator() {
@@ -37,118 +44,164 @@ public final class YdbValidator {
 
     public static void validate(String request, StatusCode statusCode, String response) {
         switch (statusCode) {
-            case SUCCESS:
-                return;
+            // Success. Do nothing ;-)
+            case SUCCESS -> {
+            }
 
-            case BAD_SESSION:
-            case SESSION_EXPIRED:
-            case NOT_FOUND: // вероятнее всего это проблемы с prepared запросом. Стоит поретраить с новой сессией. Еще может быть Transaction not found
-                throw new BadSessionException(response);
+            // Current session can no longer be used. Retry immediately by creating a new session
+            case BAD_SESSION,
+                 SESSION_EXPIRED,
+                 // Prepared statement or transaction was not found
+                 NOT_FOUND -> throw new BadSessionException(response);
 
-            case ABORTED:
-                throw new OptimisticLockException(response);
+            // Transaction locks invalidated: somebody touched the same rows that we've read and/or changed in a SERIALIZABLE-level transaction.
+            // Retry immediately
+            case ABORTED -> throw new OptimisticLockException(response);
 
-            case OVERLOADED: // БД перегружена - нужно ретраить с экспоненциальной задержкой
-            case TIMEOUT: // БВ отовечечала слишком долго - нужно ретраить с экспоненциальной задержкой
-            case CANCELLED: // запрос был отменен, тк закончился установленный в запросе таймаут  (CancelAfter). Запрос на сервере гарантированно отменен.
-            case CLIENT_RESOURCE_EXHAUSTED: // недостаточно свободных ресурсов для обслуживания запроса
-            case CLIENT_DEADLINE_EXPIRED: // deadline expired before request was sent to server.
-            case CLIENT_DEADLINE_EXCEEDED: // запрос был отменен на транспортном уровне, тк закончился установленный дедлайн.
+            // DB overloaded and similar conditions. Slow retry with exponential backoff
+            case OVERLOADED,
+                 // DB took too long to respond
+                 TIMEOUT,
+                 // The request was cancelled because the request timeout (CancelAfter) has expired. The request has been cancelled on the server
+                 CANCELLED,
+                 // Not enough resources to process the request
+                 CLIENT_RESOURCE_EXHAUSTED,
+                 // Deadline expired before the request was sent to the server
+                 CLIENT_DEADLINE_EXPIRED,
+                 // The request was cancelled on the client, at the transport level (because the GRPC deadline expired)
+                 CLIENT_DEADLINE_EXCEEDED -> {
                 checkGrpcContextStatus(response, null);
 
-                // Резльтат обработки запроса не известен - может быть отменен или выполнен.
-                log.warn("Database is overloaded, but we still got a reply from the DB\n" +
-                        "Request: {}\nResponse: {}", request, response);
-
+                // The result of the request is unknown; it might have been cancelled... or it executed successfully!
+                log.warn("""
+                        Database is overloaded, but we still got a reply from the DB
+                        Request: {}
+                        Response: {}""", request, response);
                 throw new YdbOverloadedException(request, response);
+            }
 
-            case CLIENT_CANCELLED:
-            case CLIENT_GRPC_ERROR:
-            case CLIENT_INTERNAL_ERROR: // неизвестная ошибка на клиентской стороне (чаще всего транспортного уровня)
+            // Unknown error on the client side (most often at the transport level). Fast retry with fixed interval
+            case CLIENT_CANCELLED,
+                 CLIENT_GRPC_ERROR,
+                 CLIENT_INTERNAL_ERROR -> {
                 checkGrpcContextStatus(response, null);
 
-                log.warn("Some database components are not available, but we still got a reply from the DB\n"
-                        + "Request: {}\nResponse: {}", request, response);
+                log.warn("""
+                        YDB SDK internal error or cancellation
+                        Request: {}
+                        Response: {}""", request, response);
                 throw new YdbClientInternalException(request, response);
-            case UNAVAILABLE: // БД ответила, что она или часть ее подсистем не доступны
-            case TRANSPORT_UNAVAILABLE: // проблемы с сетевой связностью
-            case CLIENT_DISCOVERY_FAILED: // ошибка в ходе получения списка эндпоинтов
-            case CLIENT_LIMITS_REACHED: // достигнут лимит на количество сессий на клиентской стороне
-            case UNDETERMINED:
-            case SESSION_BUSY: // в этот сессии скорей всего исполняется другой запрос, стоит поретраить с новой сессией
-            case PRECONDITION_FAILED:
-                log.warn("Some database components are not available, but we still got a reply from the DB\n" +
-                        "Request: {}\nResponse: {}", request, response);
+            }
+
+            // DB, one of its components, or the transport is temporarily unavailable. Fast retry with fixed interval
+            case UNAVAILABLE,               // DB responded that it or some of its subsystems are unavailable
+                 TRANSPORT_UNAVAILABLE,     // Network connectivity issues
+                 CLIENT_DISCOVERY_FAILED,   // Error occurred while retrieving the list of endpoints
+                 CLIENT_LIMITS_REACHED,     // Client-side session limit reached
+                 UNDETERMINED,
+                 SESSION_BUSY,              // Another query is being executed in this session, should retry with a new session
+                 PRECONDITION_FAILED -> {
+                log.warn("""
+                        Some database components are not available, but we still got a reply from the DB
+                        Request: {}
+                        Response: {}""", request, response);
                 throw new YdbComponentUnavailableException(request, response);
+            }
 
-            case CLIENT_UNAUTHENTICATED: // grpc сообщил, что запрос не аутентифицирован. Это интернал ошибка, но возможно
-                // была проблема с выпиской токена и можно попробовать поретраить - если не поможет, то отдать наружу
-                log.warn("Database said we are not authenticated\nRequest: {}\nResponse: {}", request, response);
+            // GRPC client reports that the request was not authenticated properly. Retry immediately.
+            // This is an internal error, but there may have been an issue with issuing the token, so retry can be attempted.
+            // If that doesn’t work, we will propagate the error quickly enough.
+            case CLIENT_UNAUTHENTICATED -> {
+                log.warn("""
+                        Unauthenticated request to the database
+                        Request: {}
+                        Response: {}""", request, response);
                 throw new YdbUnauthenticatedException(request, response);
+            }
 
-            case UNAUTHORIZED: // БД сообщила, что запрос не авторизован. Ретраи могут помочь
-                log.warn("Database said we are not authorized\nRequest: {}\nResponse: {}", request, response);
+            // DB reports that the request is unauthorized. Retry immediately.
+            // Retries might help in case e.g. access permissions are updated in an eventually-consistent way
+            case UNAUTHORIZED -> {
+                log.warn("""
+                        Unauthorized request to the database
+                        Request: {}
+                        Response: {}""", request, response);
                 throw new YdbUnauthorizedException(request, response);
+            }
 
-            case SCHEME_ERROR:
-                throw new YdbSchemaException("schema error", request, response);
+            // Database schema problem, e.g. trying to access a non-existent table, column etc. No retries
+            case SCHEME_ERROR -> throw new YdbSchemaException("Schema error", request, response);
 
-            case CLIENT_CALL_UNIMPLEMENTED:
-            case BAD_REQUEST:
-            case UNSUPPORTED:
-            case INTERNAL_ERROR:
-            case GENERIC_ERROR:
-            case UNUSED_STATUS:
-            case ALREADY_EXISTS: // Этот статус используется другими ydb-сервисами. Это не вид precondition failed!
-            default:
-                log.error("Bad response status\nRequest: {}\nResponse: {}", request, response);
+            // Serious internal error. No retries
+            case CLIENT_CALL_UNIMPLEMENTED,
+                 BAD_REQUEST,
+                 UNSUPPORTED,
+                 INTERNAL_ERROR,
+                 GENERIC_ERROR,
+                 UNUSED_STATUS,
+                 // This status is used by other YDB services (not the {Table,Query}Service). This is *NOT* a form of PRECONDITION_FAILED!
+                 ALREADY_EXISTS -> {
+                log.error("""
+                        Bad response status
+                        Request: {}
+                        Response: {}""", request, response);
                 throw new YdbRepositoryException(request, response);
+            }
+
+            // Unknown YDB status code. No retries
+            default -> {
+                log.error("""
+                        Unknown YDB status code, treating as non-retryable
+                        Request: {}
+                        Response: {}""", request, response);
+                throw new YdbRepositoryException(request, response);
+            }
         }
     }
 
     public static boolean isTransactionClosedByServer(StatusCode statusCode) {
         return switch (statusCode) {
             case UNUSED_STATUS,
-                    ALREADY_EXISTS,
-                    BAD_REQUEST,
-                    UNAUTHORIZED,
-                    INTERNAL_ERROR,
-                    ABORTED,
-                    UNAVAILABLE,
-                    OVERLOADED,
-                    SCHEME_ERROR,
-                    GENERIC_ERROR,
-                    TIMEOUT,
-                    BAD_SESSION,
-                    PRECONDITION_FAILED,
-                    NOT_FOUND,
-                    SESSION_EXPIRED,
-                    CANCELLED,
-                    UNDETERMINED,
-                    UNSUPPORTED,
-                    SESSION_BUSY,
-                    EXTERNAL_ERROR -> true;
+                 ALREADY_EXISTS,
+                 BAD_REQUEST,
+                 UNAUTHORIZED,
+                 INTERNAL_ERROR,
+                 ABORTED,
+                 UNAVAILABLE,
+                 OVERLOADED,
+                 SCHEME_ERROR,
+                 GENERIC_ERROR,
+                 TIMEOUT,
+                 BAD_SESSION,
+                 PRECONDITION_FAILED,
+                 NOT_FOUND,
+                 SESSION_EXPIRED,
+                 CANCELLED,
+                 UNDETERMINED,
+                 UNSUPPORTED,
+                 SESSION_BUSY,
+                 EXTERNAL_ERROR -> true;
             case SUCCESS,
-                    TRANSPORT_UNAVAILABLE,
-                    CLIENT_CANCELLED,
-                    CLIENT_CALL_UNIMPLEMENTED,
-                    CLIENT_DEADLINE_EXCEEDED,
-                    CLIENT_INTERNAL_ERROR,
-                    CLIENT_UNAUTHENTICATED,
-                    CLIENT_DEADLINE_EXPIRED,
-                    CLIENT_DISCOVERY_FAILED,
-                    CLIENT_LIMITS_REACHED,
-                    CLIENT_RESOURCE_EXHAUSTED,
-                    CLIENT_GRPC_ERROR -> false;
+                 TRANSPORT_UNAVAILABLE,
+                 CLIENT_CANCELLED,
+                 CLIENT_CALL_UNIMPLEMENTED,
+                 CLIENT_DEADLINE_EXCEEDED,
+                 CLIENT_INTERNAL_ERROR,
+                 CLIENT_UNAUTHENTICATED,
+                 CLIENT_DEADLINE_EXPIRED,
+                 CLIENT_DISCOVERY_FAILED,
+                 CLIENT_LIMITS_REACHED,
+                 CLIENT_RESOURCE_EXHAUSTED,
+                 CLIENT_GRPC_ERROR -> false;
         };
     }
 
     public static void checkGrpcContextStatus(String errorMessage, @Nullable Throwable cause) {
         if (Context.current().getDeadline() != null && Context.current().getDeadline().isExpired()) {
-            // время на обработку запроса закончилось, нужно выбросить отдельное исключение чтобы не было ретраев
+            // GRPC deadline for the current GRPC context has expired. We need to throw a separate exception to avoid retries
             throw new DeadlineExceededException("DB query deadline exceeded. Response from DB: " + errorMessage, cause);
         } else if (Context.current().isCancelled()) {
-            // запрос отменил сам клиент, эту ошибку не нужно ретраить
+            // Client has cancelled the GRPC request. Throw a separate exception to avoid retries
             throw new QueryCancelledException("DB query cancelled. Response from DB: " + errorMessage);
         }
     }
@@ -166,13 +219,13 @@ public final class YdbValidator {
         if (is(issues, IssueCode.CONSTRAINT_VIOLATION::matches)) {
             StringBuilder error = new StringBuilder();
             is(issues, m -> {
-                if (error.length() > 0) {
+                if (!error.isEmpty()) {
                     error.append(":");
                 }
                 error.append(m.getMessage());
                 return false;
             });
-            throw new EntityAlreadyExistsException("Entity already exists: " + error.toString());
+            throw new EntityAlreadyExistsException("Entity already exists: " + error);
         }
     }
 
@@ -183,9 +236,25 @@ public final class YdbValidator {
     }
 
     public static void validateTruncatedResults(String yql, ResultSetReader rs) {
+        int rowCount = rs.getRowCount();
         if (rs.isTruncated()) {
-            String message = "Results was truncated to " + rs.getRowCount() + " elements";
-            throw new ResultTruncatedException(message, yql, rs.getRowCount());
+            throw new ResultTruncatedException(
+                    "Query results were truncated to " + rowCount + " elements; please specify a LIMIT",
+                    yql,
+                    rowCount,
+                    rowCount
+            );
+        }
+
+        int rowLimit = Integer.getInteger(PROP_RESULT_ROWS_LIMIT, TABLESERVICE_MAX_RESULT_ROWS);
+        if (rowLimit > 0 && rowCount > rowLimit) {
+            throw new ResultTruncatedException(
+                    "Got more query results than " + rowLimit + " elements; please specify a LIMIT or explicitly allow larger result sets "
+                            + "by setting the Java system property " + PROP_RESULT_ROWS_LIMIT + " (negative values mean unlimited result set size)",
+                    yql,
+                    rowLimit,
+                    rowCount
+            );
         }
     }
 

@@ -8,8 +8,12 @@ import org.junit.runners.model.Statement;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import tech.ydb.core.grpc.GrpcTransport;
+import tech.ydb.test.integration.YdbEnvironment;
 import tech.ydb.test.integration.YdbHelper;
 import tech.ydb.test.integration.YdbHelperFactory;
+import tech.ydb.test.integration.docker.DockerHelperFactory;
+import tech.ydb.test.integration.docker.YdbDockerContainer;
+import tech.ydb.test.integration.utils.PortsGenerator;
 import tech.ydb.test.integration.utils.ProxyGrpcTransport;
 import uk.org.webcompere.systemstubs.environment.EnvironmentVariableMocker;
 
@@ -21,9 +25,10 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 
+import static tech.ydb.yoj.repository.ydb.client.YdbValidator.TABLESERVICE_MAX_RESULT_ROWS;
+
 public final class YdbEnvAndTransportRule implements TestRule {
     public static final String YDB_VERSION = "24.4.4";
-    public static final int TABLESERVICE_MAX_RESULT_ROWS = 10_000;
 
     private final Instant started = Instant.now();
     private final GrpcTransportRule transportRule = new GrpcTransportRule();
@@ -37,7 +42,6 @@ public final class YdbEnvAndTransportRule implements TestRule {
                 try {
                     Map<String, String> evm = new HashMap<>();
                     evm.put("YDB_DOCKER_IMAGE", "docker.io/ydbplatform/local-ydb:" + YDB_VERSION);
-                    evm.put("YDB_KQP_RESULT_ROWS_LIMIT", String.valueOf(TABLESERVICE_MAX_RESULT_ROWS));
 
                     Statement ydbEnrichedStatement;
 
@@ -79,7 +83,11 @@ public final class YdbEnvAndTransportRule implements TestRule {
 
         @Override
         public Statement apply(Statement base, Description description) {
-            YdbHelperFactory factory = YdbHelperFactory.getInstance();
+            YdbEnvironment env = new YdbEnvironment();
+            YdbDockerContainer container = new YdbDockerContainer(env, new PortsGenerator());
+            container.addEnv("YDB_KQP_RESULT_ROWS_LIMIT", Integer.toString(TABLESERVICE_MAX_RESULT_ROWS));
+
+            YdbHelperFactory factory = new DockerHelperFactory(env, container);
 
             return new Statement() {
                 @Override

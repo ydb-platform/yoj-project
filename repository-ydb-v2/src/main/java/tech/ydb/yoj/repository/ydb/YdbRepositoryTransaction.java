@@ -385,10 +385,13 @@ public class YdbRepositoryTransaction<REPO extends YdbRepository>
 
         List<RESULT> result = new ArrayList<>();
         Status status = YdbOperations.safeJoin(session.executeScanQuery(yql, sdkParams, settings, rs -> {
-            if (result.size() + rs.getRowCount() > options.getScanOptions().getMaxSize()) {
+            int rowCount = result.size() + rs.getRowCount();
+            if (rowCount > options.getScanOptions().getMaxSize()) {
                 throw new ResultTruncatedException(
-                        format("Query result size became greater than %d", options.getScanOptions().getMaxSize()),
-                        yql, result.size()
+                        "Scan query result size became greater than " + options.getScanOptions().getMaxSize(),
+                        yql,
+                        options.getScanOptions().getMaxSize(),
+                        rowCount
                 );
             }
             new ResultSetConverter(rs).stream(statement::readResult).forEach(result::add);
@@ -405,8 +408,10 @@ public class YdbRepositoryTransaction<REPO extends YdbRepository>
             stream.forEach(r -> {
                 if (result.size() >= options.getScanOptions().getMaxSize()) {
                     throw new ResultTruncatedException(
-                            format("Query result size became greater than %d", options.getScanOptions().getMaxSize()),
-                            getYql(statement), result.size()
+                            format("Scan query result size became greater than %d", options.getScanOptions().getMaxSize()),
+                            getYql(statement),
+                            options.getScanOptions().getMaxSize(),
+                            result.size()
                     );
                 }
                 result.add(r);
