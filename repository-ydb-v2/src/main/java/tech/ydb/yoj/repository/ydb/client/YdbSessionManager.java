@@ -1,6 +1,5 @@
 package tech.ydb.yoj.repository.ydb.client;
 
-import com.google.common.annotations.VisibleForTesting;
 import lombok.Getter;
 import lombok.NonNull;
 import tech.ydb.core.Result;
@@ -131,7 +130,6 @@ public final class YdbSessionManager implements SessionManager {
     }
 
     @Override
-    @VisibleForTesting
     public synchronized void invalidateAllSessions() {
         shutdown();
         tableClient.reset();
