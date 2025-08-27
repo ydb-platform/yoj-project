@@ -1,6 +1,5 @@
 package tech.ydb.yoj.util.function;
 
-import com.google.common.annotations.VisibleForTesting;
 import lombok.RequiredArgsConstructor;
 import lombok.SneakyThrows;
 
@@ -47,7 +46,6 @@ public final class MoreSuppliers {
             return value;
         }
 
-        @VisibleForTesting
         public void reset() {
             synchronized (this) {
                 value = null;
