@@ -20,17 +20,6 @@ public class ResultTruncatedException extends YdbRepositoryException {
     private final long rowLimit;
     private final long rowCount;
 
-    /**
-     * @deprecated This constructor will be removed in YOJ 2.7.0.
-     * Please use the {@link ResultTruncatedException#ResultTruncatedException(String, Object, long, long)} constructor.
-     */
-    @Deprecated(forRemoval = true)
-    public ResultTruncatedException(String message, Object request, Object response) {
-        super(message, request, response);
-        this.rowCount = response instanceof Number n ? n.longValue() : -1L;
-        this.rowLimit = rowCount;
-    }
-
     public ResultTruncatedException(String message, Object request, long rowLimit, long rowCount) {
         super(message, request, "result row limit: " + rowLimit + ", result rows returned: " + rowCount);
         this.rowLimit = rowLimit;
