@@ -2,6 +2,8 @@ package tech.ydb.yoj.repository.ydb;
 
 import com.google.common.collect.ImmutableSet;
 import lombok.NonNull;
+import lombok.SneakyThrows;
+import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
@@ -50,11 +52,23 @@ public class YdbRepositoryCacheTest {
     @Mock
     private TestYdbRepository testYdbRepository;
 
+    private AutoCloseable mockitoCloseable;
+
     @Before
-    public void init() {
-        MockitoAnnotations.initMocks(this);
+    public void setUp() {
+        mockitoCloseable = MockitoAnnotations.openMocks(this);
+
         when(testYdbRepository.getSessionManager()).thenReturn(sessionManager);
+        when(testYdbRepository.getRepositorySettings()).thenReturn(TestYdbRepository.createRepositorySettings());
         when(sessionManager.getSession()).thenReturn(session);
+    }
+
+    @After
+    @SneakyThrows
+    public void tearDown() {
+        if (mockitoCloseable != null) {
+            mockitoCloseable.close();
+        }
     }
 
     @Test
