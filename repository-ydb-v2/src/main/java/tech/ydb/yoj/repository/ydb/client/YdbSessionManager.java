@@ -1,6 +1,5 @@
 package tech.ydb.yoj.repository.ydb.client;
 
-import lombok.Getter;
 import lombok.NonNull;
 import tech.ydb.core.Result;
 import tech.ydb.core.grpc.GrpcTransport;
@@ -12,9 +11,8 @@ import tech.ydb.yoj.repository.db.exception.QueryInterruptedException;
 import tech.ydb.yoj.repository.db.exception.RetryableException;
 import tech.ydb.yoj.repository.db.exception.UnavailableException;
 import tech.ydb.yoj.repository.ydb.YdbConfig;
+import tech.ydb.yoj.repository.ydb.YdbRepository;
 import tech.ydb.yoj.repository.ydb.metrics.GaugeSupplierCollector;
-import tech.ydb.yoj.util.function.MoreSuppliers;
-import tech.ydb.yoj.util.function.MoreSuppliers.CloseableMemoizer;
 
 import java.time.Duration;
 import java.util.concurrent.CancellationException;
@@ -26,10 +24,6 @@ import static tech.ydb.yoj.util.lang.Interrupts.isThreadInterrupted;
 
 @InternalApi
 public final class YdbSessionManager implements SessionManager {
-    private static final String PROP_CLIENT_IMPL = "tech.ydb.yoj.repository.ydb.client.impl";
-    private static final String CLIENT_IMPL_TABLE = "table";
-    private static final String CLIENT_IMPL_QUERY = "query";
-
     private static final GaugeSupplierCollector sessionStatCollector = GaugeSupplierCollector.build()
             .namespace("ydb")
             .subsystem("session_manager")
@@ -39,35 +33,24 @@ public final class YdbSessionManager implements SessionManager {
             .register();
 
     private final YdbConfig config;
-    private final CloseableMemoizer<TableClient> tableClient;
-    private final SessionPoolStats emptyPoolStats;
+    private final YdbRepository.Settings repositorySettings;
+    private final TableClient tableClient;
 
-    public YdbSessionManager(@NonNull YdbConfig config, GrpcTransport transport) {
+    public YdbSessionManager(@NonNull YdbConfig config, @NonNull YdbRepository.Settings repositorySettings, @NonNull GrpcTransport transport) {
         this.config = config;
-        this.tableClient = MoreSuppliers.memoizeCloseable(() -> createClient(transport));
-        this.emptyPoolStats = new EmptyPoolStats(config);
+        this.repositorySettings = repositorySettings;
+        this.tableClient = createClient(transport);
 
         sessionStatCollector
-                .labels("pending_acquire_count").supplier(() -> getPoolStats().getPendingAcquireCount())
-                .labels("acquired_count").supplier(() -> getPoolStats().getAcquiredCount())
-                .labels("idle_count").supplier(() -> getPoolStats().getIdleCount());
-    }
-
-    private TableClient getTableClient() {
-        return tableClient.get();
-    }
-
-    private SessionPoolStats getPoolStats() {
-        TableClient activeClient = tableClient.orElseNull();
-        return activeClient == null ? emptyPoolStats : activeClient.sessionPoolStats();
+                .labels("pending_acquire_count").supplier(() -> tableClient.sessionPoolStats().getPendingAcquireCount())
+                .labels("acquired_count").supplier(() -> tableClient.sessionPoolStats().getAcquiredCount())
+                .labels("idle_count").supplier(() -> tableClient.sessionPoolStats().getIdleCount());
     }
 
     private TableClient createClient(GrpcTransport transport) {
-        var impl = System.getProperty(PROP_CLIENT_IMPL, CLIENT_IMPL_TABLE);
-        var bldr = switch (impl) {
-            case CLIENT_IMPL_TABLE -> tech.ydb.table.TableClient.newClient(transport);
-            case CLIENT_IMPL_QUERY -> tech.ydb.query.impl.TableClientImpl.newClient(transport);
-            default -> throw new IllegalArgumentException("Unknown TableClient.Builder implementation: '" + impl + "'");
+        var bldr = switch (repositorySettings.queryImplementation()) {
+            case TABLE_SERVICE -> tech.ydb.table.TableClient.newClient(transport);
+            case QUERY_SERVICE -> tech.ydb.query.impl.TableClientImpl.newClient(transport);
         };
         return bldr
                 .keepQueryText(false)
@@ -79,7 +62,7 @@ public final class YdbSessionManager implements SessionManager {
 
     @Override
     public Session getSession() {
-        CompletableFuture<Result<Session>> future = getTableClient().createSession(getSessionTimeout());
+        CompletableFuture<Result<Session>> future = tableClient.createSession(getSessionTimeout());
         try {
             Result<Session> result = future.get();
             YdbValidator.validate("session create", result.getStatus().getCode(), result.toString());
@@ -130,12 +113,6 @@ public final class YdbSessionManager implements SessionManager {
     }
 
     @Override
-    public synchronized void invalidateAllSessions() {
-        shutdown();
-        tableClient.reset();
-    }
-
-    @Override
     public void shutdown() {
         tableClient.close();
     }
@@ -148,65 +125,9 @@ public final class YdbSessionManager implements SessionManager {
         // If idleCount == 0, this may mean that the application has just started, or that the database cannot handle the load.
         // To account for that case, we check pendingAcquireCount (how many clients are waiting to acquire a session),
         // and if it’s more than maxSize of the client queue, we consider the database to be unhealthy.
-        SessionPoolStats sessionPoolStats = getPoolStats();
+        SessionPoolStats sessionPoolStats = tableClient.sessionPoolStats();
         return sessionPoolStats.getIdleCount() > 0 ||
                 //todo: maybe we should consider pendingAcquireCount > 0 problematic, because there are clients waiting?
                 sessionPoolStats.getPendingAcquireCount() <= sessionPoolStats.getMaxSize();
-    }
-
-    @Getter
-    private static class EmptyPoolStats implements SessionPoolStats {
-        private final int minSize;
-        private final int maxSize;
-
-        public EmptyPoolStats(@NonNull YdbConfig config) {
-            this.minSize = config.getSessionPoolMin();
-            this.maxSize = config.getSessionPoolMax();
-        }
-
-        @Override
-        public int getIdleCount() {
-            return 0;
-        }
-
-        @Override
-        public int getAcquiredCount() {
-            return 0;
-        }
-
-        @Override
-        public int getPendingAcquireCount() {
-            return 0;
-        }
-
-        @Override
-        public long getAcquiredTotal() {
-            return 0;
-        }
-
-        @Override
-        public long getReleasedTotal() {
-            return 0;
-        }
-
-        @Override
-        public long getRequestedTotal() {
-            return 0;
-        }
-
-        @Override
-        public long getCreatedTotal() {
-            return 0;
-        }
-
-        @Override
-        public long getFailedTotal() {
-            return 0;
-        }
-
-        @Override
-        public long getDeletedTotal() {
-            return 0;
-        }
     }
 }

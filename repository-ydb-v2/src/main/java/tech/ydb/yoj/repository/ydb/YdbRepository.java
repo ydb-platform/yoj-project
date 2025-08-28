@@ -1,8 +1,10 @@
 package tech.ydb.yoj.repository.ydb;
 
+import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 import io.grpc.ClientInterceptor;
 import io.grpc.netty.shaded.io.grpc.netty.NettyChannelBuilder;
+import lombok.Builder;
 import lombok.Getter;
 import lombok.NonNull;
 import lombok.Value;
@@ -31,6 +33,7 @@ import tech.ydb.yoj.repository.ydb.compatibility.YdbSchemaCompatibilityChecker;
 import tech.ydb.yoj.repository.ydb.statement.Statement;
 import tech.ydb.yoj.util.function.MoreSuppliers;
 import tech.ydb.yoj.util.function.MoreSuppliers.CloseableMemoizer;
+import tech.ydb.yoj.util.lang.Exceptions;
 
 import java.lang.reflect.Field;
 import java.util.ArrayList;
@@ -42,7 +45,6 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.TimeUnit;
-import java.util.function.Supplier;
 
 import static java.util.stream.Collectors.toUnmodifiableSet;
 import static tech.ydb.yoj.repository.ydb.client.YdbPaths.canonicalDatabase;
@@ -51,14 +53,16 @@ public class YdbRepository implements Repository {
     private static final Logger log = LoggerFactory.getLogger(YdbRepository.class);
 
     private final GrpcTransport transport;
-    private final CloseableMemoizer<SessionManager> sessionManager;
-    private final Supplier<YdbSchemaOperations> schemaOperations;
+    private final CloseableMemoizer<SessionClient> sessionClient;
 
     @Getter
     private final String tablespace;
 
     @Getter
     private final YdbConfig config;
+
+    @Getter
+    private final Settings repositorySettings;
 
     private final ConcurrentMap<String, TableDescriptor<?>> entityClassesByTableName;
 
@@ -75,15 +79,16 @@ public class YdbRepository implements Repository {
     }
 
     public YdbRepository(@NonNull YdbConfig config, @NonNull GrpcTransport transport) {
+        this(config, Settings.DEFAULT, transport);
+    }
+
+    public YdbRepository(@NonNull YdbConfig config, @NonNull Settings repositorySettings, @NonNull GrpcTransport transport) {
         this.config = config;
+        this.repositorySettings = repositorySettings;
         this.tablespace = YdbPaths.canonicalTablespace(config.getTablespace());
         this.entityClassesByTableName = new ConcurrentHashMap<>();
         this.transport = transport;
-
-        CloseableMemoizer<SessionManager> sessionManager = MoreSuppliers.memoizeCloseable(() -> new YdbSessionManager(config, transport));
-        this.sessionManager = sessionManager;
-
-        this.schemaOperations = MoreSuppliers.memoize(() -> buildSchemaOperations(config.getTablespace(), transport, sessionManager.get()));
+        this.sessionClient = MoreSuppliers.memoizeCloseable(() -> new SessionClient(config, repositorySettings, transport));
     }
 
     private static GrpcTransport makeGrpcTransport(
@@ -160,16 +165,11 @@ public class YdbRepository implements Repository {
     }
 
     public SessionManager getSessionManager() {
-        return sessionManager.get();
+        return sessionClient.get().sessionManager;
     }
 
     public YdbSchemaOperations getSchemaOperations() {
-        return schemaOperations.get();
-    }
-
-    @NonNull
-    protected YdbSchemaOperations buildSchemaOperations(@NonNull String tablespace, GrpcTransport transport, SessionManager sessionManager) {
-        return new YdbSchemaOperations(tablespace, sessionManager, transport);
+        return sessionClient.get().schemaOperations;
     }
 
     public final void checkDataCompatibility(List<Class<? extends Entity>> entities) {
@@ -201,8 +201,7 @@ public class YdbRepository implements Repository {
 
     @Override
     public void shutdown() {
-        sessionManager.close();
-        transport.close();
+        Exceptions.dispose(sessionClient, transport);
     }
 
     @Override
@@ -246,8 +245,9 @@ public class YdbRepository implements Repository {
         schemaOperations.setTablespace(id);
         schemaOperations.snapshot(current);
         schemaOperations.setTablespace(current);
+
         // NB: We use getSessionManager() method to allow mocking YdbRepository
-        getSessionManager().invalidateAllSessions();
+        sessionClient.reset();
     }
 
     @Override
@@ -324,6 +324,87 @@ public class YdbRepository implements Repository {
         public Query<PARAMS> merge(Query<?> ps) {
             values.addAll((Collection<? extends PARAMS>) ps.getValues());
             return this;
+        }
+    }
+
+    /**
+     * Settings for YDB repository implementation.
+     *
+     * @param queryImplementation Query implementation to use (either {@code TableService} or {@code QueryService}).
+     *                            <p>The default in YOJ 2.x is {@code TableService}; it will become {@code QueryService} in YOJ 3.0.0.
+     * @param maxResultRows       Maximum result rows to return from a query, when {@code queryImplementation} is {@code QUERY_SERVICE}
+     *                            and YDB does not impose its own result set size limit.
+     *                            <p>A positive value indicates limited result rows, a negative value indicates <em>unlimited result rows</em>.
+     *                            <p>The default is {@code 10_000} rows.
+     */
+    @Builder(builderMethodName = "")
+    public record Settings(
+            @NonNull QueryImplementation queryImplementation,
+            long maxResultRows
+    ) {
+        /**
+         * Default {@code YdbRepository} settings, suitable for a wide range of practical workloads.
+         */
+        public static final Settings DEFAULT = Settings.builder().build();
+
+        public Settings {
+            Preconditions.checkArgument(maxResultRows != 0,
+                    "maxResultRows must either be > 0 (for limited result rows) or < 0 (for unlimited result rows)");
+            Preconditions.checkArgument(maxResultRows > 0 || queryImplementation != QueryImplementation.TABLE_SERVICE,
+                    "Negative maxResultRows (unlimited result rows) is not available when queryImplementation = TABLE_SERVICE");
+        }
+
+        @NonNull
+        public static SettingsBuilder builder() {
+            return new SettingsBuilder()
+                    .queryImplementation(QueryImplementation.TABLE_SERVICE)
+                    .maxResultRows(10_000L);
+        }
+    }
+
+    /**
+     * Query implementation to use for this {@code YdbRepository}.
+     */
+    public enum QueryImplementation {
+        /**
+         * Use YDB {@code TableService} to perform queries. This imposes strict limits on result set size
+         * (YDB configuration-dependent; typically 10_000 rows for production environments and 1_000 by default)
+         * and has less advanced session pool management, which may lead to lots of stale sessions in the event
+         * of YDB dynamic node loss.
+         * <p>This is the default query implementation in YOJ 2.x series; it will become non-default in YOJ 3.0.0.
+         */
+        TABLE_SERVICE,
+        /**
+         * Use YDB {@code QueryService} to perform queries. This allows unlimited result set size
+         * (when {@code YdbRepository} is {@link Settings#maxResultRows} configured this way)
+         * and enables advanced session pool management with individual keep-alive machinery for each session.
+         * <p>This will become default in YOJ 3.0.0.
+         */
+        QUERY_SERVICE
+    }
+
+    private static final class SessionClient implements AutoCloseable {
+        private final SessionManager sessionManager;
+        private final YdbSchemaOperations schemaOperations;
+
+        private SessionClient(YdbConfig config, Settings repositorySettings, GrpcTransport transport) {
+            this.sessionManager = new YdbSessionManager(config, repositorySettings, transport);
+
+            try {
+                this.schemaOperations = new YdbSchemaOperations(config.getTablespace(), this.sessionManager, transport);
+            } catch (Exception e) {
+                try {
+                    this.sessionManager.close();
+                } catch (Exception sme) {
+                    e.addSuppressed(sme);
+                }
+                throw e;
+            }
+        }
+
+        @Override
+        public void close() {
+            Exceptions.dispose(schemaOperations, sessionManager);
         }
     }
 }

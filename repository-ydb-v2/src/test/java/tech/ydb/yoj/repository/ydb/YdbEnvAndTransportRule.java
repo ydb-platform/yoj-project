@@ -25,8 +25,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 
-import static tech.ydb.yoj.repository.ydb.client.YdbValidator.TABLESERVICE_MAX_RESULT_ROWS;
-
 public final class YdbEnvAndTransportRule implements TestRule {
     public static final String YDB_VERSION = "24.4.4";
 
@@ -85,7 +83,7 @@ public final class YdbEnvAndTransportRule implements TestRule {
         public Statement apply(Statement base, Description description) {
             YdbEnvironment env = new YdbEnvironment();
             YdbDockerContainer container = new YdbDockerContainer(env, new PortsGenerator());
-            container.addEnv("YDB_KQP_RESULT_ROWS_LIMIT", Integer.toString(TABLESERVICE_MAX_RESULT_ROWS));
+            container.addEnv("YDB_KQP_RESULT_ROWS_LIMIT", Long.toString(YdbRepository.Settings.DEFAULT.maxResultRows()));
 
             YdbHelperFactory factory = new DockerHelperFactory(env, container);
 

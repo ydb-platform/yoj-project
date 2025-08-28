@@ -88,11 +88,9 @@ import java.util.stream.Stream;
 
 import static com.google.common.base.Strings.emptyToNull;
 import static java.lang.Boolean.getBoolean;
-import static java.lang.String.format;
 import static java.util.stream.Collectors.toList;
 import static lombok.AccessLevel.PRIVATE;
 import static tech.ydb.yoj.repository.ydb.client.YdbValidator.validatePkConstraint;
-import static tech.ydb.yoj.repository.ydb.client.YdbValidator.validateTruncatedResults;
 
 public class YdbRepositoryTransaction<REPO extends YdbRepository>
         implements BaseDb, RepositoryTransaction, YdbTable.QueryExecutor {
@@ -374,6 +372,35 @@ public class YdbRepositoryTransaction<REPO extends YdbRepository>
         return new ResultSetConverter(resultSet).stream(statement::readResult).collect(toList());
     }
 
+    private void validateTruncatedResults(String yql, DataQueryResult queryResult) {
+        for (int i = 0; i < queryResult.getResultSetCount(); i++) {
+            validateTruncatedResults(yql, queryResult.getResultSet(i));
+        }
+    }
+
+    private void validateTruncatedResults(String yql, ResultSetReader rs) {
+        int rowCount = rs.getRowCount();
+        if (rs.isTruncated()) {
+            throw new ResultTruncatedException(
+                    "Query results were truncated to " + rowCount + " elements; please specify a LIMIT",
+                    yql,
+                    rowCount,
+                    rowCount
+            );
+        }
+
+        long maxResultRows = repo.getRepositorySettings().maxResultRows();
+        if (maxResultRows > 0 && rowCount > maxResultRows) {
+            throw new ResultTruncatedException(
+                    "Got more query results than " + maxResultRows + " elements; please specify a LIMIT or explicitly allow larger result sets "
+                            + "by setting custom YdbRepository.Settings.maxResultRows() (negative values mean unlimited result set size)",
+                    yql,
+                    maxResultRows,
+                    rowCount
+            );
+        }
+    }
+
     private <PARAMS, RESULT> List<RESULT> doExecuteScanQueryLegacy(Statement<PARAMS, RESULT> statement, PARAMS params) {
         ExecuteScanQuerySettings settings = ExecuteScanQuerySettings.newBuilder()
                 .withRequestTimeout(options.getScanOptions().getTimeout())
@@ -408,7 +435,7 @@ public class YdbRepositoryTransaction<REPO extends YdbRepository>
             stream.forEach(r -> {
                 if (result.size() >= options.getScanOptions().getMaxSize()) {
                     throw new ResultTruncatedException(
-                            format("Scan query result size became greater than %d", options.getScanOptions().getMaxSize()),
+                            "Scan query result size became greater than " + options.getScanOptions().getMaxSize(),
                             getYql(statement),
                             options.getScanOptions().getMaxSize(),
                             result.size()

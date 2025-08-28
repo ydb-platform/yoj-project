@@ -13,39 +13,39 @@ package tech.ydb.yoj.repository.ydb.exception;
  * system property to a higher value (exactly what it will be is obviously workload-dependent). You can even set the property to a negative value,
  * meaning <em>unlimited result rows</em>; but this is <strong>highly</strong> likely to result in {@link OutOfMemoryError}s.
  *
- * @see #getRowLimit()
+ * @see #getMaxResultRows()
  * @see #getRowCount()
  */
 public class ResultTruncatedException extends YdbRepositoryException {
-    private final long rowLimit;
+    private final long maxResultRows;
     private final long rowCount;
 
-    public ResultTruncatedException(String message, Object request, long rowLimit, long rowCount) {
-        super(message, request, "result row limit: " + rowLimit + ", result rows returned: " + rowCount);
-        this.rowLimit = rowLimit;
+    public ResultTruncatedException(String message, Object request, long maxResultRows, long rowCount) {
+        super(message, request, "max result rows: " + maxResultRows + ", result rows returned: " + rowCount);
+        this.maxResultRows = maxResultRows;
         this.rowCount = rowCount;
     }
 
     /**
-     * @return The row limit being enforced. Will be equal to:
+     * @return The maximum number of result rows that is allowed by the {@code YdbRepository} being used. Will be equal to:
      * <ul>
      * <li>YDB's {@code TableService} row limit (see {@code YDB_KQP_RESULT_ROWS_LIMIT} environment variable), if {@code TableService} is used,</li>
-     * <li>the value of the {@code tech.ydb.yoj.repository.ydb.client.resultRowsLimit} Java system property (if set) or the default of {@code 10_000},
-     * if {@code QueryService} is used.
-     * <br><em>Note:</em> If you set the {@code tech.ydb.yoj.repository.ydb.client.resultRowsLimit} Java system property to a negative value,
-     * this means <em>unlimited row results</em>, and the {@code ResultTruncatedException} won't be thrown at all.</li>
+     * <li>the value of {@code tech.ydb.yoj.repository.ydb.YdbRepository.Settings#maxResultRows()} {@code YdbRepository} setting,
+     * if {@code QueryService} is used (the default is {@code 10_000} rows).
+     * <br><em>Note:</em> If you set the {@code tech.ydb.yoj.repository.ydb.YdbRepository.Settings#maxResultRows()} setting to a negative value,
+     * this means <em>unlimited row results</em>, and the {@code ResultTruncatedException} won't be thrown <em>at all</em>.</li>
      * </ul>
      */
-    public long getRowLimit() {
-        return rowLimit;
+    public long getMaxResultRows() {
+        return maxResultRows;
     }
 
     /**
      * @return The number of result rows actually returned by the query. Will be equal to:
      * <ul>
      * <li>YDB's {@code TableService} row limit (see {@code YDB_KQP_RESULT_ROWS_LIMIT} environment variable), if {@code TableService} is used,
-     * so the same as {@link #getRowLimit()},</li>
-     * <li>the total number of query result rows (higher than {@link #getRowLimit()}!), if {@code QueryService} is used.</li>
+     * so the same as {@link #getMaxResultRows()},</li>
+     * <li>the total number of query result rows (higher than {@link #getMaxResultRows()}!), if {@code QueryService} is used.</li>
      * </ul>
      */
     public long getRowCount() {

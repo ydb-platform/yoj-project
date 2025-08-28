@@ -9,8 +9,6 @@ public interface SessionManager extends AutoCloseable {
 
     void warmup();
 
-    void invalidateAllSessions();
-
     void shutdown();
 
     @Override

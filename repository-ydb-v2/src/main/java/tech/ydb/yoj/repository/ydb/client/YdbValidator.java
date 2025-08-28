@@ -1,21 +1,17 @@
 package tech.ydb.yoj.repository.ydb.client;
 
-import com.google.common.annotations.VisibleForTesting;
 import io.grpc.Context;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import tech.ydb.core.Issue;
 import tech.ydb.core.StatusCode;
-import tech.ydb.table.query.DataQueryResult;
-import tech.ydb.table.result.ResultSetReader;
 import tech.ydb.yoj.InternalApi;
 import tech.ydb.yoj.repository.db.exception.DeadlineExceededException;
 import tech.ydb.yoj.repository.db.exception.EntityAlreadyExistsException;
 import tech.ydb.yoj.repository.db.exception.OptimisticLockException;
 import tech.ydb.yoj.repository.db.exception.QueryCancelledException;
 import tech.ydb.yoj.repository.ydb.exception.BadSessionException;
-import tech.ydb.yoj.repository.ydb.exception.ResultTruncatedException;
 import tech.ydb.yoj.repository.ydb.exception.YdbClientInternalException;
 import tech.ydb.yoj.repository.ydb.exception.YdbComponentUnavailableException;
 import tech.ydb.yoj.repository.ydb.exception.YdbOverloadedException;
@@ -31,12 +27,6 @@ import static lombok.AccessLevel.PRIVATE;
 
 @InternalApi
 public final class YdbValidator {
-    @VisibleForTesting
-    public static final String PROP_RESULT_ROWS_LIMIT = "tech.ydb.yoj.repository.ydb.client.resultRowsLimit";
-
-    @VisibleForTesting
-    public static final int TABLESERVICE_MAX_RESULT_ROWS = 10_000;
-
     private static final Logger log = LoggerFactory.getLogger(YdbValidator.class);
 
     private YdbValidator() {
@@ -226,35 +216,6 @@ public final class YdbValidator {
                 return false;
             });
             throw new EntityAlreadyExistsException("Entity already exists: " + error);
-        }
-    }
-
-    public static void validateTruncatedResults(String yql, DataQueryResult queryResult) {
-        for (int i = 0; i < queryResult.getResultSetCount(); i++) {
-            validateTruncatedResults(yql, queryResult.getResultSet(i));
-        }
-    }
-
-    public static void validateTruncatedResults(String yql, ResultSetReader rs) {
-        int rowCount = rs.getRowCount();
-        if (rs.isTruncated()) {
-            throw new ResultTruncatedException(
-                    "Query results were truncated to " + rowCount + " elements; please specify a LIMIT",
-                    yql,
-                    rowCount,
-                    rowCount
-            );
-        }
-
-        int rowLimit = Integer.getInteger(PROP_RESULT_ROWS_LIMIT, TABLESERVICE_MAX_RESULT_ROWS);
-        if (rowLimit > 0 && rowCount > rowLimit) {
-            throw new ResultTruncatedException(
-                    "Got more query results than " + rowLimit + " elements; please specify a LIMIT or explicitly allow larger result sets "
-                            + "by setting the Java system property " + PROP_RESULT_ROWS_LIMIT + " (negative values mean unlimited result set size)",
-                    yql,
-                    rowLimit,
-                    rowCount
-            );
         }
     }
 

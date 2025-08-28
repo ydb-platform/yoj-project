@@ -63,6 +63,7 @@ import tech.ydb.yoj.repository.db.exception.ConversionException;
 import tech.ydb.yoj.repository.db.exception.RetryableException;
 import tech.ydb.yoj.repository.db.exception.UnavailableException;
 import tech.ydb.yoj.repository.db.list.ListRequest;
+import tech.ydb.yoj.repository.db.list.ListResult;
 import tech.ydb.yoj.repository.db.readtable.ReadTableParams;
 import tech.ydb.yoj.repository.test.RepositoryTest;
 import tech.ydb.yoj.repository.test.entity.TestEntities;
@@ -78,6 +79,7 @@ import tech.ydb.yoj.repository.test.sample.model.TtlEntity;
 import tech.ydb.yoj.repository.test.sample.model.TypeFreak;
 import tech.ydb.yoj.repository.test.sample.model.UniqueProject;
 import tech.ydb.yoj.repository.test.sample.model.WithUnflattenableField;
+import tech.ydb.yoj.repository.ydb.YdbRepository.QueryImplementation;
 import tech.ydb.yoj.repository.ydb.client.SessionManager;
 import tech.ydb.yoj.repository.ydb.compatibility.YdbSchemaCompatibilityChecker;
 import tech.ydb.yoj.repository.ydb.exception.ResultTruncatedException;
@@ -120,11 +122,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 import static org.assertj.core.api.Assertions.assertThatIllegalStateException;
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assume.assumeTrue;
 import static tech.ydb.yoj.repository.db.EntityExpressions.newFilterBuilder;
 import static tech.ydb.yoj.repository.db.EntityExpressions.newOrderBuilder;
-import static tech.ydb.yoj.repository.ydb.client.YdbValidator.PROP_RESULT_ROWS_LIMIT;
-import static tech.ydb.yoj.repository.ydb.client.YdbValidator.TABLESERVICE_MAX_RESULT_ROWS;
 
 public class YdbRepositoryIntegrationTest extends RepositoryTest {
     private final IndexedEntity e1 =
@@ -148,7 +147,7 @@ public class YdbRepositoryIntegrationTest extends RepositoryTest {
 
     @Override
     protected Repository createTestRepository() {
-        return new TestYdbRepository(getRealYdbConfig(), ydbEnvAndTransport.getGrpcTransport());
+        return TestYdbRepository.create(ydbEnvAndTransport);
     }
 
     @SneakyThrows
@@ -349,19 +348,61 @@ public class YdbRepositoryIntegrationTest extends RepositoryTest {
     }
 
     @Test
-    @SneakyThrows
-    public void truncated() {
-        SessionManager sessionManager = ((YdbRepository) this.repository).getSessionManager();
-        var sessionPkg = sessionManager.getSession().getClass().getPackage().getName();
-        int rowLimit = Integer.getInteger(PROP_RESULT_ROWS_LIMIT, TABLESERVICE_MAX_RESULT_ROWS);
-        assumeTrue(
-                "Truncation only works with TableService-based Sessions, or with " + PROP_RESULT_ROWS_LIMIT + " <= " + TABLESERVICE_MAX_RESULT_ROWS,
-                sessionPkg.startsWith("tech.ydb.table.") || (rowLimit > 0 && rowLimit <= TABLESERVICE_MAX_RESULT_ROWS)
-        );
+    public void truncatedDefault() {
+        testRowLimitEnforced((YdbRepository) this.repository, db);
+    }
 
-        int maxPageSizeBiggerThatReal = TABLESERVICE_MAX_RESULT_ROWS + 1;
+    @Test
+    public void truncatedExplicitTableService() {
+        YdbRepository ydbRepository = new TestYdbRepository(
+                getRealYdbConfig(),
+                YdbRepository.Settings.builder()
+                        .queryImplementation(QueryImplementation.TABLE_SERVICE)
+                        .build(),
+                ydbEnvAndTransport.getGrpcTransport()
+        );
+        TestDb db = new TestDbImpl<>(ydbRepository);
+
+        testRowLimitEnforced(ydbRepository, db);
+    }
+
+    @Test
+    public void truncatedExplicitQueryService() {
+        YdbRepository ydbRepository = new TestYdbRepository(
+                getRealYdbConfig(),
+                YdbRepository.Settings.builder()
+                        .queryImplementation(QueryImplementation.QUERY_SERVICE)
+                        .build(),
+                ydbEnvAndTransport.getGrpcTransport()
+        );
+        TestDb db = new TestDbImpl<>(ydbRepository);
+
+        testRowLimitEnforced(ydbRepository, db);
+    }
+
+    @Test
+    public void truncatedDisabledWithUnlimitedRowsAndExplicitQueryService() {
+        YdbRepository ydbRepository = new TestYdbRepository(
+                getRealYdbConfig(),
+                YdbRepository.Settings.builder()
+                        .queryImplementation(QueryImplementation.QUERY_SERVICE)
+                        .maxResultRows(-1L) // negative value means "unlimited rows"
+                        .build(),
+                ydbEnvAndTransport.getGrpcTransport()
+        );
+        TestDb db = new TestDbImpl<>(ydbRepository);
+
+        testRowLimitNotEnforced(ydbRepository, db);
+    }
+
+    @SneakyThrows
+    private void testRowLimitEnforced(YdbRepository ydbRepository, TestDb db) {
+        long rowLimit = ydbRepository.getRepositorySettings().maxResultRows();
+        assertThat(rowLimit).isPositive();
+
+        int maxPageSizeBiggerThatReal = (int) rowLimit + 1;
         ListRequest.Builder<Project> builder = ListRequest.builder(Project.class);
-        { // because we can't set pageSize bigger than 1k - we set it with reflection
+        { // because we can't set pageSize bigger than 1k, we set it with reflection
             Field pageSizeField = builder.getClass().getDeclaredField("pageSize");
             pageSizeField.setAccessible(true);
             pageSizeField.set(builder, maxPageSizeBiggerThatReal);
@@ -381,15 +422,47 @@ public class YdbRepositoryIntegrationTest extends RepositoryTest {
         assertThatExceptionOfType(ResultTruncatedException.class)
                 .isThrownBy(() -> db.tx(() -> db.projects().list(bigListRequest)))
                 .satisfies(te -> {
-                    assertThat(te.getRowLimit()).isEqualTo(TABLESERVICE_MAX_RESULT_ROWS);
-                    assertThat(te.getRowCount()).isGreaterThanOrEqualTo(TABLESERVICE_MAX_RESULT_ROWS);
+                    assertThat(te.getMaxResultRows()).isEqualTo(rowLimit);
+                    assertThat(te.getRowCount()).isGreaterThanOrEqualTo(rowLimit);
                 });
         assertThatExceptionOfType(ResultTruncatedException.class)
                 .isThrownBy(() -> db.tx(() -> db.projects().findAll()))
                 .satisfies(te -> {
-                    assertThat(te.getRowLimit()).isEqualTo(TABLESERVICE_MAX_RESULT_ROWS);
-                    assertThat(te.getRowCount()).isGreaterThanOrEqualTo(TABLESERVICE_MAX_RESULT_ROWS);
+                    assertThat(te.getMaxResultRows()).isEqualTo(rowLimit);
+                    assertThat(te.getRowCount()).isGreaterThanOrEqualTo(rowLimit);
                 });
+    }
+
+    @SneakyThrows
+    private void testRowLimitNotEnforced(YdbRepository ydbRepository, TestDb db) {
+        long rowLimit = ydbRepository.getRepositorySettings().maxResultRows();
+        assertThat(rowLimit).isNegative();
+
+        ListRequest.Builder<Project> builder = ListRequest.builder(Project.class);
+
+        int pageSize = (int) YdbRepository.Settings.DEFAULT.maxResultRows() + 1_000;
+        { // because we can't set pageSize bigger than 1k, we set it with reflection
+            Field pageSizeField = builder.getClass().getDeclaredField("pageSize");
+            pageSizeField.setAccessible(true);
+            pageSizeField.set(builder, pageSize);
+        }
+        ListRequest<Project> bigListRequest = builder.build();
+        ListRequest<Project> smallListRequest = ListRequest.builder(Project.class).pageSize(100).build();
+        db.tx(() -> db.projects().save(new Project(new Project.Id("id"), "name")));
+
+        db.tx(() -> db.projects().list(smallListRequest));
+        db.tx(() -> db.projects().list(bigListRequest));
+        db.tx(() -> db.projects().findAll());
+
+        db.tx(() -> IntStream.range(0, pageSize)
+                .forEach(i -> db.projects().save(new Project(new Project.Id("id_" + i), "name"))));
+
+        db.tx(() -> db.projects().list(smallListRequest));
+        Assertions.<ListResult<Project>>assertThat(db.tx(() -> db.projects().list(bigListRequest))).satisfies(listResult -> {
+            assertThat(listResult.getEntries()).hasSize(pageSize);
+            assertThat(listResult.isLastPage()).isFalse();
+        });
+        assertThat(db.tx(() -> db.projects().findAll())).hasSize(pageSize + 1);
     }
 
     @Test

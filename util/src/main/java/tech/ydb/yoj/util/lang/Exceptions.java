@@ -1,9 +1,12 @@
 package tech.ydb.yoj.util.lang;
 
 import lombok.NonNull;
+import lombok.SneakyThrows;
 
 import javax.annotation.Nullable;
+import java.util.Arrays;
 import java.util.IdentityHashMap;
+import java.util.List;
 import java.util.Set;
 
 import static java.util.Collections.newSetFromMap;
@@ -54,5 +57,52 @@ public final class Exceptions {
             current = next;
         }
         return false;
+    }
+
+    /**
+     * Closes all the specified {@link AutoCloseable} resources, collecting all exceptions received and re-throwing
+     * them as (first exception with all other exceptions in suppresssed list).
+     *
+     * @param closeables resources to close
+     * @see #dispose(List)
+     */
+    public static void dispose(@NonNull AutoCloseable... closeables) {
+        dispose(Arrays.asList(closeables));
+    }
+
+    /**
+     * Closes all the specified {@link AutoCloseable} resources, collecting all exceptions received and re-throwing
+     * them as (first exception with all other exceptions in suppresssed list).
+     *
+     * @param closeables list of resources to close
+     * @see #dispose(AutoCloseable...)
+     */
+    public static void dispose(@NonNull List</*@Nullable*/ AutoCloseable> closeables) {
+        new Disposer(closeables).close();
+    }
+
+    private record Disposer(@NonNull List</*@Nullable*/ AutoCloseable> closeables) implements AutoCloseable {
+        @Override
+        @SneakyThrows
+        public void close() {
+            Exception exception = null;
+            for (AutoCloseable c : closeables) {
+                try {
+                    if (c != null) {
+                        c.close();
+                    }
+                } catch (Exception e) {
+                    if (exception == null) {
+                        exception = e;
+                    } else {
+                        exception.addSuppressed(e);
+                    }
+                }
+            }
+
+            if (exception != null) {
+                throw exception;
+            }
+        }
     }
 }

@@ -42,6 +42,8 @@ import java.util.Set;
 import static tech.ydb.yoj.repository.ydb.yql.YqlPredicate.where;
 
 public class TestYdbRepository extends YdbRepository {
+    private static final String PROP_DEFAULT_QUERY_IMPLEMENTATION = "tech.ydb.yoj.repository.ydb.integrationTest.queryImplementation";
+
     static {
         CommonConverters.defineJsonConverter(JacksonJsonConverter.getDefault());
     }
@@ -51,12 +53,34 @@ public class TestYdbRepository extends YdbRepository {
         return new TestYdbRepositoryTransaction(this, options);
     }
 
+    public static TestYdbRepository create(YdbEnvAndTransportRule ydbEnvAndTransport) {
+        YdbConfig ydbConfig = ydbEnvAndTransport.getYdbConfig();
+        GrpcTransport transport = ydbEnvAndTransport.getGrpcTransport();
+
+        String queryImplementationProp = System.getProperty(PROP_DEFAULT_QUERY_IMPLEMENTATION);
+        if (queryImplementationProp == null) {
+            // Query implementation not overridden for this test suite => use YOJ defaults
+            return new TestYdbRepository(ydbConfig, transport);
+        } else {
+            // Query implementation overridden
+            QueryImplementation queryImplementation = QueryImplementation.valueOf(queryImplementationProp);
+            YdbRepository.Settings repositorySettings = YdbRepository.Settings.builder()
+                    .queryImplementation(queryImplementation)
+                    .build();
+            return new TestYdbRepository(ydbConfig, repositorySettings, transport);
+        }
+    }
+
     public TestYdbRepository(YdbConfig config) {
         super(config);
     }
 
     public TestYdbRepository(YdbConfig config, GrpcTransport transport) {
         super(config, transport);
+    }
+
+    public TestYdbRepository(YdbConfig config, YdbRepository.Settings repositorySettings, GrpcTransport transport) {
+        super(config, repositorySettings, transport);
     }
 
     public TestYdbRepository(YdbConfig config, AuthProvider authProvider, List<ClientInterceptor> interceptors) {
