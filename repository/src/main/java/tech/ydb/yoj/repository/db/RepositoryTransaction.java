@@ -2,6 +2,8 @@ package tech.ydb.yoj.repository.db;
 
 import tech.ydb.yoj.repository.db.cache.TransactionLocal;
 import tech.ydb.yoj.repository.db.exception.OptimisticLockException;
+import tech.ydb.yoj.repository.db.exception.RepositoryException;
+import tech.ydb.yoj.repository.db.exception.RetryableExceptionBase;
 
 /**
  * A DB transaction. Each instance <strong>must</strong> be closed with {@link #commit()} or {@link #rollback} methods
@@ -17,8 +19,12 @@ public interface RepositoryTransaction {
      * transaction statement has thrown an exception, because it means that transaction didn't 'execute normally'.
      *
      * @throws OptimisticLockException if the transaction's optimistic attempt has failed and it ought to be started over
+     * @throws tech.ydb.yoj.repository.db.exception.RetryableExceptionBase on other retryable and conditionally-retryable DB errors
+     * @throws tech.ydb.yoj.repository.db.exception.RepositoryException on other non-retryable DB errors
+     *
+     * @see #wasCommitAttempted()
      */
-    void commit() throws OptimisticLockException;
+    void commit() throws OptimisticLockException, RetryableExceptionBase, RepositoryException;
 
     /**
      * Rollbacks that transaction. This method <strong>must</strong> be called in the end unless {@link #commit()} method was chosen for calling.
@@ -31,8 +37,16 @@ public interface RepositoryTransaction {
      * <p>
      * (Note, that consistency is only checked if the transaction has 'executed normally', i.e. the last statement didn't throw an exception.
      * Otherwise this method always completes normally.)
+     *
+     * @throws tech.ydb.yoj.repository.db.exception.RetryableExceptionBase on retryable and conditionally-retryable DB errors
+     * @throws tech.ydb.yoj.repository.db.exception.RepositoryException on non-retryable DB errors
      */
-    void rollback() throws OptimisticLockException;
+    void rollback() throws RetryableExceptionBase, RepositoryException;
+
+    /**
+     * {@code true} if an attempt to {@link #commit()} the transaction was made; {@code false} otherwise
+     */
+    boolean wasCommitAttempted();
 
     TransactionLocal getTransactionLocal();
 

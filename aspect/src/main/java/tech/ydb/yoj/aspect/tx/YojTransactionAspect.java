@@ -6,6 +6,7 @@ import org.aspectj.lang.annotation.Around;
 import org.aspectj.lang.annotation.Aspect;
 import tech.ydb.yoj.repository.db.Tx;
 import tech.ydb.yoj.repository.db.TxManager;
+import tech.ydb.yoj.repository.db.exception.ConditionallyRetryableException;
 import tech.ydb.yoj.repository.db.exception.RetryableException;
 
 /**
@@ -68,7 +69,7 @@ public class YojTransactionAspect {
 
                 return localTx.tx(() -> safeCall(pjp));
             }
-        } catch (CallRetryableException | CallException e) {
+        } catch (CallRetryableException | CallConditionallyRetryableException | CallException e) {
             throw e.getCause();
         }
     }
@@ -88,17 +89,28 @@ public class YojTransactionAspect {
             return pjp.proceed();
         } catch (RetryableException e) {
             throw new CallRetryableException(e);
+        } catch (ConditionallyRetryableException e) {
+            throw new CallConditionallyRetryableException(e);
         } catch (Throwable e) {
             throw new CallException(e);
         }
     }
 
     /**
-     * It's a hint for tx manager to retry was requested
+     * It's a hint for tx manager that an unconditional retry was requested
      */
     static class CallRetryableException extends RetryableException {
         CallRetryableException(RetryableException e) {
-            super(e.getMessage(), e.getCause());
+            super(e.getMessage(), e.getRetryPolicy(), e.getCause());
+        }
+    }
+
+    /**
+     * It's a hint for tx manager that a conditional retry was requested
+     */
+    static class CallConditionallyRetryableException extends ConditionallyRetryableException {
+        CallConditionallyRetryableException(ConditionallyRetryableException e) {
+            super(e.getMessage(), e.getRetryPolicy(), e.getCause());
         }
     }
 

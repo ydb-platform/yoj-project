@@ -48,6 +48,7 @@ import tech.ydb.topic.settings.WriterSettings;
 import tech.ydb.yoj.databind.schema.Column;
 import tech.ydb.yoj.databind.schema.GlobalIndex;
 import tech.ydb.yoj.databind.schema.ObjectSchema;
+import tech.ydb.yoj.repository.db.ConditionalRetryMode;
 import tech.ydb.yoj.repository.db.Entity;
 import tech.ydb.yoj.repository.db.EntitySchema;
 import tech.ydb.yoj.repository.db.IsolationLevel;
@@ -58,9 +59,13 @@ import tech.ydb.yoj.repository.db.RepositoryTransaction;
 import tech.ydb.yoj.repository.db.StdTxManager;
 import tech.ydb.yoj.repository.db.TableDescriptor;
 import tech.ydb.yoj.repository.db.Tx;
+import tech.ydb.yoj.repository.db.TxOptions;
+import tech.ydb.yoj.repository.db.TxOptions.RetryOptions;
 import tech.ydb.yoj.repository.db.bulk.BulkParams;
 import tech.ydb.yoj.repository.db.common.CommonConverters;
+import tech.ydb.yoj.repository.db.exception.ConditionallyRetryableException;
 import tech.ydb.yoj.repository.db.exception.ConversionException;
+import tech.ydb.yoj.repository.db.exception.RepositoryException;
 import tech.ydb.yoj.repository.db.exception.RetryableException;
 import tech.ydb.yoj.repository.db.exception.UnavailableException;
 import tech.ydb.yoj.repository.db.list.ListRequest;
@@ -70,7 +75,6 @@ import tech.ydb.yoj.repository.test.RepositoryTest;
 import tech.ydb.yoj.repository.test.entity.TestEntities;
 import tech.ydb.yoj.repository.test.sample.TestDb;
 import tech.ydb.yoj.repository.test.sample.TestDbImpl;
-import tech.ydb.yoj.repository.test.sample.model.Book;
 import tech.ydb.yoj.repository.test.sample.model.Bubble;
 import tech.ydb.yoj.repository.test.sample.model.ChangefeedEntity;
 import tech.ydb.yoj.repository.test.sample.model.IndexedEntity;
@@ -106,6 +110,7 @@ import tech.ydb.yoj.repository.ydb.yql.YqlView;
 import java.lang.reflect.Field;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -487,33 +492,95 @@ public class YdbRepositoryIntegrationTest extends RepositoryTest {
     }
 
     @Test
-    public void checkDBIsUnavailable() {
-        checkTxRetryableOnRequestError(StatusCodesProtos.StatusIds.StatusCode.UNAVAILABLE);
-        checkTxRetryableOnFlushingError(StatusCodesProtos.StatusIds.StatusCode.UNAVAILABLE);
-        checkTxNonRetryableOnCommit(StatusCodesProtos.StatusIds.StatusCode.UNAVAILABLE);
+    public void checkDbIsUnavailable() {
+        var possibleRetryOptions = Stream
+                .concat(
+                        Stream.of(RetryOptions.DEFAULT),
+                        // Use all ConditionalRetryMode values because UNAVAILABLE is UNconditionally retryable:
+                        Arrays.stream(ConditionalRetryMode.values()).map(YdbRepositoryIntegrationTest::retryOptions)
+                )
+                .toList();
+        for (RetryOptions retryOptions : possibleRetryOptions) {
+            checkTxUnconditionallyRetryableOnRequest(retryOptions, StatusCodesProtos.StatusIds.StatusCode.UNAVAILABLE);
+            checkTxUnconditionallyRetryableOnFlushing(retryOptions, StatusCodesProtos.StatusIds.StatusCode.UNAVAILABLE);
+            checkTxUnconditionallyRetryableOnCommit(retryOptions, StatusCodesProtos.StatusIds.StatusCode.UNAVAILABLE);
+        }
     }
 
     @Test
-    public void checkDBIsOverloaded() {
-        checkTxRetryableOnRequestError(StatusCodesProtos.StatusIds.StatusCode.OVERLOADED);
-        checkTxRetryableOnFlushingError(StatusCodesProtos.StatusIds.StatusCode.OVERLOADED);
-        checkTxNonRetryableOnCommit(StatusCodesProtos.StatusIds.StatusCode.OVERLOADED);
+    public void checkDbIsOverloaded() {
+        var possibleRetryOptions = Stream
+                .concat(
+                        Stream.of(RetryOptions.DEFAULT),
+                        // Use all ConditionalRetryMode values because OVERLOADED is UNconditionally retryable:
+                        Arrays.stream(ConditionalRetryMode.values()).map(YdbRepositoryIntegrationTest::retryOptions)
+                )
+                .toList();
+        for (RetryOptions retryOptions : possibleRetryOptions) {
+            checkTxUnconditionallyRetryableOnRequest(retryOptions, StatusCodesProtos.StatusIds.StatusCode.OVERLOADED);
+            checkTxUnconditionallyRetryableOnFlushing(retryOptions, StatusCodesProtos.StatusIds.StatusCode.OVERLOADED);
+            checkTxUnconditionallyRetryableOnCommit(retryOptions, StatusCodesProtos.StatusIds.StatusCode.OVERLOADED);
+        }
     }
 
     @Test
-    public void checkDBSessionBusy() {
-        checkTxRetryableOnRequestError(StatusCodesProtos.StatusIds.StatusCode.PRECONDITION_FAILED);
-        checkTxRetryableOnFlushingError(StatusCodesProtos.StatusIds.StatusCode.PRECONDITION_FAILED);
-        checkTxNonRetryableOnCommit(StatusCodesProtos.StatusIds.StatusCode.PRECONDITION_FAILED);
+    public void checkDbIsUndetermined() {
+        checkTxConditionallyRetryableOnRequest(RetryOptions.DEFAULT, StatusCodesProtos.StatusIds.StatusCode.UNDETERMINED);
+        checkTxConditionallyRetryableOnFlushing(RetryOptions.DEFAULT, StatusCodesProtos.StatusIds.StatusCode.UNDETERMINED);
+        checkTxUnavailableOnCommit(RetryOptions.DEFAULT, StatusCodesProtos.StatusIds.StatusCode.UNDETERMINED);
 
-        checkTxRetryableOnRequestError(StatusCodesProtos.StatusIds.StatusCode.SESSION_BUSY);
-        checkTxRetryableOnFlushingError(StatusCodesProtos.StatusIds.StatusCode.SESSION_BUSY);
-        checkTxNonRetryableOnCommit(StatusCodesProtos.StatusIds.StatusCode.SESSION_BUSY);
+        checkTxConditionallyRetryableOnRequest(retryOptions(ConditionalRetryMode.ALWAYS), StatusCodesProtos.StatusIds.StatusCode.UNDETERMINED);
+        checkTxConditionallyRetryableOnFlushing(retryOptions(ConditionalRetryMode.ALWAYS), StatusCodesProtos.StatusIds.StatusCode.UNDETERMINED);
+        checkTxConditionallyRetryableOnCommit(retryOptions(ConditionalRetryMode.ALWAYS), StatusCodesProtos.StatusIds.StatusCode.UNDETERMINED);
+
+        checkTxConditionallyRetryableOnRequest(retryOptions(ConditionalRetryMode.UNTIL_COMMIT), StatusCodesProtos.StatusIds.StatusCode.UNDETERMINED);
+        checkTxConditionallyRetryableOnFlushing(retryOptions(ConditionalRetryMode.UNTIL_COMMIT), StatusCodesProtos.StatusIds.StatusCode.UNDETERMINED);
+        checkTxUnavailableOnCommit(retryOptions(ConditionalRetryMode.UNTIL_COMMIT), StatusCodesProtos.StatusIds.StatusCode.UNDETERMINED);
+
+        checkTxUnavailableOnRequest(retryOptions(ConditionalRetryMode.NEVER), StatusCodesProtos.StatusIds.StatusCode.UNDETERMINED);
+        checkTxUnavailableOnFlushing(retryOptions(ConditionalRetryMode.NEVER), StatusCodesProtos.StatusIds.StatusCode.UNDETERMINED);
+        checkTxUnavailableOnCommit(retryOptions(ConditionalRetryMode.NEVER), StatusCodesProtos.StatusIds.StatusCode.UNDETERMINED);
+    }
+
+    @Test
+    public void checkDbPreconditionFailed() {
+        var possibleRetryOptions = Stream
+                .concat(
+                        Stream.of(RetryOptions.DEFAULT),
+                        // Use all ConditionalRetryMode values because PRECONDITION_FAILED is UNconditionally NON-retryable:
+                        Arrays.stream(ConditionalRetryMode.values()).map(YdbRepositoryIntegrationTest::retryOptions)
+                )
+                .toList();
+        for (RetryOptions retryOptions : possibleRetryOptions) {
+            checkTxNonRetryableOnRequest(retryOptions, StatusCodesProtos.StatusIds.StatusCode.PRECONDITION_FAILED);
+            checkTxNonRetryableOnFlushing(retryOptions, StatusCodesProtos.StatusIds.StatusCode.PRECONDITION_FAILED);
+            checkTxNonRetryableOnCommit(retryOptions, StatusCodesProtos.StatusIds.StatusCode.PRECONDITION_FAILED);
+        }
+    }
+
+    @Test
+    public void checkDbSessionBusy() {
+        var possibleRetryOptions = Stream
+                .concat(
+                        Stream.of(RetryOptions.DEFAULT),
+                        // Use all ConditionalRetryMode values because SESSION_BUSY is UNconditionally retryable:
+                        Arrays.stream(ConditionalRetryMode.values()).map(YdbRepositoryIntegrationTest::retryOptions)
+                )
+                .toList();
+        for (RetryOptions retryOptions : possibleRetryOptions) {
+            checkTxUnconditionallyRetryableOnRequest(retryOptions, StatusCodesProtos.StatusIds.StatusCode.SESSION_BUSY);
+            checkTxUnconditionallyRetryableOnFlushing(retryOptions, StatusCodesProtos.StatusIds.StatusCode.SESSION_BUSY);
+            checkTxUnconditionallyRetryableOnCommit(retryOptions, StatusCodesProtos.StatusIds.StatusCode.SESSION_BUSY);
+        }
+    }
+
+    private static RetryOptions retryOptions(ConditionalRetryMode crm) {
+        return RetryOptions.builder().conditionalRetryMode(crm).build();
     }
 
     @Test
     public void subdirTable() {
-        Assertions.assertThat(((YdbRepository) repository).getSchemaOperations().getTableNames(true))
+        assertThat(((YdbRepository) repository).getSchemaOperations().getTableNames(true))
                 .contains("subdir/SubdirEntity");
     }
 
@@ -935,15 +1002,68 @@ public class YdbRepositoryIntegrationTest extends RepositoryTest {
         assertEquals(expectRows, actual);
     }
 
-    private void checkTxRetryableOnRequestError(StatusCodesProtos.StatusIds.StatusCode statusCode) {
+    private void checkTxNonRetryableOnRequest(RetryOptions retryOptions, StatusCodesProtos.StatusIds.StatusCode statusCode) {
+        checkTxOnRequest(retryOptions, statusCode, RepositoryException.class);
+    }
+
+    private void checkTxUnavailableOnRequest(RetryOptions retryOptions, StatusCodesProtos.StatusIds.StatusCode statusCode) {
+        checkTxOnRequest(retryOptions, statusCode, UnavailableException.class);
+    }
+
+    private void checkTxUnconditionallyRetryableOnRequest(RetryOptions retryOptions, StatusCodesProtos.StatusIds.StatusCode statusCode) {
+        checkTxOnRequest(retryOptions, statusCode, RetryableException.class);
+    }
+
+    private void checkTxConditionallyRetryableOnRequest(RetryOptions retryOptions, StatusCodesProtos.StatusIds.StatusCode statusCode) {
+        checkTxOnRequest(retryOptions, statusCode, ConditionallyRetryableException.class);
+    }
+
+    private void checkTxNonRetryableOnFlushing(RetryOptions retryOptions, StatusCodesProtos.StatusIds.StatusCode statusCode) {
+        checkTxErrorOnFlushing(retryOptions, statusCode, RepositoryException.class);
+    }
+
+    private void checkTxUnavailableOnFlushing(RetryOptions retryOptions, StatusCodesProtos.StatusIds.StatusCode statusCode) {
+        checkTxErrorOnFlushing(retryOptions, statusCode, UnavailableException.class);
+    }
+
+    private void checkTxUnconditionallyRetryableOnFlushing(RetryOptions retryOptions, StatusCodesProtos.StatusIds.StatusCode statusCode) {
+        checkTxErrorOnFlushing(retryOptions, statusCode, RetryableException.class);
+    }
+
+    private void checkTxConditionallyRetryableOnFlushing(RetryOptions retryOptions, StatusCodesProtos.StatusIds.StatusCode statusCode) {
+        checkTxErrorOnFlushing(retryOptions, statusCode, ConditionallyRetryableException.class);
+    }
+
+    private void checkTxNonRetryableOnCommit(RetryOptions retryOptions, StatusCodesProtos.StatusIds.StatusCode statusCode) {
+        checkTxErrorOnCommit(retryOptions, statusCode, RepositoryException.class);
+    }
+
+    private void checkTxUnavailableOnCommit(RetryOptions retryOptions, StatusCodesProtos.StatusIds.StatusCode statusCode) {
+        checkTxErrorOnCommit(retryOptions, statusCode, UnavailableException.class);
+    }
+
+    private void checkTxUnconditionallyRetryableOnCommit(RetryOptions retryOptions, StatusCodesProtos.StatusIds.StatusCode statusCode) {
+        checkTxErrorOnCommit(retryOptions, statusCode, RetryableException.class);
+    }
+
+    private void checkTxConditionallyRetryableOnCommit(RetryOptions retryOptions, StatusCodesProtos.StatusIds.StatusCode statusCode) {
+        checkTxErrorOnCommit(retryOptions, statusCode, ConditionallyRetryableException.class);
+    }
+
+    private void checkTxOnRequest(RetryOptions retryOptions,
+                                  StatusCodesProtos.StatusIds.StatusCode statusCode,
+                                  Class<? extends Throwable> exceptionType) {
         YdbRepository proxiedRepository = new YdbRepository(getProxyServerConfig());
 
         try {
-            RepositoryTransaction tx = proxiedRepository.startTransaction();
+            RepositoryTransaction tx = proxiedRepository.startTransaction(
+                    TxOptions.create(IsolationLevel.SERIALIZABLE_READ_WRITE)
+                            .withRetryOptions(retryOptions)
+            );
             runWithModifiedStatusCode(
                     statusCode,
                     () -> {
-                        assertThatExceptionOfType(RetryableException.class)
+                        assertThatExceptionOfType(exceptionType)
                                 .isThrownBy(tx.table(Project.class)::findAll);
 
                         // This rollback is only a silent DB rollback, since the last transaction statement was exceptional.
@@ -956,16 +1076,21 @@ public class YdbRepositoryIntegrationTest extends RepositoryTest {
         }
     }
 
-    private void checkTxRetryableOnFlushingError(StatusCodesProtos.StatusIds.StatusCode statusCode) {
+    private void checkTxErrorOnFlushing(RetryOptions retryOptions,
+                                        StatusCodesProtos.StatusIds.StatusCode statusCode,
+                                        Class<? extends Throwable> exceptionType) {
         YdbRepository proxiedRepository = new YdbRepository(getProxyServerConfig());
 
         try {
             runWithModifiedStatusCode(
                     statusCode,
                     () -> {
-                        RepositoryTransaction tx = proxiedRepository.startTransaction();
+                        RepositoryTransaction tx = proxiedRepository.startTransaction(
+                                TxOptions.create(IsolationLevel.SERIALIZABLE_READ_WRITE)
+                                        .withRetryOptions(retryOptions)
+                        );
                         tx.table(Project.class).save(new Project(new Project.Id("1"), "x"));
-                        assertThatExceptionOfType(RetryableException.class)
+                        assertThatExceptionOfType(exceptionType)
                                 .isThrownBy(tx::commit);
                     }
             );
@@ -974,16 +1099,21 @@ public class YdbRepositoryIntegrationTest extends RepositoryTest {
         }
     }
 
-    private void checkTxNonRetryableOnCommit(StatusCodesProtos.StatusIds.StatusCode statusCode) {
+    private void checkTxErrorOnCommit(RetryOptions retryOptions,
+                                      StatusCodesProtos.StatusIds.StatusCode statusCode,
+                                      Class<? extends Throwable> exceptionType) {
         YdbRepository proxiedRepository = new YdbRepository(getProxyServerConfig());
 
         try {
-            RepositoryTransaction tx = proxiedRepository.startTransaction();
+            RepositoryTransaction tx = proxiedRepository.startTransaction(
+                    TxOptions.create(IsolationLevel.SERIALIZABLE_READ_WRITE)
+                            .withRetryOptions(retryOptions)
+            );
             tx.table(Project.class).findAll();
 
             runWithModifiedStatusCode(
                     statusCode,
-                    () -> assertThatExceptionOfType(UnavailableException.class)
+                    () -> assertThatExceptionOfType(exceptionType)
                             .isThrownBy(tx::commit)
             );
         } finally {
