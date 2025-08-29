@@ -1,5 +1,6 @@
 package tech.ydb.yoj.repository.test.inmemory;
 
+import com.google.common.base.Preconditions;
 import com.google.common.base.Stopwatch;
 import com.google.common.collect.Iterables;
 import lombok.Getter;
@@ -23,7 +24,10 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 
 public class InMemoryRepositoryTransaction implements BaseDb, RepositoryTransaction {
-    private final static AtomicLong txIdGenerator = new AtomicLong();
+    private static final String CLOSE_ACTION_COMMIT = "commit()";
+    private static final String CLOSE_ACTION_ROLLBACK = "rollback()";
+
+    private static final AtomicLong txIdGenerator = new AtomicLong();
 
     private final long txId = txIdGenerator.incrementAndGet();
     private final Stopwatch txStopwatch = Stopwatch.createStarted();
@@ -81,7 +85,12 @@ public class InMemoryRepositoryTransaction implements BaseDb, RepositoryTransact
         if (isBadSession) {
             throw new IllegalStateException("Transaction was invalidated. Commit isn't possible");
         }
-        endTransaction("commit()", this::commitImpl);
+        endTransaction(CLOSE_ACTION_COMMIT, this::commitImpl);
+    }
+
+    @Override
+    public boolean wasCommitAttempted() {
+        return CLOSE_ACTION_COMMIT.equals(closeAction);
     }
 
     private void commitImpl() {
@@ -101,7 +110,7 @@ public class InMemoryRepositoryTransaction implements BaseDb, RepositoryTransact
 
     @Override
     public void rollback() {
-        endTransaction("rollback()", this::rollbackImpl);
+        endTransaction(CLOSE_ACTION_ROLLBACK, this::rollbackImpl);
     }
 
     private void rollbackImpl() {
@@ -109,6 +118,7 @@ public class InMemoryRepositoryTransaction implements BaseDb, RepositoryTransact
     }
 
     private void endTransaction(String action, Runnable runnable) {
+        ensureTransactionActive();
         try {
             if (isFinalActionNeeded(action)) {
                 logTransaction(action, runnable);
@@ -134,6 +144,7 @@ public class InMemoryRepositoryTransaction implements BaseDb, RepositoryTransact
     final <T extends Entity<T>> void doInWriteTransaction(
             String log, TableDescriptor<T> tableDescriptor, Consumer<WriteTxDataShard<T>> consumer
     ) {
+        ensureTransactionActive();
         if (options.isScan()) {
             throw new IllegalTransactionScanException("Mutable operations");
         }
@@ -158,6 +169,7 @@ public class InMemoryRepositoryTransaction implements BaseDb, RepositoryTransact
     final <T extends Entity<T>, R> R doInTransaction(
             String action, TableDescriptor<T> tableDescriptor, Function<ReadOnlyTxDataShard<T>, R> func
     ) {
+        ensureTransactionActive();
         return logTransaction(action, () -> {
             InMemoryTxLockWatcher findWatcher = hasWrites ? watcher : InMemoryTxLockWatcher.NO_LOCKS;
             ReadOnlyTxDataShard<T> shard = storage.getReadOnlyTxDataShard(
@@ -180,10 +192,6 @@ public class InMemoryRepositoryTransaction implements BaseDb, RepositoryTransact
     }
 
     private <R> R logTransaction(String action, Supplier<R> supplier) {
-        if (closeAction != null) {
-            throw new IllegalStateException("Transaction already closed by " + closeAction);
-        }
-
         Stopwatch sw = Stopwatch.createStarted();
         try {
             R result = supplier.get();
@@ -193,6 +201,10 @@ public class InMemoryRepositoryTransaction implements BaseDb, RepositoryTransact
             transactionLocal.log().debug("[ %s ] %s => %s", sw, action, t);
             throw t;
         }
+    }
+
+    private void ensureTransactionActive() {
+        Preconditions.checkState(closeAction == null, "Transaction already closed by %s", closeAction);
     }
 
     private String printResult(Object result) {

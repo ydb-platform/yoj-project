@@ -19,7 +19,7 @@ public sealed abstract class RepositoryException
             IllegalTransactionException,
             SchemaException,
             // non-sealed
-            RetryableException,
+            RetryableExceptionBase,
             ImplementationSpecificRepositoryException
 {
     public RepositoryException(String message) {

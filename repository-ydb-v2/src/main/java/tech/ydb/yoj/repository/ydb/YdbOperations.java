@@ -5,7 +5,7 @@ import tech.ydb.yoj.repository.db.exception.InternalRepositoryException;
 import tech.ydb.yoj.repository.db.exception.QueryInterruptedException;
 import tech.ydb.yoj.repository.db.exception.RepositoryException;
 import tech.ydb.yoj.repository.db.exception.UnavailableException;
-import tech.ydb.yoj.repository.ydb.exception.YdbRepositoryException;
+import tech.ydb.yoj.repository.ydb.exception.UnexpectedException;
 
 import java.time.Duration;
 import java.util.concurrent.CancellationException;
@@ -15,7 +15,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
-import static tech.ydb.yoj.repository.ydb.client.YdbValidator.checkGrpcContextStatus;
+import static tech.ydb.yoj.repository.ydb.client.YdbValidator.checkGrpcTimeoutAndCancellation;
 import static tech.ydb.yoj.util.lang.Interrupts.isThreadInterrupted;
 
 @InternalApi
@@ -40,7 +40,7 @@ public final class YdbOperations {
             Thread.currentThread().interrupt();
             return new QueryInterruptedException("DB query interrupted", ex);
         }
-        checkGrpcContextStatus(ex.getMessage(), ex);
+        checkGrpcTimeoutAndCancellation(ex.getMessage(), ex);
 
         return new UnavailableException("DB is unavailable", ex);
     }
@@ -55,7 +55,7 @@ public final class YdbOperations {
         } else if (ex instanceof TimeoutException) {
             return convertToUnavailable(ex);
         } else if (ex instanceof ExecutionException) {
-            return new YdbRepositoryException("ExecutionException was caught", ex.getCause());
+            return new UnexpectedException("Caught unexpected ExecutionException", ex.getCause());
         } else if (ex instanceof RepositoryException) {
             return (RepositoryException) ex;
         } else {

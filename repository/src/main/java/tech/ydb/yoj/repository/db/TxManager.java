@@ -2,6 +2,7 @@ package tech.ydb.yoj.repository.db;
 
 import lombok.NonNull;
 import tech.ydb.yoj.ExperimentalApi;
+import tech.ydb.yoj.repository.db.TxOptions.RetryOptions;
 import tech.ydb.yoj.repository.db.cache.TransactionLog;
 import tech.ydb.yoj.repository.db.exception.DeadlineExceededException;
 import tech.ydb.yoj.repository.db.exception.OptimisticLockException;
@@ -195,6 +196,16 @@ public interface TxManager {
     TxManager withTracingFilter(@NonNull QueryTracingFilter tracingFilter);
 
     /**
+     * <strong>Experimental API:</strong> Configures advanced retry options for this {@code TxManager}, e.g., retrying the transaction
+     * if it fails with a <em>conditionally-retryable</em> error on commit (and it's not known whether it was committed or not).
+     *
+     * @param retryOptions advanced retry options to use
+     * @return {@code TxManager} instance with retry options set
+     */
+    @ExperimentalApi(issue = "https://github.com/ydb-platform/yoj-project/issues/165")
+    TxManager withRetryOptions(@NonNull RetryOptions retryOptions);
+
+    /**
      * Performs the specified action inside a transaction. The action must be idempotent, because it might be executed
      * multiple times in case of {@link OptimisticLockException transaction lock
      * invalidation}.
@@ -214,13 +225,16 @@ public interface TxManager {
     void tx(Runnable runnable);
 
     /**
-     * Start a transaction-like session of read-only statements. Each statement will be executed <em>separately</em>,
-     * with the specified isolation level (online consistent read-only, by default).
-     * <p>YDB doesn't currently support multi-statement read-only transactions. If you perform more than one read, be
-     * ready to handle potential inconsistencies between the reads.
-     * <p>You can also use {@code readOnly().run(() -> [table].readTable(...));} to efficiently read data from the table
-     * without interfering with OLTP transactions. In this case, data consistency is similar to snapshot isolation. If
-     * perform more than one {@code readTable()}, be ready to handle potential inconsistencies between the reads.
+     * Start a transaction-like session of read-only statements.
+     * <ul>
+     * <li>If you need a true multi-statement read-only transaction, use the {@link IsolationLevel#SNAPSHOT snapshot isolation}
+     * level by calling {@code readOnly().withStatementIsolationLevel(SNAPSHOT).run(your lambda...)}.</li>
+     * <li>On a non-{@code SNAPSHOT} read-only isolation level (which is the default!), you must be ready to handle
+     * potential inconsistencies between the reads, because every query is essentially in its own read-only transaction.</li>
+     * <li>You can also use {@code readOnly().run(() -> [table].readTable(...));} to efficiently read data from the table
+     * without interfering with OLTP transactions. In this case, data consistency is similar to snapshot isolation.
+     * If you perform more than one {@code readTable()} call, be ready to handle potential inconsistencies between the reads.</li>
+     * </ul>
      */
     ReadonlyBuilder readOnly();
 
