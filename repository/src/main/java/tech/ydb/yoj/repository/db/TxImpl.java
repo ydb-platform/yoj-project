@@ -87,7 +87,7 @@ final class TxImpl implements Tx {
 
         if (dryRun) {
             doRollback(true,
-                    String.format("[%s]" + "runInTx(): Rollback because dry-run transaction read inconsistent data", sw));
+                    String.format("[%s] runInTx(): Rollback because dry-run transaction read inconsistent data", sw));
             log.debug("[{}] runInTx(): Rollback due to dry-run mode {}", sw, formatExecutionLogMultiline("# "));
             return res;
         }

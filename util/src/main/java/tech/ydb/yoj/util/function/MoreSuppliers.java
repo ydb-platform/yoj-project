@@ -23,7 +23,7 @@ public final class MoreSuppliers {
     @RequiredArgsConstructor(access = PRIVATE)
     public static class Memoizer<T> implements Supplier<T> {
         protected final Supplier<T> delegate;
-        private volatile T value;
+        protected volatile T value;
 
         @Override
         public T get() {
@@ -63,6 +63,16 @@ public final class MoreSuppliers {
             T t = orElseNull();
             if (t != null) {
                 t.close();
+            }
+        }
+
+        public void reset() {
+            synchronized (this) {
+                try {
+                    close();
+                } finally {
+                    value = null;
+                }
             }
         }
 

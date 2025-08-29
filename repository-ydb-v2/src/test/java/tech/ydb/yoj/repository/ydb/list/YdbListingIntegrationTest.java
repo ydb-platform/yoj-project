@@ -23,7 +23,7 @@ public class YdbListingIntegrationTest extends ListingTest {
 
     @Override
     protected Repository createTestRepository() {
-        return new TestYdbRepository(ydbEnvAndTransport.getYdbConfig(), ydbEnvAndTransport.getGrpcTransport());
+        return TestYdbRepository.create(ydbEnvAndTransport);
     }
 
     @Test

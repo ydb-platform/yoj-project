@@ -42,6 +42,8 @@ import java.util.Set;
 import static tech.ydb.yoj.repository.ydb.yql.YqlPredicate.where;
 
 public class TestYdbRepository extends YdbRepository {
+    private static final String PROP_DEFAULT_QUERY_IMPLEMENTATION = "tech.ydb.yoj.repository.ydb.integrationTest.queryImplementation";
+
     static {
         CommonConverters.defineJsonConverter(JacksonJsonConverter.getDefault());
     }
@@ -51,12 +53,51 @@ public class TestYdbRepository extends YdbRepository {
         return new TestYdbRepositoryTransaction(this, options);
     }
 
+    public static TestYdbRepository create(YdbEnvAndTransportRule ydbEnvAndTransport) {
+        YdbConfig ydbConfig = ydbEnvAndTransport.getYdbConfig();
+        GrpcTransport transport = ydbEnvAndTransport.getGrpcTransport();
+
+        String queryImplementationProp = System.getProperty(PROP_DEFAULT_QUERY_IMPLEMENTATION);
+        if (queryImplementationProp == null) {
+            // Query implementation not overridden for this test suite => use YOJ defaults
+            return new TestYdbRepository(ydbConfig, transport);
+        } else {
+            // Query implementation overridden
+            return new TestYdbRepository(ydbConfig, createRepositorySettings(), transport);
+        }
+    }
+
+    public static YdbRepository.Settings createRepositorySettings() {
+        String queryImplementationProp = System.getProperty(PROP_DEFAULT_QUERY_IMPLEMENTATION);
+        if (queryImplementationProp == null) {
+            // Query implementation not overridden for this test suite => use YOJ defaults
+            return YdbRepository.Settings.builder()
+                    // TODO(nvamelichev@): Change to QueryService in YOJ 3.0.0
+                    .queryImplementation(new QueryImplementation.TableService())
+                    .build();
+        } else {
+            // Query implementation overridden
+            QueryImplementation queryImplementation = switch (queryImplementationProp) {
+                case "TABLE_SERVICE" -> new QueryImplementation.TableService();
+                case "QUERY_SERVICE" -> new QueryImplementation.QueryService();
+                default -> throw new UnsupportedOperationException("Unknown QueryImplementation: '" + queryImplementationProp + "'");
+            };
+            return YdbRepository.Settings.builder()
+                    .queryImplementation(queryImplementation)
+                    .build();
+        }
+    }
+
     public TestYdbRepository(YdbConfig config) {
         super(config);
     }
 
     public TestYdbRepository(YdbConfig config, GrpcTransport transport) {
         super(config, transport);
+    }
+
+    public TestYdbRepository(YdbConfig config, YdbRepository.Settings repositorySettings, GrpcTransport transport) {
+        super(config, repositorySettings, transport);
     }
 
     public TestYdbRepository(YdbConfig config, AuthProvider authProvider, List<ClientInterceptor> interceptors) {

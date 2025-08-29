@@ -42,9 +42,12 @@ import tech.ydb.yoj.repository.BaseDb;
 import tech.ydb.yoj.repository.db.Entity;
 import tech.ydb.yoj.repository.db.IsolationLevel;
 import tech.ydb.yoj.repository.db.QueryStatsMode;
+import tech.ydb.yoj.repository.db.QueryTracingFilter;
+import tech.ydb.yoj.repository.db.QueryType;
 import tech.ydb.yoj.repository.db.RepositoryTransaction;
 import tech.ydb.yoj.repository.db.Table;
 import tech.ydb.yoj.repository.db.TableDescriptor;
+import tech.ydb.yoj.repository.db.Tx;
 import tech.ydb.yoj.repository.db.TxOptions;
 import tech.ydb.yoj.repository.db.bulk.BulkParams;
 import tech.ydb.yoj.repository.db.cache.RepositoryCache;
@@ -85,11 +88,9 @@ import java.util.stream.Stream;
 
 import static com.google.common.base.Strings.emptyToNull;
 import static java.lang.Boolean.getBoolean;
-import static java.lang.String.format;
 import static java.util.stream.Collectors.toList;
 import static lombok.AccessLevel.PRIVATE;
 import static tech.ydb.yoj.repository.ydb.client.YdbValidator.validatePkConstraint;
-import static tech.ydb.yoj.repository.ydb.client.YdbValidator.validateTruncatedResults;
 
 public class YdbRepositoryTransaction<REPO extends YdbRepository>
         implements BaseDb, RepositoryTransaction, YdbTable.QueryExecutor {
@@ -371,6 +372,21 @@ public class YdbRepositoryTransaction<REPO extends YdbRepository>
         return new ResultSetConverter(resultSet).stream(statement::readResult).collect(toList());
     }
 
+    private void validateTruncatedResults(String yql, DataQueryResult queryResult) {
+        for (int i = 0; i < queryResult.getResultSetCount(); i++) {
+            ResultSetReader rs = queryResult.getResultSet(i);
+            int rowCount = rs.getRowCount();
+            if (rs.isTruncated()) {
+                throw new ResultTruncatedException(
+                        "Query results were truncated to " + rowCount + " elements; please specify a LIMIT",
+                        yql,
+                        rowCount,
+                        rowCount
+                );
+            }
+        }
+    }
+
     private <PARAMS, RESULT> List<RESULT> listScanQueryLegacy(Statement<PARAMS, RESULT> statement, PARAMS params) {
         ExecuteScanQuerySettings settings = ExecuteScanQuerySettings.newBuilder()
                 .withRequestTimeout(options.getScanOptions().getTimeout())
@@ -382,10 +398,13 @@ public class YdbRepositoryTransaction<REPO extends YdbRepository>
 
         List<RESULT> result = new ArrayList<>();
         Status status = YdbOperations.safeJoin(session.executeScanQuery(yql, sdkParams, settings, rs -> {
-            if (result.size() + rs.getRowCount() > options.getScanOptions().getMaxSize()) {
+            int rowCount = result.size() + rs.getRowCount();
+            if (rowCount > options.getScanOptions().getMaxSize()) {
                 throw new ResultTruncatedException(
-                        format("Query result size became greater than %d", options.getScanOptions().getMaxSize()),
-                        yql, result.size()
+                        "Scan query result size became greater than " + options.getScanOptions().getMaxSize(),
+                        yql,
+                        options.getScanOptions().getMaxSize(),
+                        rowCount
                 );
             }
             new ResultSetConverter(rs).stream(statement::readResult).forEach(result::add);
@@ -402,8 +421,10 @@ public class YdbRepositoryTransaction<REPO extends YdbRepository>
             stream.forEach(r -> {
                 if (result.size() >= options.getScanOptions().getMaxSize()) {
                     throw new ResultTruncatedException(
-                            format("Query result size became greater than %d", options.getScanOptions().getMaxSize()),
-                            getYql(statement), result.size()
+                            "Scan query result size became greater than " + options.getScanOptions().getMaxSize(),
+                            getYql(statement),
+                            options.getScanOptions().getMaxSize(),
+                            result.size()
                     );
                 }
                 result.add(r);
@@ -520,7 +541,7 @@ public class YdbRepositoryTransaction<REPO extends YdbRepository>
                                             )
                                     )
                     )
-            ).toArray(tech.ydb.table.values.Value[]::new);
+            ).toArray(Value[]::new);
 
             var settings = new BulkUpsertSettings();
             settings.setTimeout(params.getTimeout());
@@ -687,6 +708,11 @@ public class YdbRepositoryTransaction<REPO extends YdbRepository>
     }
 
     private void trace(@NonNull Statement<?, ?> statement, Object params, Throwable thrown, Object results) {
+        var tracingFilter = options.getTracingFilter();
+        if (!shouldTrace(tracingFilter, statement, thrown)) {
+            return;
+        }
+
         var txId = firstNonNullTxId;
         var sessionId = session == null ? null : session.getId();
         var tablespace = repo.getTablespace();
@@ -695,6 +721,31 @@ public class YdbRepositoryTransaction<REPO extends YdbRepository>
                 txId, sessionId, tablespace,
                 params, thrown, results
         ));
+    }
+
+    private boolean shouldTrace(@Nullable QueryTracingFilter tracingFilter, @NonNull Statement<?, ?> statement, Throwable thrown) {
+        if (tracingFilter == null || tracingFilter == QueryTracingFilter.ENABLE_ALL) {
+            return true;
+        }
+        if (tracingFilter == QueryTracingFilter.DISABLE_ALL) {
+            return false;
+        }
+
+        // NB: we have to return txName = "???" for a RepositoryTransaction has been created not by TxManager+Tx,
+        // but manually by calling Repository.startTransaction() (and thus has no Tx.Current thread-local value).
+        // I (@nvamelichev) know of NO production code that uses that low-level YOJ API directly, except for YOJ tests.
+        var txName = Tx.Current.exists() ? Tx.Current.get().getName() : "???";
+
+        var queryType = switch (statement.getQueryType()) {
+            case UNTYPED -> QueryType.GENERIC;
+            case SELECT -> QueryType.FIND;
+            case INSERT -> QueryType.INSERT;
+            case UPSERT -> QueryType.SAVE;
+            case UPDATE -> QueryType.UPDATE;
+            case DELETE, DELETE_ALL -> QueryType.DELETE;
+        };
+
+        return tracingFilter.shouldTrace(txName, options, queryType, thrown);
     }
 
     private List<?> logQueryStats(QueryStats queryStats) {

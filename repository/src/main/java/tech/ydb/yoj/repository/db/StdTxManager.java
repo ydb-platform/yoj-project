@@ -24,7 +24,6 @@ import java.time.Duration;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Supplier;
-import java.util.regex.Pattern;
 
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -48,7 +47,7 @@ import static tech.ydb.yoj.repository.db.IsolationLevel.SERIALIZABLE_READ_WRITE;
 public final class StdTxManager implements TxManager, TxManagerState {
     /**
      * @deprecated Please stop using the {@code StdTxManager.useNewTxNameGeneration} field.
-     * Changing this field has no effect as of YOJ 2.6.1, and it will be <strong>removed completely</strong> in YOJ 3.0.0.
+     * Changing this field has no effect as of YOJ 2.6.1, and it will be <strong>removed completely</strong> in YOJ 2.7.0.
      */
     @Deprecated(forRemoval = true)
     public static volatile boolean useNewTxNameGeneration = true;
@@ -88,10 +87,6 @@ public final class StdTxManager implements TxManager, TxManagerState {
             .register();
     private static final AtomicLong txLogIdSeq = new AtomicLong();
 
-    private static final Pattern PACKAGE_PATTERN = Pattern.compile(".*\\.");
-    private static final Pattern INNER_CLASS_PATTERN = Pattern.compile("\\$.*");
-    private static final Pattern SHORTEN_NAME_PATTERN = Pattern.compile("([A-Z][a-z]{2})[a-z]+");
-
     @Getter
     private final Repository repository;
     @With(AccessLevel.PRIVATE)
@@ -109,11 +104,23 @@ public final class StdTxManager implements TxManager, TxManagerState {
     private final SeparatePolicy separatePolicy;
     @With
     private final Set<String> skipCallerPackages;
+    @With
+    private final TxNameGenerator txNameGenerator;
 
     private final long txLogId = txLogIdSeq.incrementAndGet();
 
-    public StdTxManager(Repository repository) {
-        this(repository, DEFAULT_MAX_ATTEMPT_COUNT, null, null, null, TxOptions.create(SERIALIZABLE_READ_WRITE), SeparatePolicy.LOG, Set.of());
+    public StdTxManager(@NonNull Repository repository) {
+        this(
+                /*         repository */ repository,
+                /*    maxAttemptCount */ DEFAULT_MAX_ATTEMPT_COUNT,
+                /*               name */ null,
+                /*            logLine */ null,
+                /*         logContext */ null,
+                /*            options */ TxOptions.create(SERIALIZABLE_READ_WRITE),
+                /*     separatePolicy */ SeparatePolicy.LOG,
+                /* skipCallerPackages */ Set.of(),
+                /*    txNameGenerator */ TxNameGenerator.SHORT
+        );
     }
 
     /**
@@ -122,7 +129,7 @@ public final class StdTxManager implements TxManager, TxManagerState {
      */
     @Deprecated(forRemoval = true)
     public StdTxManager(Repository repository, int maxAttemptCount, String name, Integer logLine, String logContext, TxOptions options) {
-        this(repository, maxAttemptCount, name, logLine, logContext, options, SeparatePolicy.LOG, Set.of());
+        this(repository, maxAttemptCount, name, logLine, logContext, options, SeparatePolicy.LOG, Set.of(), TxNameGenerator.SHORT);
         DeprecationWarnings.warnOnce("StdTxManager(Repository, int, String, Integer, String, TxOptions)",
                 "Please use the recommended StdTxManager(Repository) constructor and customize the TxManager by using with<...>() methods");
     }
@@ -171,6 +178,11 @@ public final class StdTxManager implements TxManager, TxManagerState {
     @Override
     public TxManager withQueryStats(@NonNull QueryStatsMode queryStats) {
         return withOptions(this.options.withQueryStats(queryStats));
+    }
+
+    @Override
+    public TxManager withTracingFilter(@NonNull QueryTracingFilter tracingFilter) {
+        return withOptions(this.options.withTracingFilter(tracingFilter));
     }
 
     @Override
@@ -286,32 +298,21 @@ public final class StdTxManager implements TxManager, TxManagerState {
 
         if (!useNewTxNameGeneration) {
             DeprecationWarnings.warnOnce("StdTxManager.useNewTxNameGeneration",
-                    "As of YOJ 2.6.1, setting StdTxManager.useNewTxNameGeneration has no effect. Please stop setting this field");
+                    "Setting StdTxManager.useNewTxNameGeneration has no effect. Please stop setting this field, it will be removed in YOJ 2.7.0");
         }
 
         var info = callStack.findCallingFrame()
                 .skipPackage(StdTxManager.class.getPackageName())
                 .skipPackages(skipCallerPackages)
-                .map(f -> new TxInfo(txName(f.getClassName(), f.getMethodName()), f.getLineNumber()));
+                .map(
+                        f -> new TxInfo(
+                                txNameGenerator.nameFor(f.getClassName(), f.getMethodName()),
+                                f.getLineNumber()
+                        ),
+                        txNameGenerator
+                );
 
         return withName(info.name).withLogLine(info.lineNumber);
-    }
-
-    @NonNull
-    private static String txName(String className, String methodName) {
-        var cn = replaceFirst(className, PACKAGE_PATTERN, "");
-        cn = replaceFirst(cn, INNER_CLASS_PATTERN, "");
-        cn = replaceAll(cn, SHORTEN_NAME_PATTERN, "$1");
-        var mn = replaceAll(methodName, SHORTEN_NAME_PATTERN, "$1");
-        return cn + '#' + mn;
-    }
-
-    private static String replaceFirst(String input, Pattern regex, String replacement) {
-        return regex.matcher(input).replaceFirst(replacement);
-    }
-
-    private static String replaceAll(String input, Pattern regex, String replacement) {
-        return regex.matcher(input).replaceAll(replacement);
     }
 
     private String formatTx() {

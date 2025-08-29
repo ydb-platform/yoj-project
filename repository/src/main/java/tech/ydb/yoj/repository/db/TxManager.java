@@ -153,6 +153,48 @@ public interface TxManager {
     TxManager withQueryStats(@NonNull QueryStatsMode queryStats);
 
     /**
+     * <strong>Experimental API:</strong> Enables logging of queries at {@code TRACE} level (which is already the YOJ default).
+     *
+     * @see #withTracingFilter(QueryTracingFilter)
+     * @see QueryTracingFilter#ENABLE_ALL
+     */
+    @ExperimentalApi(issue = "https://github.com/ydb-platform/yoj-project/issues/162")
+    default TxManager withFullQueryTracing() {
+        return withTracingFilter(QueryTracingFilter.ENABLE_ALL);
+    }
+
+    /**
+     * <strong>Experimental API:</strong> Disables logging of queries at {@code TRACE} level (which YOJ does by default).
+     *
+     * @see #withTracingFilter(QueryTracingFilter)
+     * @see QueryTracingFilter#DISABLE_ALL
+     */
+    @ExperimentalApi(issue = "https://github.com/ydb-platform/yoj-project/issues/162")
+    default TxManager noQueryTracing() {
+        return withTracingFilter(QueryTracingFilter.DISABLE_ALL);
+    }
+
+    /**
+     * <strong>Experimental API:</strong> Filters which queries will be traced (=logged at {@code TRACE} level into YOJ logs), and which won't.
+     * <br>Without a filter, all statements are logged at {@code TRACE} log level (but are immediately thrown away by the logging library,
+     * in most cases, because in production environments YOJ loggers will be set to a {@code DEBUG} level <em>at most</em>.)
+     * <p><strong>Important Notes:</strong>
+     * <ol>
+     * <li>Query tracing is highly implementation-dependent! YOJ does not require the {@code RepositoryTransaction} implementation to call
+     * the specified filter <strong>at all</strong>; in fact, {@code InMemoryRepositoryTransaction} never calls the filter.</li>
+     * <li>A single {@code Table} call might correspond to a single traced query, or multiple traced queries (e.g., find+save, find+delete),
+     * or no traceable queries at all (e.g., {@code readTable}, {@code bulkUpdate} and streaming scans are not traceable, as of YOJ 2.6.x).</li>
+     * <li>The converse of 2) is also true: multiple {@code Table} calls (particularly, multiple {@code save()}s and {@code insert()}s) may be folded
+     * into a single traced query. This routinely happens for YDB transactions in <em>delayed writes</em> mode, but not for any in-memory transaction,
+     * and not for any YDB transaction in <em>immediate writes</em> mode!</li>
+     * </ol>
+     *
+     * @param tracingFilter query tracing filter
+     */
+    @ExperimentalApi(issue = "https://github.com/ydb-platform/yoj-project/issues/162")
+    TxManager withTracingFilter(@NonNull QueryTracingFilter tracingFilter);
+
+    /**
      * Performs the specified action inside a transaction. The action must be idempotent, because it might be executed
      * multiple times in case of {@link OptimisticLockException transaction lock
      * invalidation}.

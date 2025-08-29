@@ -3,6 +3,7 @@ package tech.ydb.yoj.repository.ydb;
 import com.google.common.base.Strings;
 import io.grpc.ClientInterceptor;
 import io.grpc.netty.shaded.io.grpc.netty.NettyChannelBuilder;
+import lombok.Builder;
 import lombok.Getter;
 import lombok.NonNull;
 import lombok.Value;
@@ -31,6 +32,7 @@ import tech.ydb.yoj.repository.ydb.compatibility.YdbSchemaCompatibilityChecker;
 import tech.ydb.yoj.repository.ydb.statement.Statement;
 import tech.ydb.yoj.util.function.MoreSuppliers;
 import tech.ydb.yoj.util.function.MoreSuppliers.CloseableMemoizer;
+import tech.ydb.yoj.util.lang.Exceptions;
 
 import java.lang.reflect.Field;
 import java.util.ArrayList;
@@ -42,7 +44,6 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.TimeUnit;
-import java.util.function.Supplier;
 
 import static java.util.stream.Collectors.toUnmodifiableSet;
 import static tech.ydb.yoj.repository.ydb.client.YdbPaths.canonicalDatabase;
@@ -51,14 +52,16 @@ public class YdbRepository implements Repository {
     private static final Logger log = LoggerFactory.getLogger(YdbRepository.class);
 
     private final GrpcTransport transport;
-    private final CloseableMemoizer<SessionManager> sessionManager;
-    private final Supplier<YdbSchemaOperations> schemaOperations;
+    private final CloseableMemoizer<SessionClient> sessionClient;
 
     @Getter
     private final String tablespace;
 
     @Getter
     private final YdbConfig config;
+
+    @Getter
+    private final Settings repositorySettings;
 
     private final ConcurrentMap<String, TableDescriptor<?>> entityClassesByTableName;
 
@@ -75,15 +78,23 @@ public class YdbRepository implements Repository {
     }
 
     public YdbRepository(@NonNull YdbConfig config, @NonNull GrpcTransport transport) {
+        // In YOJ 2.x, use TableService query implementation as a safe default; QueryService will become the default in YOJ 3.x.
+        this(
+                config,
+                Settings.builder()
+                        .queryImplementation(new QueryImplementation.TableService())
+                        .build(),
+                transport
+        );
+    }
+
+    public YdbRepository(@NonNull YdbConfig config, @NonNull Settings repositorySettings, @NonNull GrpcTransport transport) {
         this.config = config;
+        this.repositorySettings = repositorySettings;
         this.tablespace = YdbPaths.canonicalTablespace(config.getTablespace());
         this.entityClassesByTableName = new ConcurrentHashMap<>();
         this.transport = transport;
-
-        CloseableMemoizer<SessionManager> sessionManager = MoreSuppliers.memoizeCloseable(() -> new YdbSessionManager(config, transport));
-        this.sessionManager = sessionManager;
-
-        this.schemaOperations = MoreSuppliers.memoize(() -> buildSchemaOperations(config.getTablespace(), transport, sessionManager.get()));
+        this.sessionClient = MoreSuppliers.memoizeCloseable(() -> new SessionClient(config, repositorySettings, transport));
     }
 
     private static GrpcTransport makeGrpcTransport(
@@ -160,16 +171,11 @@ public class YdbRepository implements Repository {
     }
 
     public SessionManager getSessionManager() {
-        return sessionManager.get();
+        return sessionClient.get().sessionManager;
     }
 
     public YdbSchemaOperations getSchemaOperations() {
-        return schemaOperations.get();
-    }
-
-    @NonNull
-    protected YdbSchemaOperations buildSchemaOperations(@NonNull String tablespace, GrpcTransport transport, SessionManager sessionManager) {
-        return new YdbSchemaOperations(tablespace, sessionManager, transport);
+        return sessionClient.get().schemaOperations;
     }
 
     public final void checkDataCompatibility(List<Class<? extends Entity>> entities) {
@@ -201,8 +207,7 @@ public class YdbRepository implements Repository {
 
     @Override
     public void shutdown() {
-        sessionManager.close();
-        transport.close();
+        Exceptions.closeAll(sessionClient, transport);
     }
 
     @Override
@@ -246,8 +251,9 @@ public class YdbRepository implements Repository {
         schemaOperations.setTablespace(id);
         schemaOperations.snapshot(current);
         schemaOperations.setTablespace(current);
+
         // NB: We use getSessionManager() method to allow mocking YdbRepository
-        getSessionManager().invalidateAllSessions();
+        sessionClient.reset();
     }
 
     @Override
@@ -324,6 +330,34 @@ public class YdbRepository implements Repository {
         public Query<PARAMS> merge(Query<?> ps) {
             values.addAll((Collection<? extends PARAMS>) ps.getValues());
             return this;
+        }
+    }
+
+    /**
+     * Settings for YDB repository implementation.
+     *
+     * @param queryImplementation Query implementation to use (either {@code TableService} or {@code QueryService}).
+     *                            <p>The default in YOJ 2.x is {@link QueryImplementation.TableService YDB TableService};
+     *                            in YOJ 3.0.0, the default will become {@link QueryImplementation.QueryService YDB QueryService}.
+     */
+    @Builder
+    public record Settings(
+            @NonNull QueryImplementation queryImplementation
+    ) {
+    }
+
+    private static final class SessionClient implements AutoCloseable {
+        private final SessionManager sessionManager;
+        private final YdbSchemaOperations schemaOperations;
+
+        private SessionClient(YdbConfig config, Settings repositorySettings, GrpcTransport transport) {
+            this.sessionManager = new YdbSessionManager(config, repositorySettings, transport);
+            this.schemaOperations = new YdbSchemaOperations(config.getTablespace(), this.sessionManager, transport);
+        }
+
+        @Override
+        public void close() {
+            Exceptions.closeAll(schemaOperations, sessionManager);
         }
     }
 }
