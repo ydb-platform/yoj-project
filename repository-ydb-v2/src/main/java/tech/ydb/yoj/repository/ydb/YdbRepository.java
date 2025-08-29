@@ -389,17 +389,7 @@ public class YdbRepository implements Repository {
 
         private SessionClient(YdbConfig config, Settings repositorySettings, GrpcTransport transport) {
             this.sessionManager = new YdbSessionManager(config, repositorySettings, transport);
-
-            try {
-                this.schemaOperations = new YdbSchemaOperations(config.getTablespace(), this.sessionManager, transport);
-            } catch (Exception e) {
-                try {
-                    this.sessionManager.close();
-                } catch (Exception sme) {
-                    e.addSuppressed(sme);
-                }
-                throw e;
-            }
+            this.schemaOperations = new YdbSchemaOperations(config.getTablespace(), this.sessionManager, transport);
         }
 
         @Override
