@@ -374,19 +374,16 @@ public class YdbRepositoryTransaction<REPO extends YdbRepository>
 
     private void validateTruncatedResults(String yql, DataQueryResult queryResult) {
         for (int i = 0; i < queryResult.getResultSetCount(); i++) {
-            validateTruncatedResults(yql, queryResult.getResultSet(i));
-        }
-    }
-
-    private void validateTruncatedResults(String yql, ResultSetReader rs) {
-        int rowCount = rs.getRowCount();
-        if (rs.isTruncated()) {
-            throw new ResultTruncatedException(
-                    "Query results were truncated to " + rowCount + " elements; please specify a LIMIT",
-                    yql,
-                    rowCount,
-                    rowCount
-            );
+            ResultSetReader rs = queryResult.getResultSet(i);
+            int rowCount = rs.getRowCount();
+            if (rs.isTruncated()) {
+                throw new ResultTruncatedException(
+                        "Query results were truncated to " + rowCount + " elements; please specify a LIMIT",
+                        yql,
+                        rowCount,
+                        rowCount
+                );
+            }
         }
     }
 
