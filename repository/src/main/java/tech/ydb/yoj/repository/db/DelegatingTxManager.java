@@ -226,6 +226,11 @@ public abstract class DelegatingTxManager implements TxManager {
         }
 
         @Override
+        public ScanBuilder useNewSpliterator(boolean useNewSpliterator) {
+            return new ScanBuilderImpl(delegate.useNewSpliterator(useNewSpliterator));
+        }
+
+        @Override
         public <T> T run(Supplier<T> supplier) throws RetryableException {
             return doRunTx(() -> this.delegate.run(wrapTxBody(supplier)));
         }
