@@ -121,7 +121,7 @@ public final class EntitySchema<T extends Entity<T>> extends Schema<T> {
 
     /**
      * @return a comparator for sorting entities by ID ascending
-     * @since 2.6.24
+     * @since 2.6.26
      */
     public Comparator<T> defaultOrder() {
         return Comparator.comparing(Entity::getId, getIdSchema());
