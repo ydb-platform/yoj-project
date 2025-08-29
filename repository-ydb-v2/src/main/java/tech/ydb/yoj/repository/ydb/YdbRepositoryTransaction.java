@@ -388,17 +388,6 @@ public class YdbRepositoryTransaction<REPO extends YdbRepository>
                     rowCount
             );
         }
-
-        long maxResultRows = repo.getRepositorySettings().maxResultRows();
-        if (maxResultRows > 0 && rowCount > maxResultRows) {
-            throw new ResultTruncatedException(
-                    "Got more query results than " + maxResultRows + " elements; please specify a LIMIT or explicitly allow larger result sets "
-                            + "by setting custom YdbRepository.Settings.maxResultRows() (negative values mean unlimited result set size)",
-                    yql,
-                    maxResultRows,
-                    rowCount
-            );
-        }
     }
 
     private <PARAMS, RESULT> List<RESULT> doExecuteScanQueryLegacy(Statement<PARAMS, RESULT> statement, PARAMS params) {

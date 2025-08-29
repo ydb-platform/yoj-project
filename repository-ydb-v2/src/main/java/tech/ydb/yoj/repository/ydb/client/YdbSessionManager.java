@@ -10,6 +10,8 @@ import tech.ydb.yoj.InternalApi;
 import tech.ydb.yoj.repository.db.exception.QueryInterruptedException;
 import tech.ydb.yoj.repository.db.exception.RetryableException;
 import tech.ydb.yoj.repository.db.exception.UnavailableException;
+import tech.ydb.yoj.repository.ydb.QueryImplementation.QueryService;
+import tech.ydb.yoj.repository.ydb.QueryImplementation.TableService;
 import tech.ydb.yoj.repository.ydb.YdbConfig;
 import tech.ydb.yoj.repository.ydb.YdbRepository;
 import tech.ydb.yoj.repository.ydb.metrics.GaugeSupplierCollector;
@@ -33,13 +35,11 @@ public final class YdbSessionManager implements SessionManager {
             .register();
 
     private final YdbConfig config;
-    private final YdbRepository.Settings repositorySettings;
     private final TableClient tableClient;
 
     public YdbSessionManager(@NonNull YdbConfig config, @NonNull YdbRepository.Settings repositorySettings, @NonNull GrpcTransport transport) {
         this.config = config;
-        this.repositorySettings = repositorySettings;
-        this.tableClient = createClient(transport);
+        this.tableClient = createClient(repositorySettings, transport);
 
         sessionStatCollector
                 .labels("pending_acquire_count").supplier(() -> tableClient.sessionPoolStats().getPendingAcquireCount())
@@ -47,17 +47,25 @@ public final class YdbSessionManager implements SessionManager {
                 .labels("idle_count").supplier(() -> tableClient.sessionPoolStats().getIdleCount());
     }
 
-    private TableClient createClient(GrpcTransport transport) {
-        var bldr = switch (repositorySettings.queryImplementation()) {
-            case TABLE_SERVICE -> tech.ydb.table.TableClient.newClient(transport);
-            case QUERY_SERVICE -> tech.ydb.query.impl.TableClientImpl.newClient(transport);
-        };
-        return bldr
+    private TableClient createClient(@NonNull YdbRepository.Settings repositorySettings, @NonNull GrpcTransport transport) {
+        return buildTableClient(repositorySettings, transport)
                 .keepQueryText(false)
                 .sessionKeepAliveTime(config.getSessionKeepAliveTime())
                 .sessionMaxIdleTime(config.getSessionMaxIdleTime())
                 .sessionPoolSize(config.getSessionPoolMin(), config.getSessionPoolMax())
                 .build();
+    }
+
+    private static TableClient.Builder buildTableClient(@NonNull YdbRepository.Settings repositorySettings, @NonNull GrpcTransport transport) {
+        // TODO(nvamelichev@): Replace this with expression switch with type pattern as soon as we migrate to Java 21+
+        var queryImplementation = repositorySettings.queryImplementation();
+        if (queryImplementation instanceof TableService) {
+            return TableClient.newClient(transport);
+        } else if (queryImplementation instanceof QueryService) {
+            return tech.ydb.query.impl.TableClientImpl.newClient(transport);
+        } else {
+            throw new UnsupportedOperationException("Unknown QueryImplementation: <" + queryImplementation.getClass() + ">");
+        }
     }
 
     @Override

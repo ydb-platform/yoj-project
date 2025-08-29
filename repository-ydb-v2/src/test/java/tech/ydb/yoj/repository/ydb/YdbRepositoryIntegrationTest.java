@@ -79,7 +79,6 @@ import tech.ydb.yoj.repository.test.sample.model.TtlEntity;
 import tech.ydb.yoj.repository.test.sample.model.TypeFreak;
 import tech.ydb.yoj.repository.test.sample.model.UniqueProject;
 import tech.ydb.yoj.repository.test.sample.model.WithUnflattenableField;
-import tech.ydb.yoj.repository.ydb.YdbRepository.QueryImplementation;
 import tech.ydb.yoj.repository.ydb.client.SessionManager;
 import tech.ydb.yoj.repository.ydb.compatibility.YdbSchemaCompatibilityChecker;
 import tech.ydb.yoj.repository.ydb.exception.ResultTruncatedException;
@@ -349,7 +348,15 @@ public class YdbRepositoryIntegrationTest extends RepositoryTest {
 
     @Test
     public void truncatedDefault() {
-        testRowLimitEnforced((YdbRepository) this.repository, db);
+        var ydbRepository = (YdbRepository) repository;
+        var queryImplementation = ydbRepository.getRepositorySettings().queryImplementation();
+        if (queryImplementation instanceof QueryImplementation.TableService) {
+            testRowLimitEnforced(db);
+        } else if (queryImplementation instanceof QueryImplementation.QueryService) {
+            testRowLimitNotEnforced(db);
+        } else {
+            throw new UnsupportedOperationException("Unknown query implementation: <" + queryImplementation.getClass() + ">");
+        }
     }
 
     @Test
@@ -357,13 +364,13 @@ public class YdbRepositoryIntegrationTest extends RepositoryTest {
         YdbRepository ydbRepository = new TestYdbRepository(
                 getRealYdbConfig(),
                 YdbRepository.Settings.builder()
-                        .queryImplementation(QueryImplementation.TABLE_SERVICE)
+                        .queryImplementation(new QueryImplementation.TableService())
                         .build(),
                 ydbEnvAndTransport.getGrpcTransport()
         );
         TestDb db = new TestDbImpl<>(ydbRepository);
 
-        testRowLimitEnforced(ydbRepository, db);
+        testRowLimitEnforced(db);
     }
 
     @Test
@@ -371,36 +378,20 @@ public class YdbRepositoryIntegrationTest extends RepositoryTest {
         YdbRepository ydbRepository = new TestYdbRepository(
                 getRealYdbConfig(),
                 YdbRepository.Settings.builder()
-                        .queryImplementation(QueryImplementation.QUERY_SERVICE)
+                        .queryImplementation(new QueryImplementation.QueryService())
                         .build(),
                 ydbEnvAndTransport.getGrpcTransport()
         );
         TestDb db = new TestDbImpl<>(ydbRepository);
 
-        testRowLimitEnforced(ydbRepository, db);
-    }
-
-    @Test
-    public void truncatedDisabledWithUnlimitedRowsAndExplicitQueryService() {
-        YdbRepository ydbRepository = new TestYdbRepository(
-                getRealYdbConfig(),
-                YdbRepository.Settings.builder()
-                        .queryImplementation(QueryImplementation.QUERY_SERVICE)
-                        .maxResultRows(-1L) // negative value means "unlimited rows"
-                        .build(),
-                ydbEnvAndTransport.getGrpcTransport()
-        );
-        TestDb db = new TestDbImpl<>(ydbRepository);
-
-        testRowLimitNotEnforced(ydbRepository, db);
+        testRowLimitNotEnforced(db);
     }
 
     @SneakyThrows
-    private void testRowLimitEnforced(YdbRepository ydbRepository, TestDb db) {
-        long rowLimit = ydbRepository.getRepositorySettings().maxResultRows();
-        assertThat(rowLimit).isPositive();
+    private void testRowLimitEnforced(TestDb db) {
+        int rowLimit = YdbEnvAndTransportRule.TABLESERVICE_ROW_LIMIT;
 
-        int maxPageSizeBiggerThatReal = (int) rowLimit + 1;
+        int maxPageSizeBiggerThatReal = rowLimit + 1;
         ListRequest.Builder<Project> builder = ListRequest.builder(Project.class);
         { // because we can't set pageSize bigger than 1k, we set it with reflection
             Field pageSizeField = builder.getClass().getDeclaredField("pageSize");
@@ -434,13 +425,11 @@ public class YdbRepositoryIntegrationTest extends RepositoryTest {
     }
 
     @SneakyThrows
-    private void testRowLimitNotEnforced(YdbRepository ydbRepository, TestDb db) {
-        long rowLimit = ydbRepository.getRepositorySettings().maxResultRows();
-        assertThat(rowLimit).isNegative();
-
+    private void testRowLimitNotEnforced(TestDb db) {
         ListRequest.Builder<Project> builder = ListRequest.builder(Project.class);
 
-        int pageSize = (int) YdbRepository.Settings.DEFAULT.maxResultRows() + 1_000;
+        // (KQP_MAX_RESULT_ROWS)+1K
+        int pageSize = YdbEnvAndTransportRule.TABLESERVICE_ROW_LIMIT + 1_000;
         { // because we can't set pageSize bigger than 1k, we set it with reflection
             Field pageSizeField = builder.getClass().getDeclaredField("pageSize");
             pageSizeField.setAccessible(true);

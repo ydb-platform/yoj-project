@@ -74,7 +74,11 @@ public class TestYdbRepository extends YdbRepository {
             return YdbRepository.Settings.DEFAULT;
         } else {
             // Query implementation overridden
-            QueryImplementation queryImplementation = QueryImplementation.valueOf(queryImplementationProp);
+            QueryImplementation queryImplementation = switch (queryImplementationProp) {
+                case "TABLE_SERVICE" -> new QueryImplementation.TableService();
+                case "QUERY_SERVICE" -> new QueryImplementation.QueryService();
+                default -> throw new UnsupportedOperationException("Unknown QueryImplementation: '" + queryImplementationProp + "'");
+            };
             return YdbRepository.Settings.builder()
                     .queryImplementation(queryImplementation)
                     .build();

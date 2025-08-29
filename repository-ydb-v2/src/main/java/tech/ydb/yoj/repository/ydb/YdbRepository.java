@@ -1,6 +1,5 @@
 package tech.ydb.yoj.repository.ydb;
 
-import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 import io.grpc.ClientInterceptor;
 import io.grpc.netty.shaded.io.grpc.netty.NettyChannelBuilder;
@@ -331,56 +330,23 @@ public class YdbRepository implements Repository {
      * Settings for YDB repository implementation.
      *
      * @param queryImplementation Query implementation to use (either {@code TableService} or {@code QueryService}).
-     *                            <p>The default in YOJ 2.x is {@code TableService}; it will become {@code QueryService} in YOJ 3.0.0.
-     * @param maxResultRows       Maximum result rows to return from a query, when {@code queryImplementation} is {@code QUERY_SERVICE}
-     *                            and YDB does not impose its own result set size limit.
-     *                            <p>A positive value indicates limited result rows, a negative value indicates <em>unlimited result rows</em>.
-     *                            <p>The default is {@code 10_000} rows.
+     *                            <p>The default in YOJ 2.x is {@link QueryImplementation.TableService YDB TableService};
+     *                            in YOJ 3.0.0, the default will become {@link QueryImplementation.QueryService YDB QueryService}.
      */
     @Builder(builderMethodName = "")
     public record Settings(
-            @NonNull QueryImplementation queryImplementation,
-            long maxResultRows
+            @NonNull QueryImplementation queryImplementation
     ) {
         /**
          * Default {@code YdbRepository} settings, suitable for a wide range of practical workloads.
          */
         public static final Settings DEFAULT = Settings.builder().build();
 
-        public Settings {
-            Preconditions.checkArgument(maxResultRows != 0,
-                    "maxResultRows must either be > 0 (for limited result rows) or < 0 (for unlimited result rows)");
-            Preconditions.checkArgument(maxResultRows > 0 || queryImplementation != QueryImplementation.TABLE_SERVICE,
-                    "Negative maxResultRows (unlimited result rows) is not available when queryImplementation = TABLE_SERVICE");
-        }
-
         @NonNull
         public static SettingsBuilder builder() {
             return new SettingsBuilder()
-                    .queryImplementation(QueryImplementation.TABLE_SERVICE)
-                    .maxResultRows(10_000L);
+                    .queryImplementation(new QueryImplementation.TableService());
         }
-    }
-
-    /**
-     * Query implementation to use for this {@code YdbRepository}.
-     */
-    public enum QueryImplementation {
-        /**
-         * Use YDB {@code TableService} to perform queries. This imposes strict limits on result set size
-         * (YDB configuration-dependent; typically 10_000 rows for production environments and 1_000 by default)
-         * and has less advanced session pool management, which may lead to lots of stale sessions in the event
-         * of YDB dynamic node loss.
-         * <p>This is the default query implementation in YOJ 2.x series; it will become non-default in YOJ 3.0.0.
-         */
-        TABLE_SERVICE,
-        /**
-         * Use YDB {@code QueryService} to perform queries. This allows unlimited result set size
-         * (when {@code YdbRepository} is {@link Settings#maxResultRows} configured this way)
-         * and enables advanced session pool management with individual keep-alive machinery for each session.
-         * <p>This will become default in YOJ 3.0.0.
-         */
-        QUERY_SERVICE
     }
 
     private static final class SessionClient implements AutoCloseable {

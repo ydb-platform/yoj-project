@@ -27,6 +27,7 @@ import java.util.concurrent.atomic.AtomicReference;
 
 public final class YdbEnvAndTransportRule implements TestRule {
     public static final String YDB_VERSION = "24.4.4";
+    public static final int TABLESERVICE_ROW_LIMIT = 10_000;
 
     private final Instant started = Instant.now();
     private final GrpcTransportRule transportRule = new GrpcTransportRule();
@@ -83,7 +84,7 @@ public final class YdbEnvAndTransportRule implements TestRule {
         public Statement apply(Statement base, Description description) {
             YdbEnvironment env = new YdbEnvironment();
             YdbDockerContainer container = new YdbDockerContainer(env, new PortsGenerator());
-            container.addEnv("YDB_KQP_RESULT_ROWS_LIMIT", Long.toString(YdbRepository.Settings.DEFAULT.maxResultRows()));
+            container.addEnv("YDB_KQP_RESULT_ROWS_LIMIT", Integer.toString(TABLESERVICE_ROW_LIMIT));
 
             YdbHelperFactory factory = new DockerHelperFactory(env, container);
 
