@@ -15,6 +15,8 @@ import tech.ydb.core.grpc.BalancingSettings;
 import tech.ydb.core.grpc.GrpcTransport;
 import tech.ydb.core.grpc.GrpcTransportBuilder;
 import tech.ydb.core.impl.SingleChannelTransport;
+import tech.ydb.table.SessionPoolStats;
+import tech.ydb.table.TableClient;
 import tech.ydb.yoj.repository.db.Entity;
 import tech.ydb.yoj.repository.db.EntitySchema;
 import tech.ydb.yoj.repository.db.Repository;
@@ -202,7 +204,16 @@ public class YdbRepository implements Repository {
 
     @Override
     public boolean healthCheck() {
-        return getSessionManager().healthCheck();
+        // We consider the database healthy if the number of sessions in the pool is greater than 0.
+        // Bad sessions will be dropped either due to keep-alive or on the very first error that occurs in that session.
+        //
+        // If idleCount == 0, this may mean that the application has just started, or that the database cannot handle the load.
+        // To account for that case, we check pendingAcquireCount (how many clients are waiting to acquire a session),
+        // and if it’s more than maxSize of the client queue, we consider the database to be unhealthy.
+        SessionPoolStats sessionPoolStats = sessionClient.get().tableClient.sessionPoolStats();
+        return sessionPoolStats.getIdleCount() > 0 ||
+                //todo: maybe we should consider pendingAcquireCount > 0 problematic, because there are clients waiting?
+                sessionPoolStats.getPendingAcquireCount() <= sessionPoolStats.getMaxSize();
     }
 
     @Override
@@ -347,17 +358,44 @@ public class YdbRepository implements Repository {
     }
 
     private static final class SessionClient implements AutoCloseable {
+        private final TableClient tableClient;
         private final SessionManager sessionManager;
         private final YdbSchemaOperations schemaOperations;
 
         private SessionClient(YdbConfig config, Settings repositorySettings, GrpcTransport transport) {
-            this.sessionManager = new YdbSessionManager(config, repositorySettings, transport);
+            this.tableClient = createClient(config, repositorySettings, transport);
+            this.sessionManager = new YdbSessionManager(tableClient, config.getSessionCreationTimeout());
             this.schemaOperations = new YdbSchemaOperations(config.getTablespace(), this.sessionManager, transport);
         }
 
         @Override
         public void close() {
-            Exceptions.closeAll(schemaOperations, sessionManager);
+            Exceptions.closeAll(tableClient, schemaOperations);
+        }
+    }
+
+    private static TableClient createClient(
+            YdbConfig config, YdbRepository.Settings repositorySettings, GrpcTransport transport
+    ) {
+        return buildTableClient(repositorySettings, transport)
+                .keepQueryText(false)
+                .sessionKeepAliveTime(config.getSessionKeepAliveTime())
+                .sessionMaxIdleTime(config.getSessionMaxIdleTime())
+                .sessionPoolSize(config.getSessionPoolMin(), config.getSessionPoolMax())
+                .build();
+    }
+
+    private static TableClient.Builder buildTableClient(
+            YdbRepository.Settings repositorySettings, GrpcTransport transport
+    ) {
+        // TODO(nvamelichev@): Replace this with expression switch with type pattern as soon as we migrate to Java 21+
+        var queryImplementation = repositorySettings.queryImplementation();
+        if (queryImplementation instanceof QueryImplementation.TableService) {
+            return TableClient.newClient(transport);
+        } else if (queryImplementation instanceof QueryImplementation.QueryService) {
+            return tech.ydb.query.impl.TableClientImpl.newClient(transport);
+        } else {
+            throw new UnsupportedOperationException("Unknown QueryImplementation: <" + queryImplementation.getClass() + ">");
         }
     }
 }

@@ -208,7 +208,7 @@ public class YdbSchemaOperations implements AutoCloseable {
                 }
             }
         } finally {
-            sessionManager.release(session);
+            session.close();
         }
     }
 
@@ -244,15 +244,12 @@ public class YdbSchemaOperations implements AutoCloseable {
 
     @SneakyThrows
     private void dropTablePath(String table) {
-        Session session = sessionManager.getSession();
-        try {
+        try (Session session = sessionManager.getSession()) {
             Status status = session.dropTable(table).join();
             if (!status.isSuccess()) {
                 log.error("Table " + table + " not deleted");
                 throw new DropTableException(String.format("Can't drop table %s: %s", table, status));
             }
-        } finally {
-            sessionManager.release(session);
         }
     }
 
@@ -320,12 +317,9 @@ public class YdbSchemaOperations implements AutoCloseable {
     @NonNull
     @SneakyThrows
     private Table describeTableInternal(String path) {
-        Session session = sessionManager.getSession();
         Result<TableDescription> result;
-        try {
+        try (Session session = sessionManager.getSession()) {
             result = session.describeTable(path).join();
-        } finally {
-            sessionManager.release(session);
         }
         if (SCHEME_ERROR == result.getStatus().getCode() && YdbIssue.DEFAULT_ERROR.isContainedIn(result.getStatus().getIssues())) {
             throw new YdbSchemaPathNotFoundException(result.toString());
@@ -412,14 +406,16 @@ public class YdbSchemaOperations implements AutoCloseable {
 
     @SneakyThrows
     protected void copyTable(String source, String destination) {
-        Session session = sessionManager.getSession();
-        try {
+        try (Session session = sessionManager.getSession()) {
             Status status = session.copyTable(source, destination).join();
             if (!status.isSuccess()) {
-                throw new SnapshotCreateException(String.format("Error while copying from %s to %s: %s", source, destination, status));
+                throw new SnapshotCreateException(String.format(
+                        "Error while copying from %s to %s: %s",
+                        source,
+                        destination,
+                        status
+                ));
             }
-        } finally {
-            sessionManager.release(session);
         }
     }
 
