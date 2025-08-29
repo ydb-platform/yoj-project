@@ -78,7 +78,14 @@ public class YdbRepository implements Repository {
     }
 
     public YdbRepository(@NonNull YdbConfig config, @NonNull GrpcTransport transport) {
-        this(config, Settings.DEFAULT, transport);
+        // In YOJ 2.x, use TableService query implementation as a safe default; QueryService will become the default in YOJ 3.x.
+        this(
+                config,
+                Settings.builder()
+                        .queryImplementation(new QueryImplementation.TableService())
+                        .build(),
+                transport
+        );
     }
 
     public YdbRepository(@NonNull YdbConfig config, @NonNull Settings repositorySettings, @NonNull GrpcTransport transport) {
@@ -333,20 +340,10 @@ public class YdbRepository implements Repository {
      *                            <p>The default in YOJ 2.x is {@link QueryImplementation.TableService YDB TableService};
      *                            in YOJ 3.0.0, the default will become {@link QueryImplementation.QueryService YDB QueryService}.
      */
-    @Builder(builderMethodName = "")
+    @Builder
     public record Settings(
             @NonNull QueryImplementation queryImplementation
     ) {
-        /**
-         * Default {@code YdbRepository} settings, suitable for a wide range of practical workloads.
-         */
-        public static final Settings DEFAULT = Settings.builder().build();
-
-        @NonNull
-        public static SettingsBuilder builder() {
-            return new SettingsBuilder()
-                    .queryImplementation(new QueryImplementation.TableService());
-        }
     }
 
     private static final class SessionClient implements AutoCloseable {

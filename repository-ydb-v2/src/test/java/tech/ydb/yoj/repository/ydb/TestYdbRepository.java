@@ -71,7 +71,10 @@ public class TestYdbRepository extends YdbRepository {
         String queryImplementationProp = System.getProperty(PROP_DEFAULT_QUERY_IMPLEMENTATION);
         if (queryImplementationProp == null) {
             // Query implementation not overridden for this test suite => use YOJ defaults
-            return YdbRepository.Settings.DEFAULT;
+            return YdbRepository.Settings.builder()
+                    // TODO(nvamelichev@): Change to QueryService in YOJ 3.0.0
+                    .queryImplementation(new QueryImplementation.TableService())
+                    .build();
         } else {
             // Query implementation overridden
             QueryImplementation queryImplementation = switch (queryImplementationProp) {
