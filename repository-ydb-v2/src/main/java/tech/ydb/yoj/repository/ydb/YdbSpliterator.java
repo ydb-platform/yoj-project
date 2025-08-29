@@ -69,7 +69,7 @@ public class YdbSpliterator<V> implements Spliterator<V> {
             if (error != null) {
                 throw YdbOperations.convertToRepositoryException(error);
             }
-            validate(request, status.getCode(), status.toString());
+            validate(request, status, status.toString());
         };
     }
 
