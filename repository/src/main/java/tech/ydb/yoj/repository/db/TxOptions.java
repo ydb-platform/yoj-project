@@ -3,9 +3,11 @@ package tech.ydb.yoj.repository.db;
 import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.NonNull;
+import lombok.RequiredArgsConstructor;
 import lombok.Value;
 import lombok.With;
 import tech.ydb.yoj.ExperimentalApi;
+import tech.ydb.yoj.InternalApi;
 import tech.ydb.yoj.repository.db.cache.TransactionLog;
 
 import java.time.Duration;
@@ -31,6 +33,10 @@ public class TxOptions {
 
     TimeoutOptions timeoutOptions;
 
+    @NonNull
+    @ExperimentalApi(issue = "https://github.com/ydb-platform/yoj-project/issues/165")
+    RetryOptions retryOptions;
+
     boolean dryRun;
 
     boolean immediateWrites;
@@ -53,6 +59,7 @@ public class TxOptions {
                 .firstLevelCache(true)
                 .logLevel(TransactionLog.Level.DEBUG)
                 .logStatementOnSuccess(true)
+                .retryOptions(RetryOptions.DEFAULT)
                 .build();
     }
 
@@ -80,6 +87,17 @@ public class TxOptions {
         return isolationLevel.isSnapshot();
     }
 
+    @InternalApi
+    @ExperimentalApi(issue = "https://github.com/ydb-platform/yoj-project/issues/165")
+    public boolean canConditionallyRetry(boolean commitAttempted) {
+        return switch (retryOptions.getConditionalRetryMode()) {
+            case ALWAYS -> true;
+            case NEVER -> false;
+            case UNTIL_COMMIT -> !commitAttempted // no commit() was attempted
+                    || isReadOnly() || isScan();  // transaction is read-only (so commit() only frees up resources)
+        };
+    }
+
     public TimeoutOptions minTimeoutOptions(Duration timeoutFromExternalCtx) {
         if (timeoutFromExternalCtx == null && timeoutOptions == null) {
             return TimeoutOptions.DEFAULT;
@@ -102,6 +120,7 @@ public class TxOptions {
 
     @Value
     @With
+    @Builder
     public static class TimeoutOptions {
         public static final TimeoutOptions DEFAULT = new TimeoutOptions(Duration.ofMinutes(5));
 
@@ -133,11 +152,26 @@ public class TxOptions {
 
     @Value
     @With
+    @Builder
     public static class ScanOptions {
         public static final ScanOptions DEFAULT = new ScanOptions(10_000, Duration.ofMinutes(5), false);
 
         long maxSize;
         Duration timeout;
         boolean useNewSpliterator;
+    }
+
+    @Value
+    @With
+    @Builder
+    @RequiredArgsConstructor(access = AccessLevel.PRIVATE)
+    @ExperimentalApi(issue = "https://github.com/ydb-platform/yoj-project/issues/165")
+    public static class RetryOptions {
+        public static final RetryOptions DEFAULT = new RetryOptions(ConditionalRetryMode.UNTIL_COMMIT);
+
+        /**
+         * Retry mode for {@link tech.ydb.yoj.repository.db.exception.ConditionallyRetryableException conditionally-retryable} errors.
+         */
+        ConditionalRetryMode conditionalRetryMode;
     }
 }
