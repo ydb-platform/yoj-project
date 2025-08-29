@@ -5,7 +5,7 @@ import tech.ydb.table.Session;
 import tech.ydb.table.TableClient;
 import tech.ydb.yoj.InternalApi;
 import tech.ydb.yoj.repository.db.exception.QueryInterruptedException;
-import tech.ydb.yoj.repository.db.exception.RetryableException;
+import tech.ydb.yoj.repository.db.exception.RetryableExceptionBase;
 import tech.ydb.yoj.repository.db.exception.UnavailableException;
 import tech.ydb.yoj.repository.ydb.metrics.GaugeSupplierCollector;
 
@@ -19,6 +19,8 @@ import static tech.ydb.yoj.util.lang.Interrupts.isThreadInterrupted;
 
 @InternalApi
 public final class YdbSessionManager implements SessionManager {
+    public static final String REQUEST_CREATE_SESSION = "session create";
+
     private static final GaugeSupplierCollector sessionStatCollector = GaugeSupplierCollector.build()
             .namespace("ydb")
             .subsystem("session_manager")
@@ -45,7 +47,7 @@ public final class YdbSessionManager implements SessionManager {
         CompletableFuture<Result<Session>> future = tableClient.createSession(sessionTimeout);
         try {
             Result<Session> result = future.get();
-            YdbValidator.validate("session create", result.getStatus().getCode(), result.toString());
+            YdbValidator.validate(REQUEST_CREATE_SESSION, result.getStatus(), result.toString());
             return result.getValue();
         } catch (CancellationException | CompletionException | ExecutionException | InterruptedException e) {
             // We need to cancel future bacause in other case we can get session leak
@@ -55,7 +57,7 @@ public final class YdbSessionManager implements SessionManager {
                 Thread.currentThread().interrupt();
                 throw new QueryInterruptedException("get session interrupted", e);
             }
-            YdbValidator.checkGrpcContextStatus(e.getMessage(), e);
+            YdbValidator.checkGrpcTimeoutAndCancellation(e.getMessage(), e);
 
             throw new UnavailableException("DB is unavailable", e);
         }
@@ -78,7 +80,7 @@ public final class YdbSessionManager implements SessionManager {
             try {
                 session = getSession();
                 break;
-            } catch (RetryableException ex) {
+            } catch (RetryableExceptionBase ex) {
                 if (i == maxRetrySessionCreateCount - 1) {
                     throw ex;
                 }
