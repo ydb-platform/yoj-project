@@ -77,32 +77,25 @@ public final class Exceptions {
      * @param closeables list of resources to close
      * @see #dispose(AutoCloseable...)
      */
+    @SneakyThrows
     public static void dispose(@NonNull List</*@Nullable*/ AutoCloseable> closeables) {
-        new Disposer(closeables).close();
-    }
-
-    private record Disposer(@NonNull List</*@Nullable*/ AutoCloseable> closeables) implements AutoCloseable {
-        @Override
-        @SneakyThrows
-        public void close() {
-            Exception exception = null;
-            for (AutoCloseable c : closeables) {
-                try {
-                    if (c != null) {
-                        c.close();
-                    }
-                } catch (Exception e) {
-                    if (exception == null) {
-                        exception = e;
-                    } else {
-                        exception.addSuppressed(e);
-                    }
+        Exception exception = null;
+        for (AutoCloseable c : closeables) {
+            try {
+                if (c != null) {
+                    c.close();
+                }
+            } catch (Exception e) {
+                if (exception == null) {
+                    exception = e;
+                } else {
+                    exception.addSuppressed(e);
                 }
             }
+        }
 
-            if (exception != null) {
-                throw exception;
-            }
+        if (exception != null) {
+            throw exception;
         }
     }
 }
