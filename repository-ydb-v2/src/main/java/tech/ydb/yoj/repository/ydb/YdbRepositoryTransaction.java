@@ -246,7 +246,7 @@ public class YdbRepositoryTransaction<REPO extends YdbRepository>
             if (session != null) {
                 transactionLocal.log().info("[[%s]] TOTAL (txId=%s,sessionId=%s)", sessionSw, firstNonNullTxId, session.getId());
                 // NB: We use getSessionManager() method to allow mocking YdbRepository
-                repo.getSessionManager().release(session);
+                session.close();
                 session = null;
             }
         }

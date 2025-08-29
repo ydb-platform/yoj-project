@@ -304,7 +304,7 @@ public class YdbRepositoryIntegrationTest extends RepositoryTest {
         TestDb db = new TestDbImpl<>(this.repository);
 
         Session firstSession = sessionManager.getSession();
-        sessionManager.release(firstSession);
+        firstSession.close();
 
         db.tx(() -> db.projects().save(expected));
 
@@ -481,7 +481,7 @@ public class YdbRepositoryIntegrationTest extends RepositoryTest {
     private static void ensureSameSessionId(SessionManager sessionManager, Session firstSession) {
         Session session = sessionManager.getSession();
         assertThat(session.getId()).isEqualTo(firstSession.getId());
-        sessionManager.release(session);
+        session.close();
     }
 
     @Test

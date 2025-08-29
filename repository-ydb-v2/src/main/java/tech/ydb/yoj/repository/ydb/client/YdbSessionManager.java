@@ -1,19 +1,12 @@
 package tech.ydb.yoj.repository.ydb.client;
 
-import lombok.NonNull;
 import tech.ydb.core.Result;
-import tech.ydb.core.grpc.GrpcTransport;
 import tech.ydb.table.Session;
-import tech.ydb.table.SessionPoolStats;
 import tech.ydb.table.TableClient;
 import tech.ydb.yoj.InternalApi;
 import tech.ydb.yoj.repository.db.exception.QueryInterruptedException;
 import tech.ydb.yoj.repository.db.exception.RetryableException;
 import tech.ydb.yoj.repository.db.exception.UnavailableException;
-import tech.ydb.yoj.repository.ydb.QueryImplementation.QueryService;
-import tech.ydb.yoj.repository.ydb.QueryImplementation.TableService;
-import tech.ydb.yoj.repository.ydb.YdbConfig;
-import tech.ydb.yoj.repository.ydb.YdbRepository;
 import tech.ydb.yoj.repository.ydb.metrics.GaugeSupplierCollector;
 
 import java.time.Duration;
@@ -34,43 +27,22 @@ public final class YdbSessionManager implements SessionManager {
             .labelNames("type")
             .register();
 
-    private final YdbConfig config;
     private final TableClient tableClient;
+    private final Duration sessionTimeout;
 
-    public YdbSessionManager(@NonNull YdbConfig config, @NonNull YdbRepository.Settings repositorySettings, @NonNull GrpcTransport transport) {
-        this.config = config;
-        this.tableClient = createClient(repositorySettings, transport);
+    public YdbSessionManager(TableClient tableClient, Duration sessionCreationTimeout) {
+        this.tableClient = tableClient;
+        this.sessionTimeout = getSessionTimeout(sessionCreationTimeout);
 
-        sessionStatCollector
+        YdbSessionManager.sessionStatCollector
                 .labels("pending_acquire_count").supplier(() -> tableClient.sessionPoolStats().getPendingAcquireCount())
                 .labels("acquired_count").supplier(() -> tableClient.sessionPoolStats().getAcquiredCount())
                 .labels("idle_count").supplier(() -> tableClient.sessionPoolStats().getIdleCount());
     }
 
-    private TableClient createClient(@NonNull YdbRepository.Settings repositorySettings, @NonNull GrpcTransport transport) {
-        return buildTableClient(repositorySettings, transport)
-                .keepQueryText(false)
-                .sessionKeepAliveTime(config.getSessionKeepAliveTime())
-                .sessionMaxIdleTime(config.getSessionMaxIdleTime())
-                .sessionPoolSize(config.getSessionPoolMin(), config.getSessionPoolMax())
-                .build();
-    }
-
-    private static TableClient.Builder buildTableClient(@NonNull YdbRepository.Settings repositorySettings, @NonNull GrpcTransport transport) {
-        // TODO(nvamelichev@): Replace this with expression switch with type pattern as soon as we migrate to Java 21+
-        var queryImplementation = repositorySettings.queryImplementation();
-        if (queryImplementation instanceof TableService) {
-            return TableClient.newClient(transport);
-        } else if (queryImplementation instanceof QueryService) {
-            return tech.ydb.query.impl.TableClientImpl.newClient(transport);
-        } else {
-            throw new UnsupportedOperationException("Unknown QueryImplementation: <" + queryImplementation.getClass() + ">");
-        }
-    }
-
     @Override
     public Session getSession() {
-        CompletableFuture<Result<Session>> future = tableClient.createSession(getSessionTimeout());
+        CompletableFuture<Result<Session>> future = tableClient.createSession(sessionTimeout);
         try {
             Result<Session> result = future.get();
             YdbValidator.validate("session create", result.getStatus().getCode(), result.toString());
@@ -89,15 +61,12 @@ public final class YdbSessionManager implements SessionManager {
         }
     }
 
-    private Duration getSessionTimeout() {
+    private static Duration getSessionTimeout(Duration timeout) {
         Duration max = Duration.ofMinutes(5);
-        Duration configTimeout = config.getSessionCreationTimeout();
-        return Duration.ZERO.equals(configTimeout) || configTimeout.compareTo(max) > 0 ? max : configTimeout;
-    }
-
-    @Override
-    public void release(Session session) {
-        session.close();
+        if (Duration.ZERO.equals(timeout) || timeout.compareTo(max) > 0) {
+            return max;
+        }
+        return timeout;
     }
 
     @Override
@@ -116,26 +85,7 @@ public final class YdbSessionManager implements SessionManager {
             }
         }
         if (session != null) {
-            release(session);
+            session.close();
         }
-    }
-
-    @Override
-    public void shutdown() {
-        tableClient.close();
-    }
-
-    @Override
-    public boolean healthCheck() {
-        // We consider the database healthy if the number of sessions in the pool is greater than 0.
-        // Bad sessions will be dropped either due to keep-alive or on the very first error that occurs in that session.
-        //
-        // If idleCount == 0, this may mean that the application has just started, or that the database cannot handle the load.
-        // To account for that case, we check pendingAcquireCount (how many clients are waiting to acquire a session),
-        // and if it’s more than maxSize of the client queue, we consider the database to be unhealthy.
-        SessionPoolStats sessionPoolStats = tableClient.sessionPoolStats();
-        return sessionPoolStats.getIdleCount() > 0 ||
-                //todo: maybe we should consider pendingAcquireCount > 0 problematic, because there are clients waiting?
-                sessionPoolStats.getPendingAcquireCount() <= sessionPoolStats.getMaxSize();
     }
 }
