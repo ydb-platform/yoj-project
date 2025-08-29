@@ -1,7 +1,6 @@
 package tech.ydb.yoj.databind;
 
 import com.google.common.base.Preconditions;
-import com.google.common.reflect.TypeToken;
 import lombok.NonNull;
 import tech.ydb.yoj.ExperimentalApi;
 import tech.ydb.yoj.InternalApi;
@@ -10,6 +9,7 @@ import tech.ydb.yoj.databind.schema.Column;
 import tech.ydb.yoj.databind.schema.CustomConverterException;
 import tech.ydb.yoj.databind.schema.CustomValueTypeInfo;
 import tech.ydb.yoj.databind.schema.Schema.JavaField;
+import tech.ydb.yoj.databind.schema.reflect.Types;
 import tech.ydb.yoj.util.lang.Annotations;
 
 import javax.annotation.Nullable;
@@ -71,7 +71,7 @@ public final class CustomValueTypes {
     public static <J, C extends Comparable<? super C>> CustomValueTypeInfo<J, C> getCustomValueTypeInfo(
             @NonNull Type type, @Nullable Column columnAnnotation
     ) {
-        Class<?> rawType = type instanceof Class<?> ? (Class<?>) type : TypeToken.of(type).getRawType();
+        Class<?> rawType = Types.getRawType(type);
         CustomValueType cvt = getCustomValueType(rawType, columnAnnotation);
         if (cvt == null) {
             return null;
