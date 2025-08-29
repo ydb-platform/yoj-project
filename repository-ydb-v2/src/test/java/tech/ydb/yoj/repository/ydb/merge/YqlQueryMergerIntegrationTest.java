@@ -1,6 +1,5 @@
 package tech.ydb.yoj.repository.ydb.merge;
 
-import org.junit.Assert;
 import org.junit.ClassRule;
 import org.junit.Test;
 import tech.ydb.yoj.repository.db.Repository;
@@ -11,7 +10,11 @@ import tech.ydb.yoj.repository.test.sample.TestDbImpl;
 import tech.ydb.yoj.repository.test.sample.model.Project;
 import tech.ydb.yoj.repository.ydb.TestYdbRepository;
 import tech.ydb.yoj.repository.ydb.YdbEnvAndTransportRule;
-import tech.ydb.yoj.repository.ydb.util.RandomUtils;
+
+import java.util.Locale;
+import java.util.concurrent.ThreadLocalRandom;
+
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class YqlQueryMergerIntegrationTest extends RepositoryTestSupport {
     @ClassRule
@@ -33,7 +36,7 @@ public class YqlQueryMergerIntegrationTest extends RepositoryTestSupport {
 
     @Override
     protected final Repository createRepository() {
-        return TestEntities.init(new TestYdbRepository(ydbEnvAndTransport.getYdbConfig(), ydbEnvAndTransport.getGrpcTransport()));
+        return TestEntities.init(TestYdbRepository.create(ydbEnvAndTransport));
     }
 
     @Test
@@ -41,9 +44,26 @@ public class YqlQueryMergerIntegrationTest extends RepositoryTestSupport {
         db.tx(() -> {
             Project.Id id = new Project.Id(RandomUtils.nextString(10));
 
-            Assert.assertNull(db.projects().find(id));
+            assertThat(db.projects().find(id)).isNull();
 
             db.projects().insert(new Project(id, "project-1"));
         });
+    }
+
+    private static final class RandomUtils {
+        private static final String alphanum = createAlphabet();
+
+        private static String createAlphabet() {
+            String upper = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+            return upper + upper.toLowerCase(Locale.ROOT) + "0123456789";
+        }
+
+        public static String nextString(int length) {
+            char[] buf = new char[length];
+            for (int idx = 0; idx < buf.length; ++idx) {
+                buf[idx] = alphanum.charAt(ThreadLocalRandom.current().nextInt(alphanum.length()));
+            }
+            return new String(buf);
+        }
     }
 }

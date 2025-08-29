@@ -42,6 +42,7 @@ import tech.ydb.yoj.repository.ydb.exception.YdbRepositoryException;
 import tech.ydb.yoj.repository.ydb.exception.YdbSchemaPathNotFoundException;
 import tech.ydb.yoj.repository.ydb.yql.YqlPrimitiveType;
 import tech.ydb.yoj.repository.ydb.yql.YqlType;
+import tech.ydb.yoj.util.lang.Exceptions;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -59,7 +60,7 @@ import static tech.ydb.core.StatusCode.SCHEME_ERROR;
 
 @Getter
 @InternalApi
-public class YdbSchemaOperations {
+public class YdbSchemaOperations implements AutoCloseable {
     private static final Logger log = LoggerFactory.getLogger(YdbSchemaOperations.class);
 
     private final SessionManager sessionManager;
@@ -447,6 +448,11 @@ public class YdbSchemaOperations {
 
     protected boolean hasPath(String path) {
         return schemeClient.describePath(path).join().isSuccess();
+    }
+
+    @Override
+    public void close() {
+        Exceptions.closeAll(topicClient, schemeClient);
     }
 
     @Value

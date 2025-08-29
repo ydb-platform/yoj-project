@@ -88,11 +88,9 @@ import java.util.stream.Stream;
 
 import static com.google.common.base.Strings.emptyToNull;
 import static java.lang.Boolean.getBoolean;
-import static java.lang.String.format;
 import static java.util.stream.Collectors.toList;
 import static lombok.AccessLevel.PRIVATE;
 import static tech.ydb.yoj.repository.ydb.client.YdbValidator.validatePkConstraint;
-import static tech.ydb.yoj.repository.ydb.client.YdbValidator.validateTruncatedResults;
 
 public class YdbRepositoryTransaction<REPO extends YdbRepository>
         implements BaseDb, RepositoryTransaction, YdbTable.QueryExecutor {
@@ -374,6 +372,21 @@ public class YdbRepositoryTransaction<REPO extends YdbRepository>
         return new ResultSetConverter(resultSet).stream(statement::readResult).collect(toList());
     }
 
+    private void validateTruncatedResults(String yql, DataQueryResult queryResult) {
+        for (int i = 0; i < queryResult.getResultSetCount(); i++) {
+            ResultSetReader rs = queryResult.getResultSet(i);
+            int rowCount = rs.getRowCount();
+            if (rs.isTruncated()) {
+                throw new ResultTruncatedException(
+                        "Query results were truncated to " + rowCount + " elements; please specify a LIMIT",
+                        yql,
+                        rowCount,
+                        rowCount
+                );
+            }
+        }
+    }
+
     private <PARAMS, RESULT> List<RESULT> doExecuteScanQueryLegacy(Statement<PARAMS, RESULT> statement, PARAMS params) {
         ExecuteScanQuerySettings settings = ExecuteScanQuerySettings.newBuilder()
                 .withRequestTimeout(options.getScanOptions().getTimeout())
@@ -385,10 +398,13 @@ public class YdbRepositoryTransaction<REPO extends YdbRepository>
 
         List<RESULT> result = new ArrayList<>();
         Status status = YdbOperations.safeJoin(session.executeScanQuery(yql, sdkParams, settings, rs -> {
-            if (result.size() + rs.getRowCount() > options.getScanOptions().getMaxSize()) {
+            int rowCount = result.size() + rs.getRowCount();
+            if (rowCount > options.getScanOptions().getMaxSize()) {
                 throw new ResultTruncatedException(
-                        format("Query result size became greater than %d", options.getScanOptions().getMaxSize()),
-                        yql, result.size()
+                        "Scan query result size became greater than " + options.getScanOptions().getMaxSize(),
+                        yql,
+                        options.getScanOptions().getMaxSize(),
+                        rowCount
                 );
             }
             new ResultSetConverter(rs).stream(statement::readResult).forEach(result::add);
@@ -405,8 +421,10 @@ public class YdbRepositoryTransaction<REPO extends YdbRepository>
             stream.forEach(r -> {
                 if (result.size() >= options.getScanOptions().getMaxSize()) {
                     throw new ResultTruncatedException(
-                            format("Query result size became greater than %d", options.getScanOptions().getMaxSize()),
-                            getYql(statement), result.size()
+                            "Scan query result size became greater than " + options.getScanOptions().getMaxSize(),
+                            getYql(statement),
+                            options.getScanOptions().getMaxSize(),
+                            result.size()
                     );
                 }
                 result.add(r);

@@ -1,16 +1,19 @@
 package tech.ydb.yoj.repository.ydb.client;
 
-import lombok.Getter;
 import lombok.NonNull;
 import tech.ydb.core.Result;
 import tech.ydb.core.grpc.GrpcTransport;
 import tech.ydb.table.Session;
 import tech.ydb.table.SessionPoolStats;
 import tech.ydb.table.TableClient;
+import tech.ydb.yoj.InternalApi;
 import tech.ydb.yoj.repository.db.exception.QueryInterruptedException;
 import tech.ydb.yoj.repository.db.exception.RetryableException;
 import tech.ydb.yoj.repository.db.exception.UnavailableException;
+import tech.ydb.yoj.repository.ydb.QueryImplementation.QueryService;
+import tech.ydb.yoj.repository.ydb.QueryImplementation.TableService;
 import tech.ydb.yoj.repository.ydb.YdbConfig;
+import tech.ydb.yoj.repository.ydb.YdbRepository;
 import tech.ydb.yoj.repository.ydb.metrics.GaugeSupplierCollector;
 
 import java.time.Duration;
@@ -21,7 +24,8 @@ import java.util.concurrent.ExecutionException;
 
 import static tech.ydb.yoj.util.lang.Interrupts.isThreadInterrupted;
 
-public class YdbSessionManager implements SessionManager {
+@InternalApi
+public final class YdbSessionManager implements SessionManager {
     private static final GaugeSupplierCollector sessionStatCollector = GaugeSupplierCollector.build()
             .namespace("ydb")
             .subsystem("session_manager")
@@ -31,14 +35,11 @@ public class YdbSessionManager implements SessionManager {
             .register();
 
     private final YdbConfig config;
-    private final GrpcTransport transport;
-    @Getter
-    private TableClient tableClient;
+    private final TableClient tableClient;
 
-    public YdbSessionManager(@NonNull YdbConfig config, GrpcTransport transport) {
+    public YdbSessionManager(@NonNull YdbConfig config, @NonNull YdbRepository.Settings repositorySettings, @NonNull GrpcTransport transport) {
         this.config = config;
-        this.transport = transport;
-        this.tableClient = createClient(transport);
+        this.tableClient = createClient(repositorySettings, transport);
 
         sessionStatCollector
                 .labels("pending_acquire_count").supplier(() -> tableClient.sessionPoolStats().getPendingAcquireCount())
@@ -46,13 +47,25 @@ public class YdbSessionManager implements SessionManager {
                 .labels("idle_count").supplier(() -> tableClient.sessionPoolStats().getIdleCount());
     }
 
-    private TableClient createClient(GrpcTransport transport) {
-        return TableClient.newClient(transport)
+    private TableClient createClient(@NonNull YdbRepository.Settings repositorySettings, @NonNull GrpcTransport transport) {
+        return buildTableClient(repositorySettings, transport)
                 .keepQueryText(false)
                 .sessionKeepAliveTime(config.getSessionKeepAliveTime())
                 .sessionMaxIdleTime(config.getSessionMaxIdleTime())
                 .sessionPoolSize(config.getSessionPoolMin(), config.getSessionPoolMax())
                 .build();
+    }
+
+    private static TableClient.Builder buildTableClient(@NonNull YdbRepository.Settings repositorySettings, @NonNull GrpcTransport transport) {
+        // TODO(nvamelichev@): Replace this with expression switch with type pattern as soon as we migrate to Java 21+
+        var queryImplementation = repositorySettings.queryImplementation();
+        if (queryImplementation instanceof TableService) {
+            return TableClient.newClient(transport);
+        } else if (queryImplementation instanceof QueryService) {
+            return tech.ydb.query.impl.TableClientImpl.newClient(transport);
+        } else {
+            throw new UnsupportedOperationException("Unknown QueryImplementation: <" + queryImplementation.getClass() + ">");
+        }
     }
 
     @Override
@@ -108,26 +121,21 @@ public class YdbSessionManager implements SessionManager {
     }
 
     @Override
-    public synchronized void invalidateAllSessions() {
-        shutdown();
-        tableClient = createClient(transport);
-    }
-
-    @Override
     public void shutdown() {
         tableClient.close();
     }
 
     @Override
     public boolean healthCheck() {
-        // Базу считаем живой, если кол-во сессий в пуле больше 0.
-        // Плохие сессии отвалятся по кипэлайву или при первой же ошибке вознишей в этой сессии.
-        // Если idle==0, это может означать, что приложение только-только запустилось,
-        // или что база не справляется с нагрузкой - тогда смотрим сколько
-        // в очереди на получении сессии и если больше чем maxSize самой очереди, то кажется не все ок с базой.
+        // We consider the database healthy if the number of sessions in the pool is greater than 0.
+        // Bad sessions will be dropped either due to keep-alive or on the very first error that occurs in that session.
+        //
+        // If idleCount == 0, this may mean that the application has just started, or that the database cannot handle the load.
+        // To account for that case, we check pendingAcquireCount (how many clients are waiting to acquire a session),
+        // and if it’s more than maxSize of the client queue, we consider the database to be unhealthy.
         SessionPoolStats sessionPoolStats = tableClient.sessionPoolStats();
         return sessionPoolStats.getIdleCount() > 0 ||
-                //todo: кажется стоит считать getPendingAcquireCount > 0 проблемой, тк это уже перегруз
+                //todo: maybe we should consider pendingAcquireCount > 0 problematic, because there are clients waiting?
                 sessionPoolStats.getPendingAcquireCount() <= sessionPoolStats.getMaxSize();
     }
 }
