@@ -79,6 +79,11 @@ public class YdbRepository implements Repository {
         this(config, makeGrpcTransport(config, authProvider, interceptors));
     }
 
+    public YdbRepository(@NonNull YdbConfig config, @NonNull Settings repositorySettings,
+                         @NonNull AuthProvider authProvider, List<ClientInterceptor> interceptors) {
+        this(config, repositorySettings, makeGrpcTransport(config, authProvider, interceptors));
+    }
+
     public YdbRepository(@NonNull YdbConfig config, @NonNull GrpcTransport transport) {
         // In YOJ 2.x, use TableService query implementation as a safe default; QueryService will become the default in YOJ 3.x.
         this(
@@ -102,7 +107,7 @@ public class YdbRepository implements Repository {
     private static GrpcTransport makeGrpcTransport(
             @NonNull YdbConfig config,
             @NonNull AuthProvider authProvider,
-            List<ClientInterceptor> interceptors
+            @NonNull List<ClientInterceptor> interceptors
     ) {
         boolean singleChannel = config.isUseSingleChannelTransport();
         return new LazyGrpcTransport(
@@ -111,7 +116,11 @@ public class YdbRepository implements Repository {
         );
     }
 
-    private static GrpcTransportBuilder makeGrpcTransportBuilder(@NonNull YdbConfig config, AuthProvider authProvider, List<ClientInterceptor> interceptors) {
+    private static GrpcTransportBuilder makeGrpcTransportBuilder(
+            @NonNull YdbConfig config,
+            @NonNull AuthProvider authProvider,
+            @NonNull List<ClientInterceptor> interceptors
+    ) {
         GrpcTransportBuilder transportBuilder;
         if (!Strings.isNullOrEmpty(config.getDiscoveryEndpoint())) {
             transportBuilder = GrpcTransport.forEndpoint(config.getDiscoveryEndpoint(), canonicalDatabase(config.getDatabase()))
