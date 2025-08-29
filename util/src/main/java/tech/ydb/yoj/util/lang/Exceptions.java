@@ -60,25 +60,25 @@ public final class Exceptions {
     }
 
     /**
-     * Closes all the specified {@link AutoCloseable} resources, collecting all exceptions received and re-throwing
+     * Tries to close all the specified {@link AutoCloseable} resources, collecting all exceptions received and re-throwing
      * them as (first exception with all other exceptions in suppresssed list).
      *
      * @param closeables resources to close
-     * @see #dispose(List)
+     * @see #closeAll(List)
      */
-    public static void dispose(@NonNull AutoCloseable... closeables) {
-        dispose(Arrays.asList(closeables));
+    public static void closeAll(@NonNull AutoCloseable... closeables) {
+        closeAll(Arrays.asList(closeables));
     }
 
     /**
-     * Closes all the specified {@link AutoCloseable} resources, collecting all exceptions received and re-throwing
+     * Tries to close all the specified {@link AutoCloseable} resources, collecting all exceptions received and re-throwing
      * them as (first exception with all other exceptions in suppresssed list).
      *
      * @param closeables list of resources to close
-     * @see #dispose(AutoCloseable...)
+     * @see #closeAll(AutoCloseable...)
      */
     @SneakyThrows
-    public static void dispose(@NonNull List</*@Nullable*/ AutoCloseable> closeables) {
+    public static void closeAll(@NonNull List</*@Nullable*/ AutoCloseable> closeables) {
         Exception exception = null;
         for (AutoCloseable c : closeables) {
             try {

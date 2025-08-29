@@ -201,7 +201,7 @@ public class YdbRepository implements Repository {
 
     @Override
     public void shutdown() {
-        Exceptions.dispose(sessionClient, transport);
+        Exceptions.closeAll(sessionClient, transport);
     }
 
     @Override
@@ -404,7 +404,7 @@ public class YdbRepository implements Repository {
 
         @Override
         public void close() {
-            Exceptions.dispose(schemaOperations, sessionManager);
+            Exceptions.closeAll(schemaOperations, sessionManager);
         }
     }
 }

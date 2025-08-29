@@ -452,7 +452,7 @@ public class YdbSchemaOperations implements AutoCloseable {
 
     @Override
     public void close() {
-        Exceptions.dispose(topicClient, schemeClient);
+        Exceptions.closeAll(topicClient, schemeClient);
     }
 
     @Value
