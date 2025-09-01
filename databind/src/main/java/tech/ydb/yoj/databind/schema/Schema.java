@@ -393,7 +393,7 @@ public abstract class Schema<T> {
     }
 
     @Override
-    public final int hashCode() {
+    public int hashCode() {
         return Objects.hash(getClass(), getType(), getNamingStrategy());
     }
 
