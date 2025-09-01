@@ -398,7 +398,7 @@ public abstract class Schema<T> {
     }
 
     @Override
-    public final boolean equals(Object o) {
+    public boolean equals(Object o) {
         return o instanceof Schema<?> otherSchema
                 && otherSchema.getClass().equals(this.getClass())
                 && otherSchema.getType().equals(this.getType())

@@ -123,4 +123,10 @@ public final class EntitySchema<T extends Entity<T>> extends Schema<T> {
     public int hashCode() {
         return Objects.hashCode(getName());
     }
+
+    @Override
+    public boolean equals(Object o) {
+        return o instanceof EntitySchema<?> other
+                && Objects.equals(this.getName(), other.getName());
+    }
 }
