@@ -64,8 +64,8 @@ public final class ModelField {
         ValidationResult validationResult = value.isValidValueOfType(field.getType(), fieldValueType);
         if (validationResult.invalid()) {
             throw userFieldPath != null
-                    ? validationResult.throwInternalError(userFieldPath)
-                    : validationResult.throwUserException(javaField.getPath());
+                    ? validationResult.throwUserException(userFieldPath)
+                    : validationResult.throwInternalError(javaField.getPath());
         }
         return value;
     }
