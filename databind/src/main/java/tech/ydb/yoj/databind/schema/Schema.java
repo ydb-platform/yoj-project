@@ -393,12 +393,12 @@ public abstract class Schema<T> {
     }
 
     @Override
-    public int hashCode() {
+    public final int hashCode() {
         return Objects.hash(getClass(), getType(), getNamingStrategy());
     }
 
     @Override
-    public boolean equals(Object o) {
+    public final boolean equals(Object o) {
         return o instanceof Schema<?> otherSchema
                 && otherSchema.getClass().equals(this.getClass())
                 && otherSchema.getType().equals(this.getType())

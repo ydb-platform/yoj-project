@@ -215,6 +215,15 @@ public class ListRequest<T> {
             );
         }
 
+        /**
+         * @deprecated The hash is not stable across YOJ releases (e.g., 2.6.x produces different results than 2.5.x).
+         * If you need to check that listing parameters do not change across multiple listing requests, you should use
+         * the {@code filter} and {@code order_by} strings from the original user request, instead.
+         * <p>This method will be removed in YOJ 2.7.0.
+         *
+         * @return 64-bit hash of the listing parameters (filter and ordering), not guaranteed to be stable across YOJ releases
+         */
+        @Deprecated(forRemoval = true)
         public long hash() {
             return Hashing.farmHashFingerprint64().newHasher()
                     .putInt(Objects.hashCode(filter))

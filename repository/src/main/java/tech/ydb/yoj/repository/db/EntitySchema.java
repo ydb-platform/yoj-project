@@ -12,7 +12,6 @@ import tech.ydb.yoj.databind.schema.reflect.Reflector;
 import java.lang.reflect.Type;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 
 import static java.lang.String.format;
 import static lombok.AccessLevel.PACKAGE;
@@ -117,16 +116,5 @@ public final class EntitySchema<T extends Entity<T>> extends Schema<T> {
 
     public <V extends Table.View> ViewSchema<V> getViewSchema(Class<V> viewClass) {
         return ViewSchema.of(getRegistry(), viewClass, getNamingStrategy());
-    }
-
-    @Override
-    public int hashCode() {
-        return Objects.hashCode(getName());
-    }
-
-    @Override
-    public boolean equals(Object o) {
-        return o instanceof EntitySchema<?> other
-                && Objects.equals(this.getName(), other.getName());
     }
 }
