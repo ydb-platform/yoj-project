@@ -48,6 +48,7 @@ import tech.ydb.topic.settings.WriterSettings;
 import tech.ydb.yoj.databind.schema.Column;
 import tech.ydb.yoj.databind.schema.GlobalIndex;
 import tech.ydb.yoj.databind.schema.ObjectSchema;
+import tech.ydb.yoj.repository.db.Entity;
 import tech.ydb.yoj.repository.db.EntitySchema;
 import tech.ydb.yoj.repository.db.IsolationLevel;
 import tech.ydb.yoj.repository.db.QueryStatsMode;
@@ -69,6 +70,7 @@ import tech.ydb.yoj.repository.test.RepositoryTest;
 import tech.ydb.yoj.repository.test.entity.TestEntities;
 import tech.ydb.yoj.repository.test.sample.TestDb;
 import tech.ydb.yoj.repository.test.sample.TestDbImpl;
+import tech.ydb.yoj.repository.test.sample.model.Book;
 import tech.ydb.yoj.repository.test.sample.model.Bubble;
 import tech.ydb.yoj.repository.test.sample.model.ChangefeedEntity;
 import tech.ydb.yoj.repository.test.sample.model.IndexedEntity;
@@ -1350,6 +1352,16 @@ public class YdbRepositoryIntegrationTest extends RepositoryTest {
         }
     }
 
+    @Test
+    public void schemaExistsForExistingEntity() {
+        assertThat(repository.schema(NonSerializableEntity.class).exists()).isTrue();
+    }
+
+    @Test
+    public void schemaNotExistsForMissingEntity() {
+        assertThat(repository.schema(MissingEntity.class).exists()).isFalse();
+    }
+
     private List<tech.ydb.topic.read.Message> readAll(TopicClient topicClient, String topicPath, String consumer, String reader) {
         var syncReader = topicClient.createSyncReader(ReaderSettings.newBuilder()
                 .setTopics(
@@ -1586,6 +1598,16 @@ public class YdbRepositoryIntegrationTest extends RepositoryTest {
             void rollbackTransaction(tech.ydb.proto.query.YdbQuery.RollbackTransactionRequest request, io.grpc.stub.StreamObserver<tech.ydb.proto.query.YdbQuery.RollbackTransactionResponse> responseObserver);
 
             void executeQuery(tech.ydb.proto.query.YdbQuery.ExecuteQueryRequest request, io.grpc.stub.StreamObserver<tech.ydb.proto.query.YdbQuery.ExecuteQueryResponsePart> responseObserver);
+        }
+    }
+
+    @Value
+    private static class MissingEntity implements Entity<MissingEntity> {
+        Id id;
+
+        @Value
+        public static class Id implements Entity.Id<MissingEntity> {
+            String id;
         }
     }
 }
