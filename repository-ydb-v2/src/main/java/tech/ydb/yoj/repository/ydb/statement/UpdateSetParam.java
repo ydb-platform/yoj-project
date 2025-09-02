@@ -28,7 +28,7 @@ public final class UpdateSetParam extends PredicateStatement.Param {
 
     private UpdateSetParam(@NonNull EntitySchema.JavaField field,
                            @NonNull EntitySchema.JavaField rootField, @NonNull String rootFieldPath) {
-        super(YqlType.of(field), PREFIX + underscoreIllegalSymbols(field.getName()), true);
+        super(YqlType.of(field), PREFIX + underscoreIllegalSymbols(field.getName()), field.isOptional());
         Preconditions.checkState(field.isFlat(), "Can only create update statements for flat fields");
         this.field = field;
 

@@ -83,20 +83,23 @@ public class FindRangeStatement<ENTITY extends Entity<ENTITY>, ID extends Entity
         EQ("=", Range::getEqMap),
         MAX("<=", Range::getMaxMap),
         MIN(">=", Range::getMinMap);
-        String op;
-        Function<Range, Map<String, Object>> mapper;
+        private final String op;
+        private final Function<Range<?>, Map<String, Object>> mapper;
 
-        public Map<String, Object> map(Range range) {
+        public Map<String, Object> map(Range<?> range) {
             return mapper.apply(range);
         }
     }
 
-    static class YqlStatementRangeParam extends YqlStatementParam {
+    private static class YqlStatementRangeParam extends YqlStatementParam {
         private final RangeBound rangeBound;
         private final String rangeName;
 
         YqlStatementRangeParam(YqlType type, String name, RangeBound rangeBound) {
-            super(type, rangeBound.name() + "_" + name, true);
+            // YqlStatementRangeParam is always about the value of ID field,
+            // and YOJ disallows writing NULL to columns corresponding to ID fields.
+            // ==> YqlStatementRangeParams are always required, never optional
+            super(type, rangeBound.name() + "_" + name, false);
             this.rangeBound = rangeBound;
             this.rangeName = name;
         }

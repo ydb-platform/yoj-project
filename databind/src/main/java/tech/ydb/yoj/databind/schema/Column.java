@@ -59,6 +59,18 @@ public @interface Column {
     String dbTypeQualifier() default "";
 
     /**
+     * Specifies whether only non-{@code NULL} values can be stored in this column. Defaults to {@code false} (allow {@code NULL} values).<br>
+     * Note that this is orthogonal to Java nullness annotations, because YOJ uses {@code null} values for ID fields as a convention
+     * for "range over <em>all possible values</em> of this ID field" (see {@code Entity.Id.isPartial()}).
+     * <p><strong>Tip:</strong> Use the {@link tech.ydb.yoj.databind.converter.NotNullColumn} annotation if you only need to overide
+     * {@code Column.notNull} to {@code true}.
+     *
+     * @see <a href="https://github.com/ydb-platform/yoj-project/issues/149">#149</a>
+     */
+    @ExperimentalApi(issue = "https://github.com/ydb-platform/yoj-project/issues/149")
+    boolean notNull() default false;
+
+    /**
      * Determines whether the {@link FieldValueType#COMPOSITE composite field} will be:
      * <ul>
      * <li><em>flattened</em> into multiple primitive-typed DB columns ({@code flatten=true}),</li>
