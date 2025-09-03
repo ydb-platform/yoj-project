@@ -34,6 +34,7 @@ import tech.ydb.table.SessionPoolStats;
 import tech.ydb.table.TableClient;
 import tech.ydb.yoj.databind.schema.Column;
 import tech.ydb.yoj.databind.schema.ObjectSchema;
+import tech.ydb.yoj.repository.db.Entity;
 import tech.ydb.yoj.repository.db.EntitySchema;
 import tech.ydb.yoj.repository.db.IsolationLevel;
 import tech.ydb.yoj.repository.db.Repository;
@@ -50,6 +51,7 @@ import tech.ydb.yoj.repository.db.readtable.ReadTableParams;
 import tech.ydb.yoj.repository.test.RepositoryTest;
 import tech.ydb.yoj.repository.test.sample.TestDb;
 import tech.ydb.yoj.repository.test.sample.TestDbImpl;
+import tech.ydb.yoj.repository.test.sample.model.Book;
 import tech.ydb.yoj.repository.test.sample.model.Bubble;
 import tech.ydb.yoj.repository.test.sample.model.ChangefeedEntity;
 import tech.ydb.yoj.repository.test.sample.model.IndexedEntity;
@@ -325,14 +327,14 @@ public class YdbRepositoryIntegrationTest extends RepositoryTest {
         assertThat(actual2).isEqualTo(expected2);
 
         db.readOnly()
-            .withStatementIsolationLevel(IsolationLevel.SNAPSHOT)
-            .run(() ->  {
-                Project actualSnapshot1 = db.projects().find(expected1.getId());
-                assertThat(actualSnapshot1).isEqualTo(expected1);
+                .withStatementIsolationLevel(IsolationLevel.SNAPSHOT)
+                .run(() -> {
+                    Project actualSnapshot1 = db.projects().find(expected1.getId());
+                    assertThat(actualSnapshot1).isEqualTo(expected1);
 
-                Project actualSnapshot2 = db.projects().find(expected2.getId());
-                assertThat(actualSnapshot2).isEqualTo(expected2);
-            });
+                    Project actualSnapshot2 = db.projects().find(expected2.getId());
+                    assertThat(actualSnapshot2).isEqualTo(expected2);
+                });
     }
 
     @SneakyThrows
@@ -1044,6 +1046,16 @@ public class YdbRepositoryIntegrationTest extends RepositoryTest {
         }
     }
 
+    @Test
+    public void schemaExistsForExistingEntity() {
+        assertThat(repository.schema(NonSerializableEntity.class).exists()).isTrue();
+    }
+
+    @Test
+    public void schemaNotExistsForMissingEntity() {
+        assertThat(repository.schema(MissingEntity.class).exists()).isFalse();
+    }
+
     @AllArgsConstructor
     private static class DelegateSchemeServiceImplBase extends SchemeServiceGrpc.SchemeServiceImplBase {
         @Delegate
@@ -1156,6 +1168,16 @@ public class YdbRepositoryIntegrationTest extends RepositoryTest {
             void commitTransaction(tech.ydb.proto.table.YdbTable.CommitTransactionRequest request, StreamObserver<tech.ydb.proto.table.YdbTable.CommitTransactionResponse> responseObserver);
 
             void rollbackTransaction(tech.ydb.proto.table.YdbTable.RollbackTransactionRequest request, StreamObserver<tech.ydb.proto.table.YdbTable.RollbackTransactionResponse> responseObserver);
+        }
+    }
+
+    @Value
+    private static class MissingEntity implements Entity<MissingEntity> {
+        Id id;
+
+        @Value
+        public static class Id implements Entity.Id<MissingEntity> {
+            String id;
         }
     }
 }
