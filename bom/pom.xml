@@ -6,7 +6,7 @@
 
     <groupId>tech.ydb.yoj</groupId>
     <artifactId>yoj-bom</artifactId>
-    <version>2.6.31-SNAPSHOT</version>
+    <version>2.6.31</version>
     <packaging>pom</packaging>
 
     <name>YOJ - Bill of Materials</name>
