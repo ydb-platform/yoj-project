@@ -14,6 +14,7 @@ import tech.ydb.core.Status;
 import tech.ydb.core.grpc.GrpcTransport;
 import tech.ydb.proto.ValueProtos;
 import tech.ydb.scheme.SchemeClient;
+import tech.ydb.scheme.description.DescribePathResult;
 import tech.ydb.scheme.description.EntryType;
 import tech.ydb.scheme.description.ListDirectoryResult;
 import tech.ydb.table.Session;
@@ -443,7 +444,14 @@ public class YdbSchemaOperations implements AutoCloseable {
     }
 
     protected boolean hasPath(String path) {
-        return schemeClient.describePath(path).join().isSuccess();
+        Result<DescribePathResult> result = schemeClient.describePath(path).join();
+        if (result.isSuccess()) {
+            return true;
+        } else if (SCHEME_ERROR == result.getStatus().getCode() && YdbIssue.DEFAULT_ERROR.isContainedIn(result.getStatus().getIssues())) {
+            return false;
+        } else {
+            throw new YdbRepositoryException("Can't describe table '" + path + "': " + result);
+        }
     }
 
     @Override
