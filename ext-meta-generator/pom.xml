@@ -10,7 +10,7 @@
     <parent>
         <groupId>tech.ydb.yoj</groupId>
         <artifactId>yoj-parent</artifactId>
-        <version>2.6.31</version>
+        <version>2.6.32-SNAPSHOT</version>
     </parent>
 
     <name>YOJ - Meta generator</name>
