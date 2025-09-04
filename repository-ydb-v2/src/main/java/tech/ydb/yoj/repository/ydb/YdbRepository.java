@@ -9,12 +9,13 @@ import lombok.NonNull;
 import lombok.Value;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import tech.ydb.auth.AuthProvider;
+import tech.ydb.auth.AuthRpcProvider;
 import tech.ydb.auth.NopAuthProvider;
 import tech.ydb.core.grpc.BalancingSettings;
 import tech.ydb.core.grpc.GrpcTransport;
 import tech.ydb.core.grpc.GrpcTransportBuilder;
 import tech.ydb.core.impl.SingleChannelTransport;
+import tech.ydb.core.impl.auth.GrpcAuthRpc;
 import tech.ydb.table.SessionPoolStats;
 import tech.ydb.table.TableClient;
 import tech.ydb.yoj.repository.db.Entity;
@@ -71,16 +72,16 @@ public class YdbRepository implements Repository {
         this(config, NopAuthProvider.INSTANCE);
     }
 
-    public YdbRepository(@NonNull YdbConfig config, @NonNull AuthProvider authProvider) {
+    public YdbRepository(@NonNull YdbConfig config, @NonNull AuthRpcProvider<? super GrpcAuthRpc> authProvider) {
         this(config, authProvider, List.of());
     }
 
-    public YdbRepository(@NonNull YdbConfig config, @NonNull AuthProvider authProvider, List<ClientInterceptor> interceptors) {
+    public YdbRepository(@NonNull YdbConfig config, @NonNull AuthRpcProvider<? super GrpcAuthRpc> authProvider, List<ClientInterceptor> interceptors) {
         this(config, makeGrpcTransport(config, authProvider, interceptors));
     }
 
     public YdbRepository(@NonNull YdbConfig config, @NonNull Settings repositorySettings,
-                         @NonNull AuthProvider authProvider, List<ClientInterceptor> interceptors) {
+                         @NonNull AuthRpcProvider<? super GrpcAuthRpc> authProvider, List<ClientInterceptor> interceptors) {
         this(config, repositorySettings, makeGrpcTransport(config, authProvider, interceptors));
     }
 
@@ -106,7 +107,7 @@ public class YdbRepository implements Repository {
 
     private static GrpcTransport makeGrpcTransport(
             @NonNull YdbConfig config,
-            @NonNull AuthProvider authProvider,
+            @NonNull AuthRpcProvider<? super GrpcAuthRpc> authProvider,
             @NonNull List<ClientInterceptor> interceptors
     ) {
         boolean singleChannel = config.isUseSingleChannelTransport();
@@ -118,7 +119,7 @@ public class YdbRepository implements Repository {
 
     private static GrpcTransportBuilder makeGrpcTransportBuilder(
             @NonNull YdbConfig config,
-            @NonNull AuthProvider authProvider,
+            @NonNull AuthRpcProvider<? super GrpcAuthRpc> authProvider,
             @NonNull List<ClientInterceptor> interceptors
     ) {
         GrpcTransportBuilder transportBuilder;
