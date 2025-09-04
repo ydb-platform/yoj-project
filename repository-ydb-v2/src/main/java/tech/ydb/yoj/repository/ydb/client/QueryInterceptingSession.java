@@ -6,6 +6,7 @@ import tech.ydb.core.Status;
 import tech.ydb.core.grpc.GrpcReadStream;
 import tech.ydb.table.Session;
 import tech.ydb.table.description.TableDescription;
+import tech.ydb.table.description.TableOptionDescription;
 import tech.ydb.table.query.DataQuery;
 import tech.ydb.table.query.DataQueryResult;
 import tech.ydb.table.query.ExplainDataQueryResult;
@@ -20,6 +21,7 @@ import tech.ydb.table.settings.CommitTxSettings;
 import tech.ydb.table.settings.CopyTableSettings;
 import tech.ydb.table.settings.CopyTablesSettings;
 import tech.ydb.table.settings.CreateTableSettings;
+import tech.ydb.table.settings.DescribeTableOptionsSettings;
 import tech.ydb.table.settings.DescribeTableSettings;
 import tech.ydb.table.settings.DropTableSettings;
 import tech.ydb.table.settings.ExecuteDataQuerySettings;
@@ -113,6 +115,11 @@ public final class QueryInterceptingSession implements Session {
     @Override
     public CompletableFuture<Result<ExplainDataQueryResult>> explainDataQuery(String query, ExplainDataQuerySettings settings) {
         return delegate.explainDataQuery(query, settings);
+    }
+
+    @Override
+    public CompletableFuture<Result<TableOptionDescription>> describeTableOptions(DescribeTableOptionsSettings describeTableOptionsSettings) {
+        return delegate.describeTableOptions(describeTableOptionsSettings);
     }
 
     @Override
