@@ -4,7 +4,6 @@ import com.google.common.base.Strings;
 import io.grpc.ClientInterceptor;
 import io.grpc.netty.shaded.io.grpc.netty.NettyChannelBuilder;
 import lombok.Builder;
-import lombok.Getter;
 import lombok.NonNull;
 import lombok.Value;
 import org.slf4j.Logger;
@@ -26,7 +25,6 @@ import tech.ydb.yoj.repository.db.SchemaOperations;
 import tech.ydb.yoj.repository.db.TableDescriptor;
 import tech.ydb.yoj.repository.db.TxOptions;
 import tech.ydb.yoj.repository.ydb.client.SessionManager;
-import tech.ydb.yoj.repository.ydb.client.YdbPaths;
 import tech.ydb.yoj.repository.ydb.client.YdbSchemaOperations;
 import tech.ydb.yoj.repository.ydb.client.YdbSessionManager;
 import tech.ydb.yoj.repository.ydb.client.YdbTableHint;
@@ -56,15 +54,6 @@ public class YdbRepository implements Repository {
 
     private final GrpcTransport transport;
     private final CloseableMemoizer<SessionClient> sessionClient;
-
-    @Getter
-    private final String tablespace;
-
-    @Getter
-    private final YdbConfig config;
-
-    @Getter
-    private final Settings repositorySettings;
 
     private final ConcurrentMap<String, TableDescriptor<?>> entityClassesByTableName;
 
@@ -97,9 +86,6 @@ public class YdbRepository implements Repository {
     }
 
     public YdbRepository(@NonNull YdbConfig config, @NonNull Settings repositorySettings, @NonNull GrpcTransport transport) {
-        this.config = config;
-        this.repositorySettings = repositorySettings;
-        this.tablespace = YdbPaths.canonicalTablespace(config.getTablespace());
         this.entityClassesByTableName = new ConcurrentHashMap<>();
         this.transport = transport;
         this.sessionClient = MoreSuppliers.memoizeCloseable(() -> new SessionClient(config, repositorySettings, transport));

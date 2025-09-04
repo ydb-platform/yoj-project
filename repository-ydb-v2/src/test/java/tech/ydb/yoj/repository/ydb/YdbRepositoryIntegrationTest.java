@@ -351,7 +351,7 @@ public class YdbRepositoryIntegrationTest extends RepositoryTest {
     @Test
     public void truncatedDefault() {
         var ydbRepository = (YdbRepository) repository;
-        var queryImplementation = ydbRepository.getRepositorySettings().queryImplementation();
+        var queryImplementation = TestYdbRepository.createRepositorySettings().queryImplementation();
         if (queryImplementation instanceof QueryImplementation.TableService) {
             testRowLimitEnforced(db);
         } else if (queryImplementation instanceof QueryImplementation.QueryService) {

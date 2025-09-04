@@ -16,7 +16,6 @@ import tech.ydb.yoj.databind.DbType;
 import tech.ydb.yoj.repository.db.Entity;
 import tech.ydb.yoj.repository.db.EntitySchema;
 import tech.ydb.yoj.repository.db.TableDescriptor;
-import tech.ydb.yoj.repository.ydb.YdbConfig;
 import tech.ydb.yoj.repository.ydb.YdbRepository;
 import tech.ydb.yoj.repository.ydb.client.YdbPaths;
 import tech.ydb.yoj.repository.ydb.client.YdbSchemaOperations;
@@ -27,7 +26,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.Set;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
@@ -45,7 +43,6 @@ public final class YdbSchemaCompatibilityChecker {
     private final List<TableDescriptor<?>> descriptors;
     private final Config config;
     private final YdbRepository repository;
-    private final YdbConfig repositoryConfig;
 
     private final List<String> shouldExecuteMessages = new ArrayList<>();
     private final List<String> canExecuteMessages = new ArrayList<>();
@@ -67,7 +64,6 @@ public final class YdbSchemaCompatibilityChecker {
         this.descriptors = descriptors;
         this.config = config;
         this.repository = repository;
-        this.repositoryConfig = this.repository.getConfig();
     }
 
     @VisibleForTesting
@@ -107,7 +103,7 @@ public final class YdbSchemaCompatibilityChecker {
         if (!incompatibleMessages.isEmpty()) {
             log.error("DB schema and code have incompatible differences.\n"
                     + "{}", String.join("\n", incompatibleMessages));
-            throw new IllegalStateException("Code schema is not compatible with DB schema on " + getEndpoint());
+            throw new IllegalStateException("Code schema is not compatible with DB schema");
         }
 
         if (!canExecuteMessages.isEmpty()) {
@@ -132,7 +128,7 @@ public final class YdbSchemaCompatibilityChecker {
                             + "{}",
                     ddl
             );
-            throw new IllegalStateException("Code schema is not compatible with DB schema on " + getEndpoint());
+            throw new IllegalStateException("Code schema is not compatible with DB schema");
         }
     }
 
@@ -146,11 +142,6 @@ public final class YdbSchemaCompatibilityChecker {
             }
             throw e;
         }
-    }
-
-    private String getEndpoint() {
-        return Optional.ofNullable(repositoryConfig.getDiscoveryEndpoint())
-                .orElse(Objects.toString(repositoryConfig.getHostAndPort()));
     }
 
     private Map<String, YdbSchemaOperations.Table> generateSchemeFromCode() {
@@ -469,7 +460,7 @@ public final class YdbSchemaCompatibilityChecker {
             return false;
         }
 
-        String tablespace = repository.getTablespace();
+        String tablespace = repository.getSchemaOperations().getTablespace();
         Preconditions.checkState(globalName.startsWith(tablespace), "valid global name must start with repository tablespace");
         String realName = globalName.substring(tablespace.length());
         return prefixes.stream()

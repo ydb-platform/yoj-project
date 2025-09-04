@@ -108,6 +108,7 @@ public class YdbRepositoryTransaction<REPO extends YdbRepository>
     @Getter
     private final TransactionLocal transactionLocal;
     private final RepositoryCache cache;
+    private final String tablespace;
 
     protected final REPO repo;
 
@@ -118,11 +119,12 @@ public class YdbRepositoryTransaction<REPO extends YdbRepository>
     private String closeAction = null; // used to detect of usage transaction after commit()/rollback()
     private boolean isBadSession = false;
 
-    public YdbRepositoryTransaction(REPO repo, @NonNull TxOptions options) {
+    public YdbRepositoryTransaction(REPO repo, TxOptions options) {
         this.repo = repo;
         this.options = options;
         this.transactionLocal = new TransactionLocal(options);
         this.cache = options.isFirstLevelCache() ? RepositoryCache.create() : RepositoryCache.empty();
+        this.tablespace = repo.getSchemaOperations().getTablespace();
     }
 
     private <V> YdbSpliterator<V> createSpliterator(String request, boolean isOrdered) {
@@ -269,7 +271,7 @@ public class YdbRepositoryTransaction<REPO extends YdbRepository>
     }
 
     private String getYql(Statement<?, ?> statement) {
-        return statement.getQuery(repo.getTablespace());
+        return statement.getQuery(tablespace);
     }
 
     private static <PARAMS> Params getSdkParams(Statement<PARAMS, ?> statement, PARAMS params) {
@@ -493,7 +495,7 @@ public class YdbRepositoryTransaction<REPO extends YdbRepository>
 
     @Override
     public <IN> void bulkUpsert(BulkMapper<IN> mapper, List<IN> input, BulkParams params) {
-        String tableName = mapper.getTableName(repo.getTablespace());
+        String tableName = mapper.getTableName(tablespace);
 
         doCall("bulk upsert to table " + mapper.getTableName(""), () -> {
             var values = input.stream().map(x -> StructValue.of(
@@ -534,7 +536,7 @@ public class YdbRepositoryTransaction<REPO extends YdbRepository>
         if (options.isReadWrite()) {
             throw new IllegalTransactionIsolationLevelException("readTable", options.getIsolationLevel());
         }
-        String tableName = mapper.getTableName(repo.getTablespace());
+        String tableName = mapper.getTableName(tablespace);
         ReadTableSettings.Builder settings = ReadTableSettings.newBuilder()
                 .orderedRead(params.isOrdered())
                 .withRequestTimeout(params.getTimeout())
@@ -679,7 +681,6 @@ public class YdbRepositoryTransaction<REPO extends YdbRepository>
 
         var txId = firstNonNullTxId;
         var sessionId = session == null ? null : session.getId();
-        var tablespace = repo.getTablespace();
         log.trace("{}", new StatementTraceEvent(
                 statement,
                 txId, sessionId, tablespace,
