@@ -30,6 +30,22 @@ public record ByteArrayFieldValue(@NonNull ByteArray byteArray) implements Field
                 : invalidFieldValue(ByteArrayFieldExpected::new, p -> format("Specified a ByteArray value for non-ByteArray field \"%s\"", p));
     }
 
+    @Override
+    public int hashCode() {
+        int result = 1;
+        result = result * 59 + 43;
+        result = result * 59 + 43;
+        result = result * 59 + 43;
+        result = result * 59 + 43;
+        result = result * 59 + byteArray.hashCode();
+        return result;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        return o instanceof ByteArrayFieldValue other && byteArray.equals(other.byteArray);
+    }
+
     @NonNull
     @Override
     public String toString() {

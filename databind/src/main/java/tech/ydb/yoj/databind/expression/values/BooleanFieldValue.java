@@ -33,4 +33,19 @@ public record BooleanFieldValue(boolean bool) implements FieldValue {
     public String toString() {
         return Boolean.toString(bool);
     }
+
+    @Override
+    public int hashCode() {
+        int result = 1;
+        result = result * 59 + 43;
+        result = result * 59 + 43;
+        result = result * 59 + Boolean.hashCode(bool);
+        result = result * 59 + 43;
+        return result;
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+        return obj instanceof BooleanFieldValue other && bool == other.bool;
+    }
 }

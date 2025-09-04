@@ -29,9 +29,6 @@ public interface FieldValue {
 
     Comparable<?> getComparable(@NonNull Schema.JavaField field);
 
-    ///////////////////////////////////////////////
-    /// COMPATIBILITY QUERIES AND STATIC FACTORIES
-
     @Nullable
     static Comparable<?> getComparable(@NonNull Map<String, Object> values,
                                        @NonNull Schema.JavaField field) {
@@ -45,6 +42,8 @@ public interface FieldValue {
                 "Please use new tech.ydb.yoj.databind.expression.values.FieldValue.ofObj()");
         return tech.ydb.yoj.databind.expression.values.FieldValue.ofObj(obj, schemaField);
     }
+
+    // COMPATIBILITY QUERIES AND STATIC FACTORIES
 
     /**
      * @return {@code true} if this field value is an integer; {@code false} otherwise
@@ -271,7 +270,7 @@ public interface FieldValue {
      */
     @NonNull
     @Deprecated
-    static FieldValue ofStr(@NonNull String str) {
+    static StringFieldValue ofStr(@NonNull String str) {
         DeprecationWarnings.warnOnce("FieldValue.ofStr",
                 "Please use new tech.ydb.yoj.databind.expression.values.StringFieldValue(str)");
         return new StringFieldValue(str);
@@ -286,7 +285,7 @@ public interface FieldValue {
      */
     @NonNull
     @Deprecated
-    static FieldValue ofNum(long num) {
+    static IntegerFieldValue ofNum(long num) {
         DeprecationWarnings.warnOnce("FieldValue.ofNum",
                 "Please use new tech.ydb.yoj.databind.expression.values.IntegerFieldValue(num)");
         return new IntegerFieldValue(num);
@@ -301,7 +300,7 @@ public interface FieldValue {
      */
     @NonNull
     @Deprecated
-    static FieldValue ofReal(double real) {
+    static RealFieldValue ofReal(double real) {
         DeprecationWarnings.warnOnce("FieldValue.ofReal",
                 "Please use new tech.ydb.yoj.databind.expression.values.RealFieldValue(real)");
         return new RealFieldValue(real);
@@ -316,7 +315,7 @@ public interface FieldValue {
      */
     @NonNull
     @Deprecated
-    static FieldValue ofBool(boolean bool) {
+    static BooleanFieldValue ofBool(boolean bool) {
         DeprecationWarnings.warnOnce("FieldValue.ofBool",
                 "Please use new tech.ydb.yoj.databind.expression.values.BooleanFieldValue(bool)");
         return new BooleanFieldValue(bool);
@@ -331,7 +330,7 @@ public interface FieldValue {
      */
     @NonNull
     @Deprecated
-    static FieldValue ofTimestamp(@NonNull Instant timestamp) {
+    static TimestampFieldValue ofTimestamp(@NonNull Instant timestamp) {
         DeprecationWarnings.warnOnce("FieldValue.ofTimestamp",
                 "Please use new tech.ydb.yoj.databind.expression.values.TimestampFieldValue(timestamp)");
         return new TimestampFieldValue(timestamp);
@@ -345,7 +344,7 @@ public interface FieldValue {
      */
     @NonNull
     @Deprecated
-    static FieldValue ofTuple(@NonNull Tuple tuple) {
+    static TupleFieldValue ofTuple(@NonNull Tuple tuple) {
         DeprecationWarnings.warnOnce("FieldValue.ofTuple",
                 "Please use new tech.ydb.yoj.databind.expression.values.TupleFieldValue(tuple)");
         return new TupleFieldValue(tuple);
@@ -360,7 +359,7 @@ public interface FieldValue {
      */
     @NonNull
     @Deprecated
-    static FieldValue ofByteArray(@NonNull ByteArray byteArray) {
+    static ByteArrayFieldValue ofByteArray(@NonNull ByteArray byteArray) {
         DeprecationWarnings.warnOnce("FieldValue.ofByteArray",
                 "Please use new tech.ydb.yoj.databind.expression.values.ByteArrayFieldValue(byteArray)");
         return new ByteArrayFieldValue(byteArray);
@@ -375,7 +374,7 @@ public interface FieldValue {
      */
     @NonNull
     @Deprecated
-    static FieldValue ofUuid(@NonNull UUID uuid) {
+    static UuidFieldValue ofUuid(@NonNull UUID uuid) {
         DeprecationWarnings.warnOnce("FieldValue.ofUuid",
                 "Please use new tech.ydb.yoj.databind.expression.values.UuidFieldValue(uuid)");
         return new UuidFieldValue(uuid);

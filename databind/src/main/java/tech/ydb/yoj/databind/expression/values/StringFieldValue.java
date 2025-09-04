@@ -68,6 +68,21 @@ public record StringFieldValue(@NonNull String str) implements FieldValue {
         return stream(enumClass.getEnumConstants()).anyMatch(c -> enumConstant.equals(((Enum<?>) c).name()));
     }
 
+    @Override
+    public int hashCode() {
+        int result = 1;
+        result = result * 59 + str.hashCode();
+        result = result * 59 + 43;
+        result = result * 59 + 43;
+        result = result * 59 + 43;
+        return result;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        return o instanceof StringFieldValue other && str.equals(other.str);
+    }
+
     @NonNull
     @Override
     public String toString() {
