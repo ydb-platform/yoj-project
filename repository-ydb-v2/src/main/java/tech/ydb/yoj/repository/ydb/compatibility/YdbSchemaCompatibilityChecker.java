@@ -152,9 +152,13 @@ public final class YdbSchemaCompatibilityChecker {
 
     private YdbSchemaOperations.Table tableForEntity(TableDescriptor<?> c) {
         EntitySchema<?> schema = EntitySchema.of(c.entityType());
-        return repository.getSchemaOperations()
-                .describeTable(c.tableName(), schema.flattenFields(), schema.flattenId(),
-                        schema.getGlobalIndexes(), schema.getTtlModifier());
+        return repository.getSchemaOperations().describeTable(
+                c.tableName(),
+                schema.flattenFields(),
+                schema.flattenId(),
+                schema.getGlobalIndexes(),
+                schema.getTtlModifier()
+        );
     }
 
     private void checkCompatibility(Map<String, YdbSchemaOperations.Table> tablesFromSource,
