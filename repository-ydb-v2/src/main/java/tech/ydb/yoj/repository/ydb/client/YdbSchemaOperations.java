@@ -10,7 +10,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import tech.ydb.core.Result;
 import tech.ydb.core.Status;
-import tech.ydb.core.grpc.GrpcTransport;
 import tech.ydb.proto.ValueProtos;
 import tech.ydb.scheme.SchemeClient;
 import tech.ydb.scheme.description.DescribePathResult;
@@ -42,7 +41,6 @@ import tech.ydb.yoj.repository.ydb.exception.YdbRepositoryException;
 import tech.ydb.yoj.repository.ydb.exception.YdbSchemaPathNotFoundException;
 import tech.ydb.yoj.repository.ydb.yql.YqlPrimitiveType;
 import tech.ydb.yoj.repository.ydb.yql.YqlType;
-import tech.ydb.yoj.util.lang.Exceptions;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -58,21 +56,26 @@ import static java.util.stream.Collectors.toSet;
 import static lombok.AccessLevel.PRIVATE;
 import static tech.ydb.core.StatusCode.SCHEME_ERROR;
 
-@Getter
 @InternalApi
-public final class YdbSchemaOperations implements AutoCloseable {
+public final class YdbSchemaOperations {
     private static final Logger log = LoggerFactory.getLogger(YdbSchemaOperations.class);
 
+    @Getter
+    private String tablespace;
     private final SessionManager sessionManager;
     private final SchemeClient schemeClient;
     private final TopicClient topicClient;
-    private String tablespace;
 
-    public YdbSchemaOperations(String tablespace, @NonNull SessionManager sessionManager, GrpcTransport transport) {
+    public YdbSchemaOperations(
+            String tablespace,
+            SessionManager sessionManager,
+            SchemeClient schemeClient,
+            TopicClient topicClient
+    ) {
         this.tablespace = YdbPaths.canonicalTablespace(tablespace);
         this.sessionManager = sessionManager;
-        this.schemeClient = SchemeClient.newClient(transport).build();
-        this.topicClient = TopicClient.newClient(transport).build();
+        this.schemeClient = schemeClient;
+        this.topicClient = topicClient;
     }
 
     public void setTablespace(String tablespace) {
@@ -474,11 +477,6 @@ public final class YdbSchemaOperations implements AutoCloseable {
         }
 
         throw new YdbRepositoryException("Can't describe table '" + path + "': " + result);
-    }
-
-    @Override
-    public void close() {
-        Exceptions.closeAll(topicClient, schemeClient);
     }
 
     @Value
