@@ -74,6 +74,7 @@ public final class JacksonJsonConverter implements JsonConverter {
         return instance;
     }
 
+    @NonNull
     @Override
     public String toJson(@NonNull Type type, @Nullable Object o) throws ConversionException {
         try {
@@ -83,6 +84,7 @@ public final class JacksonJsonConverter implements JsonConverter {
         }
     }
 
+    @Nullable
     @Override
     public <T> T fromJson(@NonNull Type type, @NonNull String content) throws ConversionException {
         try {
@@ -92,6 +94,7 @@ public final class JacksonJsonConverter implements JsonConverter {
         }
     }
 
+    @Nullable
     @Override
     @SuppressWarnings("unchecked")
     public <T> T fromObject(@NonNull Type type, @Nullable Object content) throws ConversionException {
@@ -105,6 +108,7 @@ public final class JacksonJsonConverter implements JsonConverter {
         }
     }
 
+    @NonNull
     public String toString() {
         return "JacksonJsonConverter";
     }
@@ -112,6 +116,7 @@ public final class JacksonJsonConverter implements JsonConverter {
     /**
      * @return {@code ObjectMapper} with reasonable defaults for mapping between Java objects and JSON
      */
+    @NonNull
     public static ObjectMapper createDefaultObjectMapper() {
         ObjectMapper mapper = new ObjectMapper();
         mapper.setTimeZone(TimeZone.getDefault());

@@ -4,16 +4,15 @@ import com.google.common.collect.Sets;
 import lombok.Getter;
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
-import lombok.SneakyThrows;
 import lombok.Value;
 import lombok.With;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import tech.ydb.core.Result;
 import tech.ydb.core.Status;
-import tech.ydb.core.grpc.GrpcTransport;
 import tech.ydb.proto.ValueProtos;
 import tech.ydb.scheme.SchemeClient;
+import tech.ydb.scheme.description.DescribePathResult;
 import tech.ydb.scheme.description.EntryType;
 import tech.ydb.scheme.description.ListDirectoryResult;
 import tech.ydb.table.Session;
@@ -57,21 +56,26 @@ import static java.util.stream.Collectors.toSet;
 import static lombok.AccessLevel.PRIVATE;
 import static tech.ydb.core.StatusCode.SCHEME_ERROR;
 
-@Getter
 @InternalApi
-public class YdbSchemaOperations {
+public final class YdbSchemaOperations {
     private static final Logger log = LoggerFactory.getLogger(YdbSchemaOperations.class);
 
+    @Getter
+    private String tablespace;
     private final SessionManager sessionManager;
     private final SchemeClient schemeClient;
     private final TopicClient topicClient;
-    private String tablespace;
 
-    public YdbSchemaOperations(String tablespace, @NonNull SessionManager sessionManager, GrpcTransport transport) {
+    public YdbSchemaOperations(
+            String tablespace,
+            SessionManager sessionManager,
+            SchemeClient schemeClient,
+            TopicClient topicClient
+    ) {
         this.tablespace = YdbPaths.canonicalTablespace(tablespace);
         this.sessionManager = sessionManager;
-        this.schemeClient = SchemeClient.newClient(transport).build();
-        this.topicClient = TopicClient.newClient(transport).build();
+        this.schemeClient = schemeClient;
+        this.topicClient = topicClient;
     }
 
     public void setTablespace(String tablespace) {
@@ -86,10 +90,15 @@ public class YdbSchemaOperations {
         return hasPath(YdbPaths.canonicalRootDir(tablespace));
     }
 
-    @SneakyThrows
-    public void createTable(String name, List<EntitySchema.JavaField> columns, List<EntitySchema.JavaField> primaryKeys,
-                            YdbTableHint hint, List<Schema.Index> globalIndexes, Schema.TtlModifier ttlModifier,
-                            List<Schema.Changefeed> changefeeds) {
+    public void createTable(
+            String name,
+            List<EntitySchema.JavaField> columns,
+            List<EntitySchema.JavaField> primaryKeys,
+            YdbTableHint hint,
+            List<Schema.Index> globalIndexes,
+            Schema.TtlModifier ttlModifier,
+            List<Schema.Changefeed> changefeeds
+    ) {
         TableDescription.Builder builder = TableDescription.newBuilder();
         columns.forEach(c -> {
             ValueProtos.Type.PrimitiveTypeId yqlType = YqlPrimitiveType.of(c).getYqlType();
@@ -114,8 +123,7 @@ public class YdbSchemaOperations {
             }
         });
 
-        Session session = sessionManager.getSession();
-        try {
+        try (Session session = sessionManager.getSession()) {
             String tableDirectory = YdbPaths.tableDirectory(tablespace + name);
             if (!isNullOrEmpty(tableDirectory)) {
                 mkdirs(tableDirectory);
@@ -139,9 +147,7 @@ public class YdbSchemaOperations {
                 TtlSettings ttlSettings = new TtlSettings(ttlModifier.getFieldName(), ttlModifier.getInterval());
                 tableSettings.setTtlSettings(ttlSettings);
             }
-            Status status = session
-                    .createTable(tablespace + name, builder.build(), tableSettings)
-                    .join();
+            Status status = session.createTable(tablespace + name, builder.build(), tableSettings).join();
             if (status.getCode() != tech.ydb.core.StatusCode.SUCCESS) {
                 throw new CreateTableException(String.format("Can't create table %s: %s", name, status));
             }
@@ -172,7 +178,9 @@ public class YdbSchemaOperations {
                     String changeFeedTopicPath = YdbPaths.join(tablespace + name, changefeed.getName());
                     Result<TopicDescription> result = topicClient.describeTopic(changeFeedTopicPath).join();
                     if (result.getStatus().getCode() != tech.ydb.core.StatusCode.SUCCESS) {
-                        throw new CreateTableException(String.format("Can't describe CDC topic %s: %s", changeFeedTopicPath, result.getStatus()));
+                        throw new CreateTableException(String.format(
+                                "Can't describe CDC topic %s: %s", changeFeedTopicPath, result.getStatus()
+                        ));
                     }
 
                     Set<String> existingConsumerNames = result.getValue().getConsumers().stream()
@@ -193,26 +201,30 @@ public class YdbSchemaOperations {
                                 .setReadFrom(consumer.getReadFrom());
 
                         for (Codec consumerCodec : consumer.getCodecs()) {
-                            consumerConfiguration.addSupportedCodec(
-                                    tech.ydb.topic.description.Codec.valueOf(consumerCodec.name())
-                            );
+                            var sdkCodec = tech.ydb.topic.description.Codec.valueOf(consumerCodec.name());
+                            consumerConfiguration.addSupportedCodec(sdkCodec);
                         }
 
                         addConsumersRequest.addAddConsumer(consumerConfiguration.build());
                     }
                     status = topicClient.alterTopic(changeFeedTopicPath, addConsumersRequest.build()).join();
                     if (status.getCode() != tech.ydb.core.StatusCode.SUCCESS) {
-                        throw new CreateTableException(String.format("Can't alter CDC topic %s: %s", changeFeedTopicPath, status));
+                        throw new CreateTableException(String.format(
+                                "Can't alter CDC topic %s: %s", changeFeedTopicPath, status
+                        ));
                     }
                 }
             }
-        } finally {
-            sessionManager.release(session);
         }
     }
 
-    public Table describeTable(String name, List<EntitySchema.JavaField> columns, List<EntitySchema.JavaField> primaryKeys,
-                               List<EntitySchema.Index> indexes, EntitySchema.TtlModifier ttlModifier) {
+    public Table describeTable(
+            String name,
+            List<EntitySchema.JavaField> columns,
+            List<EntitySchema.JavaField> primaryKeys,
+            List<EntitySchema.Index> indexes,
+            EntitySchema.TtlModifier ttlModifier
+    ) {
         Set<String> primaryKeysNames = primaryKeys.stream()
                 .map(Schema.JavaField::getName)
                 .collect(toSet());
@@ -227,9 +239,12 @@ public class YdbSchemaOperations {
         List<Index> ydbIndexes = indexes.stream()
                 .map(i -> new Index(i.getIndexName(), i.getFieldNames(), i.isUnique(), i.isAsync()))
                 .toList();
-        TtlModifier tableTtl = ttlModifier == null
-                ? null
-                : new TtlModifier(ttlModifier.getFieldName(), ttlModifier.getInterval());
+
+        TtlModifier tableTtl = null;
+        if (ttlModifier != null) {
+            tableTtl = new TtlModifier(ttlModifier.getFieldName(), ttlModifier.getInterval());
+        }
+
         return new Table(tablespace + name, ydbColumns, ydbIndexes, tableTtl);
     }
 
@@ -241,17 +256,13 @@ public class YdbSchemaOperations {
         dropTablePath(tablespace + name);
     }
 
-    @SneakyThrows
     private void dropTablePath(String table) {
-        Session session = sessionManager.getSession();
-        try {
+        try (Session session = sessionManager.getSession()) {
             Status status = session.dropTable(table).join();
             if (!status.isSuccess()) {
                 log.error("Table " + table + " not deleted");
                 throw new DropTableException(String.format("Can't drop table %s: %s", table, status));
             }
-        } finally {
-            sessionManager.release(session);
         }
     }
 
@@ -317,39 +328,48 @@ public class YdbSchemaOperations {
     }
 
     @NonNull
-    @SneakyThrows
     private Table describeTableInternal(String path) {
-        Session session = sessionManager.getSession();
         Result<TableDescription> result;
-        try {
+        try (Session session = sessionManager.getSession()) {
             result = session.describeTable(path).join();
-        } finally {
-            sessionManager.release(session);
         }
-        if (SCHEME_ERROR == result.getStatus().getCode() && YdbIssue.DEFAULT_ERROR.isContainedIn(result.getStatus().getIssues())) {
+
+        Status status = result.getStatus();
+        if (SCHEME_ERROR == status.getCode() && YdbIssue.DEFAULT_ERROR.isContainedIn(status.getIssues())) {
             throw new YdbSchemaPathNotFoundException(result.toString());
         } else if (!result.isSuccess()) {
             throw new YdbRepositoryException("Can't describe table '" + path + "': " + result);
         }
 
         TableDescription table = result.getValue();
-        return new Table(
-                path,
-                table.getColumns().stream()
-                        .map(c -> {
-                            String columnName = c.getName();
-                            String simpleType = safeUnwrapOptional(c.getType()).toPb().getTypeId().name();
-                            boolean isPrimaryKey = table.getPrimaryKeys().contains(columnName);
-                            return new Column(columnName, simpleType, isPrimaryKey);
-                        })
-                        .toList(),
-                table.getIndexes().stream()
-                        .map(i -> new Index(i.getName(), i.getColumns(), i.getType() == TableIndex.Type.GLOBAL_UNIQUE, i.getType() == TableIndex.Type.GLOBAL_ASYNC))
-                        .toList(),
-                table.getTableTtl() == null || table.getTableTtl().getTtlMode() == TableTtl.TtlMode.NOT_SET
-                        ? null
-                        : new TtlModifier(table.getTableTtl().getDateTimeColumn(), table.getTableTtl().getExpireAfterSeconds())
-        );
+
+        List<Column> columns = table.getColumns().stream()
+                .map(c -> {
+                    String columnName = c.getName();
+                    String simpleType = safeUnwrapOptional(c.getType()).toPb().getTypeId().name();
+                    boolean isPrimaryKey = table.getPrimaryKeys().contains(columnName);
+                    return new Column(columnName, simpleType, isPrimaryKey);
+                })
+                .toList();
+
+        List<Index> indexes = table.getIndexes().stream()
+                .map(i -> new Index(
+                        i.getName(),
+                        i.getColumns(),
+                        i.getType() == TableIndex.Type.GLOBAL_UNIQUE,
+                        i.getType() == TableIndex.Type.GLOBAL_ASYNC
+                ))
+                .toList();
+
+        TtlModifier ttlModifiers = null;
+        if (table.getTableTtl() != null && table.getTableTtl().getTtlMode() != TableTtl.TtlMode.NOT_SET) {
+            ttlModifiers = new TtlModifier(
+                    table.getTableTtl().getDateTimeColumn(),
+                    table.getTableTtl().getExpireAfterSeconds()
+            );
+        }
+
+        return new Table(path, columns, indexes, ttlModifiers);
     }
 
     private Type safeUnwrapOptional(Type type) {
@@ -409,20 +429,20 @@ public class YdbSchemaOperations {
         return name.startsWith(".snapshot-");
     }
 
-    @SneakyThrows
-    protected void copyTable(String source, String destination) {
-        Session session = sessionManager.getSession();
-        try {
+    public void copyTable(String source, String destination) {
+        try (Session session = sessionManager.getSession()) {
             Status status = session.copyTable(source, destination).join();
             if (!status.isSuccess()) {
-                throw new SnapshotCreateException(String.format("Error while copying from %s to %s: %s", source, destination, status));
+                throw new SnapshotCreateException(String.format(
+                        "Error while copying from %s to %s: %s",
+                        source,
+                        destination,
+                        status
+                ));
             }
-        } finally {
-            sessionManager.release(session);
         }
     }
 
-    @SneakyThrows
     private List<DirectoryEntity> listDirectory(String directory) {
         ListDirectoryResult result = schemeClient.listDirectory(directory).join().getValue();
 
@@ -436,7 +456,7 @@ public class YdbSchemaOperations {
                 .toList();
     }
 
-    protected void mkdirs(String dir) {
+    public void mkdirs(String dir) {
         if (!dir.isEmpty() && !hasPath(dir)) {
             Status status = schemeClient.makeDirectories(dir).join();
             if (!status.isSuccess()) {
@@ -445,8 +465,18 @@ public class YdbSchemaOperations {
         }
     }
 
-    protected boolean hasPath(String path) {
-        return schemeClient.describePath(path).join().isSuccess();
+    public boolean hasPath(String path) {
+        Result<DescribePathResult> result = schemeClient.describePath(path).join();
+        if (result.isSuccess()) {
+            return true;
+        }
+
+        Status status = result.getStatus();
+        if (SCHEME_ERROR == status.getCode() && YdbIssue.DEFAULT_ERROR.isContainedIn(status.getIssues())) {
+            return false;
+        }
+
+        throw new YdbRepositoryException("Can't describe table '" + path + "': " + result);
     }
 
     @Value

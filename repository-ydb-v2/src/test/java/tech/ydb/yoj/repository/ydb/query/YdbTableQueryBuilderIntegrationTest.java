@@ -12,6 +12,6 @@ public class YdbTableQueryBuilderIntegrationTest extends TableQueryBuilderTest {
 
     @Override
     protected Repository createTestRepository() {
-        return new TestYdbRepository(ydbEnvAndTransport.getYdbConfig(), ydbEnvAndTransport.getGrpcTransport());
+        return TestYdbRepository.create(ydbEnvAndTransport);
     }
 }

@@ -92,7 +92,7 @@ import java.util.TreeMap;
                 continue;
             }
 
-            for (Range<Entity.Id<T>> lockedRange: lockedRanges) {
+            for (Range<Entity.Id<T>> lockedRange : lockedRanges) {
                 if (lockedRange.contains(entry.getKey())) {
                     throw new OptimisticLockException("Table lock failed " + tableDescriptor.toDebugString());
                 }
@@ -112,13 +112,7 @@ import java.util.TreeMap;
 
     @Nullable
     public synchronized T find(long txId, long version, Entity.Id<T> id, InMemoryTxLockWatcher watcher) {
-        checkLocks(version, watcher);
-
-        InMemoryEntityLine entityLine = entityLines.get(id);
-        if (entityLine == null) {
-            return null;
-        }
-        Columns columns = entityLine.get(txId, version);
+        Columns columns = findColumns(txId, version, id, watcher);
         return columns != null ? columns.toSchema(schema) : null;
     }
 
@@ -126,14 +120,20 @@ import java.util.TreeMap;
     public synchronized <V extends Table.View> V find(
             long txId, long version, Entity.Id<T> id, Class<V> viewType, InMemoryTxLockWatcher watcher
     ) {
+        Columns columns = findColumns(txId, version, id, watcher);
+        return columns != null ? columns.toSchema(schema.getViewSchema(viewType)) : null;
+    }
+
+    @Nullable
+    public synchronized Columns findColumns(long txId, long version, Entity.Id<T> id, InMemoryTxLockWatcher watcher) {
         checkLocks(version, watcher);
 
         InMemoryEntityLine entityLine = entityLines.get(id);
         if (entityLine == null) {
             return null;
         }
-        Columns columns = entityLine.get(txId, version);
-        return columns != null ? columns.toSchema(schema.getViewSchema(viewType)) : null;
+
+        return entityLine.get(txId, version);
     }
 
     public synchronized List<T> findAll(long txId, long version, InMemoryTxLockWatcher watcher) {
@@ -162,32 +162,44 @@ import java.util.TreeMap;
     }
 
     public synchronized void save(long txId, long version, T entity) {
-        InMemoryEntityLine entityLine = entityLines.computeIfAbsent(entity.getId(), __ -> new InMemoryEntityLine());
-
-        validateUniqueness(txId, version, entity);
-        uncommited.computeIfAbsent(txId, __ -> new HashSet<>()).add(entity.getId());
-
-        entityLine.put(txId, Columns.fromEntity(schema, entity));
+        save(txId, version, entity.getId(), Columns.fromEntity(schema, entity));
     }
 
-    private void validateUniqueness(long txId, long version, T entity) {
-        List<Schema.Index> indexes = schema.getGlobalIndexes().stream()
+    public synchronized void update(long txId, long version, Entity.Id<T> entityId, InMemoryTxLockWatcher watcher, Map<String, Object> patch) {
+        Columns columns = findColumns(txId, version, entityId, watcher);
+        if (columns == null) {
+            return;
+        }
+        save(txId, version, entityId, columns.patch(schema, patch));
+    }
+
+    private synchronized void save(long txId, long version, Entity.Id<T> entityId, Columns columns) {
+        InMemoryEntityLine entityLine = entityLines.computeIfAbsent(entityId, __ -> new InMemoryEntityLine());
+
+        validateUniqueness(txId, version, entityId, columns);
+        uncommited.computeIfAbsent(txId, __ -> new HashSet<>()).add(entityId);
+
+        entityLine.put(txId, columns);
+    }
+
+    private void validateUniqueness(long txId, long version, Entity.Id<T> entityId, Columns entityColumns) {
+        List<Schema.Index> uniqueIndexes = schema.getGlobalIndexes().stream()
                 .filter(Schema.Index::isUnique)
                 .toList();
-        for (Schema.Index index : indexes) {
-            Map<String, Object> entityIndexValues = buildIndexValues(index, entity);
+        for (Schema.Index uniqueIndex : uniqueIndexes) {
+            Map<String, Object> entityIndexValues = buildIndexValues(uniqueIndex, entityColumns);
             entityLines.forEach((id, line) -> {
                 Columns columns = line.get(txId, version);
-                if (columns != null && !id.equals(entity.getId())
-                        && entityIndexValues.equals(buildIndexValues(index, columns.toSchema(schema)))) {
-                    throw new EntityAlreadyExistsException("Entity " + entity.getId() + " already exists");
+                if (columns != null && !id.equals(entityId)
+                        && entityIndexValues.equals(buildIndexValues(uniqueIndex, columns))) {
+                    throw new EntityAlreadyExistsException("Entity " + entityId + " already exists");
                 }
             });
         }
     }
 
-    private Map<String, Object> buildIndexValues(Schema.Index index, T entity) {
-        Map<String, Object> cells = new HashMap<>(schema.flatten(entity));
+    private Map<String, Object> buildIndexValues(Schema.Index index, Columns entityColumns) {
+        Map<String, Object> cells = entityColumns.toMutableMap();
         cells.keySet().retainAll(index.getFieldNames());
         return cells;
     }

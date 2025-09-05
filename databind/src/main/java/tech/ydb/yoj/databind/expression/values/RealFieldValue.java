@@ -38,6 +38,23 @@ public record RealFieldValue(double real) implements FieldValue {
         };
     }
 
+    @Override
+    public int hashCode() {
+        int result = 1;
+        result = result * 59 + 43;
+        result = result * 59 + 43;
+        result = result * 59 + 43;
+        result = result * 59 + 43;
+        result = result * 59 + Double.hashCode(real);
+        return result;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        return o instanceof RealFieldValue other
+                && Double.doubleToLongBits(real) == Double.doubleToLongBits(other.real);
+    }
+
     @NonNull
     @Override
     public String toString() {

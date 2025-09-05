@@ -35,6 +35,21 @@ public record IntegerFieldValue(long num) implements FieldValue {
         };
     }
 
+    @Override
+    public int hashCode() {
+        int result = 1;
+        result = result * 59 + 43;
+        result = result * 59 + Long.hashCode(num);
+        result = result * 59 + 43;
+        result = result * 59 + 43;
+        return result;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        return o instanceof IntegerFieldValue other && num == other.num;
+    }
+
     @NonNull
     @Override
     public String toString() {

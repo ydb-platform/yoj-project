@@ -3,10 +3,13 @@ package tech.ydb.yoj.repository.test;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Iterators;
+import lombok.NonNull;
 import lombok.SneakyThrows;
 import org.assertj.core.api.Assertions;
 import org.junit.Assert;
 import org.junit.Test;
+import tech.ydb.yoj.databind.ByteArray;
+import tech.ydb.yoj.databind.expression.FieldValue;
 import tech.ydb.yoj.databind.expression.FilterExpression;
 import tech.ydb.yoj.databind.expression.values.StringFieldValue;
 import tech.ydb.yoj.repository.BaseDb;
@@ -14,6 +17,7 @@ import tech.ydb.yoj.repository.db.Entity;
 import tech.ydb.yoj.repository.db.EntitySchema;
 import tech.ydb.yoj.repository.db.IsolationLevel;
 import tech.ydb.yoj.repository.db.Range;
+import tech.ydb.yoj.repository.db.RecordEntity;
 import tech.ydb.yoj.repository.db.Repository;
 import tech.ydb.yoj.repository.db.RepositoryTransaction;
 import tech.ydb.yoj.repository.db.SchemaOperations;
@@ -22,6 +26,8 @@ import tech.ydb.yoj.repository.db.Table;
 import tech.ydb.yoj.repository.db.Tx;
 import tech.ydb.yoj.repository.db.TxManager;
 import tech.ydb.yoj.repository.db.TxOptions;
+import tech.ydb.yoj.repository.db.common.CommonConverters;
+import tech.ydb.yoj.repository.db.common.CommonConverters.EnumDeserializer;
 import tech.ydb.yoj.repository.db.exception.ConversionException;
 import tech.ydb.yoj.repository.db.exception.DropTableException;
 import tech.ydb.yoj.repository.db.exception.EntityAlreadyExistsException;
@@ -32,6 +38,7 @@ import tech.ydb.yoj.repository.db.exception.UnavailableException;
 import tech.ydb.yoj.repository.db.list.ListRequest;
 import tech.ydb.yoj.repository.db.list.ListResult;
 import tech.ydb.yoj.repository.db.readtable.ReadTableParams;
+import tech.ydb.yoj.repository.db.statement.Changeset;
 import tech.ydb.yoj.repository.test.entity.TestEntities;
 import tech.ydb.yoj.repository.test.sample.TestDb;
 import tech.ydb.yoj.repository.test.sample.TestDbImpl;
@@ -44,6 +51,7 @@ import tech.ydb.yoj.repository.test.sample.model.Complex.Id;
 import tech.ydb.yoj.repository.test.sample.model.DetachedEntity;
 import tech.ydb.yoj.repository.test.sample.model.DetachedEntityId;
 import tech.ydb.yoj.repository.test.sample.model.EntityWithValidation;
+import tech.ydb.yoj.repository.test.sample.model.EnumEntity;
 import tech.ydb.yoj.repository.test.sample.model.IndexedEntity;
 import tech.ydb.yoj.repository.test.sample.model.MultiLevelDirectory;
 import tech.ydb.yoj.repository.test.sample.model.MultiWrappedEntity2;
@@ -90,6 +98,7 @@ import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.time.temporal.ChronoUnit.MILLIS;
 import static java.util.Arrays.asList;
 import static java.util.Collections.emptyList;
@@ -595,7 +604,8 @@ public abstract class RepositoryTest extends RepositoryTestSupport {
 
             // this loop calls tryAdvance() on spliterator one time after tryAdvance() says false
             while (true) {
-                if (!spliterator.tryAdvance(__ -> {})) {
+                if (!spliterator.tryAdvance(__ -> {
+                })) {
                     return;
                 }
             }
@@ -2951,6 +2961,197 @@ public abstract class RepositoryTest extends RepositoryTestSupport {
                 .where("id").lt(new MultiWrappedEntity2.Id(new MultiWrappedEntity2.WrapperOfIdStringValue(MultiWrappedEntity2.IdStringValue.fromString("xyzzy-central1:0"))))
                 .find()
         )).isEmpty();
+    }
+
+    @Test
+    public void lenientEnumBehaviorExplicit() {
+        try {
+            CommonConverters.defineEnumDeserializer(EnumDeserializer.LENIENT);
+            lenientEnumBehaviorTestImpl();
+        } finally {
+            CommonConverters.useDefaultEnumDeserializer();
+        }
+    }
+
+    @Test
+    public void lenientEnumBehaviorImplicit() {
+        // NB: Currently the implicit system property uses LENIENT deserializer, but this will change in YOJ 2.7.0!
+        CommonConverters.useDefaultEnumDeserializer();
+        lenientEnumBehaviorTestImpl();
+    }
+
+    @Test
+    public void strictEnumBehaviorExplicit() {
+        try {
+            CommonConverters.defineEnumDeserializer(EnumDeserializer.STRICT);
+            strictEnumBehaviorTestImpl();
+        } finally {
+            CommonConverters.useDefaultEnumDeserializer();
+        }
+    }
+
+    private void lenientEnumBehaviorTestImpl() {
+        var entity1 = new EnumEntity(new EnumEntity.Id("qee1"), EnumEntity.IpVersion.IPV6, EnumEntity.NetworkType.OVERLAY);
+        var entity2 = new EnumEntity(new EnumEntity.Id("qee2"), EnumEntity.IpVersion.IPV4, EnumEntity.NetworkType.UNDERLAY_V4);
+        var entity3 = new EnumEntity(new EnumEntity.Id("qee3"), EnumEntity.IpVersion.IPV6, EnumEntity.NetworkType.UNDERLAY_V6);
+        db.tx(() -> db.table(EnumEntity.class).insert(entity1, entity2, entity3));
+        db.tx(() -> db.table(EnumEntity.class).update(entity2.id(), new Changeset()
+                .set("ipVersion", "ipv4") // the lowercase of IPV4.name(), which IS allowed by the LENIENT enum deserializer
+                .set("networkType", "underlay-v4") // this uses toString() to convert enums, and "underlay-v4" corresponds to a UNDERLAY_V4 constant
+        ));
+        db.tx(() -> db.table(EnumEntity.class).update(entity3.id(), new Changeset()
+                .set("ipVersion", "IPV5") // mwahahahahah! This is an unknown constant which the LENIENT enum deserializer will turn into null (!!)
+                .set("networkType", "zz") // same here!!!
+        ));
+
+        db.tx(() -> {
+            assertThat(db.table(EnumEntity.class).find(entity1.id())).isEqualTo(entity1);
+
+            // lowercase 'ipv4' treated as 'IPV4' constant
+            assertThat(db.table(EnumEntity.class).find(entity2.id())).isEqualTo(entity2);
+            // unknown constant 'IPV5' treated as null (!!)
+            assertThat(db.table(EnumEntity.class).find(entity3.id())).isEqualTo(entity3.withIpVersion(null).withNetworkType(null));
+        });
+    }
+
+    private void strictEnumBehaviorTestImpl() {
+        var entity1 = new EnumEntity(new EnumEntity.Id("qee1"), EnumEntity.IpVersion.IPV6, EnumEntity.NetworkType.OVERLAY);
+        var entity2 = new EnumEntity(new EnumEntity.Id("qee2"), EnumEntity.IpVersion.IPV4, EnumEntity.NetworkType.UNDERLAY_V4);
+        var entity3 = new EnumEntity(new EnumEntity.Id("qee3"), EnumEntity.IpVersion.IPV4, EnumEntity.NetworkType.UNDERLAY_V4);
+        var entity4 = new EnumEntity(new EnumEntity.Id("qee4"), EnumEntity.IpVersion.IPV6, EnumEntity.NetworkType.UNDERLAY_V6);
+        db.tx(() -> db.table(EnumEntity.class).insert(entity1, entity2, entity3, entity4));
+        db.tx(() -> db.table(EnumEntity.class).update(entity2.id(), new Changeset()
+                .set("ipVersion", "IPV4") // IPV4.name(), verbatim
+                .set("networkType", "underlay-v4") // this uses toString() to convert enums, and "underlay-v4" corresponds to a UNDERLAY_V4 constant
+        ));
+        db.tx(() -> db.table(EnumEntity.class).update(entity3.id(), new Changeset()
+                .set("ipVersion", "ipv4") // the lowercase of IPV4.name(), which IS NOT allowed by the STRICT enum deserializer
+                .set("networkType", "underlay-v4") // this uses toString() to convert enums, and "underlay-v4" corresponds to a UNDERLAY_V4 constant
+        ));
+        db.tx(() -> db.table(EnumEntity.class).update(entity4.id(), new Changeset()
+                .set("ipVersion", "IPV5") // mwahahahahah! This is an unknown constant which the STRICT enum deserializer disallows (!!)
+                .set("networkType", "zz") // same here!!!
+        ));
+
+        db.tx(() -> {
+            assertThat(db.table(EnumEntity.class).find(entity1.id())).isEqualTo(entity1);
+            assertThat(db.table(EnumEntity.class).find(entity2.id())).isEqualTo(entity2);
+
+            // lowercase 'ipv4' leads to ConversionError
+            assertThatExceptionOfType(ConversionException.class).isThrownBy(() -> db.table(EnumEntity.class).find(entity3.id()));
+            // unknown constants 'IPV5' and 'zz' lead to ConversionError
+            assertThatExceptionOfType(ConversionException.class).isThrownBy(() -> db.table(EnumEntity.class).find(entity4.id()));
+        });
+    }
+
+    private record StableListingEntity(
+            Id id,
+            // => RealFieldValue
+            double value
+    ) implements RecordEntity<StableListingEntity> {
+        // => TupleFieldValue
+        private record Id(
+                // => StringFieldValue
+                @NonNull String key1,
+                // => IntegerFieldValue
+                long key2,
+                // => StringFieldValue again (via ENUM now)
+                @NonNull Key3Enum key3,
+                // => BooleanFieldValue
+                boolean key4,
+                // => TimestampFieldValue
+                @NonNull Instant key5,
+                // => UuidFieldValue
+                @NonNull UUID key6,
+                // => ByteArrayFieldValue
+                @NonNull ByteArray key7
+        ) implements RecordEntity.Id<StableListingEntity> {
+            private enum Key3Enum {
+                KEY3_1,
+                KEY3_2,
+                KEY3_3
+            }
+        }
+    }
+
+    @Test
+    public void stableListingParamsHash() {
+        var entitySchema = EntitySchema.of(StableListingEntity.class);
+
+        var fvKey1 = FieldValue.ofStr("key1");
+        var fvKey2 = FieldValue.ofNum(2L);
+        var fvKey3 = FieldValue.ofStr(StableListingEntity.Id.Key3Enum.KEY3_3.name());
+        var fvKey4 = FieldValue.ofBool(true);
+        var fvKey5 = FieldValue.ofTimestamp(Instant.EPOCH);
+        var fvKey6 = FieldValue.ofUuid(UUID.fromString("d4517ee7-686b-4a3f-9255-eb3ae894c359"));
+        var fvKey7 = FieldValue.ofByteArray(ByteArray.wrap("stable".getBytes(UTF_8)));
+
+        var idFieldKey = entitySchema.getField("id");
+        var idFieldKey1 = entitySchema.getField("id.key1");
+        var idFieldKey2 = entitySchema.getField("id.key2");
+        var idFieldKey3 = entitySchema.getField("id.key3");
+        var idFieldKey4 = entitySchema.getField("id.key4");
+        var idFieldKey5 = entitySchema.getField("id.key5");
+        var idFieldKey6 = entitySchema.getField("id.key6");
+        var idFieldKey7 = entitySchema.getField("id.key7");
+
+        assertThat(idFieldKey1.hashCode()).isEqualTo(1861734820);
+        assertThat(idFieldKey2.hashCode()).isEqualTo(-1938877970);
+        assertThat(idFieldKey3.hashCode()).isEqualTo(-1122135730);
+        assertThat(idFieldKey4.hashCode()).isEqualTo(-398901712);
+        assertThat(idFieldKey5.hashCode()).isEqualTo(-1488269274);
+        assertThat(idFieldKey6.hashCode()).isEqualTo(-452872944);
+        assertThat(idFieldKey7.hashCode()).isEqualTo(-1417039615);
+        assertThat(idFieldKey.hashCode()).isEqualTo(-676825700);
+
+        assertThat(fvKey1.hashCode()).isEqualTo(1090834894);
+        assertThat(fvKey2.hashCode()).isEqualTo(20958200);
+        assertThat(fvKey3.hashCode()).isEqualTo(-1307340848);
+        assertThat(fvKey4.hashCode()).isEqualTo(21171013);
+        assertThat(fvKey5.hashCode()).isEqualTo(21100878);
+        assertThat(fvKey6.hashCode()).isEqualTo(288332702);
+        assertThat(fvKey7.hashCode()).isEqualTo(1239958879);
+
+        var fvValue1 = FieldValue.ofReal(0.0);
+        var fvValue2 = FieldValue.ofReal(1.0);
+        var fvValue3 = FieldValue.ofReal(Double.NaN);
+        assertThat(entitySchema.getField("value").hashCode()).isEqualTo(2011134834);
+        assertThat(fvValue1.hashCode()).isEqualTo(1244954339);
+        assertThat(fvValue2.hashCode()).isEqualTo(-1977319709);
+        assertThat(fvValue3.hashCode()).isEqualTo(-903053597);
+
+        var listRequest = ListRequest.builder(entitySchema)
+                .pageSize(1)
+                .offset(9_999L)
+                .filter(fb -> fb
+                        .where("id").gte(new StableListingEntity.Id(
+                                /* key1 */ "key1",
+                                /* key2 */ 2L,
+                                /* key3 */ StableListingEntity.Id.Key3Enum.KEY3_3,
+                                /* key4 */ true,
+                                /* key5 */ Instant.EPOCH,
+                                /* key6 */ UUID.fromString("d4517ee7-686b-4a3f-9255-eb3ae894c359"),
+                                /* key7 */ ByteArray.wrap("stable".getBytes(UTF_8))
+                        ))
+                        .and("value").notIn(0.0, 1.0, Double.NaN)
+                )
+                .orderBy(ob -> ob
+                        .orderBy("id.key1").ascending()
+                        .orderBy("id.key2").ascending()
+                        .orderBy("id.key3").ascending()
+                        .orderBy("id.key4").ascending()
+                        .orderBy("id.key5").ascending()
+                        .orderBy("id.key6").ascending()
+                        .orderBy("id.key7").ascending()
+                        .orderBy("value").descending()
+                )
+                .build();
+
+        assertThat(listRequest.getSchema()).hasSameHashCodeAs(entitySchema);
+        assertThat(listRequest.getSchema()).hasSameHashCodeAs("RepositoryTest_StableListingEntity");
+        assertThat(listRequest.getParams().getFilter().hashCode()).isEqualTo(75992543);
+        assertThat(listRequest.getParams().getOrderBy().hashCode()).isEqualTo(-129411994);
+        assertThat(listRequest.getParams().hash()).isEqualTo(8087092510576300258L);
     }
 
     protected void runInTx(Consumer<RepositoryTransaction> action) {

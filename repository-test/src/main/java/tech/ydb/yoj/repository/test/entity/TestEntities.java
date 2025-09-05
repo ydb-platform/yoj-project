@@ -10,6 +10,7 @@ import tech.ydb.yoj.repository.test.sample.model.BytePkEntity;
 import tech.ydb.yoj.repository.test.sample.model.Complex;
 import tech.ydb.yoj.repository.test.sample.model.DetachedEntity;
 import tech.ydb.yoj.repository.test.sample.model.EntityWithValidation;
+import tech.ydb.yoj.repository.test.sample.model.EnumEntity;
 import tech.ydb.yoj.repository.test.sample.model.IndexedEntity;
 import tech.ydb.yoj.repository.test.sample.model.LogEntry;
 import tech.ydb.yoj.repository.test.sample.model.MultiWrappedEntity;
@@ -62,13 +63,13 @@ public final class TestEntities {
             MultiWrappedEntity.class,
             MultiWrappedEntity2.class,
             UniqueEntity.class,
-            UniqueEntityNative.class
+            UniqueEntityNative.class,
+            EnumEntity.class
     );
 
     public static final List<TableDescriptor<?>> ALL_TABLE_DESCRIPTORS = List.of(
             SECOND_UNIQUE_PROJECT_TABLE
     );
-
 
     @SuppressWarnings("unchecked")
     public static Repository init(@NonNull Repository repository) {

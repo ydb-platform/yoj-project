@@ -147,6 +147,21 @@ public abstract class DelegatingTxManager implements TxManager {
     }
 
     @Override
+    public TxManager withFullQueryTracing() {
+        return createTxManager(this.delegate.withFullQueryTracing());
+    }
+
+    @Override
+    public TxManager noQueryTracing() {
+        return createTxManager(this.delegate.noQueryTracing());
+    }
+
+    @Override
+    public TxManager withTracingFilter(@NonNull QueryTracingFilter tracingFilter) {
+        return createTxManager(this.delegate.withTracingFilter(tracingFilter));
+    }
+
+    @Override
     public final TxManager withVerboseLogging() {
         return createTxManager(this.delegate.withVerboseLogging());
     }

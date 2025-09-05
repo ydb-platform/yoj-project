@@ -8,7 +8,6 @@ import tech.ydb.yoj.databind.FieldValueType;
 import tech.ydb.yoj.databind.expression.IllegalExpressionException;
 import tech.ydb.yoj.databind.schema.Schema;
 import tech.ydb.yoj.databind.schema.Schema.JavaField;
-import tech.ydb.yoj.databind.schema.naming.NamingStrategy;
 
 import javax.annotation.Nullable;
 import java.lang.reflect.Type;
@@ -89,7 +88,7 @@ public sealed interface FieldValue extends tech.ydb.yoj.databind.expression.Fiel
 
                 class InnerSchema<T> extends Schema<T> {
                     protected InnerSchema(JavaField subSchemaField) {
-                        super(subSchemaField, (NamingStrategy) null);
+                        super(subSchemaField, null);
                     }
                 }
 
@@ -105,7 +104,7 @@ public sealed interface FieldValue extends tech.ydb.yoj.databind.expression.Fiel
                     Preconditions.checkArgument(singleValue != null, "Wrappers must have a non-null value inside them");
                     yield singleValue;
                 } else {
-                    yield new TupleFieldValue(new Tuple(obj, allFieldValues));
+                    yield new TupleFieldValue(new Tuple(obj, allFieldValues, innerField));
                 }
             }
             default -> throw new UnsupportedOperationException("Unsupported value type: not a string, integer, timestamp, UUID, enum, "
@@ -126,7 +125,7 @@ public sealed interface FieldValue extends tech.ydb.yoj.databind.expression.Fiel
             Object rawValue = values.get(field.getName());
             return rawValue == null ? null : ofObj(rawValue, field.toFlatField()).getComparable(field);
         } else {
-            return new Tuple(null, tupleValues(field.flatten().toList(), values));
+            return new Tuple(null, tupleValues(field.flatten().toList(), values), field);
         }
     }
 

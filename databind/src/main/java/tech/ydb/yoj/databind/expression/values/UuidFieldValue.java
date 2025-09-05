@@ -39,6 +39,22 @@ public record UuidFieldValue(@NonNull UUID uuid) implements FieldValue {
                 : invalidFieldValue(UuidFieldExpected::new, p -> format("Specified an UUID value for non-UUID/non-String field \"%s\"", p));
     }
 
+    @Override
+    public int hashCode() {
+        int result = 1;
+        result = result * 59 + 43;
+        result = result * 59 + 43;
+        result = result * 59 + 43;
+        result = result * 59 + 43;
+        result = result * 59 + uuid.hashCode();
+        return result;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        return o instanceof UuidFieldValue other && uuid.equals(other.uuid);
+    }
+
     @NonNull
     @Override
     public String toString() {

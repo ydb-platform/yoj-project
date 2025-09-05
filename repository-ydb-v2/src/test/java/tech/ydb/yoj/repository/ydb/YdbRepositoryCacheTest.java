@@ -2,6 +2,8 @@ package tech.ydb.yoj.repository.ydb;
 
 import com.google.common.collect.ImmutableSet;
 import lombok.NonNull;
+import lombok.SneakyThrows;
+import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
@@ -16,6 +18,7 @@ import tech.ydb.table.query.Params;
 import tech.ydb.table.values.StructType;
 import tech.ydb.yoj.repository.db.EntitySchema;
 import tech.ydb.yoj.repository.db.Range;
+import tech.ydb.yoj.repository.db.SchemaOperations;
 import tech.ydb.yoj.repository.db.TableDescriptor;
 import tech.ydb.yoj.repository.db.exception.EntityAlreadyExistsException;
 import tech.ydb.yoj.repository.test.sample.TestEntityOperations;
@@ -23,6 +26,7 @@ import tech.ydb.yoj.repository.test.sample.model.Complex;
 import tech.ydb.yoj.repository.test.sample.model.Complex.Id;
 import tech.ydb.yoj.repository.ydb.client.SessionManager;
 import tech.ydb.yoj.repository.ydb.client.YdbConverter;
+import tech.ydb.yoj.repository.ydb.client.YdbSchemaOperations;
 import tech.ydb.yoj.repository.ydb.statement.FindYqlStatement;
 import tech.ydb.yoj.repository.ydb.statement.MultipleVarsYqlStatement;
 import tech.ydb.yoj.repository.ydb.statement.UpsertYqlStatement;
@@ -48,13 +52,27 @@ public class YdbRepositoryCacheTest {
     @Mock
     private SessionManager sessionManager;
     @Mock
+    private YdbSchemaOperations schemaOperations;
+    @Mock
     private TestYdbRepository testYdbRepository;
 
+    private AutoCloseable mockitoCloseable;
+
     @Before
-    public void init() {
-        MockitoAnnotations.initMocks(this);
+    public void setUp() {
+        mockitoCloseable = MockitoAnnotations.openMocks(this);
+
         when(testYdbRepository.getSessionManager()).thenReturn(sessionManager);
+        when(testYdbRepository.getSchemaOperations()).thenReturn(schemaOperations);
         when(sessionManager.getSession()).thenReturn(session);
+    }
+
+    @After
+    @SneakyThrows
+    public void tearDown() {
+        if (mockitoCloseable != null) {
+            mockitoCloseable.close();
+        }
     }
 
     @Test

@@ -53,6 +53,11 @@ import java.util.function.Function;
     }
 
     @Override
+    public void remove(@NonNull Entity.Id<E> id) {
+        cache.remove(id);
+    }
+
+    @Override
     public boolean containsKey(@NonNull Entity.Id<E> id) {
         return cache.containsKey(id);
     }

@@ -674,7 +674,7 @@ public abstract class YqlPredicate implements YqlStatementPart<YqlPredicate> {
         @Override
         public <T extends Entity<T>> String toYql(@NonNull EntitySchema<T> schema) {
             if (isEmpty()) {
-                return alwaysFalse().toString();
+                return alwaysFalse().toYql(schema);
             }
 
             EntitySchema.JavaField field = schema.getField(fieldPath);
@@ -734,7 +734,7 @@ public abstract class YqlPredicate implements YqlStatementPart<YqlPredicate> {
         @Override
         public <T extends Entity<T>> String toYql(@NonNull EntitySchema<T> schema) {
             if (isEmpty()) {
-                return alwaysFalse().toString();
+                return alwaysFalse().toYql(schema);
             }
 
             EntitySchema.JavaField field = schema.getField(fieldPath);

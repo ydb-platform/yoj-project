@@ -43,6 +43,21 @@ public record TimestampFieldValue(@NonNull Instant timestamp) implements FieldVa
         }
     }
 
+    @Override
+    public int hashCode() {
+        int result = 1;
+        result = result * 59 + 43;
+        result = result * 59 + 43;
+        result = result * 59 + 43;
+        result = result * 59 + timestamp.hashCode();
+        return result;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        return o instanceof TimestampFieldValue other && timestamp.equals(other.timestamp);
+    }
+
     @NonNull
     @Override
     public String toString() {

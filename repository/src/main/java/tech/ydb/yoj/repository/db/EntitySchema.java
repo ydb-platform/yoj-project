@@ -13,6 +13,7 @@ import java.lang.reflect.Type;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 import static java.lang.String.format;
 import static lombok.AccessLevel.PACKAGE;
@@ -125,5 +126,16 @@ public final class EntitySchema<T extends Entity<T>> extends Schema<T> {
      */
     public Comparator<T> defaultOrder() {
         return Comparator.comparing(Entity::getId, getIdSchema());
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hashCode(getName());
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        return o instanceof EntitySchema<?> other
+                && Objects.equals(this.getName(), other.getName());
     }
 }

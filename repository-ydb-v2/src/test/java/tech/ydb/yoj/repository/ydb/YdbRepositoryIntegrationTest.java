@@ -10,11 +10,14 @@ import io.grpc.netty.NettyServerBuilder;
 import io.grpc.stub.MetadataUtils;
 import io.grpc.stub.StreamObserver;
 import io.netty.handler.ssl.util.InsecureTrustManagerFactory;
-import lombok.AllArgsConstructor;
+import lombok.NonNull;
+import lombok.RequiredArgsConstructor;
 import lombok.Setter;
 import lombok.SneakyThrows;
 import lombok.Value;
 import lombok.experimental.Delegate;
+import org.apache.logging.log4j.Level;
+import org.apache.logging.log4j.core.config.Configurator;
 import org.assertj.core.api.Assertions;
 import org.junit.Assert;
 import org.junit.ClassRule;
@@ -27,6 +30,7 @@ import tech.ydb.proto.OperationProtos;
 import tech.ydb.proto.StatusCodesProtos;
 import tech.ydb.proto.discovery.DiscoveryProtos;
 import tech.ydb.proto.discovery.v1.DiscoveryServiceGrpc;
+import tech.ydb.proto.query.v1.QueryServiceGrpc;
 import tech.ydb.proto.scheme.v1.SchemeServiceGrpc;
 import tech.ydb.proto.table.v1.TableServiceGrpc;
 import tech.ydb.proto.topic.v1.TopicServiceGrpc;
@@ -42,10 +46,13 @@ import tech.ydb.topic.settings.SendSettings;
 import tech.ydb.topic.settings.TopicReadSettings;
 import tech.ydb.topic.settings.WriterSettings;
 import tech.ydb.yoj.databind.schema.Column;
+import tech.ydb.yoj.databind.schema.GlobalIndex;
 import tech.ydb.yoj.databind.schema.ObjectSchema;
+import tech.ydb.yoj.repository.db.Entity;
 import tech.ydb.yoj.repository.db.EntitySchema;
 import tech.ydb.yoj.repository.db.IsolationLevel;
 import tech.ydb.yoj.repository.db.QueryStatsMode;
+import tech.ydb.yoj.repository.db.RecordEntity;
 import tech.ydb.yoj.repository.db.Repository;
 import tech.ydb.yoj.repository.db.RepositoryTransaction;
 import tech.ydb.yoj.repository.db.StdTxManager;
@@ -57,11 +64,13 @@ import tech.ydb.yoj.repository.db.exception.ConversionException;
 import tech.ydb.yoj.repository.db.exception.RetryableException;
 import tech.ydb.yoj.repository.db.exception.UnavailableException;
 import tech.ydb.yoj.repository.db.list.ListRequest;
+import tech.ydb.yoj.repository.db.list.ListResult;
 import tech.ydb.yoj.repository.db.readtable.ReadTableParams;
 import tech.ydb.yoj.repository.test.RepositoryTest;
 import tech.ydb.yoj.repository.test.entity.TestEntities;
 import tech.ydb.yoj.repository.test.sample.TestDb;
 import tech.ydb.yoj.repository.test.sample.TestDbImpl;
+import tech.ydb.yoj.repository.test.sample.model.Book;
 import tech.ydb.yoj.repository.test.sample.model.Bubble;
 import tech.ydb.yoj.repository.test.sample.model.ChangefeedEntity;
 import tech.ydb.yoj.repository.test.sample.model.IndexedEntity;
@@ -104,6 +113,7 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
@@ -138,7 +148,7 @@ public class YdbRepositoryIntegrationTest extends RepositoryTest {
 
     @Override
     protected Repository createTestRepository() {
-        return new TestYdbRepository(getRealYdbConfig(), ydbEnvAndTransport.getGrpcTransport());
+        return TestYdbRepository.create(ydbEnvAndTransport);
     }
 
     @SneakyThrows
@@ -165,6 +175,7 @@ public class YdbRepositoryIntegrationTest extends RepositoryTest {
         ProxyDiscoveryService proxyDiscoveryService = new ProxyDiscoveryService(channel);
         Server proxyServer = NettyServerBuilder.forPort(0)
                 .addService(new ProxyYdbTableService(channel))
+                .addService(new ProxyYdbQueryService(channel))
                 .addService(proxyDiscoveryService)
                 .addService(new DelegateSchemeServiceImplBase(SchemeServiceGrpc.newStub(channel)))
                 .addService(new DelegateTopicServiceImplBase(TopicServiceGrpc.newStub(channel)))
@@ -295,22 +306,22 @@ public class YdbRepositoryIntegrationTest extends RepositoryTest {
         TestDb db = new TestDbImpl<>(this.repository);
 
         Session firstSession = sessionManager.getSession();
-        sessionManager.release(firstSession);
+        firstSession.close();
 
         db.tx(() -> db.projects().save(expected));
 
         // Reuse the same session in RO transaction
-        checkSession(sessionManager, firstSession);
+        ensureSameSessionId(sessionManager, firstSession);
         Project actual = db.readOnly().run(() -> db.projects().find(expected.getId()));
 
         assertThat(actual).isEqualTo(expected);
 
         // Reuse the same session in RW transaction
-        checkSession(sessionManager, firstSession);
+        ensureSameSessionId(sessionManager, firstSession);
         actual = db.tx(() -> db.projects().find(expected.getId()));
 
         assertThat(actual).isEqualTo(expected);
-        checkSession(sessionManager, firstSession);
+        ensureSameSessionId(sessionManager, firstSession);
     }
 
     @Test
@@ -338,11 +349,53 @@ public class YdbRepositoryIntegrationTest extends RepositoryTest {
     }
 
     @Test
+    public void truncatedDefault() {
+        var ydbRepository = (YdbRepository) repository;
+        var queryImplementation = TestYdbRepository.createRepositorySettings().queryImplementation();
+        if (queryImplementation instanceof QueryImplementation.TableService) {
+            testRowLimitEnforced(db);
+        } else if (queryImplementation instanceof QueryImplementation.QueryService) {
+            testRowLimitNotEnforced(db);
+        } else {
+            throw new UnsupportedOperationException("Unknown query implementation: <" + queryImplementation.getClass() + ">");
+        }
+    }
+
+    @Test
+    public void truncatedExplicitTableService() {
+        YdbRepository ydbRepository = new TestYdbRepository(
+                getRealYdbConfig(),
+                YdbRepository.Settings.builder()
+                        .queryImplementation(new QueryImplementation.TableService())
+                        .build(),
+                ydbEnvAndTransport.getGrpcTransport()
+        );
+        TestDb db = new TestDbImpl<>(ydbRepository);
+
+        testRowLimitEnforced(db);
+    }
+
+    @Test
+    public void truncatedExplicitQueryService() {
+        YdbRepository ydbRepository = new TestYdbRepository(
+                getRealYdbConfig(),
+                YdbRepository.Settings.builder()
+                        .queryImplementation(new QueryImplementation.QueryService())
+                        .build(),
+                ydbEnvAndTransport.getGrpcTransport()
+        );
+        TestDb db = new TestDbImpl<>(ydbRepository);
+
+        testRowLimitNotEnforced(db);
+    }
+
     @SneakyThrows
-    public void truncated() {
-        int maxPageSizeBiggerThatReal = 10_001;
+    private void testRowLimitEnforced(TestDb db) {
+        int rowLimit = YdbEnvAndTransportRule.TABLESERVICE_ROW_LIMIT;
+
+        int maxPageSizeBiggerThatReal = rowLimit + 1;
         ListRequest.Builder<Project> builder = ListRequest.builder(Project.class);
-        { // because we can't set pageSize bigger than 1k - we set it with reflection
+        { // because we can't set pageSize bigger than 1k, we set it with reflection
             Field pageSizeField = builder.getClass().getDeclaredField("pageSize");
             pageSizeField.setAccessible(true);
             pageSizeField.set(builder, maxPageSizeBiggerThatReal);
@@ -360,9 +413,47 @@ public class YdbRepositoryIntegrationTest extends RepositoryTest {
 
         db.tx(() -> db.projects().list(smallListRequest));
         assertThatExceptionOfType(ResultTruncatedException.class)
-                .isThrownBy(() -> db.tx(() -> db.projects().list(bigListRequest)));
+                .isThrownBy(() -> db.tx(() -> db.projects().list(bigListRequest)))
+                .satisfies(te -> {
+                    assertThat(te.getMaxResultRows()).isEqualTo(rowLimit);
+                    assertThat(te.getRowCount()).isGreaterThanOrEqualTo(rowLimit);
+                });
         assertThatExceptionOfType(ResultTruncatedException.class)
-                .isThrownBy(() -> db.tx(() -> db.projects().findAll()));
+                .isThrownBy(() -> db.tx(() -> db.projects().findAll()))
+                .satisfies(te -> {
+                    assertThat(te.getMaxResultRows()).isEqualTo(rowLimit);
+                    assertThat(te.getRowCount()).isGreaterThanOrEqualTo(rowLimit);
+                });
+    }
+
+    @SneakyThrows
+    private void testRowLimitNotEnforced(TestDb db) {
+        ListRequest.Builder<Project> builder = ListRequest.builder(Project.class);
+
+        // (KQP_MAX_RESULT_ROWS)+1K
+        int pageSize = YdbEnvAndTransportRule.TABLESERVICE_ROW_LIMIT + 1_000;
+        { // because we can't set pageSize bigger than 1k, we set it with reflection
+            Field pageSizeField = builder.getClass().getDeclaredField("pageSize");
+            pageSizeField.setAccessible(true);
+            pageSizeField.set(builder, pageSize);
+        }
+        ListRequest<Project> bigListRequest = builder.build();
+        ListRequest<Project> smallListRequest = ListRequest.builder(Project.class).pageSize(100).build();
+        db.tx(() -> db.projects().save(new Project(new Project.Id("id"), "name")));
+
+        db.tx(() -> db.projects().list(smallListRequest));
+        db.tx(() -> db.projects().list(bigListRequest));
+        db.tx(() -> db.projects().findAll());
+
+        db.tx(() -> IntStream.range(0, pageSize)
+                .forEach(i -> db.projects().save(new Project(new Project.Id("id_" + i), "name"))));
+
+        db.tx(() -> db.projects().list(smallListRequest));
+        Assertions.<ListResult<Project>>assertThat(db.tx(() -> db.projects().list(bigListRequest))).satisfies(listResult -> {
+            assertThat(listResult.getEntries()).hasSize(pageSize);
+            assertThat(listResult.isLastPage()).isFalse();
+        });
+        assertThat(db.tx(() -> db.projects().findAll())).hasSize(pageSize + 1);
     }
 
     @Test
@@ -389,12 +480,11 @@ public class YdbRepositoryIntegrationTest extends RepositoryTest {
         assertThat(found).singleElement().isEqualTo(expected2);
     }
 
-    private static void checkSession(SessionManager sessionManager, Session firstSession) {
+    private static void ensureSameSessionId(SessionManager sessionManager, Session firstSession) {
         Session session = sessionManager.getSession();
-        assertThat(session).isEqualTo(firstSession);
-        sessionManager.release(session);
+        assertThat(session.getId()).isEqualTo(firstSession.getId());
+        session.close();
     }
-
 
     @Test
     public void checkDBIsUnavailable() {
@@ -901,7 +991,7 @@ public class YdbRepositoryIntegrationTest extends RepositoryTest {
         }
     }
 
-    static StatusCodesProtos.StatusIds.StatusCode statusCode = null;
+    private static StatusCodesProtos.StatusIds.StatusCode statusCode = null;
 
     private void runWithModifiedStatusCode(StatusCodesProtos.StatusIds.StatusCode code, Runnable runnable) {
         statusCode = code;
@@ -1061,6 +1151,70 @@ public class YdbRepositoryIntegrationTest extends RepositoryTest {
         assertThat(found).hasSize(4);
     }
 
+    @tech.ydb.yoj.databind.schema.Table(name = "UniqueProject")
+    @GlobalIndex(name = "unique_name", fields = {"name"}, type = GlobalIndex.Type.UNIQUE)
+    private record ToStringCountingProject(
+            Id id,
+            String name,
+            int version
+    ) implements RecordEntity<ToStringCountingProject> {
+        private static final AtomicInteger toStringCallCounter = new AtomicInteger();
+
+        public static void startCounting() {
+            toStringCallCounter.set(0);
+        }
+
+        @NonNull
+        @Override
+        public String toString() {
+            toStringCallCounter.incrementAndGet();
+            return "Project[id=" + id + ", name=" + name + ", version=" + version + "]";
+        }
+
+        public record Id(String value) implements RecordEntity.Id<ToStringCountingProject> {
+        }
+    }
+
+    @Test
+    public void customQueryTracingFilter() {
+        Configurator.setLevel(YdbRepositoryTransaction.class.getCanonicalName(), Level.TRACE);
+        try {
+            var filterCallCount = new AtomicInteger();
+            var txMgr1 = db.withName("with-query-tracing")
+                    .withTracingFilter((_1, _2, _3, _4) -> {
+                        filterCallCount.incrementAndGet();
+                        return true;
+                    })
+                    .immediateWrites();
+            var project3 = new ToStringCountingProject(new ToStringCountingProject.Id("id3"), "name-3", 3);
+            txMgr1.tx(() -> {
+                db.table(ToStringCountingProject.class).insert(new ToStringCountingProject(new ToStringCountingProject.Id("id1"), "name-1", 1));
+                db.table(ToStringCountingProject.class).insert(new ToStringCountingProject(new ToStringCountingProject.Id("id2"), "name-2", 2));
+                db.table(ToStringCountingProject.class).insert(project3);
+                db.table(ToStringCountingProject.class).insert(new ToStringCountingProject(new ToStringCountingProject.Id("id4"), "name-4", 4));
+            });
+
+            ToStringCountingProject.startCounting();
+            var txMgr2 = txMgr1.withName("no-query-tracing")
+                    .noQueryTracing()
+                    .readOnly()
+                    .noFirstLevelCache()
+                    .withStatementIsolationLevel(IsolationLevel.SNAPSHOT);
+            var found = txMgr2.run(() -> db.table(ToStringCountingProject.class).find(new ToStringCountingProject.Id("id3")));
+            assertThat(found).isEqualTo(project3);
+
+            // Allow only 1 call to toString() in logging of debug result, but not the second one in TRACE:
+            assertThat(ToStringCountingProject.toStringCallCounter)
+                    .withFailMessage("expected 1 call to UniqueProjectWithSurprise.toString() but got %s", ToStringCountingProject.toStringCallCounter)
+                    .hasValue(1);
+
+            // Allow only 4 calls to our custom QueryTracingFilter (only from txMgr1, not from txMgr2)
+            assertThat(filterCallCount).hasValue(4);
+        } finally {
+            Configurator.setLevel(YdbRepositoryTransaction.class.getCanonicalName(), (Level) null);
+        }
+    }
+
     @Test
     public void transactionalTopicWrites() {
         var uuid = UUID.randomUUID();
@@ -1198,6 +1352,16 @@ public class YdbRepositoryIntegrationTest extends RepositoryTest {
         }
     }
 
+    @Test
+    public void schemaExistsForExistingEntity() {
+        assertThat(repository.schema(NonSerializableEntity.class).exists()).isTrue();
+    }
+
+    @Test
+    public void schemaNotExistsForMissingEntity() {
+        assertThat(repository.schema(MissingEntity.class).exists()).isFalse();
+    }
+
     private List<tech.ydb.topic.read.Message> readAll(TopicClient topicClient, String topicPath, String consumer, String reader) {
         var syncReader = topicClient.createSyncReader(ReaderSettings.newBuilder()
                 .setTopics(
@@ -1260,26 +1424,27 @@ public class YdbRepositoryIntegrationTest extends RepositoryTest {
         }
     }
 
-    @AllArgsConstructor
+    @RequiredArgsConstructor
     private static class DelegateSchemeServiceImplBase extends SchemeServiceGrpc.SchemeServiceImplBase {
         @Delegate
-        final SchemeServiceGrpc.SchemeServiceStub schemeServiceStub;
+        private final SchemeServiceGrpc.SchemeServiceStub schemeServiceStub;
     }
 
-    @AllArgsConstructor
+    @RequiredArgsConstructor
     private static class DelegateTopicServiceImplBase extends TopicServiceGrpc.TopicServiceImplBase {
         @Delegate
-        final TopicServiceGrpc.TopicServiceStub topicServiceStub;
+        private final TopicServiceGrpc.TopicServiceStub topicServiceStub;
     }
 
+    @RequiredArgsConstructor
     private static class ProxyDiscoveryService extends DiscoveryServiceGrpc.DiscoveryServiceImplBase {
         @Delegate(excludes = ProxyDiscoveryService.OverriddenMethod.class)
-        DiscoveryServiceGrpc.DiscoveryServiceStub stub;
+        private final DiscoveryServiceGrpc.DiscoveryServiceStub stub;
         @Setter
-        int port;
+        private int port;
 
-        ProxyDiscoveryService(ManagedChannel channel) {
-            stub = DiscoveryServiceGrpc.newStub(channel);
+        private ProxyDiscoveryService(ManagedChannel channel) {
+            this.stub = DiscoveryServiceGrpc.newStub(channel);
         }
 
         @Override
@@ -1303,10 +1468,10 @@ public class YdbRepositoryIntegrationTest extends RepositoryTest {
             });
         }
 
-        @AllArgsConstructor
+        @RequiredArgsConstructor
         private abstract static class DelegateStreamObserver<V> implements StreamObserver<V> {
             @Delegate
-            StreamObserver<V> responseObserver;
+            private final StreamObserver<V> responseObserver;
         }
 
         private interface OverriddenMethod {
@@ -1316,10 +1481,10 @@ public class YdbRepositoryIntegrationTest extends RepositoryTest {
 
     private static class ProxyYdbTableService extends TableServiceGrpc.TableServiceImplBase {
         @Delegate(excludes = ProxyYdbTableService.OverriddenMethod.class)
-        TableServiceGrpc.TableServiceStub tableServiceStub;
+        private final TableServiceGrpc.TableServiceStub tableServiceStub;
 
-        ProxyYdbTableService(ManagedChannel channel) {
-            tableServiceStub = TableServiceGrpc.newStub(channel);
+        private ProxyYdbTableService(ManagedChannel channel) {
+            this.tableServiceStub = TableServiceGrpc.newStub(channel);
         }
 
         @Override
@@ -1360,10 +1525,10 @@ public class YdbRepositoryIntegrationTest extends RepositoryTest {
             }
         }
 
-        @AllArgsConstructor
+        @RequiredArgsConstructor
         private abstract static class DelegateStreamObserver<V> implements StreamObserver<V> {
             @Delegate
-            StreamObserver<V> responseObserver;
+            private final StreamObserver<V> responseObserver;
         }
 
         private interface OverriddenMethod {
@@ -1372,6 +1537,77 @@ public class YdbRepositoryIntegrationTest extends RepositoryTest {
             void commitTransaction(tech.ydb.proto.table.YdbTable.CommitTransactionRequest request, StreamObserver<tech.ydb.proto.table.YdbTable.CommitTransactionResponse> responseObserver);
 
             void rollbackTransaction(tech.ydb.proto.table.YdbTable.RollbackTransactionRequest request, StreamObserver<tech.ydb.proto.table.YdbTable.RollbackTransactionResponse> responseObserver);
+        }
+    }
+
+    private static class ProxyYdbQueryService extends QueryServiceGrpc.QueryServiceImplBase {
+        @Delegate(excludes = ProxyYdbQueryService.OverriddenMethod.class)
+        private final QueryServiceGrpc.QueryServiceStub queryServiceStub;
+
+        private ProxyYdbQueryService(ManagedChannel channel) {
+            this.queryServiceStub = QueryServiceGrpc.newStub(channel);
+        }
+
+        @Override
+        public void commitTransaction(tech.ydb.proto.query.YdbQuery.CommitTransactionRequest request, io.grpc.stub.StreamObserver<tech.ydb.proto.query.YdbQuery.CommitTransactionResponse> responseObserver) {
+            queryServiceStub.commitTransaction(request, new ProxyYdbQueryService.DelegateStreamObserver<>(responseObserver) {
+                @Override
+                public void onNext(tech.ydb.proto.query.YdbQuery.CommitTransactionResponse response) {
+                    super.onNext(response.toBuilder().setStatus(breakStatus(response.getStatus())).build());
+                }
+            });
+        }
+
+        @Override
+        public void rollbackTransaction(tech.ydb.proto.query.YdbQuery.RollbackTransactionRequest request, io.grpc.stub.StreamObserver<tech.ydb.proto.query.YdbQuery.RollbackTransactionResponse> responseObserver) {
+            queryServiceStub.rollbackTransaction(request, new ProxyYdbQueryService.DelegateStreamObserver<>(responseObserver) {
+                @Override
+                public void onNext(tech.ydb.proto.query.YdbQuery.RollbackTransactionResponse response) {
+                    super.onNext(response.toBuilder().setStatus(breakStatus(response.getStatus())).build());
+                }
+            });
+        }
+
+        @Override
+        public void executeQuery(tech.ydb.proto.query.YdbQuery.ExecuteQueryRequest request, io.grpc.stub.StreamObserver<tech.ydb.proto.query.YdbQuery.ExecuteQueryResponsePart> responseObserver) {
+            queryServiceStub.executeQuery(request, new ProxyYdbQueryService.DelegateStreamObserver<>(responseObserver) {
+                @Override
+                public void onNext(tech.ydb.proto.query.YdbQuery.ExecuteQueryResponsePart response) {
+                    super.onNext(response.toBuilder().setStatus(breakStatus(response.getStatus())).build());
+                }
+            });
+        }
+
+        private StatusCodesProtos.StatusIds.StatusCode breakStatus(StatusCodesProtos.StatusIds.StatusCode existingStatusCode) {
+            if (statusCode != null) {
+                return statusCode;
+            } else {
+                return existingStatusCode;
+            }
+        }
+
+        @RequiredArgsConstructor
+        private abstract static class DelegateStreamObserver<V> implements StreamObserver<V> {
+            @Delegate
+            private final StreamObserver<V> responseObserver;
+        }
+
+        private interface OverriddenMethod {
+            void commitTransaction(tech.ydb.proto.query.YdbQuery.CommitTransactionRequest request, io.grpc.stub.StreamObserver<tech.ydb.proto.query.YdbQuery.CommitTransactionResponse> responseObserver);
+
+            void rollbackTransaction(tech.ydb.proto.query.YdbQuery.RollbackTransactionRequest request, io.grpc.stub.StreamObserver<tech.ydb.proto.query.YdbQuery.RollbackTransactionResponse> responseObserver);
+
+            void executeQuery(tech.ydb.proto.query.YdbQuery.ExecuteQueryRequest request, io.grpc.stub.StreamObserver<tech.ydb.proto.query.YdbQuery.ExecuteQueryResponsePart> responseObserver);
+        }
+    }
+
+    @Value
+    private static class MissingEntity implements Entity<MissingEntity> {
+        Id id;
+
+        @Value
+        public static class Id implements Entity.Id<MissingEntity> {
+            String id;
         }
     }
 }
