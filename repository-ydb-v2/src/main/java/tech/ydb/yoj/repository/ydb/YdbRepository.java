@@ -15,8 +15,10 @@ import tech.ydb.core.grpc.GrpcTransport;
 import tech.ydb.core.grpc.GrpcTransportBuilder;
 import tech.ydb.core.impl.SingleChannelTransport;
 import tech.ydb.core.impl.auth.GrpcAuthRpc;
+import tech.ydb.scheme.SchemeClient;
 import tech.ydb.table.SessionPoolStats;
 import tech.ydb.table.TableClient;
+import tech.ydb.topic.TopicClient;
 import tech.ydb.yoj.repository.db.Entity;
 import tech.ydb.yoj.repository.db.EntitySchema;
 import tech.ydb.yoj.repository.db.Repository;
@@ -355,18 +357,26 @@ public class YdbRepository implements Repository {
 
     private static final class SessionClient implements AutoCloseable {
         private final TableClient tableClient;
+        private final SchemeClient schemeClient;
+        private final TopicClient topicClient;
+
         private final SessionManager sessionManager;
         private final YdbSchemaOperations schemaOperations;
 
         private SessionClient(YdbConfig config, Settings repositorySettings, GrpcTransport transport) {
             this.tableClient = createClient(config, repositorySettings, transport);
+            this.schemeClient = SchemeClient.newClient(transport).build();
+            this.topicClient = TopicClient.newClient(transport).build();
+
             this.sessionManager = new YdbSessionManager(tableClient, config.getSessionCreationTimeout());
-            this.schemaOperations = new YdbSchemaOperations(config.getTablespace(), this.sessionManager, transport);
+            this.schemaOperations = new YdbSchemaOperations(
+                    config.getTablespace(), sessionManager, schemeClient, topicClient
+            );
         }
 
         @Override
         public void close() {
-            Exceptions.closeAll(tableClient, schemaOperations);
+            Exceptions.closeAll(tableClient, schemeClient, topicClient);
         }
     }
 
