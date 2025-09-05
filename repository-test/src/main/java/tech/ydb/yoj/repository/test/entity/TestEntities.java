@@ -2,7 +2,9 @@ package tech.ydb.yoj.repository.test.entity;
 
 import lombok.NonNull;
 import tech.ydb.yoj.repository.db.Entity;
+import tech.ydb.yoj.repository.db.EntitySchema;
 import tech.ydb.yoj.repository.db.Repository;
+import tech.ydb.yoj.repository.db.SchemaOperations;
 import tech.ydb.yoj.repository.db.TableDescriptor;
 import tech.ydb.yoj.repository.test.sample.model.Book;
 import tech.ydb.yoj.repository.test.sample.model.Bubble;
@@ -73,11 +75,14 @@ public final class TestEntities {
 
     @SuppressWarnings("unchecked")
     public static Repository init(@NonNull Repository repository) {
-        repository.createTablespace();
-        ALL.forEach(entityClass -> repository.schema(entityClass).create());
+        SchemaOperations schemaOperations = repository.getSchemaOperations();
+
+        schemaOperations.createTablespace();
+
+        ALL.forEach(entityClass -> schemaOperations.createTable(TableDescriptor.from(EntitySchema.of(entityClass))));
 
         for (TableDescriptor<?> tableDescriptor : ALL_TABLE_DESCRIPTORS) {
-            repository.schema(tableDescriptor).create();
+            schemaOperations.createTable(tableDescriptor);
         }
 
         return repository;

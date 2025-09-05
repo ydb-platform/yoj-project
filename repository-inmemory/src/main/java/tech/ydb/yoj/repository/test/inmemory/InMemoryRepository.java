@@ -22,11 +22,6 @@ public class InMemoryRepository implements Repository {
     private volatile InMemoryStorage storage = new InMemoryStorage();
 
     @Override
-    public void dropDb() {
-        storage.dropDb();
-    }
-
-    @Override
     public String makeSnapshot() {
         String snapshotId = UUID.randomUUID().toString();
         snapshots.put(snapshotId, storage.createSnapshot());
@@ -39,24 +34,28 @@ public class InMemoryRepository implements Repository {
     }
 
     @Override
-    public Set<TableDescriptor<?>> tables() {
-        return Set.copyOf(storage.tables());
-    }
-
-    @Override
     public RepositoryTransaction startTransaction(TxOptions options) {
         return new InMemoryRepositoryTransaction(options, this);
     }
 
-    public <T extends Entity<T>> SchemaOperations<T> schema(TableDescriptor<T> tableDescriptor) {
-        return new SchemaOperations<T>() {
+    public SchemaOperations getSchemaOperations() {
+        return new SchemaOperations() {
             @Override
-            public void create() {
+            public void createTablespace() {
+            }
+
+            @Override
+            public void removeTablespace() {
+                storage.dropDb();
+            }
+
+            @Override
+            public <T extends Entity<T>> void createTable(TableDescriptor<T> tableDescriptor) {
                 storage.createTable(tableDescriptor);
             }
 
             @Override
-            public void drop() {
+            public <T extends Entity<T>> void dropTable(TableDescriptor<T> tableDescriptor) {
                 if (!storage.dropTable(tableDescriptor)) {
                     throw new DropTableException(String.format("Can't drop table %s: table doesn't exist",
                             tableDescriptor.toDebugString())
@@ -65,9 +64,13 @@ public class InMemoryRepository implements Repository {
             }
 
             @Override
-            public boolean exists() {
+            public <T extends Entity<T>> boolean hasTable(TableDescriptor<T> tableDescriptor) {
                 return storage.containsTable(tableDescriptor);
             }
         };
+    }
+
+    @Override
+    public void shutdown() {
     }
 }

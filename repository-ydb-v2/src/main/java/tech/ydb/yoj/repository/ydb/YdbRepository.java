@@ -57,8 +57,6 @@ public class YdbRepository implements Repository {
     private final GrpcTransport transport;
     private final CloseableMemoizer<SessionClient> sessionClient;
 
-    private final ConcurrentMap<String, TableDescriptor<?>> entityClassesByTableName;
-
     public YdbRepository(@NonNull YdbConfig config) {
         this(config, NopAuthProvider.INSTANCE);
     }
@@ -88,7 +86,6 @@ public class YdbRepository implements Repository {
     }
 
     public YdbRepository(@NonNull YdbConfig config, @NonNull Settings repositorySettings, @NonNull GrpcTransport transport) {
-        this.entityClassesByTableName = new ConcurrentHashMap<>();
         this.transport = transport;
         this.sessionClient = MoreSuppliers.memoizeCloseable(() -> new SessionClient(config, repositorySettings, transport));
     }
@@ -174,6 +171,7 @@ public class YdbRepository implements Repository {
         return sessionClient.get().sessionManager;
     }
 
+    @Override
     public YdbSchemaOperations getSchemaOperations() {
         return sessionClient.get().schemaOperations;
     }
@@ -220,109 +218,8 @@ public class YdbRepository implements Repository {
     }
 
     @Override
-    public void createTablespace() {
-        getSchemaOperations().createTablespace();
-    }
-
-    @Override
-    public Set<TableDescriptor<?>> tables() {
-        return getSchemaOperations().getTableNames().stream()
-                .map(entityClassesByTableName::get)
-                .filter(Objects::nonNull)
-                .collect(toUnmodifiableSet());
-    }
-
-    @Override
     public RepositoryTransaction startTransaction(TxOptions options) {
         return new YdbRepositoryTransaction<>(this, options);
-    }
-
-    @Override
-    public String makeSnapshot() {
-        YdbSchemaOperations schemaOperations = getSchemaOperations();
-
-        String snapshotPath = schemaOperations.getTablespace() + ".snapshot-" + UUID.randomUUID() + "/";
-        schemaOperations.snapshot(snapshotPath);
-        return snapshotPath;
-    }
-
-    @Override
-    public void loadSnapshot(String id) {
-        YdbSchemaOperations schemaOperations = getSchemaOperations();
-
-        String current = schemaOperations.getTablespace();
-
-        schemaOperations.getTableNames().forEach(schemaOperations::dropTable);
-        schemaOperations.getDirectoryNames().stream()
-                .filter(name -> !schemaOperations.isSnapshotDirectory(name))
-                .forEach(schemaOperations::removeDirectoryRecursive);
-
-        schemaOperations.setTablespace(id);
-        schemaOperations.snapshot(current);
-        schemaOperations.setTablespace(current);
-
-        // NB: We use getSessionManager() method to allow mocking YdbRepository
-        sessionClient.reset();
-    }
-
-    @Override
-    public void dropDb() {
-        try {
-            getSchemaOperations().removeTablespace();
-            entityClassesByTableName.clear();
-        } catch (Exception e) {
-            log.error("Could not drop all tables from tablespace", e);
-        }
-    }
-
-    @Override
-    public <T extends Entity<T>> SchemaOperations<T> schema(TableDescriptor<T> tableDescriptor) {
-        EntitySchema<T> schema = EntitySchema.of(tableDescriptor.entityType());
-        return new SchemaOperations<>() {
-            @Override
-            public void create() {
-                String tableName = tableDescriptor.tableName();
-                getSchemaOperations().createTable(
-                        tableName,
-                        schema.flattenFields(),
-                        schema.flattenId(),
-                        extractHint(),
-                        schema.getGlobalIndexes(),
-                        schema.getTtlModifier(),
-                        schema.getChangefeeds()
-                );
-                entityClassesByTableName.put(tableName, tableDescriptor);
-            }
-
-            private YdbTableHint extractHint() {
-                try {
-                    Field ydbTableHintField = tableDescriptor.entityType().getDeclaredField("ydbTableHint");
-                    ydbTableHintField.setAccessible(true);
-                    return (YdbTableHint) ydbTableHintField.get(null);
-                } catch (NoSuchFieldException | IllegalAccessException ignored) {
-                    return null;
-                }
-            }
-
-            @Override
-            public void drop() {
-                String tableName = tableDescriptor.tableName();
-                getSchemaOperations().dropTable(tableName);
-                entityClassesByTableName.remove(tableName);
-            }
-
-            @Override
-            public boolean exists() {
-                String tableName = tableDescriptor.tableName();
-                boolean exists = getSchemaOperations().hasTable(tableName);
-                if (exists) {
-                    entityClassesByTableName.put(tableName, tableDescriptor);
-                } else {
-                    entityClassesByTableName.remove(tableName);
-                }
-                return exists;
-            }
-        };
     }
 
     @Value

@@ -23,6 +23,7 @@ import tech.ydb.yoj.repository.db.RepositoryTransaction;
 import tech.ydb.yoj.repository.db.SchemaOperations;
 import tech.ydb.yoj.repository.db.StdTxManager;
 import tech.ydb.yoj.repository.db.Table;
+import tech.ydb.yoj.repository.db.TableDescriptor;
 import tech.ydb.yoj.repository.db.Tx;
 import tech.ydb.yoj.repository.db.TxManager;
 import tech.ydb.yoj.repository.db.TxOptions;
@@ -144,17 +145,21 @@ public abstract class RepositoryTest extends RepositoryTestSupport {
 
     @Test
     public void schema() {
-        SchemaOperations<Simple> schema = repository.schema(Simple.class);
-        schema.create();
-        schema.create(); // second create doesn't fail
-        schema.drop();
-        assertThatExceptionOfType(DropTableException.class).isThrownBy(schema::drop);  // second drop fails
+        SchemaOperations schema = repository.getSchemaOperations();
+        TableDescriptor<Simple> tableDescriptor = TableDescriptor.from(EntitySchema.of(Simple.class));
+        schema.createTable(tableDescriptor);
+        schema.createTable(tableDescriptor); // second create doesn't fail
+        schema.dropTable(tableDescriptor);
+        assertThatExceptionOfType(DropTableException.class)
+                .isThrownBy(() -> schema.dropTable(tableDescriptor));  // second drop fails
     }
 
     @Test
     public void multiLevelDirectorySchema() {
-        SchemaOperations<MultiLevelDirectory> schema = repository.schema(MultiLevelDirectory.class);
-        schema.create();
+        TableDescriptor<MultiLevelDirectory> tableDescriptor = TableDescriptor.from(
+                EntitySchema.of(MultiLevelDirectory.class)
+        );
+        repository.getSchemaOperations().createTable(tableDescriptor);
     }
 
     @Test
@@ -163,7 +168,7 @@ public abstract class RepositoryTest extends RepositoryTestSupport {
 
         checkEmpty(txManager);
 
-        String initSnapshotId = repository.makeSnapshot();
+        String initSnapshotId = repository.getSchemaOperations().makeSnapshot();
 
         txManager.tx(() -> {
             TestEntityOperations db = BaseDb.current(TestEntityOperations.class);
@@ -178,14 +183,14 @@ public abstract class RepositoryTest extends RepositoryTestSupport {
         checkNotEmpty(txManager);
 
         // make ne snapshot and load initial
-        String snapshotWithDataId = repository.makeSnapshot();
-        repository.loadSnapshot(initSnapshotId);
+        String snapshotWithDataId = repository.getSchemaOperations().makeSnapshot();
+        repository.getSchemaOperations().loadSnapshot(initSnapshotId);
 
         // must be empty after load of initial snapshot
         checkEmpty(txManager);
 
         // load snapshot created after inserts and check entities present
-        repository.loadSnapshot(snapshotWithDataId);
+        repository.getSchemaOperations().loadSnapshot(snapshotWithDataId);
         checkNotEmpty(txManager);
     }
 

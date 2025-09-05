@@ -55,6 +55,7 @@ import tech.ydb.yoj.repository.db.QueryStatsMode;
 import tech.ydb.yoj.repository.db.RecordEntity;
 import tech.ydb.yoj.repository.db.Repository;
 import tech.ydb.yoj.repository.db.RepositoryTransaction;
+import tech.ydb.yoj.repository.db.SchemaOperations;
 import tech.ydb.yoj.repository.db.StdTxManager;
 import tech.ydb.yoj.repository.db.TableDescriptor;
 import tech.ydb.yoj.repository.db.Tx;
@@ -137,12 +138,12 @@ public class YdbRepositoryIntegrationTest extends RepositoryTest {
 
     @Override
     protected Repository createRepository() {
-        Repository repository = super.createRepository();
-        repository.schema(NonSerializableEntity.class).create();
-        repository.schema(WithUnflattenableField.class).create();
-        repository.schema(SubdirEntity.class).create();
-        repository.schema(TtlEntity.class).create();
-        repository.schema(ChangefeedEntity.class).create();
+        SchemaOperations schema = super.createRepository().getSchemaOperations();
+        schema.createTable(TableDescriptor.from(EntitySchema.of(NonSerializableEntity.class)));
+        schema.createTable(TableDescriptor.from(EntitySchema.of(WithUnflattenableField.class)));
+        schema.createTable(TableDescriptor.from(EntitySchema.of(SubdirEntity.class)));
+        schema.createTable(TableDescriptor.from(EntitySchema.of(TtlEntity.class)));
+        schema.createTable(TableDescriptor.from(EntitySchema.of(ChangefeedEntity.class)));
         return repository;
     }
 
@@ -1004,10 +1005,11 @@ public class YdbRepositoryIntegrationTest extends RepositoryTest {
 
     @Test
     public void schemaWithHint() {
-        repository.schema(HintInt64Range.class).create();
-        repository.schema(HintUniform.class).create();
-        repository.schema(HintTablePreset.class).create();
-        repository.schema(HintAutoPartitioningByLoad.class).create();
+        SchemaOperations schema = repository.getSchemaOperations();
+        schema.createTable(TableDescriptor.from(EntitySchema.of(HintInt64Range.class)));
+        schema.createTable(TableDescriptor.from(EntitySchema.of(HintUniform.class)));
+        schema.createTable(TableDescriptor.from(EntitySchema.of(HintTablePreset.class)));
+        schema.createTable(TableDescriptor.from(EntitySchema.of(HintAutoPartitioningByLoad.class)));
     }
 
     @Test
@@ -1354,12 +1356,20 @@ public class YdbRepositoryIntegrationTest extends RepositoryTest {
 
     @Test
     public void schemaExistsForExistingEntity() {
-        assertThat(repository.schema(NonSerializableEntity.class).exists()).isTrue();
+        SchemaOperations schema = repository.getSchemaOperations();
+        TableDescriptor<NonSerializableEntity> descriptor = TableDescriptor.from(
+                EntitySchema.of(NonSerializableEntity.class)
+        );
+        assertThat(schema.hasTable(descriptor)).isTrue();
     }
 
     @Test
     public void schemaNotExistsForMissingEntity() {
-        assertThat(repository.schema(MissingEntity.class).exists()).isFalse();
+        SchemaOperations schema = repository.getSchemaOperations();
+        TableDescriptor<MissingEntity> descriptor = TableDescriptor.from(
+                EntitySchema.of(MissingEntity.class)
+        );
+        assertThat(schema.hasTable(descriptor)).isFalse();
     }
 
     private List<tech.ydb.topic.read.Message> readAll(TopicClient topicClient, String topicPath, String consumer, String reader) {

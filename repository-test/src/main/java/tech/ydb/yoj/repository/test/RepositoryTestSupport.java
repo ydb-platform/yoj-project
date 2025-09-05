@@ -25,15 +25,6 @@ public abstract class RepositoryTestSupport {
 
     @After
     public void tearDown() {
-        clearDb(this.repository);
-    }
-
-    public static void clearDb(Repository repo) {
-        Set<TableDescriptor<?>> tableDescriptors = repo.tables();
-        new StdTxManager(repo).tx(() -> {
-            for (TableDescriptor<?> tableDescriptor : tableDescriptors) {
-                Tx.Current.get().getRepositoryTransaction().table(tableDescriptor).deleteAll();
-            }
-        });
+        this.repository.getSchemaOperations().removeTablespace();
     }
 }

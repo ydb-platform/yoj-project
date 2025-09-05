@@ -11,9 +11,11 @@ import tech.ydb.yoj.databind.schema.Column;
 import tech.ydb.yoj.databind.schema.Table;
 import tech.ydb.yoj.repository.BaseDb;
 import tech.ydb.yoj.repository.db.Entity;
+import tech.ydb.yoj.repository.db.EntitySchema;
 import tech.ydb.yoj.repository.db.Repository;
 import tech.ydb.yoj.repository.db.RepositoryTransaction;
 import tech.ydb.yoj.repository.db.StdTxManager;
+import tech.ydb.yoj.repository.db.TableDescriptor;
 import tech.ydb.yoj.repository.db.TxManager;
 import tech.ydb.yoj.repository.db.TxOptions;
 import tech.ydb.yoj.repository.test.RepositoryTestSupport;
@@ -53,8 +55,8 @@ public abstract class AbstractMultipleVarsYqlStatementIntegrationTestBase extend
             }
         };
 
-        repository.createTablespace();
-        repository.schema(TestEntity.class).create();
+        repository.getSchemaOperations().createTablespace();
+        repository.getSchemaOperations().createTable(TableDescriptor.from(EntitySchema.of(TestEntity.class)));
 
         return repository;
     }
