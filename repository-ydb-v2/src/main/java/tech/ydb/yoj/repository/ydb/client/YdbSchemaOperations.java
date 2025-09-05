@@ -33,7 +33,11 @@ import tech.ydb.topic.settings.AlterTopicSettings;
 import tech.ydb.yoj.InternalApi;
 import tech.ydb.yoj.databind.schema.Changefeed.Consumer.Codec;
 import tech.ydb.yoj.databind.schema.Schema;
+import tech.ydb.yoj.repository.db.Entity;
 import tech.ydb.yoj.repository.db.EntitySchema;
+import tech.ydb.yoj.repository.db.SchemaOperations;
+import tech.ydb.yoj.repository.db.Snapshotter;
+import tech.ydb.yoj.repository.db.TableDescriptor;
 import tech.ydb.yoj.repository.db.exception.CreateTableException;
 import tech.ydb.yoj.repository.db.exception.DropTableException;
 import tech.ydb.yoj.repository.ydb.exception.SnapshotCreateException;
@@ -42,10 +46,12 @@ import tech.ydb.yoj.repository.ydb.exception.YdbSchemaPathNotFoundException;
 import tech.ydb.yoj.repository.ydb.yql.YqlPrimitiveType;
 import tech.ydb.yoj.repository.ydb.yql.YqlType;
 
+import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 import java.util.function.Function;
 import java.util.stream.Stream;
 
@@ -57,7 +63,7 @@ import static lombok.AccessLevel.PRIVATE;
 import static tech.ydb.core.StatusCode.SCHEME_ERROR;
 
 @InternalApi
-public final class YdbSchemaOperations {
+public final class YdbSchemaOperations implements SchemaOperations {
     private static final Logger log = LoggerFactory.getLogger(YdbSchemaOperations.class);
 
     @Getter
@@ -76,6 +82,42 @@ public final class YdbSchemaOperations {
         this.sessionManager = sessionManager;
         this.schemeClient = schemeClient;
         this.topicClient = topicClient;
+    }
+
+    @Override
+    public <T extends Entity<T>> void createTable(TableDescriptor<T> tableDescriptor) {
+        String tableName = tableDescriptor.tableName();
+        var schema = EntitySchema.of(tableDescriptor.entityType());
+        createTable(
+                tableName,
+                schema.flattenFields(),
+                schema.flattenId(),
+                extractHint(tableDescriptor),
+                schema.getGlobalIndexes(),
+                schema.getTtlModifier(),
+                schema.getChangefeeds()
+        );
+    }
+
+    private static <T extends Entity<T>> YdbTableHint extractHint(TableDescriptor<T> tableDescriptor) {
+        try {
+            Field ydbTableHintField = tableDescriptor.entityType().getDeclaredField("ydbTableHint");
+            ydbTableHintField.setAccessible(true);
+            return (YdbTableHint) ydbTableHintField.get(null);
+        } catch (NoSuchFieldException | IllegalAccessException ignored) {
+            return null;
+        }
+    }
+
+    @Override
+    public <T extends Entity<T>> void dropTable(TableDescriptor<T> tableDescriptor) {
+        String tableName = tableDescriptor.tableName();
+        dropTable(tableName);
+    }
+
+    @Override
+    public <T extends Entity<T>> boolean hasTable(TableDescriptor<T> tableDescriptor) {
+        return hasPath(tablespace + tableDescriptor.tableName());
     }
 
     public void setTablespace(String tablespace) {
@@ -246,10 +288,6 @@ public final class YdbSchemaOperations {
         }
 
         return new Table(tablespace + name, ydbColumns, ydbIndexes, tableTtl);
-    }
-
-    public boolean hasTable(String name) {
-        return hasPath(tablespace + name);
     }
 
     public void dropTable(String name) {
@@ -477,6 +515,35 @@ public final class YdbSchemaOperations {
         }
 
         throw new YdbRepositoryException("Can't describe table '" + path + "': " + result);
+    }
+
+    @Override
+    public String makeSnapshot() {
+        String snapshotPath = tablespace + ".snapshot-" + UUID.randomUUID() + "/";
+        snapshot(snapshotPath);
+        return snapshotPath;
+    }
+
+    @Override
+    public void loadSnapshot(String id) {
+        String current = tablespace;
+
+        for (String s : getTableNames()) {
+            dropTable(s);
+        }
+
+        for (String name : getDirectoryNames()) {
+            if (!isSnapshotDirectory(name)) {
+                removeDirectoryRecursive(name);
+            }
+        }
+
+        setTablespace(id);
+        snapshot(current);
+        setTablespace(current);
+
+        // NB: We use getSessionManager() method to allow mocking YdbRepository
+        sessionClient.reset();
     }
 
     @Value

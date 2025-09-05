@@ -1,12 +1,20 @@
 package tech.ydb.yoj.repository.db;
 
-public interface SchemaOperations<T> {
-    void create();
+public interface SchemaOperations {
+    String makeSnapshot();
+
+    void loadSnapshot(String id);
+
+    void createTablespace();
+
+    void removeTablespace();
+
+    <T extends Entity<T>> void createTable(TableDescriptor<T> tableDescriptor);
 
     /**
-     * Drops the table. Does nothing if the table does not {@link #exists() exist}.
+     * Drops the table. Does nothing if the table does not {@link #hasTable(TableDescriptor tableDescriptor) exist}.
      */
-    void drop();
+    <T extends Entity<T>> void dropTable(TableDescriptor<T> tableDescriptor);
 
-    boolean exists();
+    <T extends Entity<T>> boolean hasTable(TableDescriptor<T> tableDescriptor);
 }
