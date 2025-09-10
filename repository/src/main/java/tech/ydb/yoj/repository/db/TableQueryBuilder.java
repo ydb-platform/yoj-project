@@ -335,6 +335,42 @@ public final class TableQueryBuilder<T extends Entity<T>> {
         }
 
         @NonNull
+        public TableQueryBuilder<T> contains(@NonNull String value) {
+            filterBuilder = fieldBuilder.contains(value);
+            return TableQueryBuilder.this;
+        }
+
+        @NonNull
+        public TableQueryBuilder<T> doesNotContain(@NonNull String value) {
+            filterBuilder = fieldBuilder.doesNotContain(value);
+            return TableQueryBuilder.this;
+        }
+
+        @NonNull
+        public TableQueryBuilder<T> containsIgnoreCase(@NonNull String value) {
+            filterBuilder = fieldBuilder.containsIgnoreCase(value);
+            return TableQueryBuilder.this;
+        }
+
+        @NonNull
+        public TableQueryBuilder<T> doesNotContainIgnoreCase(@NonNull String value) {
+            filterBuilder = fieldBuilder.doesNotContainIgnoreCase(value);
+            return TableQueryBuilder.this;
+        }
+
+        @NonNull
+        public TableQueryBuilder<T> startsWith(@NonNull String value) {
+            filterBuilder = fieldBuilder.startsWith(value);
+            return TableQueryBuilder.this;
+        }
+
+        @NonNull
+        public TableQueryBuilder<T> endsWith(@NonNull String value) {
+            filterBuilder = fieldBuilder.endsWith(value);
+            return TableQueryBuilder.this;
+        }
+
+        @NonNull
         public TableQueryBuilder<T> isNull() {
             filterBuilder = fieldBuilder.isNull();
             return TableQueryBuilder.this;
