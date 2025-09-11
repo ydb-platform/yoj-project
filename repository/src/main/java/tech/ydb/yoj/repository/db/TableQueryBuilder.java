@@ -365,8 +365,20 @@ public final class TableQueryBuilder<T extends Entity<T>> {
         }
 
         @NonNull
+        public TableQueryBuilder<T> doesNotStartWith(@NonNull String value) {
+            filterBuilder = fieldBuilder.doesNotStartWith(value);
+            return TableQueryBuilder.this;
+        }
+
+        @NonNull
         public TableQueryBuilder<T> endsWith(@NonNull String value) {
             filterBuilder = fieldBuilder.endsWith(value);
+            return TableQueryBuilder.this;
+        }
+
+        @NonNull
+        public TableQueryBuilder<T> doesNotEndWith(@NonNull String value) {
+            filterBuilder = fieldBuilder.doesNotEndWith(value);
             return TableQueryBuilder.this;
         }
 

@@ -197,12 +197,27 @@ public class ScalarExpr<T> extends LeafExpression<T> {
         STARTS_WITH {
             @Override
             public Operator negate() {
-                return null;
+                return NOT_STARTS_WITH;
             }
 
             @Override
             public String toString() {
                 return "startswith";
+            }
+        },
+        /**
+         * "NOT Starts with" is case-sensitive match to check if a string does not start with the specified substring.
+         * E.g., {@code name not startswith "Ni"}
+         */
+        NOT_STARTS_WITH {
+            @Override
+            public Operator negate() {
+                return STARTS_WITH;
+            }
+
+            @Override
+            public String toString() {
+                return "not startswith";
             }
         },
         /**
@@ -212,12 +227,27 @@ public class ScalarExpr<T> extends LeafExpression<T> {
         ENDS_WITH {
             @Override
             public Operator negate() {
-                return null;
+                return NOT_ENDS_WITH;
             }
 
             @Override
             public String toString() {
                 return "endswith";
+            }
+        },
+        /**
+         * "NOT Ends with" is case-sensitive match to check if a string does not end with the specified substring.
+         * E.g., {@code name not endswith "kolai"}
+         */
+        NOT_ENDS_WITH {
+            @Override
+            public Operator negate() {
+                return ENDS_WITH;
+            }
+
+            @Override
+            public String toString() {
+                return "not endswith";
             }
         },
         /**

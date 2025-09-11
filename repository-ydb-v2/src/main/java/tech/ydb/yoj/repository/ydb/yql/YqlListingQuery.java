@@ -69,7 +69,9 @@ public final class YqlListingQuery {
                     case ICONTAINS -> pred.likeIgnoreCase(likePatternForContains((String) expected), LIKE_ESCAPE_CHAR);
                     case NOT_ICONTAINS -> pred.notLikeIgnoreCase(likePatternForContains((String) expected), LIKE_ESCAPE_CHAR);
                     case STARTS_WITH -> pred.like(likePatternForStartsWith((String) expected), LIKE_ESCAPE_CHAR);
+                    case NOT_STARTS_WITH -> pred.notLike(likePatternForStartsWith((String) expected), LIKE_ESCAPE_CHAR);
                     case ENDS_WITH -> pred.like(likePatternForEndsWith((String) expected), LIKE_ESCAPE_CHAR);
+                    case NOT_ENDS_WITH -> pred.notLike(likePatternForEndsWith((String) expected), LIKE_ESCAPE_CHAR);
                 };
             }
 

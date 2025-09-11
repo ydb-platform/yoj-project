@@ -94,10 +94,12 @@ public final class InMemoryQueries {
                     case LTE -> obj -> compare(getActual.apply(obj), expected) <= 0;
                     case CONTAINS -> obj -> contains((String) getActual.apply(obj), (String) expected);
                     case NOT_CONTAINS -> obj -> !contains((String) getActual.apply(obj), (String) expected);
-                    case STARTS_WITH -> obj -> startsWith((String) getActual.apply(obj), (String) expected);
                     case ICONTAINS -> obj -> containsIgnoreCase((String) getActual.apply(obj), (String) expected);
                     case NOT_ICONTAINS -> obj -> !containsIgnoreCase((String) getActual.apply(obj), (String) expected);
+                    case STARTS_WITH -> obj -> startsWith((String) getActual.apply(obj), (String) expected);
+                    case NOT_STARTS_WITH -> obj -> !startsWith((String) getActual.apply(obj), (String) expected);
                     case ENDS_WITH -> obj -> endsWith((String) getActual.apply(obj), (String) expected);
+                    case NOT_ENDS_WITH -> obj -> !endsWith((String) getActual.apply(obj), (String) expected);
                 };
             }
 
