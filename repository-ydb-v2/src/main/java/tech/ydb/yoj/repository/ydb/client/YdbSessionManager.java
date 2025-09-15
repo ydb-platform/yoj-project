@@ -7,7 +7,6 @@ import tech.ydb.yoj.InternalApi;
 import tech.ydb.yoj.repository.db.exception.QueryInterruptedException;
 import tech.ydb.yoj.repository.db.exception.RetryableException;
 import tech.ydb.yoj.repository.db.exception.UnavailableException;
-import tech.ydb.yoj.repository.ydb.metrics.GaugeSupplierCollector;
 
 import java.time.Duration;
 import java.util.concurrent.CancellationException;
@@ -19,25 +18,12 @@ import static tech.ydb.yoj.util.lang.Interrupts.isThreadInterrupted;
 
 @InternalApi
 public final class YdbSessionManager implements SessionManager {
-    private static final GaugeSupplierCollector sessionStatCollector = GaugeSupplierCollector.build()
-            .namespace("ydb")
-            .subsystem("session_manager")
-            .name("pool_stats")
-            .help("Session pool statistics")
-            .labelNames("type")
-            .register();
-
     private final TableClient tableClient;
     private final Duration sessionTimeout;
 
     public YdbSessionManager(TableClient tableClient, Duration sessionCreationTimeout) {
         this.tableClient = tableClient;
         this.sessionTimeout = getSessionTimeout(sessionCreationTimeout);
-
-        YdbSessionManager.sessionStatCollector
-                .labels("pending_acquire_count").supplier(() -> tableClient.sessionPoolStats().getPendingAcquireCount())
-                .labels("acquired_count").supplier(() -> tableClient.sessionPoolStats().getAcquiredCount())
-                .labels("idle_count").supplier(() -> tableClient.sessionPoolStats().getIdleCount());
     }
 
     @Override

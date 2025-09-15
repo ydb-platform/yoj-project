@@ -84,6 +84,9 @@ public class TestYdbRepository extends YdbRepository {
             };
             return YdbRepository.Settings.builder()
                     .queryImplementation(queryImplementation)
+                    .metrics(YdbRepository.Settings.Metrics.builder()
+                            .repositoryLabel("TestYdbRepository")
+                            .build())
                     .build();
         }
     }
