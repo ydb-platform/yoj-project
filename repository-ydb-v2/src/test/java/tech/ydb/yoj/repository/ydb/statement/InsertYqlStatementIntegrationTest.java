@@ -7,7 +7,6 @@ import tech.ydb.yoj.repository.db.TableDescriptor;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class InsertYqlStatementIntegrationTest extends AbstractMultipleVarsYqlStatementIntegrationTestBase {
-
     @Test
     public void testInsert() {
         var txManager = getTxManager();

@@ -6,6 +6,7 @@ import io.grpc.netty.shaded.io.grpc.netty.NettyChannelBuilder;
 import lombok.Builder;
 import lombok.NonNull;
 import lombok.Value;
+import lombok.With;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import tech.ydb.auth.AuthRpcProvider;
@@ -15,10 +16,6 @@ import tech.ydb.core.grpc.GrpcTransport;
 import tech.ydb.core.grpc.GrpcTransportBuilder;
 import tech.ydb.core.impl.SingleChannelTransport;
 import tech.ydb.core.impl.auth.GrpcAuthRpc;
-import tech.ydb.scheme.SchemeClient;
-import tech.ydb.table.SessionPoolStats;
-import tech.ydb.table.TableClient;
-import tech.ydb.topic.TopicClient;
 import tech.ydb.yoj.repository.db.Entity;
 import tech.ydb.yoj.repository.db.EntitySchema;
 import tech.ydb.yoj.repository.db.Repository;
@@ -28,7 +25,6 @@ import tech.ydb.yoj.repository.db.TableDescriptor;
 import tech.ydb.yoj.repository.db.TxOptions;
 import tech.ydb.yoj.repository.ydb.client.SessionManager;
 import tech.ydb.yoj.repository.ydb.client.YdbSchemaOperations;
-import tech.ydb.yoj.repository.ydb.client.YdbSessionManager;
 import tech.ydb.yoj.repository.ydb.client.YdbTableHint;
 import tech.ydb.yoj.repository.ydb.compatibility.YdbDataCompatibilityChecker;
 import tech.ydb.yoj.repository.ydb.compatibility.YdbSchemaCompatibilityChecker;
@@ -67,30 +63,46 @@ public class YdbRepository implements Repository {
         this(config, authProvider, List.of());
     }
 
-    public YdbRepository(@NonNull YdbConfig config, @NonNull AuthRpcProvider<? super GrpcAuthRpc> authProvider, List<ClientInterceptor> interceptors) {
+    public YdbRepository(
+            @NonNull YdbConfig config,
+            @NonNull AuthRpcProvider<? super GrpcAuthRpc> authProvider,
+            @NonNull List<ClientInterceptor> interceptors
+    ) {
         this(config, makeGrpcTransport(config, authProvider, interceptors));
     }
 
-    public YdbRepository(@NonNull YdbConfig config, @NonNull Settings repositorySettings,
-                         @NonNull AuthRpcProvider<? super GrpcAuthRpc> authProvider, List<ClientInterceptor> interceptors) {
+    public YdbRepository(
+            @NonNull YdbConfig config,
+            @NonNull Settings repositorySettings,
+            @NonNull AuthRpcProvider<? super GrpcAuthRpc> authProvider,
+            @NonNull List<ClientInterceptor> interceptors
+    ) {
         this(config, repositorySettings, makeGrpcTransport(config, authProvider, interceptors));
     }
 
     public YdbRepository(@NonNull YdbConfig config, @NonNull GrpcTransport transport) {
-        // In YOJ 2.x, use TableService query implementation as a safe default; QueryService will become the default in YOJ 3.x.
+        // In YOJ 2.x, use TableService query implementation as a safe default.
+        // In YOJ 3.x, QueryService will become the default.
         this(
                 config,
                 Settings.builder()
                         .queryImplementation(new QueryImplementation.TableService())
+                        .metrics(Settings.Metrics.builder().build())
                         .build(),
                 transport
         );
     }
 
-    public YdbRepository(@NonNull YdbConfig config, @NonNull Settings repositorySettings, @NonNull GrpcTransport transport) {
+    public YdbRepository(
+            @NonNull YdbConfig config,
+            @NonNull Settings repositorySettings,
+            @NonNull GrpcTransport transport
+    ) {
         this.entityClassesByTableName = new ConcurrentHashMap<>();
         this.transport = transport;
-        this.sessionClient = MoreSuppliers.memoizeCloseable(() -> new SessionClient(config, repositorySettings, transport));
+        this.sessionClient = MoreSuppliers.memoizeCloseable(
+                () -> new SessionClient(config, repositorySettings, transport)
+        );
     }
 
     private static GrpcTransport makeGrpcTransport(
@@ -171,11 +183,11 @@ public class YdbRepository implements Repository {
     }
 
     public SessionManager getSessionManager() {
-        return sessionClient.get().sessionManager;
+        return sessionClient.get().getSessionManager();
     }
 
     public YdbSchemaOperations getSchemaOperations() {
-        return sessionClient.get().schemaOperations;
+        return sessionClient.get().getSchemaOperations();
     }
 
     public final void checkDataCompatibility(List<Class<? extends Entity>> entities) {
@@ -202,16 +214,7 @@ public class YdbRepository implements Repository {
 
     @Override
     public boolean healthCheck() {
-        // We consider the database healthy if the number of sessions in the pool is greater than 0.
-        // Bad sessions will be dropped either due to keep-alive or on the very first error that occurs in that session.
-        //
-        // If idleCount == 0, this may mean that the application has just started, or that the database cannot handle the load.
-        // To account for that case, we check pendingAcquireCount (how many clients are waiting to acquire a session),
-        // and if it’s more than maxSize of the client queue, we consider the database to be unhealthy.
-        SessionPoolStats sessionPoolStats = sessionClient.get().tableClient.sessionPoolStats();
-        return sessionPoolStats.getIdleCount() > 0 ||
-                //todo: maybe we should consider pendingAcquireCount > 0 problematic, because there are clients waiting?
-                sessionPoolStats.getPendingAcquireCount() <= sessionPoolStats.getMaxSize();
+        return sessionClient.get().isHealthy();
     }
 
     @Override
@@ -347,61 +350,36 @@ public class YdbRepository implements Repository {
      *
      * @param queryImplementation Query implementation to use (either {@code TableService} or {@code QueryService}).
      *                            <p>The default in YOJ 2.x is {@link QueryImplementation.TableService YDB TableService};
-     *                            in YOJ 3.0.0, the default will become {@link QueryImplementation.QueryService YDB QueryService}.
+     *                            In YOJ 3.x, the {@link QueryImplementation.QueryService YDB QueryService} will become
+     *                            the default.
+     * @param metrics             Metrics configuration
      */
-    @Builder
+    @With
+    @Builder(builderMethodName = "")
     public record Settings(
-            @NonNull QueryImplementation queryImplementation
+            @NonNull QueryImplementation queryImplementation,
+            @NonNull Metrics metrics
     ) {
-    }
-
-    private static final class SessionClient implements AutoCloseable {
-        private final TableClient tableClient;
-        private final SchemeClient schemeClient;
-        private final TopicClient topicClient;
-
-        private final SessionManager sessionManager;
-        private final YdbSchemaOperations schemaOperations;
-
-        private SessionClient(YdbConfig config, Settings repositorySettings, GrpcTransport transport) {
-            this.tableClient = createClient(config, repositorySettings, transport);
-            this.schemeClient = SchemeClient.newClient(transport).build();
-            this.topicClient = TopicClient.newClient(transport).build();
-
-            this.sessionManager = new YdbSessionManager(tableClient, config.getSessionCreationTimeout());
-            this.schemaOperations = new YdbSchemaOperations(
-                    config.getTablespace(), sessionManager, schemeClient, topicClient
-            );
+        public static SettingsBuilder builder() {
+            return new SettingsBuilder()
+                    .queryImplementation(new QueryImplementation.TableService())
+                    .metrics(Metrics.builder().build());
         }
 
-        @Override
-        public void close() {
-            Exceptions.closeAll(tableClient, schemeClient, topicClient);
-        }
-    }
-
-    private static TableClient createClient(
-            YdbConfig config, YdbRepository.Settings repositorySettings, GrpcTransport transport
-    ) {
-        return buildTableClient(repositorySettings, transport)
-                .keepQueryText(false)
-                .sessionKeepAliveTime(config.getSessionKeepAliveTime())
-                .sessionMaxIdleTime(config.getSessionMaxIdleTime())
-                .sessionPoolSize(config.getSessionPoolMin(), config.getSessionPoolMax())
-                .build();
-    }
-
-    private static TableClient.Builder buildTableClient(
-            YdbRepository.Settings repositorySettings, GrpcTransport transport
-    ) {
-        // TODO(nvamelichev@): Replace this with expression switch with type pattern as soon as we migrate to Java 21+
-        var queryImplementation = repositorySettings.queryImplementation();
-        if (queryImplementation instanceof QueryImplementation.TableService) {
-            return TableClient.newClient(transport);
-        } else if (queryImplementation instanceof QueryImplementation.QueryService) {
-            return tech.ydb.query.impl.TableClientImpl.newClient(transport);
-        } else {
-            throw new UnsupportedOperationException("Unknown QueryImplementation: <" + queryImplementation.getClass() + ">");
+        /**
+         * Metric settings for YDB repository.
+         *
+         * @param repositoryLabel Value of {@code repository} label for metrics of this {@code YdbRepository}
+         */
+        @With
+        @Builder(builderMethodName = "")
+        public record Metrics(
+                @NonNull String repositoryLabel
+        ) {
+            public static MetricsBuilder builder() {
+                return new MetricsBuilder()
+                        .repositoryLabel("YdbRepository");
+            }
         }
     }
 }

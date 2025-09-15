@@ -3,7 +3,6 @@ package tech.ydb.yoj.repository.ydb.metrics;
 import io.prometheus.client.Collector;
 import io.prometheus.client.GaugeMetricFamily;
 import io.prometheus.client.SimpleCollector;
-import lombok.experimental.Accessors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import tech.ydb.yoj.InternalApi;
@@ -13,11 +12,14 @@ import java.util.List;
 import java.util.function.Supplier;
 
 @InternalApi
-public class GaugeSupplierCollector extends SimpleCollector<GaugeSupplierCollector.Child> implements Collector.Describable {
-    private static final Logger log = LoggerFactory.getLogger(GaugeSupplierCollector.class);
+public class SupplierCollector extends SimpleCollector<SupplierCollector.Child> implements Collector.Describable {
+    private static final Logger log = LoggerFactory.getLogger(SupplierCollector.class);
 
-    private GaugeSupplierCollector(Builder builder) {
+    private final Collector.Type type;
+
+    private SupplierCollector(Builder builder) {
         super(builder);
+        this.type = builder.type;
     }
 
     public static Builder build() {
@@ -34,7 +36,7 @@ public class GaugeSupplierCollector extends SimpleCollector<GaugeSupplierCollect
                 log.error("Could not add child sample", e);
             }
         });
-        return familySamplesList(Type.GAUGE, samples);
+        return familySamplesList(type, samples);
     }
 
     @Override
@@ -51,20 +53,26 @@ public class GaugeSupplierCollector extends SimpleCollector<GaugeSupplierCollect
         this.noLabelsChild.supplier(supplier);
     }
 
-    @Accessors(fluent = true)
-    public static class Builder extends SimpleCollector.Builder<Builder, GaugeSupplierCollector> {
+    public static class Builder extends SimpleCollector.Builder<Builder, SupplierCollector> {
+        private Collector.Type type = Collector.Type.GAUGE;
+
+        public Builder type(Type type) {
+            this.type = type;
+            return this;
+        }
+
         @Override
-        public GaugeSupplierCollector create() {
-            return new GaugeSupplierCollector(this);
+        public SupplierCollector create() {
+            return new SupplierCollector(this);
         }
     }
 
     public class Child {
         private Supplier<? extends Number> supplier = () -> 0.;
 
-        public GaugeSupplierCollector supplier(Supplier<? extends Number> supplier) {
+        public SupplierCollector supplier(Supplier<? extends Number> supplier) {
             this.supplier = supplier;
-            return GaugeSupplierCollector.this;
+            return SupplierCollector.this;
         }
 
         public double getValue() {

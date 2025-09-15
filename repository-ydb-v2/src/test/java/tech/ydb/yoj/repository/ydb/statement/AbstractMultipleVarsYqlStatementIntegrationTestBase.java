@@ -17,7 +17,7 @@ import tech.ydb.yoj.repository.db.StdTxManager;
 import tech.ydb.yoj.repository.db.TxManager;
 import tech.ydb.yoj.repository.db.TxOptions;
 import tech.ydb.yoj.repository.test.RepositoryTestSupport;
-import tech.ydb.yoj.repository.ydb.YdbConfig;
+import tech.ydb.yoj.repository.ydb.TestYdbRepository;
 import tech.ydb.yoj.repository.ydb.YdbEnvAndTransportRule;
 import tech.ydb.yoj.repository.ydb.YdbRepository;
 import tech.ydb.yoj.repository.ydb.YdbRepositoryTransaction;
@@ -30,17 +30,14 @@ public abstract class AbstractMultipleVarsYqlStatementIntegrationTestBase extend
     protected static final TestEntity ENTITY_1_1 = new TestEntity(TestEntity.Id.of("a"), "fuu");
     protected static final TestEntity ENTITY_2 = new TestEntity(TestEntity.Id.of("b"), "bar");
     protected static final TestEntity ENTITY_3 = new TestEntity(TestEntity.Id.of("c"), "ops");
-    private static final YdbConfig config =
-            YdbConfig.createForTesting(
-                    "",
-                    0,
-                    "/local/ycloud/multiple_vars_yql_statement/",
-                    "/local"
-            );
 
     @Override
     protected Repository createRepository() {
-        var repository = new YdbRepository(ydbEnvAndTransport.getYdbConfig(), ydbEnvAndTransport.getGrpcTransport()) {
+        var settings = TestYdbRepository.createRepositorySettings()
+                .withMetrics(YdbRepository.Settings.Metrics.builder()
+                        .repositoryLabel("TestYdbRepository[" + getClass().getSimpleName() + "]")
+                        .build());
+        var repository = new TestYdbRepository(ydbEnvAndTransport.getYdbConfig(), settings, ydbEnvAndTransport.getGrpcTransport()) {
             @Override
             public RepositoryTransaction startTransaction(TxOptions options) {
                 return new RepositoryTransactionImpl(this, options);

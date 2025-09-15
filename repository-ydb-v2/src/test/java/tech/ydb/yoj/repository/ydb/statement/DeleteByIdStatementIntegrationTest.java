@@ -7,7 +7,6 @@ import tech.ydb.yoj.repository.db.TableDescriptor;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class DeleteByIdStatementIntegrationTest extends AbstractMultipleVarsYqlStatementIntegrationTestBase {
-
     @Test
     public void testDelete() {
         var txManager = getTxManager();
