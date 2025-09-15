@@ -175,8 +175,8 @@ public class InMemoryTable<T extends Entity<T>> implements Table<T> {
 
     @Override
     public T find(Entity.Id<T> id) {
-        if (id.isPartial()) {
-            throw new IllegalArgumentException("Cannot use partial id in find method");
+        if (TableQueryImpl.isPartialId(id, schema)) {
+            throw new IllegalArgumentException("Cannot use partial ID in Table.find(ID) method");
         }
         return transaction.getTransactionLocal().firstLevelCache(tableDescriptor).get(id, __ -> {
             markKeyRead(id);
@@ -192,8 +192,8 @@ public class InMemoryTable<T extends Entity<T>> implements Table<T> {
 
     @Override
     public <V extends View> V find(Class<V> viewType, Entity.Id<T> id) {
-        if (id.isPartial()) {
-            throw new IllegalArgumentException("Cannot use partial id in find method");
+        if (TableQueryImpl.isPartialId(id, schema)) {
+            throw new IllegalArgumentException("Cannot use partial ID in Table.find(Class<View>, ID) method");
         }
 
         FirstLevelCache<T> cache = transaction.getTransactionLocal().firstLevelCache(tableDescriptor);

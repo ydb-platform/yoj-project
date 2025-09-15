@@ -1,6 +1,5 @@
 package tech.ydb.yoj.databind.schema.reflect;
 
-import com.google.common.reflect.TypeToken;
 import lombok.NonNull;
 import tech.ydb.yoj.databind.FieldValueType;
 import tech.ydb.yoj.databind.schema.configuration.SchemaRegistry;
@@ -49,7 +48,7 @@ public final class StdReflector implements Reflector {
     }
 
     private ReflectType<?> reflectFor(Type type, FieldValueType fvt) {
-        Class<?> rawType = type instanceof Class<?> clazz ? clazz : TypeToken.of(type).getRawType();
+        Class<?> rawType = Types.getRawType(type);
         for (TypeFactory m : matchers) {
             if (m.matches(rawType, fvt)) {
                 return m.create(this, rawType, fvt);

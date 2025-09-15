@@ -1,7 +1,6 @@
 package tech.ydb.yoj.databind.schema.reflect;
 
 import com.google.common.base.Preconditions;
-import com.google.common.reflect.TypeToken;
 import kotlin.jvm.JvmClassMappingKt;
 import kotlin.reflect.KClass;
 import kotlin.reflect.KClassifier;
@@ -22,18 +21,18 @@ import java.lang.reflect.Type;
     private final KProperty1.Getter<?, ?> getter;
 
     public KotlinDataClassComponent(Reflector reflector, String name, KProperty1<?, ?> property) {
-        super(reflector, name, genericType(property), rawType(property), field(property));
+        super(reflector, name, genericJavaType(property), rawJavaClass(property), field(property));
 
         this.getter = property.getGetter();
         KCallablesJvm.setAccessible(this.getter, true);
     }
 
-    private static Type genericType(KProperty1<?, ?> property) {
+    private static Type genericJavaType(KProperty1<?, ?> property) {
         return ReflectJvmMapping.getJavaType(property.getReturnType());
     }
 
-    private static Class<?> rawType(KProperty1<?, ?> property) {
-        Type genericType = genericType(property);
+    private static Class<?> rawJavaClass(KProperty1<?, ?> property) {
+        Type javaType = genericJavaType(property);
 
         KType kPropertyType = property.getReturnType();
         KClassifier kClassifier = kPropertyType.getClassifier();
@@ -41,7 +40,7 @@ import java.lang.reflect.Type;
             return JvmClassMappingKt.getJavaClass(kClass);
         } else {
             // fallback to Guava's TypeToken if kotlin-reflect returns unpredictable results ;-)
-            return TypeToken.of(genericType).getRawType();
+            return Types.getRawType(javaType);
         }
     }
 
