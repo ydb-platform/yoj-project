@@ -37,10 +37,11 @@ public final class CustomValueTypes {
 
         value = cvt.toColumn(field, value);
         Preconditions.checkArgument(cvt.getColumnClass().isInstance(value),
-                "Custom value type converter %s must produce a non-null value of type columnClass()=%s but got value of type %s",
+                "Custom value type converter %s must produce a non-null value of type columnClass()=%s but got a %s",
                 cvt.getConverter().getClass().getCanonicalName(),
                 cvt.getColumnClass().getCanonicalName(),
-                value.getClass().getCanonicalName());
+                // NB: do not simplify this condition to `false`! This is explicitly to catch custom value converters that return a `null` by mistake!
+                value == null ? "null value" : "value of type " + value.getClass().getCanonicalName());
         return value;
     }
 
@@ -50,7 +51,10 @@ public final class CustomValueTypes {
             return value;
         }
 
-        Preconditions.checkArgument(value instanceof Comparable, "postconvert() only takes Comparable values, but got value of %s", value.getClass());
+        Preconditions.checkArgument(value instanceof Comparable, "postconvert() only takes Comparable values, but got value of %s",
+                // NB: here we don't need to check `value` for `null`, because it got here from YDB/InMemory repository deserialization logic,
+                // which won't even call the `postconvert()` method if `value` is `null`
+                value.getClass().getCanonicalName());
 
         @SuppressWarnings("unchecked") C comparable = (C) value;
         return cvt.toJava(field, comparable);

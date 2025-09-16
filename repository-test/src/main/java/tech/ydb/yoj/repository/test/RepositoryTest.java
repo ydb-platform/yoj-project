@@ -43,6 +43,8 @@ import tech.ydb.yoj.repository.test.entity.TestEntities;
 import tech.ydb.yoj.repository.test.sample.TestDb;
 import tech.ydb.yoj.repository.test.sample.TestDbImpl;
 import tech.ydb.yoj.repository.test.sample.TestEntityOperations;
+import tech.ydb.yoj.repository.test.sample.model.BadlyWrappedEntity;
+import tech.ydb.yoj.repository.test.sample.model.BadlyWrappedEntity.BadStringValueWrapper;
 import tech.ydb.yoj.repository.test.sample.model.Book;
 import tech.ydb.yoj.repository.test.sample.model.Bubble;
 import tech.ydb.yoj.repository.test.sample.model.BytePkEntity;
@@ -2961,6 +2963,21 @@ public abstract class RepositoryTest extends RepositoryTestSupport {
                 .where("id").lt(new MultiWrappedEntity2.Id(new MultiWrappedEntity2.WrapperOfIdStringValue(MultiWrappedEntity2.IdStringValue.fromString("xyzzy-central1:0"))))
                 .find()
         )).isEmpty();
+    }
+
+    @Test
+    public void nullWrappingStringValueColumn() {
+        // must not be able to save a string-value field that returns null from toString()
+        var badWrapperWithNullInside = new BadlyWrappedEntity(new BadlyWrappedEntity.Id("xxx"), new BadStringValueWrapper(null));
+        assertThatExceptionOfType(ConversionException.class)
+                .isThrownBy(() -> db.tx(() -> db.table(BadlyWrappedEntity.class).save(badWrapperWithNullInside)))
+                .withCauseInstanceOf(IllegalArgumentException.class);
+
+        // null column value -> null string-value type field, without invoking the converter at all
+        var noWrapper = new BadlyWrappedEntity(new BadlyWrappedEntity.Id("yyy"), null);
+        db.tx(() -> db.table(BadlyWrappedEntity.class).save(noWrapper));
+        assertThat(db.tx(() -> db.table(BadlyWrappedEntity.class).find(new BadlyWrappedEntity.Id("yyy"))).badWrapper()).isNull();
+        assertThat(db.tx(() -> db.table(BadlyWrappedEntity.class).find(new BadlyWrappedEntity.Id("yyy")))).isEqualTo(noWrapper);
     }
 
     @Test
