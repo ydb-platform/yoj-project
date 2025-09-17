@@ -1,6 +1,5 @@
 package tech.ydb.yoj.repository.db.projection;
 
-
 import tech.ydb.yoj.InternalApi;
 import tech.ydb.yoj.repository.db.Entity;
 import tech.ydb.yoj.repository.db.RepositoryTransaction;

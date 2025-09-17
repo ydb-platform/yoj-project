@@ -3,13 +3,11 @@ package tech.ydb.yoj.repository.db.projection;
 import lombok.NonNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import tech.ydb.yoj.DeprecationWarnings;
 import tech.ydb.yoj.InternalApi;
 import tech.ydb.yoj.repository.db.Entity;
 import tech.ydb.yoj.repository.db.RepositoryTransaction;
 
 import java.util.LinkedHashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.stream.Stream;
 
@@ -122,14 +120,7 @@ public class RwProjectionCache implements ProjectionCache {
         @NonNull
         private Stream<Entity<?>> projectionStream(Entity<?> entity) {
             if (writable && entity != null) {
-                List<Entity<?>> projectionList = entity.createProjections();
-                if (!projectionList.isEmpty()) {
-                    String entityClassName = entity.getClass().getName();
-                    DeprecationWarnings.warnOnce("RwProjectionCache/" + entityClassName, "You are using projections for " + entityClassName + ". "
-                            + "Projections will be removed from YOJ core in YOJ 3.0.0. See https://github.com/ydb-platform/yoj-project/issues/77");
-                }
-
-                return projectionList.stream();
+                return entity.createProjections().stream();
             } else {
                 return Stream.empty();
             }

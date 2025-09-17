@@ -23,10 +23,8 @@ public interface Entity<E extends Entity<E>> extends Table.ViewId<E> {
     }
 
     /**
-     * @deprecated Projections will be removed from the core YOJ API in 3.0.0 and possibly reintroduced as an optional module.
      * @see <a href="https://github.com/ydb-platform/yoj-project/issues/77">#77</a>
      */
-    @Deprecated(forRemoval = true)
     default List<Entity<?>> createProjections() {
         return List.of();
     }
