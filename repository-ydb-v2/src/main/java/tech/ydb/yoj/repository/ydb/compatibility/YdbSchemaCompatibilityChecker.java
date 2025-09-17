@@ -109,7 +109,7 @@ public final class YdbSchemaCompatibilityChecker {
         if (!canExecuteMessages.isEmpty()) {
             var ddl = config.useBuilderDDLSyntax
                     ? String.join(",\n", canExecuteMessages)
-                    : "--!syntax_v1\n" + String.join("\n", canExecuteMessages);
+                    : String.join("\n", canExecuteMessages);
 
             BiConsumer<String, String> logConsumer = config.warnOnMinorDifferences ? log::warn : log::info;
             logConsumer.accept("DB schema and code schema have minor differences.\n"
@@ -122,7 +122,7 @@ public final class YdbSchemaCompatibilityChecker {
         if (!shouldExecuteMessages.isEmpty()) {
             var ddl = config.useBuilderDDLSyntax
                     ? String.join(",\n", shouldExecuteMessages)
-                    : "--!syntax_v1\n" + String.join("\n", shouldExecuteMessages);
+                    : String.join("\n", shouldExecuteMessages);
             log.error("DB schema and code schema have major differences.\n"
                             + "You must execute below commands before deploying the code:\n"
                             + "{}",

@@ -273,7 +273,7 @@ public class YdbRepositoryTransaction<REPO extends YdbRepository>
     private String getYql(Statement<?, ?> statement) {
         // TODO(nvamelichev): Make the use of syntax_v1 directive configurable in YdbRepository.Settings
         // @see https://github.com/ydb-platform/yoj-project/issues/148
-        return "--!syntax_v1\n" + statement.getQuery(tablespace);
+        return statement.getQuery(tablespace);
     }
 
     private static <PARAMS> Params getSdkParams(Statement<PARAMS, ?> statement, PARAMS params) {
