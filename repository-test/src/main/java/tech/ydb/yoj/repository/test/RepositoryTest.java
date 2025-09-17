@@ -2521,14 +2521,26 @@ public abstract class RepositoryTest extends RepositoryTestSupport {
     }
 
     @Test
-    public void scanNotTruncated() {
+    public void scanNotTruncatedOldSpliterator() {
         int maxPageSizeBiggerThatReal = 11_000;
 
         db.tx(() -> IntStream.range(0, maxPageSizeBiggerThatReal).forEach(
                 i -> db.projects().save(new Project(new Project.Id("id_" + i), "name"))
         ));
 
-        List<Project> result = db.scan().withMaxSize(maxPageSizeBiggerThatReal).run(() -> db.projects().findAll());
+        List<Project> result = db.scan().useNewSpliterator(false).withMaxSize(maxPageSizeBiggerThatReal).run(() -> db.projects().findAll());
+        assertEquals(maxPageSizeBiggerThatReal, result.size());
+    }
+
+    @Test
+    public void scanNotTruncatedNewSpliterator() {
+        int maxPageSizeBiggerThatReal = 11_000;
+
+        db.tx(() -> IntStream.range(0, maxPageSizeBiggerThatReal).forEach(
+                i -> db.projects().save(new Project(new Project.Id("id_" + i), "name"))
+        ));
+
+        List<Project> result = db.scan().useNewSpliterator(true).withMaxSize(maxPageSizeBiggerThatReal).run(() -> db.projects().findAll());
         assertEquals(maxPageSizeBiggerThatReal, result.size());
     }
 
