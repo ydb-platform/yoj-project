@@ -70,7 +70,6 @@ import tech.ydb.yoj.repository.test.RepositoryTest;
 import tech.ydb.yoj.repository.test.entity.TestEntities;
 import tech.ydb.yoj.repository.test.sample.TestDb;
 import tech.ydb.yoj.repository.test.sample.TestDbImpl;
-import tech.ydb.yoj.repository.test.sample.model.Book;
 import tech.ydb.yoj.repository.test.sample.model.Bubble;
 import tech.ydb.yoj.repository.test.sample.model.ChangefeedEntity;
 import tech.ydb.yoj.repository.test.sample.model.IndexedEntity;
@@ -936,7 +935,7 @@ public class YdbRepositoryIntegrationTest extends RepositoryTest {
     }
 
     private void checkTxRetryableOnRequestError(StatusCodesProtos.StatusIds.StatusCode statusCode) {
-        YdbRepository proxiedRepository = new YdbRepository(getProxyServerConfig());
+        YdbRepository proxiedRepository = new TestYdbRepository(getProxyServerConfig());
 
         try {
             RepositoryTransaction tx = proxiedRepository.startTransaction();
@@ -957,7 +956,7 @@ public class YdbRepositoryIntegrationTest extends RepositoryTest {
     }
 
     private void checkTxRetryableOnFlushingError(StatusCodesProtos.StatusIds.StatusCode statusCode) {
-        YdbRepository proxiedRepository = new YdbRepository(getProxyServerConfig());
+        YdbRepository proxiedRepository = new TestYdbRepository(getProxyServerConfig());
 
         try {
             runWithModifiedStatusCode(
@@ -975,7 +974,7 @@ public class YdbRepositoryIntegrationTest extends RepositoryTest {
     }
 
     private void checkTxNonRetryableOnCommit(StatusCodesProtos.StatusIds.StatusCode statusCode) {
-        YdbRepository proxiedRepository = new YdbRepository(getProxyServerConfig());
+        YdbRepository proxiedRepository = new TestYdbRepository(getProxyServerConfig());
 
         try {
             RepositoryTransaction tx = proxiedRepository.startTransaction();

@@ -1,5 +1,8 @@
 package tech.ydb.yoj.repository.ydb.client;
 
+import io.prometheus.client.Collector;
+import io.prometheus.client.Gauge;
+import lombok.NonNull;
 import tech.ydb.core.Result;
 import tech.ydb.table.Session;
 import tech.ydb.table.TableClient;
@@ -7,7 +10,7 @@ import tech.ydb.yoj.InternalApi;
 import tech.ydb.yoj.repository.db.exception.QueryInterruptedException;
 import tech.ydb.yoj.repository.db.exception.RetryableException;
 import tech.ydb.yoj.repository.db.exception.UnavailableException;
-import tech.ydb.yoj.repository.ydb.metrics.GaugeSupplierCollector;
+import tech.ydb.yoj.repository.ydb.metrics.SupplierCollector;
 
 import java.time.Duration;
 import java.util.concurrent.CancellationException;
@@ -19,25 +22,55 @@ import static tech.ydb.yoj.util.lang.Interrupts.isThreadInterrupted;
 
 @InternalApi
 public final class YdbSessionManager implements SessionManager {
-    private static final GaugeSupplierCollector sessionStatCollector = GaugeSupplierCollector.build()
+    private static final SupplierCollector legacyCollector = SupplierCollector.build()
+            .type(Collector.Type.GAUGE)
             .namespace("ydb")
             .subsystem("session_manager")
             .name("pool_stats")
-            .help("Session pool statistics")
+            .help("YDB SDK Session pool statistics (as gauges with instant values)")
             .labelNames("type")
+            .register();
+
+    private static final Gauge sessionPoolSettings = Gauge.build()
+            .namespace("ydb")
+            .subsystem("session_manager")
+            .name("pool_settings")
+            .help("YDB SDK Session pool settings")
+            .labelNames("repository", "type")
+            .register();
+    private static final SupplierCollector sessionPoolCounters = SupplierCollector.build()
+            .type(Collector.Type.COUNTER)
+            .namespace("ydb")
+            .subsystem("session_manager")
+            .name("pool_counters")
+            .help("YDB SDK Session pool statistics (as total counters)")
+            .labelNames("repository", "type")
             .register();
 
     private final TableClient tableClient;
     private final Duration sessionTimeout;
 
-    public YdbSessionManager(TableClient tableClient, Duration sessionCreationTimeout) {
+    public YdbSessionManager(@NonNull TableClient tableClient, @NonNull String repositoryName, @NonNull Duration sessionCreationTimeout) {
         this.tableClient = tableClient;
         this.sessionTimeout = getSessionTimeout(sessionCreationTimeout);
 
-        YdbSessionManager.sessionStatCollector
+        legacyCollector
                 .labels("pending_acquire_count").supplier(() -> tableClient.sessionPoolStats().getPendingAcquireCount())
                 .labels("acquired_count").supplier(() -> tableClient.sessionPoolStats().getAcquiredCount())
                 .labels("idle_count").supplier(() -> tableClient.sessionPoolStats().getIdleCount());
+
+        sessionPoolSettings
+                .labels(repositoryName, "min_size").set(tableClient.sessionPoolStats().getMinSize());
+        sessionPoolSettings
+                .labels(repositoryName, "max_size").set(tableClient.sessionPoolStats().getMaxSize());
+
+        sessionPoolCounters
+                .labels(repositoryName, "requested_total").supplier(() -> tableClient.sessionPoolStats().getRequestedTotal())
+                .labels(repositoryName, "acquired_total").supplier(() -> tableClient.sessionPoolStats().getAcquiredTotal())
+                .labels(repositoryName, "released_total").supplier(() -> tableClient.sessionPoolStats().getReleasedTotal())
+                .labels(repositoryName, "created_total").supplier(() -> tableClient.sessionPoolStats().getCreatedTotal())
+                .labels(repositoryName, "deleted_total").supplier(() -> tableClient.sessionPoolStats().getDeletedTotal())
+                .labels(repositoryName, "failed_total").supplier(() -> tableClient.sessionPoolStats().getFailedTotal());
     }
 
     @Override

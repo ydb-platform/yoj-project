@@ -6,6 +6,7 @@ import io.grpc.netty.shaded.io.grpc.netty.NettyChannelBuilder;
 import lombok.Builder;
 import lombok.NonNull;
 import lombok.Value;
+import lombok.With;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import tech.ydb.auth.AuthRpcProvider;
@@ -37,6 +38,7 @@ import tech.ydb.yoj.util.function.MoreSuppliers;
 import tech.ydb.yoj.util.function.MoreSuppliers.CloseableMemoizer;
 import tech.ydb.yoj.util.lang.Exceptions;
 
+import javax.annotation.Nullable;
 import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -53,6 +55,8 @@ import static tech.ydb.yoj.repository.ydb.client.YdbPaths.canonicalDatabase;
 
 public class YdbRepository implements Repository {
     private static final Logger log = LoggerFactory.getLogger(YdbRepository.class);
+
+    private final String repositoryName;
 
     private final GrpcTransport transport;
     private final CloseableMemoizer<SessionClient> sessionClient;
@@ -88,9 +92,25 @@ public class YdbRepository implements Repository {
     }
 
     public YdbRepository(@NonNull YdbConfig config, @NonNull Settings repositorySettings, @NonNull GrpcTransport transport) {
+        this.repositoryName = repositoryName(repositorySettings, getClass());
         this.entityClassesByTableName = new ConcurrentHashMap<>();
         this.transport = transport;
-        this.sessionClient = MoreSuppliers.memoizeCloseable(() -> new SessionClient(config, repositorySettings, transport));
+        this.sessionClient = MoreSuppliers.memoizeCloseable(() -> new SessionClient(config, repositorySettings, repositoryName, transport));
+    }
+
+    private static String repositoryName(@NonNull Settings repositorySettings, @NonNull Class<? extends YdbRepository> repositoryClass) {
+        if (repositorySettings.repositoryName != null) {
+            return repositorySettings.repositoryName;
+        }
+
+        String canonicalName = repositoryClass.getCanonicalName();
+        String packageName = repositoryClass.getPackageName();
+        if (canonicalName == null) {
+            throw new IllegalArgumentException(
+                    "You must either have a YdbRepository subclass with a canonical name, or explicitly specify YdbRepository.Settings.repositoryName"
+            );
+        }
+        return canonicalName.substring(packageName.length() + 1);
     }
 
     private static GrpcTransport makeGrpcTransport(
@@ -348,10 +368,14 @@ public class YdbRepository implements Repository {
      * @param queryImplementation Query implementation to use (either {@code TableService} or {@code QueryService}).
      *                            <p>The default in YOJ 2.x is {@link QueryImplementation.TableService YDB TableService};
      *                            in YOJ 3.0.0, the default will become {@link QueryImplementation.QueryService YDB QueryService}.
+     * @param repositoryName      Repository name, for use in metric reporting etc. If {@code null}, the canonical class name
+     *                            of {@code YdbRepository} subclass (minus package name) will be used.
      */
+    @With
     @Builder
     public record Settings(
-            @NonNull QueryImplementation queryImplementation
+            @NonNull QueryImplementation queryImplementation,
+            @Nullable String repositoryName
     ) {
     }
 
@@ -363,12 +387,12 @@ public class YdbRepository implements Repository {
         private final SessionManager sessionManager;
         private final YdbSchemaOperations schemaOperations;
 
-        private SessionClient(YdbConfig config, Settings repositorySettings, GrpcTransport transport) {
+        private SessionClient(YdbConfig config, Settings repositorySettings, String repositoryName, GrpcTransport transport) {
             this.tableClient = createClient(config, repositorySettings, transport);
             this.schemeClient = SchemeClient.newClient(transport).build();
             this.topicClient = TopicClient.newClient(transport).build();
 
-            this.sessionManager = new YdbSessionManager(tableClient, config.getSessionCreationTimeout());
+            this.sessionManager = new YdbSessionManager(tableClient, repositoryName, config.getSessionCreationTimeout());
             this.schemaOperations = new YdbSchemaOperations(
                     config.getTablespace(), sessionManager, schemeClient, topicClient
             );
