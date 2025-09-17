@@ -337,6 +337,11 @@ public final class StdTxManager implements TxManager, TxManagerState {
         return options.isFirstLevelCache();
     }
 
+    @Override
+    public boolean isDryRun() {
+        return options.isDryRun();
+    }
+
     @Nullable
     @Override
     public IsolationLevel getIsolationLevel() {

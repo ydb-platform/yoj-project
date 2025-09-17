@@ -19,4 +19,6 @@ public interface TxManagerState {
     boolean isScan();
 
     boolean isFirstLevelCache();
+
+    boolean isDryRun();
 }
