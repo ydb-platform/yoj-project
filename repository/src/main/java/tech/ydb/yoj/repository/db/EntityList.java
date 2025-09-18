@@ -6,10 +6,11 @@ import java.util.function.Supplier;
 import java.util.stream.Stream;
 
 /**
+ * <strong>Warning!</strong> Projections will be moved to a separate YOJ library in YOJ 3.0.0.
+ * The {@code EntityList} class will be moved to {@code tech.ydb.yoj.repository.db.projection} package in
+ * a separate library.
  * @see <a href="https://github.com/ydb-platform/yoj-project/issues/77">#77</a>
- * @deprecated Projections will be removed from the core YOJ API in 3.0.0 and possibly reintroduced as an optional module.
  */
-@Deprecated(forRemoval = true)
 public class EntityList extends LinkedList<Entity<?>> {
     public static EntityList create() {
         return new EntityList();

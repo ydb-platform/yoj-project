@@ -5,7 +5,8 @@ import tech.ydb.yoj.repository.db.Entity;
 import tech.ydb.yoj.repository.db.RepositoryTransaction;
 
 /**
- * @deprecated Projections will be removed from the core YOJ API in 3.0.0 and possibly reintroduced as an optional module.
+ * @deprecated Projections will be moved from the core YOJ API in 3.0.0 to an optional module.
+ * The {@code ProjectionCache} interface is an implementation detail, and will be removed or moved to an internal package.
  * @see <a href="https://github.com/ydb-platform/yoj-project/issues/77">#77</a>
  */
 @InternalApi

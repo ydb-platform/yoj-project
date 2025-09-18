@@ -577,7 +577,8 @@ public abstract class Schema<T> {
         }
 
         /**
-         * @deprecated Projections will be removed from the core YOJ API in 3.0.0 and possibly reintroduced as an optional module.
+         * @deprecated Projections will be moved from the core YOJ API in 3.0.0 to an optional module.
+         * The {@code getRawPath()} method is only used by projection logic, and will most likely be removed.
          * @see <a href="https://github.com/ydb-platform/yoj-project/issues/77">#77</a>
          */
         @Deprecated(forRemoval = true)
@@ -586,7 +587,8 @@ public abstract class Schema<T> {
         }
 
         /**
-         * @deprecated Projections will be removed from the core YOJ API in 3.0.0 and possibly reintroduced as an optional module.
+         * @deprecated Projections will be moved from the core YOJ API in 3.0.0 to an optional module.
+         * The {@code getRawSubPath(int)} method is only used by projection logic, and will most likely be removed.
          * @see <a href="https://github.com/ydb-platform/yoj-project/issues/77">#77</a>
          */
         @Deprecated(forRemoval = true)

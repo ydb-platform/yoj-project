@@ -8,6 +8,8 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
 /**
+ * <strong>Warning!</strong> Projections will be moved to a separate YOJ module in YOJ 3.0.0.
+ * The {@code Projections} annotation interface will be moved to a separate library.
  * @see <a href="https://github.com/ydb-platform/yoj-project/issues/77">#77</a>
  */
 @Target(ElementType.TYPE)

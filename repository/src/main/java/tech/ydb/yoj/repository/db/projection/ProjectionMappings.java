@@ -23,6 +23,8 @@ import static java.util.stream.Collectors.toList;
 import static lombok.AccessLevel.PRIVATE;
 
 /**
+ * <strong>Warning!</strong> Projections will be moved to a separate YOJ module in YOJ 3.0.0.
+ * The {@code ProjectionMappings} class will be moved to a separate library.
  * @see <a href="https://github.com/ydb-platform/yoj-project/issues/77">#77</a>
  */
 public final class ProjectionMappings {
@@ -151,10 +153,10 @@ public final class ProjectionMappings {
     }
 
     /**
+     * <strong>Warning!</strong> Projections will be moved to a separate YOJ module in YOJ 3.0.0.
+     * The {@code ProjectionMappings.ListViaProjection} class will be moved to a separate library.
      * @see <a href="https://github.com/ydb-platform/yoj-project/issues/77">#77</a>
-     * @deprecated Projections will be removed from the core YOJ API in 3.0.0 and possibly reintroduced as an optional module.
      */
-    @Deprecated(forRemoval = true)
     @RequiredArgsConstructor(access = PRIVATE)
     public static final class ListViaProjection<P extends Entity<P>> {
         private final Class<P> projectionType;
@@ -185,10 +187,10 @@ public final class ProjectionMappings {
         }
 
         /**
+         * <strong>Warning!</strong> Projections will be moved to a separate YOJ module in YOJ 3.0.0.
+         * The {@code ProjectionMappings.Listing} class will be moved to a separate library.
          * @see <a href="https://github.com/ydb-platform/yoj-project/issues/77">#77</a>
-         * @deprecated Projections will be removed from the core YOJ API in 3.0.0 and possibly reintroduced as an optional module.
          */
-        @Deprecated(forRemoval = true)
         @RequiredArgsConstructor(access = PRIVATE)
         public static final class Listing<T extends Entity<T>, P extends Entity<P>> {
             private final ListRequest<T> request;
@@ -206,10 +208,10 @@ public final class ProjectionMappings {
         }
 
         /**
+         * <strong>Warning!</strong> Projections will be moved to a separate YOJ module in YOJ 3.0.0.
+         * The {@code ProjectionMappings.TransformedListing} class will be moved to a separate library.
          * @see <a href="https://github.com/ydb-platform/yoj-project/issues/77">#77</a>
-         * @deprecated Projections will be removed from the core YOJ API in 3.0.0 and possibly reintroduced as an optional module.
          */
-        @Deprecated(forRemoval = true)
         @RequiredArgsConstructor(access = PRIVATE)
         public static final class TransformedListing<T extends Entity<T>, P extends Entity<P>> {
             private final Listing<T, P> listing;

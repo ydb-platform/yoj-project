@@ -14,7 +14,9 @@ import java.util.stream.Stream;
 import static java.util.stream.Collectors.toMap;
 
 /**
- * @deprecated Projections will be removed from the core YOJ API in 3.0.0 and possibly reintroduced as an optional module.
+ * @deprecated Projections will be moved from the core YOJ API in 3.0.0 to an optional module.
+ * The {@code RwProjectionCache} class is an implementation detail, and will be removed or moved to an internal package.
+ *
  * @see <a href="https://github.com/ydb-platform/yoj-project/issues/77">#77</a>
  */
 @InternalApi

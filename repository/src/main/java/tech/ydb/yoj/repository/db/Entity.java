@@ -23,6 +23,9 @@ public interface Entity<E extends Entity<E>> extends Table.ViewId<E> {
     }
 
     /**
+     * <strong>Warning!</strong> Projections will be moved to a separate YOJ module in YOJ 3.0.0.
+     * The {@code Entity.createProjections()} method will be moved to a subinterface of {@code Entity}
+     * in a separate library.
      * @see <a href="https://github.com/ydb-platform/yoj-project/issues/77">#77</a>
      */
     default List<Entity<?>> createProjections() {
