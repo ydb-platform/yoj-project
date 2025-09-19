@@ -6,6 +6,7 @@ import tech.ydb.yoj.repository.db.Repository;
 import tech.ydb.yoj.repository.db.TableDescriptor;
 import tech.ydb.yoj.repository.test.sample.model.BadlyWrappedEntity;
 import tech.ydb.yoj.repository.test.sample.model.Book;
+import tech.ydb.yoj.repository.test.sample.model.BookProjectionsOldStyle;
 import tech.ydb.yoj.repository.test.sample.model.Bubble;
 import tech.ydb.yoj.repository.test.sample.model.BytePkEntity;
 import tech.ydb.yoj.repository.test.sample.model.Complex;
@@ -47,6 +48,7 @@ public final class TestEntities {
     public static final List<Class<? extends Entity>> ALL = List.of(
             Project.class, UniqueProject.class, TypeFreak.class, Complex.class, Referring.class, Primitive.class,
             Book.class, Book.ByAuthor.class, Book.ByTitle.class,
+            BookProjectionsOldStyle.class, BookProjectionsOldStyle.ByAuthor.class, BookProjectionsOldStyle.ByTitle.class,
             LogEntry.class, Team.class,
             BytePkEntity.class,
             EntityWithValidation.class,
