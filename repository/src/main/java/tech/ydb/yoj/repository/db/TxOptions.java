@@ -7,8 +7,12 @@ import lombok.Value;
 import lombok.With;
 import tech.ydb.yoj.ExperimentalApi;
 import tech.ydb.yoj.repository.db.cache.TransactionLog;
+import tech.ydb.yoj.repository.db.listener.EntityEventListener;
+import tech.ydb.yoj.repository.db.listener.RepositoryTransactionListener;
+import tech.ydb.yoj.repository.db.projection.ProjectionListener;
 
 import java.time.Duration;
+import java.util.List;
 
 /**
  * Transaction options: isolation level, caching and logging settings.
@@ -45,7 +49,17 @@ public class TxOptions {
     @ExperimentalApi(issue = "https://github.com/ydb-platform/yoj-project/issues/162")
     QueryTracingFilter tracingFilter;
 
+    @NonNull
+    @ExperimentalApi(issue = "https://github.com/ydb-platform/yoj-project/issues/77")
+    List<EntityEventListener> entityEventListeners;
+
+    @NonNull
+    @ExperimentalApi(issue = "https://github.com/ydb-platform/yoj-project/issues/77")
+    List<RepositoryTransactionListener> repositoryTransactionListeners;
+
     public static TxOptions create(@NonNull IsolationLevel isolationLevel) {
+        var projectionListener = new ProjectionListener();
+
         return builder()
                 .isolationLevel(isolationLevel)
                 // FIXME First-level cache is enabled by default (for backwards compatibility)
@@ -53,6 +67,8 @@ public class TxOptions {
                 .firstLevelCache(true)
                 .logLevel(TransactionLog.Level.DEBUG)
                 .logStatementOnSuccess(true)
+                .entityEventListeners(isolationLevel.isReadOnly() ? List.of() : List.of(projectionListener))
+                .repositoryTransactionListeners(isolationLevel.isReadOnly() ? List.of() : List.of(projectionListener))
                 .build();
     }
 
