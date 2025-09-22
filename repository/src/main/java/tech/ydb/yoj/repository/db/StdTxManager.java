@@ -14,8 +14,11 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
 import tech.ydb.yoj.DeprecationWarnings;
+import tech.ydb.yoj.ExperimentalApi;
 import tech.ydb.yoj.repository.db.cache.TransactionLog;
+import tech.ydb.yoj.repository.db.exception.ConditionallyRetryableException;
 import tech.ydb.yoj.repository.db.exception.RetryableException;
+import tech.ydb.yoj.repository.db.exception.RetryableExceptionBase;
 import tech.ydb.yoj.util.lang.CallStack;
 import tech.ydb.yoj.util.lang.Strings;
 
@@ -83,6 +86,9 @@ public final class StdTxManager implements TxManager, TxManagerState {
             .labelNames("tx_name", "result")
             .register();
     private static final Counter retries = Counter.build("tx_retries", "Tx retry reasons")
+            .labelNames("tx_name", "reason")
+            .register();
+    private static final Counter conditionalRetries = Counter.build("tx_conditional_retries", "Tx conditional retry reasons")
             .labelNames("tx_name", "reason")
             .register();
     private static final AtomicLong txLogIdSeq = new AtomicLong();
@@ -196,6 +202,12 @@ public final class StdTxManager implements TxManager, TxManagerState {
     }
 
     @Override
+    @ExperimentalApi(issue = "https://github.com/ydb-platform/yoj-project/issues/165")
+    public TxManager withRetryOptions(@NonNull TxOptions.RetryOptions retryOptions) {
+        return withOptions(this.options.withRetryOptions(retryOptions));
+    }
+
+    @Override
     public ReadonlyBuilder readOnly() {
         return new ReadonlyBuilderImpl(this.options.withIsolationLevel(ONLINE_CONSISTENT_READ_ONLY));
     }
@@ -224,7 +236,7 @@ public final class StdTxManager implements TxManager, TxManagerState {
     }
 
     private <T> T txImpl(Supplier<T> supplier) {
-        RetryableException lastRetryableException = null;
+        RetryableExceptionBase lastRetryableException = null;
         TxImpl lastTx = null;
         try (Timer ignored = totalDuration.labels(name).startTimer()) {
             for (int attempt = 1; attempt <= maxAttemptCount; attempt++) {
@@ -249,6 +261,18 @@ public final class StdTxManager implements TxManager, TxManagerState {
                     if (attempt + 1 <= maxAttemptCount) {
                         e.sleep(attempt);
                     }
+                } catch (ConditionallyRetryableException e) {
+                    boolean commitAttempted = lastTx != null && lastTx.getRepositoryTransaction().wasCommitAttempted();
+                    if (options.canConditionallyRetry(commitAttempted)) {
+                        conditionalRetries.labels(name, getExceptionNameForMetric(e)).inc();
+                        lastRetryableException = e;
+                        if (attempt + 1 <= maxAttemptCount) {
+                            e.sleep(attempt);
+                        }
+                    } else {
+                        results.labels(name, "rollback").inc();
+                        throw e.failImmediately();
+                    }
                 } catch (Exception e) {
                     results.labels(name, "rollback").inc();
                     throw e;
@@ -272,15 +296,13 @@ public final class StdTxManager implements TxManager, TxManagerState {
         switch (separatePolicy) {
             case ALLOW -> {
             }
-            case STRICT ->
-                    throw new IllegalStateException(format("Transaction %s was run when another transaction is active", txName));
-            case LOG ->
-                    log.warn("Transaction '{}' was run when another transaction is active. Perhaps unexpected behavior. " +
-                            "Use TxManager.separate() to avoid this message", txName);
+            case STRICT -> throw new IllegalStateException(format("Transaction %s was run when another transaction is active", txName));
+            case LOG -> log.warn("Transaction '{}' was run when another transaction is active. Perhaps unexpected behavior. " +
+                    "Use TxManager.separate() to avoid this message", txName);
         }
     }
 
-    private String getExceptionNameForMetric(RetryableException e) {
+    private static String getExceptionNameForMetric(Exception e) {
         return Strings.removeSuffix(e.getClass().getSimpleName(), "Exception");
     }
 
