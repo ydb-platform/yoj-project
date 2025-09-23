@@ -1,6 +1,6 @@
 package tech.ydb.yoj.repository.ydb.exception;
 
-public class UnexpectedException extends YdbRepositoryException {
+public final class UnexpectedException extends YdbRepositoryException {
     public UnexpectedException(String message) {
         super(message);
     }

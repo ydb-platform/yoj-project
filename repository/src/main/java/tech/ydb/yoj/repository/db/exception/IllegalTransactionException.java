@@ -1,6 +1,10 @@
 package tech.ydb.yoj.repository.db.exception;
 
-public class IllegalTransactionException extends RepositoryException {
+@SuppressWarnings("checkstyle:LeftCurly")
+public sealed abstract class IllegalTransactionException
+        extends RepositoryException
+        permits IllegalTransactionIsolationLevelException, IllegalTransactionScanException
+{
     public IllegalTransactionException(String message) {
         super(message);
     }

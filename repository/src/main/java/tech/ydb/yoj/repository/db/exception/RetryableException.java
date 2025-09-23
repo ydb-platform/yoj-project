@@ -7,7 +7,7 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 /**
  * Base class for retryable database access exceptions.
  */
-public abstract class RetryableException extends RepositoryException {
+public non-sealed abstract class RetryableException extends RepositoryException {
     private final RetryPolicy retryPolicy;
 
     protected RetryableException(String message, RetryPolicy retryPolicy, Throwable cause) {

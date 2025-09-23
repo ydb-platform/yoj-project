@@ -1,12 +1,17 @@
 package tech.ydb.yoj.repository.ydb.exception;
 
-import tech.ydb.yoj.repository.db.exception.RepositoryException;
+import tech.ydb.yoj.repository.db.exception.ImplementationSpecificRepositoryException;
 import tech.ydb.yoj.util.lang.Strings;
 
 /**
  * Base class for non-retryable YDB-specific exceptions.
  */
-public class YdbRepositoryException extends RepositoryException {
+// TODO: make abstract
+@SuppressWarnings("checkstyle:LeftCurly")
+public sealed class YdbRepositoryException
+        extends ImplementationSpecificRepositoryException
+        permits ResultTruncatedException, UnexpectedException, SnapshotCreateException, YdbSchemaException
+{
     public YdbRepositoryException(Object request, Object response) {
         this(null, request, response);
     }

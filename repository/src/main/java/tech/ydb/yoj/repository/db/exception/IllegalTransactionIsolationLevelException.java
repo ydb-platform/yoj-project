@@ -4,7 +4,7 @@ import tech.ydb.yoj.repository.db.IsolationLevel;
 
 import static java.lang.String.format;
 
-public class IllegalTransactionIsolationLevelException extends IllegalTransactionException {
+public final class IllegalTransactionIsolationLevelException extends IllegalTransactionException {
     public IllegalTransactionIsolationLevelException(String message, IsolationLevel isolationLevel) {
         super(format("%s are not allowed for isolation level %s", message, isolationLevel));
     }

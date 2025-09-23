@@ -16,7 +16,7 @@ package tech.ydb.yoj.repository.ydb.exception;
  * @see #getMaxResultRows()
  * @see #getRowCount()
  */
-public class ResultTruncatedException extends YdbRepositoryException {
+public final class ResultTruncatedException extends YdbRepositoryException {
     private final long maxResultRows;
     private final long rowCount;
 

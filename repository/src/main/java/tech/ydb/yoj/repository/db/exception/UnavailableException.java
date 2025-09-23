@@ -2,7 +2,7 @@ package tech.ydb.yoj.repository.db.exception;
 
 import lombok.Getter;
 
-public class UnavailableException extends RepositoryException {
+public final class UnavailableException extends RepositoryException {
     @Getter
     public final boolean alreadyRetried;
 

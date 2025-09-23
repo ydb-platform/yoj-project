@@ -3,7 +3,7 @@ package tech.ydb.yoj.repository.db.exception;
 /**
  * Thrown when the repository cannot convert a raw database row to entity, or vice versa.
  */
-public class ConversionException extends RepositoryException {
+public final class ConversionException extends RepositoryException {
     public ConversionException(String message) {
         super(message);
     }
