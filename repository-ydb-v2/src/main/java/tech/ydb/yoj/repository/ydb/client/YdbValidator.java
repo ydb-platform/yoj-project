@@ -9,6 +9,7 @@ import tech.ydb.core.StatusCode;
 import tech.ydb.yoj.InternalApi;
 import tech.ydb.yoj.repository.db.exception.DeadlineExceededException;
 import tech.ydb.yoj.repository.db.exception.EntityAlreadyExistsException;
+import tech.ydb.yoj.repository.db.exception.GenericSchemaException;
 import tech.ydb.yoj.repository.db.exception.OptimisticLockException;
 import tech.ydb.yoj.repository.db.exception.QueryCancelledException;
 import tech.ydb.yoj.repository.ydb.exception.BadSessionException;
@@ -16,9 +17,9 @@ import tech.ydb.yoj.repository.ydb.exception.YdbClientInternalException;
 import tech.ydb.yoj.repository.ydb.exception.YdbComponentUnavailableException;
 import tech.ydb.yoj.repository.ydb.exception.YdbOverloadedException;
 import tech.ydb.yoj.repository.ydb.exception.YdbRepositoryException;
-import tech.ydb.yoj.repository.ydb.exception.YdbSchemaException;
 import tech.ydb.yoj.repository.ydb.exception.YdbUnauthenticatedException;
 import tech.ydb.yoj.repository.ydb.exception.YdbUnauthorizedException;
+import tech.ydb.yoj.util.lang.Strings;
 
 import javax.annotation.Nullable;
 import java.util.function.Function;
@@ -120,7 +121,7 @@ public final class YdbValidator {
             }
 
             // Database schema problem, e.g. trying to access a non-existent table, column etc. No retries
-            case SCHEME_ERROR -> throw new YdbSchemaException("Schema error", request, response);
+            case SCHEME_ERROR -> throw new GenericSchemaException(Strings.join("\n", "Schema error", request, response));
 
             // Serious internal error. No retries
             case CLIENT_CALL_UNIMPLEMENTED,

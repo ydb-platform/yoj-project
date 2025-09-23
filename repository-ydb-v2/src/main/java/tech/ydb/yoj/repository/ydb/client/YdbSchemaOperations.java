@@ -36,9 +36,9 @@ import tech.ydb.yoj.databind.schema.Schema;
 import tech.ydb.yoj.repository.db.EntitySchema;
 import tech.ydb.yoj.repository.db.exception.CreateTableException;
 import tech.ydb.yoj.repository.db.exception.DropTableException;
-import tech.ydb.yoj.repository.ydb.exception.SnapshotCreateException;
-import tech.ydb.yoj.repository.ydb.exception.YdbRepositoryException;
-import tech.ydb.yoj.repository.ydb.exception.YdbSchemaPathNotFoundException;
+import tech.ydb.yoj.repository.db.exception.GenericSchemaException;
+import tech.ydb.yoj.repository.db.exception.PathNotFoundException;
+import tech.ydb.yoj.repository.db.exception.SnapshotCreateException;
 import tech.ydb.yoj.repository.ydb.yql.YqlPrimitiveType;
 import tech.ydb.yoj.repository.ydb.yql.YqlType;
 
@@ -336,9 +336,9 @@ public final class YdbSchemaOperations {
 
         Status status = result.getStatus();
         if (SCHEME_ERROR == status.getCode() && YdbIssue.DEFAULT_ERROR.isContainedIn(status.getIssues())) {
-            throw new YdbSchemaPathNotFoundException(result.toString());
+            throw new PathNotFoundException(result.toString());
         } else if (!result.isSuccess()) {
-            throw new YdbRepositoryException("Can't describe table '" + path + "': " + result);
+            throw new GenericSchemaException("Can't describe table '" + path + "': " + result);
         }
 
         TableDescription table = result.getValue();
@@ -408,7 +408,7 @@ public final class YdbSchemaOperations {
         }
     }
 
-    public void snapshot(String snapshotPath) throws SnapshotCreateException {
+    public void snapshot(String snapshotPath) {
         mkdirs(YdbPaths.canonicalRootDir(snapshotPath));
         getTableNames().forEach(tableName -> copyTable(tablespace + tableName, snapshotPath + tableName));
 
@@ -476,7 +476,7 @@ public final class YdbSchemaOperations {
             return false;
         }
 
-        throw new YdbRepositoryException("Can't describe table '" + path + "': " + result);
+        throw new GenericSchemaException("Can't describe table '" + path + "': " + result);
     }
 
     @Value

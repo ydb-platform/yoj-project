@@ -13,9 +13,9 @@ import tech.ydb.yoj.repository.db.RepositoryTransaction;
 import tech.ydb.yoj.repository.db.StdTxManager;
 import tech.ydb.yoj.repository.db.Tx;
 import tech.ydb.yoj.repository.db.TxManager;
+import tech.ydb.yoj.repository.db.exception.SchemaException;
 import tech.ydb.yoj.repository.db.readtable.ReadTableParams;
 import tech.ydb.yoj.repository.ydb.YdbRepository;
-import tech.ydb.yoj.repository.ydb.exception.YdbSchemaException;
 
 import java.time.Duration;
 import java.util.List;
@@ -63,7 +63,7 @@ public final class YdbDataCompatibilityChecker {
                 });
             } catch (Exception e) {
                 String message = format("[%s] Got exception while checking entities of %s: ", sw, ec.getSimpleName());
-                if (config.skipSchemaErrors && e instanceof YdbSchemaException) {
+                if (config.skipSchemaErrors && e instanceof SchemaException) {
                     log.warn(message);
                 } else {
                     log.error(message);

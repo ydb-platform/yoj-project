@@ -10,8 +10,6 @@ public sealed abstract class RepositoryException
         permits
             // final
             ConversionException,
-            CreateTableException,
-            DropTableException,
             DeadlineExceededException,
             InternalRepositoryException,
             QueryCancelledException,
@@ -19,6 +17,7 @@ public sealed abstract class RepositoryException
             UnavailableException,
             // sealed
             IllegalTransactionException,
+            SchemaException,
             // non-sealed
             RetryableException,
             ImplementationSpecificRepositoryException
