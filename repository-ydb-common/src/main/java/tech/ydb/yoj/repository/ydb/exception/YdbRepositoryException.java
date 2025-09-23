@@ -10,7 +10,7 @@ import tech.ydb.yoj.util.lang.Strings;
 @SuppressWarnings("checkstyle:LeftCurly")
 public sealed class YdbRepositoryException
         extends ImplementationSpecificRepositoryException
-        permits ResultTruncatedException, UnexpectedException, SnapshotCreateException, YdbSchemaException
+        permits ResultTruncatedException, UnexpectedException
 {
     public YdbRepositoryException(Object request, Object response) {
         this(null, request, response);
