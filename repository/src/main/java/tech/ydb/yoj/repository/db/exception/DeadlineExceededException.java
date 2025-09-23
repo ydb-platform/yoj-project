@@ -1,6 +1,6 @@
 package tech.ydb.yoj.repository.db.exception;
 
-public class DeadlineExceededException extends RepositoryException {
+public final class DeadlineExceededException extends RepositoryException {
     public DeadlineExceededException(String message) {
         super(message);
     }

@@ -1,8 +1,8 @@
 package tech.ydb.yoj.repository.test.inmemory;
 
-import tech.ydb.yoj.repository.db.exception.RepositoryException;
+import tech.ydb.yoj.repository.db.exception.ImplementationSpecificRepositoryException;
 
-class InMemoryRepositoryException extends RepositoryException {
+final class InMemoryRepositoryException extends ImplementationSpecificRepositoryException {
     InMemoryRepositoryException(String message) {
         super(message);
     }

@@ -1,6 +1,6 @@
 package tech.ydb.yoj.repository.db.exception;
 
-public class QueryCancelledException extends RepositoryException {
+public final class QueryCancelledException extends RepositoryException {
     public QueryCancelledException(String message) {
         super(message);
     }
