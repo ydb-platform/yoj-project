@@ -9,6 +9,7 @@ import tech.ydb.yoj.InternalApi;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.function.Supplier;
 
 @InternalApi
@@ -68,10 +69,10 @@ public class SupplierCollector extends SimpleCollector<SupplierCollector.Child> 
     }
 
     public class Child {
-        private Supplier<? extends Number> supplier = () -> 0.;
+        private volatile Supplier<? extends Number> supplier = () -> 0.;
 
         public SupplierCollector supplier(Supplier<? extends Number> supplier) {
-            this.supplier = supplier;
+            this.supplier = Objects.requireNonNull(supplier, "supplier");
             return SupplierCollector.this;
         }
 

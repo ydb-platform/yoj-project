@@ -22,10 +22,8 @@ import tech.ydb.yoj.util.lang.Exceptions;
     @Getter
     private final YdbSchemaOperations schemaOperations;
 
-    private final SessionMetrics metrics;
-
     /*package*/ SessionClient(YdbConfig config, YdbRepository.Settings repositorySettings, GrpcTransport transport) {
-        this.tableClient = createClient(config, repositorySettings, transport);
+        this.tableClient = TableClientWithMetrics.newClient(config, repositorySettings, transport);
         this.schemeClient = SchemeClient.newClient(transport).build();
         this.topicClient = TopicClient.newClient(transport).build();
 
@@ -33,8 +31,6 @@ import tech.ydb.yoj.util.lang.Exceptions;
         this.schemaOperations = new YdbSchemaOperations(
                 config.getTablespace(), sessionManager, schemeClient, topicClient
         );
-
-        this.metrics = new SessionMetrics(tableClient, repositorySettings.metrics());
     }
 
     public boolean isHealthy() {
@@ -52,31 +48,6 @@ import tech.ydb.yoj.util.lang.Exceptions;
 
     @Override
     public void close() {
-        Exceptions.closeAll(metrics, tableClient, schemeClient, topicClient);
-    }
-
-    private static TableClient createClient(
-            YdbConfig config, YdbRepository.Settings repositorySettings, GrpcTransport transport
-    ) {
-        return buildTableClient(repositorySettings, transport)
-                .keepQueryText(false)
-                .sessionKeepAliveTime(config.getSessionKeepAliveTime())
-                .sessionMaxIdleTime(config.getSessionMaxIdleTime())
-                .sessionPoolSize(config.getSessionPoolMin(), config.getSessionPoolMax())
-                .build();
-    }
-
-    private static TableClient.Builder buildTableClient(
-            YdbRepository.Settings repositorySettings, GrpcTransport transport
-    ) {
-        // TODO(nvamelichev@): Replace this with expression switch with type pattern as soon as we migrate to Java 21+
-        var queryImplementation = repositorySettings.queryImplementation();
-        if (queryImplementation instanceof QueryImplementation.TableService) {
-            return TableClient.newClient(transport);
-        } else if (queryImplementation instanceof QueryImplementation.QueryService) {
-            return tech.ydb.query.impl.TableClientImpl.newClient(transport);
-        } else {
-            throw new UnsupportedOperationException("Unknown QueryImplementation: <" + queryImplementation.getClass() + ">");
-        }
+        Exceptions.closeAll(tableClient, schemeClient, topicClient);
     }
 }
