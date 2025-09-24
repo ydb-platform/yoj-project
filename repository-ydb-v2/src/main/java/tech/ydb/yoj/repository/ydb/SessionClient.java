@@ -23,7 +23,7 @@ import tech.ydb.yoj.util.lang.Exceptions;
     private final YdbSchemaOperations schemaOperations;
 
     /*package*/ SessionClient(YdbConfig config, YdbRepository.Settings repositorySettings, GrpcTransport transport) {
-        this.tableClient = TableClientWithMetrics.newClient(config, repositorySettings, transport);
+        this.tableClient = YojMeteredTableClient.newClient(config, repositorySettings, transport);
         this.schemeClient = SchemeClient.newClient(transport).build();
         this.topicClient = TopicClient.newClient(transport).build();
 
