@@ -2,10 +2,16 @@ package tech.ydb.yoj.repository.ydb;
 
 import io.prometheus.client.Collector;
 import io.prometheus.client.Gauge;
-import tech.ydb.table.TableClient;
+import io.prometheus.client.Histogram;
+import lombok.AccessLevel;
+import lombok.NoArgsConstructor;
+import tech.ydb.table.SessionPoolStats;
 import tech.ydb.yoj.repository.ydb.metrics.SupplierCollector;
 
-/*package*/ final class SessionMetrics implements AutoCloseable {
+import java.util.function.Supplier;
+
+@NoArgsConstructor(access = AccessLevel.PRIVATE)
+public final class SessionMetrics {
     private static final SupplierCollector legacyCollector = SupplierCollector.build()
             .type(Collector.Type.GAUGE)
             .namespace("ydb")
@@ -30,39 +36,44 @@ import tech.ydb.yoj.repository.ydb.metrics.SupplierCollector;
             .help("YDB SDK Session pool statistics (as total counters)")
             .labelNames("repository", "type")
             .register();
-
-    private final String label;
-
-    /*package*/ SessionMetrics(TableClient tableClient, YdbRepository.Settings.Metrics metrics) {
-        this.label = metrics.repositoryLabel();
-
+    
+    // TODO(nvamelichev): Move common metrics logic into yoj-util
+    private static final double[] DURATION_BUCKETS = {
+            .001, .0025, .005, .0075,
+            .01, .025, .05, .075,
+            .1, .25, .5, .75,
+            1, 2.5, 5, 7.5,
+            10, 25, 50, 75,
+            100
+    };
+    private static final Histogram acquireDurationSeconds = Histogram.build()
+            .namespace("ydb")
+            .subsystem("session_manager")
+            .name("pool_acquire_duration_seconds")
+            .help("Duration of 'acquire session from pool' (as a histogram)")
+            .labelNames("repository")
+            .buckets(DURATION_BUCKETS)
+            .register();
+    
+    public static void init(String label, Supplier<SessionPoolStats> statsSupplier) {
         legacyCollector
-                .labels("pending_acquire_count").supplier(() -> tableClient.sessionPoolStats().getPendingAcquireCount())
-                .labels("acquired_count").supplier(() -> tableClient.sessionPoolStats().getAcquiredCount())
-                .labels("idle_count").supplier(() -> tableClient.sessionPoolStats().getIdleCount());
+                .labels("pending_acquire_count").supplier(() -> statsSupplier.get().getPendingAcquireCount())
+                .labels("acquired_count").supplier(() -> statsSupplier.get().getAcquiredCount())
+                .labels("idle_count").supplier(() -> statsSupplier.get().getIdleCount());
 
-        sessionPoolSettings.labels(label, "min_size").set(tableClient.sessionPoolStats().getMinSize());
-        sessionPoolSettings.labels(label, "max_size").set(tableClient.sessionPoolStats().getMaxSize());
+        sessionPoolSettings.labels(label, "min_size").set(statsSupplier.get().getMinSize());
+        sessionPoolSettings.labels(label, "max_size").set(statsSupplier.get().getMaxSize());
 
         sessionPoolCounters
-                .labels(label, "requested_total").supplier(() -> tableClient.sessionPoolStats().getRequestedTotal())
-                .labels(label, "acquired_total").supplier(() -> tableClient.sessionPoolStats().getAcquiredTotal())
-                .labels(label, "released_total").supplier(() -> tableClient.sessionPoolStats().getReleasedTotal())
-                .labels(label, "created_total").supplier(() -> tableClient.sessionPoolStats().getCreatedTotal())
-                .labels(label, "deleted_total").supplier(() -> tableClient.sessionPoolStats().getDeletedTotal())
-                .labels(label, "failed_total").supplier(() -> tableClient.sessionPoolStats().getFailedTotal());
+                .labels(label, "requested_total").supplier(() -> statsSupplier.get().getRequestedTotal())
+                .labels(label, "acquired_total").supplier(() -> statsSupplier.get().getAcquiredTotal())
+                .labels(label, "released_total").supplier(() -> statsSupplier.get().getReleasedTotal())
+                .labels(label, "created_total").supplier(() -> statsSupplier.get().getCreatedTotal())
+                .labels(label, "deleted_total").supplier(() -> statsSupplier.get().getDeletedTotal())
+                .labels(label, "failed_total").supplier(() -> statsSupplier.get().getFailedTotal());
     }
 
-    @Override
-    public void close() {
-        sessionPoolSettings.remove(label, "min_size");
-        sessionPoolSettings.remove(label, "max_size");
-
-        sessionPoolCounters.remove(label, "requested_total");
-        sessionPoolCounters.remove(label, "acquired_total");
-        sessionPoolCounters.remove(label, "released_total");
-        sessionPoolCounters.remove(label, "created_total");
-        sessionPoolCounters.remove(label, "deleted_total");
-        sessionPoolCounters.remove(label, "failed_total");
+    public static Histogram.Timer acquireDurationSeconds(String label) {
+        return acquireDurationSeconds.labels(label).startTimer();
     }
 }
