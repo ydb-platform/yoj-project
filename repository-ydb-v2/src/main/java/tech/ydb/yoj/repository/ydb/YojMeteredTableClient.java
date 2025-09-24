@@ -2,6 +2,8 @@ package tech.ydb.yoj.repository.ydb;
 
 import com.google.common.base.Preconditions;
 import io.prometheus.client.Histogram;
+import lombok.AccessLevel;
+import lombok.RequiredArgsConstructor;
 import tech.ydb.core.Result;
 import tech.ydb.core.grpc.GrpcTransport;
 import tech.ydb.table.Session;
@@ -16,21 +18,26 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 @InternalApi
-public final class TableClientWithMetrics implements TableClient {
+@RequiredArgsConstructor(access = AccessLevel.PRIVATE)
+final class YojMeteredTableClient implements TableClient {
+    private final AtomicBoolean closed = new AtomicBoolean();
+
     private final TableClient delegate;
     private final SessionPoolStats emptyPoolStats;
     private final String label;
 
-    private final AtomicBoolean closed;
+    public static TableClient newClient(YdbConfig config, Settings repositorySettings, GrpcTransport transport) {
+        var delegate = buildTableClient(repositorySettings, transport).keepQueryText(false)
+                .sessionKeepAliveTime(config.getSessionKeepAliveTime())
+                .sessionMaxIdleTime(config.getSessionMaxIdleTime())
+                .sessionPoolSize(config.getSessionPoolMin(), config.getSessionPoolMax())
+                .build();
+        var emptyPoolStats = new EmptyPoolStats(config.getSessionPoolMin(), config.getSessionPoolMax());
+        var label = repositorySettings.metrics().repositoryLabel();
 
-    private TableClientWithMetrics(TableClient delegate, SessionPoolStats emptyPoolStats, Settings.Metrics metrics) {
-        this.closed = new AtomicBoolean();
+        SessionMetrics.init(label, delegate::sessionPoolStats);
 
-        this.delegate = delegate;
-        this.emptyPoolStats = emptyPoolStats;
-        this.label = metrics.repositoryLabel();
-
-        SessionMetrics.init(label, this::sessionPoolStats);
+        return new YojMeteredTableClient(delegate, emptyPoolStats, label);
     }
 
     @Override
@@ -76,18 +83,6 @@ public final class TableClientWithMetrics implements TableClient {
         return closed.get() ? emptyPoolStats : delegate.sessionPoolStats();
     }
 
-    public static TableClient newClient(YdbConfig config, Settings repositorySettings, GrpcTransport transport) {
-        var delegate = buildTableClient(repositorySettings, transport).keepQueryText(false)
-                .sessionKeepAliveTime(config.getSessionKeepAliveTime())
-                .sessionMaxIdleTime(config.getSessionMaxIdleTime())
-                .sessionPoolSize(config.getSessionPoolMin(), config.getSessionPoolMax())
-                .build();
-        var emptyPoolStats = new EmptyPoolStats(config.getSessionPoolMin(), config.getSessionPoolMax());
-        var metrics = repositorySettings.metrics();
-
-        return new TableClientWithMetrics(delegate, emptyPoolStats, metrics);
-    }
-
     private static TableClient.Builder buildTableClient(Settings repositorySettings, GrpcTransport transport) {
         // TODO(nvamelichev@): Replace this with expression switch with type pattern as soon as we migrate to Java 21+
         var queryImplementation = repositorySettings.queryImplementation();
@@ -102,13 +97,19 @@ public final class TableClientWithMetrics implements TableClient {
         }
     }
 
+    @RequiredArgsConstructor
     private static final class EmptyPoolStats implements SessionPoolStats {
         private final int minSize;
         private final int maxSize;
 
-        private EmptyPoolStats(int minSize, int maxSize) {
-            this.minSize = minSize;
-            this.maxSize = maxSize;
+        @Override
+        public int getMinSize() {
+            return this.minSize;
+        }
+
+        @Override
+        public int getMaxSize() {
+            return this.maxSize;
         }
 
         @Override
@@ -159,14 +160,6 @@ public final class TableClientWithMetrics implements TableClient {
         @Override
         public String toString() {
             return "EmptySessionPoolStats{minSize=" + minSize + ", maxSize=" + maxSize + "}";
-        }
-
-        public int getMinSize() {
-            return this.minSize;
-        }
-
-        public int getMaxSize() {
-            return this.maxSize;
         }
     }
 }
