@@ -82,11 +82,12 @@ public class InMemoryRepositoryTransaction implements BaseDb, RepositoryTransact
             throw new IllegalStateException("Transaction was invalidated. Commit isn't possible");
         }
         endTransaction("commit()", this::commitImpl);
+        options.getRepositoryTransactionListeners().forEach(l -> l.onCommit(this));
     }
 
     private void commitImpl() {
         try {
-            transactionLocal.projectionCache().applyProjectionChanges(this);
+            options.getRepositoryTransactionListeners().forEach(l -> l.onBeforeFlushWrites(this));
 
             for (Runnable pendingWrite : pendingWrites) {
                 pendingWrite.run();
@@ -102,6 +103,7 @@ public class InMemoryRepositoryTransaction implements BaseDb, RepositoryTransact
     @Override
     public void rollback() {
         endTransaction("rollback()", this::rollbackImpl);
+        options.getRepositoryTransactionListeners().forEach(l -> l.onRollback(this));
     }
 
     private void rollbackImpl() {
@@ -149,7 +151,7 @@ public class InMemoryRepositoryTransaction implements BaseDb, RepositoryTransact
         });
         if (options.isImmediateWrites()) {
             query.run();
-            transactionLocal.projectionCache().applyProjectionChanges(this);
+            options.getRepositoryTransactionListeners().forEach(l -> l.onImmediateWrite(this));
         } else {
             pendingWrites.add(query);
         }

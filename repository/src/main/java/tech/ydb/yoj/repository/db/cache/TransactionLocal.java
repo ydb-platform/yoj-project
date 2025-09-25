@@ -7,8 +7,6 @@ import tech.ydb.yoj.repository.db.TableDescriptor;
 import tech.ydb.yoj.repository.db.Tx;
 import tech.ydb.yoj.repository.db.TxOptions;
 import tech.ydb.yoj.repository.db.projection.ProjectionCache;
-import tech.ydb.yoj.repository.db.projection.RoProjectionCache;
-import tech.ydb.yoj.repository.db.projection.RwProjectionCache;
 
 import java.util.IdentityHashMap;
 import java.util.Map;
@@ -18,14 +16,12 @@ public final class TransactionLocal {
     private final Map<Supplier<?>, Object> singletons = new IdentityHashMap<>();
 
     private final Supplier<FirstLevelCacheProvider> cacheProviderSupplier;
-    private final Supplier<ProjectionCache> projectionCacheSupplier;
     private final Supplier<TransactionLog> logSupplier;
 
     public TransactionLocal(@NonNull TxOptions options) {
         this.cacheProviderSupplier = () -> new FirstLevelCacheProvider(
                 options.isFirstLevelCache() ? FirstLevelCache::create : FirstLevelCache::empty
         );
-        this.projectionCacheSupplier = options.isMutable() ? RwProjectionCache::new : RoProjectionCache::new;
         this.logSupplier = () -> new TransactionLog(options.getLogLevel());
     }
 
@@ -47,14 +43,14 @@ public final class TransactionLocal {
      * <strong>Warning:</strong> Unlike {@link #log()}, this method is not intended to be used by end-users,
      * only by the YOJ implementation itself.
      *
-     * @deprecated Projections will be moved from the core YOJ API in 3.0.0 to an optional module.
-     * The {@code projectionCache()} method is an implementation detail, and will be removed.
+     * @deprecated This method is no longer used by YOJ itself, and has no practical use to the library users,
+     * so it now throws an {@link UnsupportedOperationException}. It will be removed permanently in YOJ 2.7.0.
      * @see <a href="https://github.com/ydb-platform/yoj-project/issues/77">#77</a>
      */
     @InternalApi
     @Deprecated(forRemoval = true)
     public ProjectionCache projectionCache() {
-        return instance(projectionCacheSupplier);
+        throw new UnsupportedOperationException("Programmatic access to ProjectionCache is not supported");
     }
 
     /**

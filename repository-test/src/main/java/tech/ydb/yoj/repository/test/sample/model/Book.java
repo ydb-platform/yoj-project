@@ -1,65 +1,58 @@
 package tech.ydb.yoj.repository.test.sample.model;
 
-import lombok.Value;
+import lombok.NonNull;
 import lombok.With;
 import tech.ydb.yoj.repository.db.Entity;
+import tech.ydb.yoj.repository.db.RecordEntity;
 import tech.ydb.yoj.repository.db.Table;
+import tech.ydb.yoj.repository.db.projection.EntityWithProjections;
+import tech.ydb.yoj.repository.db.projection.ProjectionCollection;
 
 import java.util.List;
-import java.util.Optional;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
-@Value
 @With
-public class Book implements Entity<Book> {
-    Id id;
-    int version;
-    String title;
-    List<String> authors;
-
+public record Book(
+        Id id,
+        int version,
+        String title,
+        List<String> authors
+) implements RecordEntity<Book>, EntityWithProjections<Book> {
     public Book updateTitle(String title) {
         return withTitle(title).withVersion(version + 1);
     }
 
     @Override
-    public List<Entity<?>> createProjections() {
-        return Stream.concat(
-                Optional.ofNullable(title).map(t -> new ByTitle(new ByTitle.Id(t, id))).stream(),
-                authors.stream().map(a -> new ByAuthor(new ByAuthor.Id(a, id)))
-        ).collect(Collectors.toList());
+    public ProjectionCollection collectProjections() {
+        return ProjectionCollection.builder()
+                .addEntityIfNotNull(title, t -> new ByTitle(new ByTitle.Id(t, id)))
+                .addAllEntities(authors.stream().map(a -> new ByAuthor(new ByAuthor.Id(a, id))))
+                .build();
     }
 
-    @Value
-    public static class Id implements Entity.Id<Book> {
-        String id;
+    public record Id(String id) implements Entity.Id<Book> {
     }
 
-    @Value
-    public static class ByTitle implements Entity<ByTitle> {
-        Id id;
+    public record ByTitle(Id id) implements RecordEntity<ByTitle> {
+        public record Id(
+                @NonNull
+                String title,
 
-        @Value
-        public static class Id implements Entity.Id<ByTitle> {
-            String title;
-            Book.Id id;
+                Book.Id id
+        ) implements Entity.Id<ByTitle> {
         }
     }
 
-    @Value
-    public static class ByAuthor implements Entity<ByAuthor> {
-        Id id;
-
-        @Value
-        public static class Id implements Entity.Id<ByAuthor> {
-            String author;
-            Book.Id id;
+    public record ByAuthor(Id id) implements RecordEntity<ByAuthor> {
+        public record Id(
+                String author,
+                Book.Id id
+        ) implements Entity.Id<ByAuthor> {
         }
     }
 
-    @Value
-    public static class TitleViewId implements Table.ViewId<Book> {
-        Id id;
-        String title;
+    public record TitleViewId(
+            Id id,
+            String title
+    ) implements Table.RecordViewId<Book> {
     }
 }

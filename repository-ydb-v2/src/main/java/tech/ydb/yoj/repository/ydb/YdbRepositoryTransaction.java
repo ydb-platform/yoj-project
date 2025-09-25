@@ -155,6 +155,7 @@ public class YdbRepositoryTransaction<REPO extends YdbRepository>
             throw t;
         }
         endTransaction("commit", this::doCommit);
+        options.getRepositoryTransactionListeners().forEach(l -> l.onCommit(this));
     }
 
     @Override
@@ -169,6 +170,7 @@ public class YdbRepositoryTransaction<REPO extends YdbRepository>
                 log.info("Failed to rollback the transaction", t);
             }
         });
+        options.getRepositoryTransactionListeners().forEach(l -> l.onRollback(this));
     }
 
     private void doCommit() {
@@ -282,7 +284,7 @@ public class YdbRepositoryTransaction<REPO extends YdbRepository>
     }
 
     private void flushPendingWrites() {
-        transactionLocal.projectionCache().applyProjectionChanges(this);
+        options.getRepositoryTransactionListeners().forEach(l -> l.onBeforeFlushWrites(this));
         QueriesMerger.create(cache)
                 .merge(pendingWrites)
                 .forEach(this::execute);
@@ -480,7 +482,7 @@ public class YdbRepositoryTransaction<REPO extends YdbRepository>
         YdbRepository.Query<PARAMS> query = new YdbRepository.Query<>(statement, value);
         if (options.isImmediateWrites()) {
             execute(query);
-            transactionLocal.projectionCache().applyProjectionChanges(this);
+            options.getRepositoryTransactionListeners().forEach(l -> l.onImmediateWrite(this));
         } else {
             pendingWrites.add(query);
         }
