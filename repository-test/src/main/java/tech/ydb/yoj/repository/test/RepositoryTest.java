@@ -46,6 +46,7 @@ import tech.ydb.yoj.repository.test.sample.TestEntityOperations;
 import tech.ydb.yoj.repository.test.sample.model.BadlyWrappedEntity;
 import tech.ydb.yoj.repository.test.sample.model.BadlyWrappedEntity.BadStringValueWrapper;
 import tech.ydb.yoj.repository.test.sample.model.Book;
+import tech.ydb.yoj.repository.test.sample.model.BookProjectionsOldStyle;
 import tech.ydb.yoj.repository.test.sample.model.Bubble;
 import tech.ydb.yoj.repository.test.sample.model.BytePkEntity;
 import tech.ydb.yoj.repository.test.sample.model.Complex;
@@ -686,7 +687,7 @@ public abstract class RepositoryTest extends RepositoryTestSupport {
         }
         db.tx(() -> db.table(Book.class)
                 .streamAll(Book.TitleViewId.class, 100)
-                .forEach(titleView -> assertThat(titleView.getTitle()).isNotBlank()));
+                .forEach(titleView -> assertThat(titleView.title()).isNotBlank()));
 
         assertThat(db.tx(() -> db.table(Book.class).streamAll(Book.TitleViewId.class, 2)
                 .limit(1).collect(toList())))
@@ -2188,6 +2189,57 @@ public abstract class RepositoryTest extends RepositoryTestSupport {
                 .isEqualTo(0L);
     }
 
+    @Test
+    public void projectionsOldStyle() {
+        db.tx(() -> {
+            db.table(BookProjectionsOldStyle.class).save(new BookProjectionsOldStyle(new BookProjectionsOldStyle.Id("1"), 1, "title1", List.of("author1")));
+            db.table(BookProjectionsOldStyle.class).save(new BookProjectionsOldStyle(new BookProjectionsOldStyle.Id("2"), 1, "title2", List.of("author2")));
+            db.table(BookProjectionsOldStyle.class).save(new BookProjectionsOldStyle(new BookProjectionsOldStyle.Id("3"), 1, null, List.of("author1", "author2")));
+            db.table(BookProjectionsOldStyle.class).save(new BookProjectionsOldStyle(new BookProjectionsOldStyle.Id("4"), 1, "title1", List.of()));
+        });
+
+        assertThat(db.tx(() -> db.table(BookProjectionsOldStyle.ByTitle.class).countAll()))
+                .isEqualTo(3L);
+        assertThat(db.tx(() -> db.table(BookProjectionsOldStyle.ByTitle.class).find(Range.create(new BookProjectionsOldStyle.ByTitle.Id("title1", null)))))
+                .hasSize(2);
+        assertThat(db.tx(() -> db.table(BookProjectionsOldStyle.ByTitle.class).find(Range.create(new BookProjectionsOldStyle.ByTitle.Id("title2", null)))))
+                .hasSize(1);
+
+        assertThat(db.tx(() -> db.table(BookProjectionsOldStyle.ByAuthor.class).countAll()))
+                .isEqualTo(4L);
+        assertThat(db.tx(() -> db.table(BookProjectionsOldStyle.ByAuthor.class).find(Range.create(new BookProjectionsOldStyle.ByAuthor.Id("author1", null)))))
+                .hasSize(2);
+        assertThat(db.tx(() -> db.table(BookProjectionsOldStyle.ByAuthor.class).find(Range.create(new BookProjectionsOldStyle.ByAuthor.Id("author2", null)))))
+                .hasSize(2);
+
+        db.tx(() -> {
+            db.table(BookProjectionsOldStyle.class).modifyIfPresent(new BookProjectionsOldStyle.Id("1"), b -> b.updateTitle("title2"));
+            db.table(BookProjectionsOldStyle.class).modifyIfPresent(new BookProjectionsOldStyle.Id("2"), b -> b.updateTitle(null));
+            db.table(BookProjectionsOldStyle.class).modifyIfPresent(new BookProjectionsOldStyle.Id("3"), b -> b.withAuthors(List.of("author2")));
+            db.table(BookProjectionsOldStyle.class).modifyIfPresent(new BookProjectionsOldStyle.Id("4"), b -> b.withAuthors(List.of("author1", "author2")));
+        });
+
+        assertThat(db.tx(() -> db.table(BookProjectionsOldStyle.ByTitle.class).countAll()))
+                .isEqualTo(2L);
+        assertThat(db.tx(() -> db.table(BookProjectionsOldStyle.ByTitle.class).find(Range.create(new BookProjectionsOldStyle.ByTitle.Id("title1", null)))))
+                .hasSize(1);
+        assertThat(db.tx(() -> db.table(BookProjectionsOldStyle.ByTitle.class).find(Range.create(new BookProjectionsOldStyle.ByTitle.Id("title2", null)))))
+                .hasSize(1);
+
+        assertThat(db.tx(() -> db.table(BookProjectionsOldStyle.ByAuthor.class).countAll()))
+                .isEqualTo(5L);
+        assertThat(db.tx(() -> db.table(BookProjectionsOldStyle.ByAuthor.class).find(Range.create(new BookProjectionsOldStyle.ByAuthor.Id("author1", null)))))
+                .hasSize(2);
+        assertThat(db.tx(() -> db.table(BookProjectionsOldStyle.ByAuthor.class).find(Range.create(new BookProjectionsOldStyle.ByAuthor.Id("author2", null)))))
+                .hasSize(3);
+
+        db.tx(() -> db.table(BookProjectionsOldStyle.class).findAll().forEach(b -> db.table(BookProjectionsOldStyle.class).delete(b.getId())));
+        assertThat(db.tx(() -> db.table(BookProjectionsOldStyle.ByTitle.class).countAll()))
+                .isEqualTo(0L);
+        assertThat(db.tx(() -> db.table(BookProjectionsOldStyle.ByAuthor.class).countAll()))
+                .isEqualTo(0L);
+    }
+    
     /**
      * {@link #parallelTx(boolean, boolean, Consumer)} make two tx.
      * In first  - read from table (see consumers - findAll, findId, findRange)
