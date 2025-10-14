@@ -4,6 +4,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.Sets;
 import com.google.common.reflect.TypeToken;
 import lombok.NonNull;
+import tech.ydb.yoj.DeprecationWarnings;
 import tech.ydb.yoj.InternalApi;
 import tech.ydb.yoj.databind.expression.FilterExpression;
 import tech.ydb.yoj.databind.expression.OrderExpression;
@@ -77,11 +78,20 @@ public class YdbTable<T extends Entity<T>> implements Table<T> {
         this.tableDescriptor = TableDescriptor.from(schema);
     }
 
+    /**
+     * @deprecated This {@code YdbTable} constructor uses reflection tricks to determine table entity type.
+     * It will be removed in YOJ 2.7.0.
+     */
+    @Deprecated(forRemoval = true)
     protected YdbTable(QueryExecutor executor) {
         this.type = resolveEntityType();
         this.executor = new CheckingQueryExecutor(executor);
         this.schema = EntitySchema.of(type);
         this.tableDescriptor = TableDescriptor.from(schema);
+
+        DeprecationWarnings.warnOnce("new YdbTable(QueryExecutor)[" + type.getName() + "]",
+                "new YdbTable(QueryExecutor) constructor will be removed in YOJ 2.7.0. Please use the new YdbTable(TableDescriptor, QueryExecutor) "
+                        + "or the new YdbTable(TableDescriptor, QueryExecutor) constructor instead");
     }
 
     public YdbTable(TableDescriptor<T> tableDescriptor, QueryExecutor executor) {
@@ -110,6 +120,7 @@ public class YdbTable<T extends Entity<T>> implements Table<T> {
         return executor;
     }
 
+    @Deprecated(forRemoval = true)
     @SuppressWarnings("unchecked")
     private Class<T> resolveEntityType() {
         return (Class<T>) (new TypeToken<T>(getClass()) {
@@ -261,7 +272,7 @@ public class YdbTable<T extends Entity<T>> implements Table<T> {
 
     @Override
     public T find(Entity.Id<T> id) {
-        if (id.isPartial()) {
+        if (TableQueryImpl.isPartialId(id, schema)) {
             throw new IllegalArgumentException("Cannot use partial id in find method");
         }
         return executor.getTransactionLocal().firstLevelCache(tableDescriptor).get(id, __ -> {
@@ -372,7 +383,7 @@ public class YdbTable<T extends Entity<T>> implements Table<T> {
         if (ids.isEmpty()) {
             return List.of();
         }
-        var isPartialIdMode = ids.iterator().next().isPartial();
+        var isPartialIdMode = TableQueryImpl.isPartialId(ids.iterator().next(), schema);
         List<T> found = postLoad(findUncached(ids, filter, orderBy, limit));
         if (!isPartialIdMode && ids.size() > found.size()) {
             Set<Id<T>> foundIds = found.stream().map(Entity::getId).collect(toSet());

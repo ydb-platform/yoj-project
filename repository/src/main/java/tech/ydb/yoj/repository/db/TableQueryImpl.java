@@ -33,7 +33,7 @@ public final class TableQueryImpl {
         }
 
         var orderBy = EntityExpressions.defaultOrder(table.getType());
-        var isPartialIdMode = ids.iterator().next().isPartial();
+        var isPartialIdMode = TableQueryImpl.isPartialId(ids.iterator().next(), table.getSchema());
 
         var foundInCache = ids.stream()
                 .filter(cache::containsKey)
@@ -81,5 +81,12 @@ public final class TableQueryImpl {
                 .orderBy(request.getOrderBy())
                 .offset(request.getOffset())
                 .limit(request.getPageSize() + 1);
+    }
+
+    public static <E extends Entity<E>, ID extends Entity.Id<E>> boolean isPartialId(ID id, EntitySchema<E> schema) {
+        var idSchema = schema.getIdSchema();
+        var columns = idSchema.flattenFields();
+        var nonNullFields = idSchema.flatten(id);
+        return columns.size() > nonNullFields.size();
     }
 }

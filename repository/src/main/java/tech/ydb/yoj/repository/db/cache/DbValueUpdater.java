@@ -8,6 +8,7 @@ import lombok.NonNull;
 import lombok.Value;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import tech.ydb.yoj.DeprecationWarnings;
 import tech.ydb.yoj.repository.db.exception.QueryCancelledException;
 import tech.ydb.yoj.repository.db.exception.QueryInterruptedException;
 import tech.ydb.yoj.util.lang.Interrupts;
@@ -87,11 +88,18 @@ public abstract class DbValueUpdater<V> {
         this(DEFAULT_CACHE_TIMEOUT, DEFAULT_SHUTDOWN_TIMEOUT, DEFAULT_MAX_LAG, DEFAULT_MAX_READ_DURATION, threadFactorySupplier);
     }
 
+    /**
+     * @deprecated This constructor uses reflection tricks to determine the name of the entity being updated.
+     * This constructor will be removed in YOJ 2.7.0.
+     */
+    @Deprecated(forRemoval = true)
     public DbValueUpdater(@NonNull Duration pollInterval, @NonNull Duration shutdownTimeout,
                           @NonNull Duration maxAge, @NonNull Duration maxReadDuration,
                           @NonNull ThreadFactoryCreator threadFactorySupplier) {
         this(pollInterval, shutdownTimeout, maxAge, maxReadDuration, vu -> new TypeToken<V>(vu.getClass()) {
         }.getRawType().getSimpleName(), threadFactorySupplier);
+        DeprecationWarnings.warnOnce("DbValueUpdater/TypeToken",
+                "DbValueUpdater constructor without explicit `name` will be removed in YOJ 2.7.0. Please use the constructor with explicit name");
     }
 
     public DbValueUpdater(@NonNull String name,

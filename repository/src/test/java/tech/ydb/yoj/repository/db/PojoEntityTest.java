@@ -8,7 +8,6 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
 public class PojoEntityTest {
-
     @Value
     private static class Ent implements Entity<Ent> {
         @NonNull
@@ -24,10 +23,11 @@ public class PojoEntityTest {
 
     @Test
     public void testPartialId() {
+        var schema = EntitySchema.of(Ent.class);
         var completeId = new Ent.Id("a", "b");
         var partialId = new Ent.Id("a", null);
 
-        assertTrue(partialId.isPartial());
-        assertFalse(completeId.isPartial());
+        assertTrue(TableQueryImpl.isPartialId(partialId, schema));
+        assertFalse(TableQueryImpl.isPartialId(completeId, schema));
     }
 }
