@@ -1,4 +1,4 @@
-package tech.ydb.yoj.util.lang;
+package tech.ydb.yoj.repository.db;
 
 import java.lang.StackWalker.StackFrame;
 import java.util.ArrayList;
@@ -11,7 +11,7 @@ import java.util.function.Predicate;
 
 import static java.lang.StackWalker.Option.RETAIN_CLASS_REFERENCE;
 
-public final class CallStack {
+final class CallStack {
     private final ConcurrentMap<FrameKey, Object> mapperCache = new ConcurrentHashMap<>();
 
     public FrameResult findCallingFrame() {

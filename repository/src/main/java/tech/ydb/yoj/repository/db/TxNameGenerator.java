@@ -1,7 +1,8 @@
 package tech.ydb.yoj.repository.db;
 
-import lombok.NonNull;
+import lombok.RequiredArgsConstructor;
 
+import java.util.Set;
 import java.util.regex.Pattern;
 
 /**
@@ -9,12 +10,9 @@ import java.util.regex.Pattern;
  */
 public interface TxNameGenerator {
     /**
-     * @param className  caller class name
-     * @param methodName caller method name
      * @return transaction name
      */
-    @NonNull
-    String nameFor(@NonNull String className, @NonNull String methodName);
+    TxInfo generate();
 
     /**
      * Generates short tx names of the form {@code ClNam#meNa} (from {@code package.name.ClassName[$InnerClassName]} and {@code methodName}).
@@ -25,76 +23,76 @@ public interface TxNameGenerator {
      * <strong>The disadvantage is that short tx names are not particularly human-readable.</strong>
      *
      * <p>This is the classic YOJ default tx name generator, used since YOJ 1.0.0.
-     *
-     * @see #LONG
-     * @see #NONE
      */
-    TxNameGenerator SHORT = new TxNameGenerator() {
+    @RequiredArgsConstructor
+    final class Default implements TxNameGenerator {
         private static final Pattern PACKAGE_PATTERN = Pattern.compile(".*\\.");
         private static final Pattern INNER_CLASS_PATTERN_CLEAR = Pattern.compile("\\$.*");
         private static final Pattern SHORTEN_NAME_PATTERN = Pattern.compile("([A-Z][a-z]{2})[a-z]+");
+        private static final CallStack callStack = new CallStack();
 
-        @NonNull
-        @Override
-        public String nameFor(@NonNull String className, @NonNull String methodName) {
-            var cn = replaceFirst(className, PACKAGE_PATTERN, "");
-            cn = replaceFirst(cn, INNER_CLASS_PATTERN_CLEAR, "");
-            cn = replaceAll(cn, SHORTEN_NAME_PATTERN, "$1");
-            var mn = replaceAll(methodName, SHORTEN_NAME_PATTERN, "$1");
-            return cn + '#' + mn;
-        }
+        private final Set<String> packagesToSkip;
 
         @Override
-        public String toString() {
-            return "TxNameGenerator.SHORT";
+        public TxInfo generate() {
+            var stack = getStackResult(callStack, packagesToSkip);
+
+            return stack.map(frame -> {
+                String className = PACKAGE_PATTERN.matcher(frame.getClassName()).replaceFirst("");
+                className = INNER_CLASS_PATTERN_CLEAR.matcher(className).replaceFirst("");
+                className = SHORTEN_NAME_PATTERN.matcher(className).replaceAll("$1");
+                String mn = SHORTEN_NAME_PATTERN.matcher(frame.getMethodName()).replaceAll("$1");
+                String name = className + '#' + mn;
+                return buildDefaultTxInfo(name, frame.getLineNumber());
+            });
         }
-    };
+    }
 
     /**
      * Generates long transaction names of the form {@code ClassName.methodName[$InnerClassName]}
      * (from {@code package.name.ClassName[$InnerClassName]} and {@code methodName}).
      * Inner class names, including anonymous class names, are kept in the {@code Class.getName()} format ({@code $<inner class name>}).
-     *
-     * @see #SHORT
-     * @see #NONE
      */
-    TxNameGenerator LONG = new TxNameGenerator() {
+    @RequiredArgsConstructor
+    final class Long implements TxNameGenerator {
         private static final Pattern PACKAGE_PATTERN = Pattern.compile(".*\\.");
+        private static final CallStack callStack = new CallStack();
 
-        @NonNull
-        @Override
-        public String nameFor(@NonNull String className, @NonNull String methodName) {
-            var cn = replaceFirst(className, PACKAGE_PATTERN, "");
-            return cn + '.' + methodName;
-        }
+        private final Set<String> packagesToSkip;
 
         @Override
-        public String toString() {
-            return "TxNameGenerator.LONG";
-        }
-    };
+        public TxInfo generate() {
+            var stack = getStackResult(callStack, packagesToSkip);
 
-    /**
-     * Prohibits starting transactions without explicitly setting transaction name via {@link TxManager#withName(String)}.
-     */
-    TxNameGenerator NONE = new TxNameGenerator() {
-        @NonNull
-        @Override
-        public String nameFor(@NonNull String className, @NonNull String methodName) {
-            throw new IllegalStateException("Transaction name must be explicitly set via TxManager.withName()");
+            return stack.map(frame -> {
+                String className = PACKAGE_PATTERN.matcher(frame.getClassName()).replaceFirst("");
+                String name = className + '.' + frame.getMethodName();
+                return buildDefaultTxInfo(name, frame.getLineNumber());
+            });
         }
-
-        @Override
-        public String toString() {
-            return "TxNameGenerator.NONE";
-        }
-    };
-
-    private static String replaceFirst(String input, Pattern regex, String replacement) {
-        return regex.matcher(input).replaceFirst(replacement);
     }
 
-    private static String replaceAll(String input, Pattern regex, String replacement) {
-        return regex.matcher(input).replaceAll(replacement);
+    private static TxInfo buildDefaultTxInfo(String name, int lineNumber) {
+        String logName = name + ":" + lineNumber;
+        return new TxInfo(name, logName);
+    }
+
+    private static CallStack.FrameResult getStackResult(CallStack callStack, Set<String> packagesToSkip) {
+        return callStack.findCallingFrame()
+                .skipPackage(StdTxManager.class.getPackageName())
+                .skipPackages(packagesToSkip);
+    }
+
+    final class Simple implements TxNameGenerator {
+        private final TxInfo txInfo;
+
+        public Simple(String name) {
+            this.txInfo = new TxInfo(name, name);
+        }
+
+        @Override
+        public TxInfo generate() {
+            return txInfo;
+        }
     }
 }
