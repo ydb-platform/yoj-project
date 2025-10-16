@@ -242,6 +242,15 @@ public interface TxManager {
 
         ScanBuilder withTimeout(Duration timeout);
 
+        /**
+         * Specifies whether the new {@code Spliterator} implementation is used for streaming scan query results.
+         * The new implementation better conforms to the {@code Spliterator} contract and consumes less memory.
+         * <p>Note that using the new implementation currently has a negative performance impact, for more information refer to
+         * <a href="https://github.com/ydb-platform/yoj-project/issues/42">GitHub Issue #42</a>.
+         */
+        @ExperimentalApi(issue = "https://github.com/ydb-platform/yoj-project/issues/42")
+        ScanBuilder useNewSpliterator(boolean useNewSpliterator);
+
         <T> T run(Supplier<T> supplier);
 
         default void run(Runnable runnable) {

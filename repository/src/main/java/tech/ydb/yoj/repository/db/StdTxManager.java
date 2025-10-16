@@ -379,6 +379,11 @@ public final class StdTxManager implements TxManager, TxManagerState {
         }
 
         @Override
+        public ScanBuilder useNewSpliterator(boolean useNewSpliterator) {
+            return withOptions(options.withUseNewSpliterator(useNewSpliterator));
+        }
+
+        @Override
         public <T> T run(Supplier<T> supplier) throws RetryableException {
             TxOptions txOptions = StdTxManager.this.options
                     .withScanOptions(options)

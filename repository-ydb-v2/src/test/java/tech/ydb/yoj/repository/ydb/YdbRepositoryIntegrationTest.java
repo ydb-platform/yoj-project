@@ -14,7 +14,6 @@ import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
 import lombok.Setter;
 import lombok.SneakyThrows;
-import lombok.Value;
 import lombok.experimental.Delegate;
 import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.core.config.Configurator;
@@ -95,6 +94,7 @@ import tech.ydb.yoj.repository.ydb.sample.model.HintAutoPartitioningByLoad;
 import tech.ydb.yoj.repository.ydb.sample.model.HintInt64Range;
 import tech.ydb.yoj.repository.ydb.sample.model.HintTablePreset;
 import tech.ydb.yoj.repository.ydb.sample.model.HintUniform;
+import tech.ydb.yoj.repository.ydb.statement.FindAllYqlStatement;
 import tech.ydb.yoj.repository.ydb.statement.FindStatement;
 import tech.ydb.yoj.repository.ydb.statement.YqlStatement;
 import tech.ydb.yoj.repository.ydb.table.YdbTable;
@@ -222,6 +222,18 @@ public class YdbRepositoryIntegrationTest extends RepositoryTest {
 
     @Test
     public void readYqlListAndMap() {
+        record GroupByResult(
+            String id,
+            List<String> items,
+            Map<String, String> map,
+
+            @Column(flatten = false)
+            GroupByResult.Struct struct
+        ) {
+            record Struct(String name) {
+            }
+        }
+
         WithUnflattenableField entity = new WithUnflattenableField(
                 new WithUnflattenableField.Id("id_yql_list"),
                 new WithUnflattenableField.Unflattenable("Hello, world!", 100_500)
@@ -230,7 +242,7 @@ public class YdbRepositoryIntegrationTest extends RepositoryTest {
         db.tx(() -> {
             EntitySchema<WithUnflattenableField> schema = EntitySchema.of(WithUnflattenableField.class);
             var tableDescriptor = TableDescriptor.from(schema);
-            List<GroupByResult> result = ((YdbRepositoryTransaction<?>) Tx.Current.get().getRepositoryTransaction())
+            List<GroupByResult> result = ydbRepositoryTransaction()
                     .execute(new YqlStatement<>(tableDescriptor, schema, ObjectSchema.of(GroupByResult.class)) {
                         @Override
                         public String getQuery(String tablespace) {
@@ -255,20 +267,6 @@ public class YdbRepositoryIntegrationTest extends RepositoryTest {
                     Map.of("name", "id_yql_list"),
                     new GroupByResult.Struct("id_yql_list"))), result);
         });
-    }
-
-    @Value
-    static class GroupByResult {
-        String id;
-        List<String> items;
-        Map<String, String> map;
-        @Column(flatten = false)
-        Struct struct;
-
-        @Value
-        static class Struct {
-            String name;
-        }
     }
 
     @Test
@@ -1024,7 +1022,7 @@ public class YdbRepositoryIntegrationTest extends RepositoryTest {
     public void ydbTransactionCompatibility() {
         db.tx(() -> {
             // No db tx or session yet!
-            var sdkTx = ((YdbRepositoryTransaction<?>) Tx.Current.get().getRepositoryTransaction()).toSdkTransaction();
+            var sdkTx = ydbRepositoryTransaction().toSdkTransaction();
             assertThatIllegalStateException().isThrownBy(sdkTx::getSessionId);
             assertThat(sdkTx.getId()).isNull();
             assertThat(sdkTx.getTxMode()).isEqualTo(TxMode.SERIALIZABLE_RW);
@@ -1032,7 +1030,7 @@ public class YdbRepositoryIntegrationTest extends RepositoryTest {
 
             // Perform any read - session and tx ID appear
             db.projects().countAll();
-            sdkTx = ((YdbRepositoryTransaction<?>) Tx.Current.get().getRepositoryTransaction()).toSdkTransaction();
+            sdkTx = ydbRepositoryTransaction().toSdkTransaction();
             assertThat(sdkTx.getSessionId()).isNotNull();
             assertThat(sdkTx.getId()).isNotNull();
             assertThat(sdkTx.getTxMode()).isEqualTo(TxMode.SERIALIZABLE_RW);
@@ -1050,7 +1048,7 @@ public class YdbRepositoryIntegrationTest extends RepositoryTest {
 
             db.readOnly().withStatementIsolationLevel(isolationLevel).run(() -> {
                 // No db tx or session yet!
-                var sdkTx = ((YdbRepositoryTransaction<?>) Tx.Current.get().getRepositoryTransaction()).toSdkTransaction();
+                var sdkTx = ydbRepositoryTransaction().toSdkTransaction();
                 assertThatIllegalStateException().isThrownBy(sdkTx::getSessionId);
                 assertThat(sdkTx.getId()).isNull();
                 assertThat(sdkTx.getTxMode()).isEqualTo(txMode);
@@ -1058,7 +1056,7 @@ public class YdbRepositoryIntegrationTest extends RepositoryTest {
 
                 // Perform any read - session and tx ID appear
                 db.projects().countAll();
-                sdkTx = ((YdbRepositoryTransaction<?>) Tx.Current.get().getRepositoryTransaction()).toSdkTransaction();
+                sdkTx = ydbRepositoryTransaction().toSdkTransaction();
                 assertThat(sdkTx.getSessionId()).isNotNull();
                 // Read transactions might have no ID or might have an ID, depending on your YDB version (that's what YDB returns, folks!)
                 assertThat(sdkTx.getTxMode()).isEqualTo(txMode);
@@ -1421,6 +1419,53 @@ public class YdbRepositoryIntegrationTest extends RepositoryTest {
                 throw new RuntimeException(e);
             }
         }
+    }
+
+    public void streamingScanNotTruncatedOldSpliterator() {
+        int maxPageSizeBiggerThatReal = 11_000;
+
+        db.tx(() -> IntStream.range(0, maxPageSizeBiggerThatReal).forEach(
+                i -> db.projects().save(new Project(new Project.Id("id_" + i), "name"))
+        ));
+
+        List<Project.Id> result = db.scan().useNewSpliterator(false).withMaxSize(maxPageSizeBiggerThatReal).run(() -> {
+            var schema = EntitySchema.of(Project.class);
+            var desc = TableDescriptor.from(schema);
+            var statement = new FindAllYqlStatement<>(desc, schema, schema);
+
+            var projectIds = new ArrayList<Project.Id>();
+            try (var stream = ydbRepositoryTransaction().executeScanQuery(statement, null)) {
+                stream.forEach(p -> projectIds.add(p.getId()));
+            }
+            return projectIds;
+        });
+        assertEquals(maxPageSizeBiggerThatReal, result.size());
+    }
+
+    @Test
+    public void streamingScanNotTruncatedNewSpliterator() {
+        int maxPageSizeBiggerThatReal = 11_000;
+
+        db.tx(() -> IntStream.range(0, maxPageSizeBiggerThatReal).forEach(
+                i -> db.projects().save(new Project(new Project.Id("id_" + i), "name"))
+        ));
+
+        List<Project.Id> result = db.scan().useNewSpliterator(true).withMaxSize(maxPageSizeBiggerThatReal).run(() -> {
+            var schema = EntitySchema.of(Project.class);
+            var desc = TableDescriptor.from(schema);
+            var statement = new FindAllYqlStatement<>(desc, schema, schema);
+
+            var projectIds = new ArrayList<Project.Id>();
+            try (var stream = ydbRepositoryTransaction().executeScanQuery(statement, null)) {
+                stream.forEach(p -> projectIds.add(p.getId()));
+            }
+            return projectIds;
+        });
+        assertEquals(maxPageSizeBiggerThatReal, result.size());
+    }
+
+    private static YdbRepositoryTransaction<?> ydbRepositoryTransaction() {
+        return (YdbRepositoryTransaction<?>) Tx.Current.get().getRepositoryTransaction();
     }
 
     @RequiredArgsConstructor

@@ -303,8 +303,8 @@ public class YdbRepositoryTransaction<REPO extends YdbRepository>
             result = doCall(statement.toDebugString(params), () -> {
                 if (options.isScan()) {
                     return options.getScanOptions().isUseNewSpliterator()
-                            ? doExecuteScanQueryList(statement, params)
-                            : doExecuteScanQueryLegacy(statement, params);
+                            ? listScanQueryNew(statement, params)
+                            : listScanQueryLegacy(statement, params);
                 } else {
                     return doExecuteDataQuery(statement, params);
                 }
@@ -391,7 +391,7 @@ public class YdbRepositoryTransaction<REPO extends YdbRepository>
         }
     }
 
-    private <PARAMS, RESULT> List<RESULT> doExecuteScanQueryLegacy(Statement<PARAMS, RESULT> statement, PARAMS params) {
+    private <PARAMS, RESULT> List<RESULT> listScanQueryLegacy(Statement<PARAMS, RESULT> statement, PARAMS params) {
         ExecuteScanQuerySettings settings = ExecuteScanQuerySettings.newBuilder()
                 .withRequestTimeout(options.getScanOptions().getTimeout())
                 .setMode(ExecuteScanQuerySettings.Mode.EXEC)
@@ -419,9 +419,9 @@ public class YdbRepositoryTransaction<REPO extends YdbRepository>
         return result;
     }
 
-    private <PARAMS, RESULT> List<RESULT> doExecuteScanQueryList(Statement<PARAMS, RESULT> statement, PARAMS params) {
+    private <PARAMS, RESULT> List<RESULT> listScanQueryNew(Statement<PARAMS, RESULT> statement, PARAMS params) {
         List<RESULT> result = new ArrayList<>();
-        try (Stream<RESULT> stream = executeScanQuery(statement, params)) {
+        try (Stream<RESULT> stream = streamScanQueryNew(statement, params)) {
             stream.forEach(r -> {
                 if (result.size() >= options.getScanOptions().getMaxSize()) {
                     throw new ResultTruncatedException(
@@ -443,6 +443,12 @@ public class YdbRepositoryTransaction<REPO extends YdbRepository>
             throw new IllegalStateException("Scan query can be used only from scan tx");
         }
 
+        return options.getScanOptions().isUseNewSpliterator()
+                ? streamScanQueryNew(statement, params)
+                : streamScanQueryLegacy(statement, params);
+    }
+
+    private <PARAMS, RESULT> Stream<RESULT> streamScanQueryNew(Statement<PARAMS, RESULT> statement, PARAMS params) {
         ExecuteScanQuerySettings settings = ExecuteScanQuerySettings.newBuilder()
                 .withRequestTimeout(options.getScanOptions().getTimeout())
                 .setMode(ExecuteScanQuerySettings.Mode.EXEC)
@@ -460,6 +466,36 @@ public class YdbRepositoryTransaction<REPO extends YdbRepository>
         ).whenComplete(spliterator::onSupplierThreadComplete);
 
         return spliterator.createStream();
+    }
+
+    private <PARAMS, RESULT> Stream<RESULT> streamScanQueryLegacy(Statement<PARAMS, RESULT> statement, PARAMS params) {
+        ExecuteScanQuerySettings settings = ExecuteScanQuerySettings.newBuilder()
+                .withRequestTimeout(options.getScanOptions().getTimeout())
+                .setMode(ExecuteScanQuerySettings.Mode.EXEC)
+                .build();
+
+        String yql = getYql(statement);
+        Params sdkParams = getSdkParams(statement, params);
+
+        try {
+            YdbLegacySpliterator<RESULT> spliterator = new YdbLegacySpliterator<>(false, action ->
+                    doCall(statement.toDebugString(params), () -> {
+                        Status status = YdbOperations.safeJoin(
+                                session.executeScanQuery(
+                                        yql, sdkParams, settings,
+                                        rs -> new ResultSetConverter(rs).stream(statement::readResult).forEach(action)
+                                ),
+                                options.getScanOptions().getTimeout().plusMinutes(5)
+                        );
+                        validate("SCAN_QUERY: " + yql, status.getCode(), status.toString());
+                    })
+            );
+            return spliterator.makeStream();
+        } catch (RepositoryException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new UnexpectedException("Could not perform scan query", e);
+        }
     }
 
     private QueryStatsCollectionMode getSdkStatsMode() {
