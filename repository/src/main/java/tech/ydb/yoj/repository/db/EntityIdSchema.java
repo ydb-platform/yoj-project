@@ -48,8 +48,11 @@ public final class EntityIdSchema<ID extends Entity.Id<?>> extends Schema<ID> im
             STRING, INTEGER, ENUM, BOOLEAN, TIMESTAMP, UUID, BYTE_ARRAY
     );
 
+    private final EntitySchema<?> entitySchema;
+
     private <E extends Entity<E>> EntityIdSchema(EntitySchema<E> entitySchema) {
         super(entitySchema, ID_FIELD_NAME);
+        this.entitySchema = entitySchema;
 
         var flattenedFields = flattenFields();
 
@@ -148,6 +151,66 @@ public final class EntityIdSchema<ID extends Entity.Id<?>> extends Schema<ID> im
 
     public static boolean isIdFieldName(@NonNull String name) {
         return name.equals(ID_FIELD_NAME) || name.startsWith(ID_SUBFIELD_NAME_PREFIX);
+    }
+
+    /**
+     * @return schema of the entity this ID schema corresponds to; never {@code null}
+     */
+    @NonNull
+    public EntitySchema<?> getEntitySchema() {
+        return entitySchema;
+    }
+
+    /**
+     * @return class of the entity this ID schema corresponds to;
+     * the same as {@link #getEntitySchema()}{@link EntitySchema#getType() .getType()}
+     *
+     * @see #getEntitySchema()
+     */
+    @NonNull
+    public Class<? extends Entity<?>> getEntityType() {
+        return entitySchema.getType();
+    }
+
+    /**
+     * Creates a new {@link Range} representing all the IDs that have the ID prefix specified in {@code cells}.
+     * If {@code cells} do not contain any ID fields at all, a whole-table {@code Range} will be returned.
+     *
+     * @param cells ID prefix value map: <code>{@link JavaField#getName() ID field name} -> ID field value</code>
+     * @return {@code Range} for the specified ID prefix
+     * @throws IllegalArgumentException {@code cells} contain ID values but these do not represent an ID prefix.
+     *                                  <br><em>E.g.</em>, for a four-column ID {@code (id_a, id_b, id_c, id_d)}
+     *                                  the cells contain {@code (id_a, id_c)} but {@code id_b} is missing.
+     * @see Range#create(EntityIdSchema, Entity.Id)
+     * @see #newRangeInstance(Map, Map)
+     * @see #newInstance(Map)
+     */
+    @NonNull
+    public Range<ID> newRangeInstance(@NonNull Map<String, Object> cells) {
+        return Range.internalCreate(this, cells);
+    }
+
+    /**
+     * Creates a new {@link Range} representing all the IDs between the two specified {@code cells}.
+     * If {@code cells} do not contain any ID fields at all, a whole-table {@code Range} will be returned.
+     *
+     * @param minCellsInclusive min (inclusive) ID value map: <code>{@link JavaField#getName() ID field name} ->
+     *                          ID field value</code>
+     * @param maxCellsInclusive max (inclusive) ID value map: <code>{@link JavaField#getName() ID field name} ->
+     *                          ID field value</code>
+     * @return {@code Range} between the specified minimum and maximum ID values, inclusive
+     * @throws IllegalArgumentException ID represented by {@code minCellsInclusive} is greater than the ID
+     *                                  represented by {@code maxCellsInclusive}
+     * @see Range#create(EntityIdSchema, Entity.Id, Entity.Id)
+     * @see #newRangeInstance(Map)
+     * @see #newInstance(Map)
+     */
+    @NonNull
+    public Range<ID> newRangeInstance(
+            @NonNull Map<String, Object> minCellsInclusive,
+            @NonNull Map<String, Object> maxCellsInclusive
+    ) {
+        return Range.internalCreate(this, minCellsInclusive, maxCellsInclusive);
     }
 
     @Override
