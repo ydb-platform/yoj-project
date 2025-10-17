@@ -1,18 +1,20 @@
 package tech.ydb.yoj.repository.db;
 
+import lombok.NonNull;
+import tech.ydb.yoj.util.lang.Types;
+
 public record TableDescriptor<E extends Entity<E>>(
-        Class<E> entityType,
-        String tableName
+        @NonNull Class<E> entityType,
+        @NonNull String tableName
 ) {
     public static <E extends Entity<E>> TableDescriptor<E> from(EntitySchema<E> schema) {
         return new TableDescriptor<>(schema.getType(), schema.getName());
     }
 
     public String toDebugString() {
-        String entityName = entityType.getSimpleName();
-        if (entityName.equals(tableName)) {
-            return entityName;
-        }
-        return "%s[%s]".formatted(entityName, tableName);
+        var entityTypeName = Types.getShortTypeName(entityType);
+        return entityTypeName.equals(tableName)
+                ? entityTypeName
+                : "%s[%s]".formatted(entityTypeName, tableName);
     }
 }

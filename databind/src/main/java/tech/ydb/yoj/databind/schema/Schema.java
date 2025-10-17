@@ -18,6 +18,7 @@ import tech.ydb.yoj.databind.schema.reflect.ReflectField;
 import tech.ydb.yoj.databind.schema.reflect.ReflectType;
 import tech.ydb.yoj.databind.schema.reflect.Reflector;
 import tech.ydb.yoj.databind.schema.reflect.StdReflector;
+import tech.ydb.yoj.util.lang.Types;
 
 import javax.annotation.Nullable;
 import java.lang.reflect.Constructor;
@@ -407,14 +408,10 @@ public abstract class Schema<T> {
 
     @Override
     public final String toString() {
-        String schemaName = getClass().getSimpleName();
-        if (schemaName.isEmpty()) {
-            schemaName = getClass().getName();
-        }
-
+        String schemaClassName = Types.getShortTypeName(getClass());
         String staticTableName = staticName.isEmpty() ? "" : " \"" + staticName + "\"";
 
-        return schemaName + staticTableName + " [type=" + getTypeName() + "]";
+        return schemaClassName + staticTableName + " [type=" + getTypeName() + "]";
     }
 
     private static final class DummyCustomValueSubField implements ReflectField {
