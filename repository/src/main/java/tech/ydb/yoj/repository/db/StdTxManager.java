@@ -20,10 +20,10 @@ import tech.ydb.yoj.util.lang.Strings;
 
 import javax.annotation.Nullable;
 import java.time.Duration;
-import java.util.Set;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Supplier;
 
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static tech.ydb.yoj.repository.db.IsolationLevel.ONLINE_CONSISTENT_READ_ONLY;
@@ -100,13 +100,13 @@ public final class StdTxManager implements TxManager, TxManagerState {
                 /*         logContext */ null,
                 /*            options */ TxOptions.create(SERIALIZABLE_READ_WRITE),
                 /*     separatePolicy */ SeparatePolicy.LOG,
-                /*    txNameGenerator */ new TxNameGenerator.Default(Set.of())
+                /*    txNameGenerator */ new TxNameGenerator.Default()
         );
     }
 
     @Override
     public StdTxManager withName(String name) {
-        return withTxNameGenerator(new TxNameGenerator.Simple(name));
+        return withTxNameGenerator(new TxNameGenerator.Constant(name));
     }
 
     @Override
@@ -190,10 +190,10 @@ public final class StdTxManager implements TxManager, TxManagerState {
 
     @Override
     public <T> T tx(Supplier<T> supplier) {
-        TxInfo txInfo = txNameGenerator.generate();
-        String name = txInfo.name();
+        TxName txName = txNameGenerator.generate();
+        String name = txName.name();
 
-        checkSeparatePolicy(separatePolicy, txInfo.logName());
+        checkSeparatePolicy(separatePolicy, txName.logName());
 
         RetryableException lastRetryableException = null;
         TxImpl lastTx = null;
@@ -202,14 +202,14 @@ public final class StdTxManager implements TxManager, TxManagerState {
                 try {
                     attempts.labels(name).observe(attempt);
                     T result;
-                    RepositoryTransaction transaction = repository.startTransaction(options);
-                    lastTx = new TxImpl(name, transaction, options);
                     try (
                             var ignored1 = attemptDuration.labels(name).startTimer();
-                            var ignored2 = MDC.putCloseable("tx", formatTx(txInfo));
+                            var ignored2 = MDC.putCloseable("tx", formatTx(txName));
                             var ignored3 = MDC.putCloseable("tx-id", formatTxId());
-                            var ignored4 = MDC.putCloseable("tx-name", txInfo.logName())
+                            var ignored4 = MDC.putCloseable("tx-name", txName.logName())
                     ) {
+                        RepositoryTransaction transaction = repository.startTransaction(options);
+                        lastTx = new TxImpl(name, transaction, options);
                         result = lastTx.run(supplier);
                     }
 
@@ -255,7 +255,7 @@ public final class StdTxManager implements TxManager, TxManagerState {
             case ALLOW -> {
             }
             case STRICT ->
-                    throw new IllegalStateException("Transaction was run when another transaction is active");
+                    throw new IllegalStateException(format("Transaction %s was run when another transaction is active", txName));
             case LOG ->
                     log.warn("Transaction '{}' was run when another transaction is active. Perhaps unexpected behavior. " +
                             "Use TxManager.separate() to avoid this message", txName);
@@ -266,8 +266,8 @@ public final class StdTxManager implements TxManager, TxManagerState {
         return Strings.removeSuffix(e.getClass().getSimpleName(), "Exception");
     }
 
-    private String formatTx(TxInfo txInfo) {
-        return formatTxId() + " {" + txInfo.logName() + (logContext != null ? "/" + logContext : "") + "}";
+    private String formatTx(TxName txName) {
+        return formatTxId() + " {" + txName.logName() + (logContext != null ? "/" + logContext : "") + "}";
     }
 
     private String formatTxId() {

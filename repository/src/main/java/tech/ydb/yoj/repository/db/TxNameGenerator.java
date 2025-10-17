@@ -1,6 +1,6 @@
 package tech.ydb.yoj.repository.db;
 
-import lombok.RequiredArgsConstructor;
+import tech.ydb.yoj.ExperimentalApi;
 
 import java.util.Set;
 import java.util.regex.Pattern;
@@ -8,11 +8,12 @@ import java.util.regex.Pattern;
 /**
  * Generates default name for a transaction, depending on the caller class and caller method names.
  */
+@ExperimentalApi(issue = "https://github.com/ydb-platform/yoj-project/issues/188")
 public interface TxNameGenerator {
     /**
      * @return transaction name
      */
-    TxInfo generate();
+    TxName generate();
 
     /**
      * Generates short tx names of the form {@code ClNam#meNa} (from {@code package.name.ClassName[$InnerClassName]} and {@code methodName}).
@@ -24,7 +25,6 @@ public interface TxNameGenerator {
      *
      * <p>This is the classic YOJ default tx name generator, used since YOJ 1.0.0.
      */
-    @RequiredArgsConstructor
     final class Default implements TxNameGenerator {
         private static final Pattern PACKAGE_PATTERN = Pattern.compile(".*\\.");
         private static final Pattern INNER_CLASS_PATTERN_CLEAR = Pattern.compile("\\$.*");
@@ -33,8 +33,12 @@ public interface TxNameGenerator {
 
         private final Set<String> packagesToSkip;
 
+        public Default(String... packagesToSkip) {
+            this.packagesToSkip = Set.of(packagesToSkip);
+        }
+
         @Override
-        public TxInfo generate() {
+        public TxName generate() {
             var stack = getStackResult(callStack, packagesToSkip);
 
             return stack.map(frame -> {
@@ -53,15 +57,18 @@ public interface TxNameGenerator {
      * (from {@code package.name.ClassName[$InnerClassName]} and {@code methodName}).
      * Inner class names, including anonymous class names, are kept in the {@code Class.getName()} format ({@code $<inner class name>}).
      */
-    @RequiredArgsConstructor
     final class Long implements TxNameGenerator {
         private static final Pattern PACKAGE_PATTERN = Pattern.compile(".*\\.");
         private static final CallStack callStack = new CallStack();
 
         private final Set<String> packagesToSkip;
 
+        public Long(String... packagesToSkip) {
+            this.packagesToSkip = Set.of(packagesToSkip);
+        }
+
         @Override
-        public TxInfo generate() {
+        public TxName generate() {
             var stack = getStackResult(callStack, packagesToSkip);
 
             return stack.map(frame -> {
@@ -72,9 +79,9 @@ public interface TxNameGenerator {
         }
     }
 
-    private static TxInfo buildDefaultTxInfo(String name, int lineNumber) {
+    private static TxName buildDefaultTxInfo(String name, int lineNumber) {
         String logName = name + ":" + lineNumber;
-        return new TxInfo(name, logName);
+        return new TxName(name, logName);
     }
 
     private static CallStack.FrameResult getStackResult(CallStack callStack, Set<String> packagesToSkip) {
@@ -83,16 +90,16 @@ public interface TxNameGenerator {
                 .skipPackages(packagesToSkip);
     }
 
-    final class Simple implements TxNameGenerator {
-        private final TxInfo txInfo;
+    final class Constant implements TxNameGenerator {
+        private final TxName txName;
 
-        public Simple(String name) {
-            this.txInfo = new TxInfo(name, name);
+        public Constant(String name) {
+            this.txName = new TxName(name, name);
         }
 
         @Override
-        public TxInfo generate() {
-            return txInfo;
+        public TxName generate() {
+            return txName;
         }
     }
 }

@@ -1,6 +1,6 @@
 package tech.ydb.yoj.repository.db;
 
-public record TxInfo(
+public record TxName(
         String name,
         String logName
 ) {

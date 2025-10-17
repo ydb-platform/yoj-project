@@ -17,11 +17,9 @@ import tech.ydb.yoj.repository.testcaller.TestTxCaller;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatIllegalStateException;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
@@ -37,80 +35,80 @@ public class StdTxManagerTest {
 
     @Test
     public void testDbChildPackage_FromStackWalker_Auto() {
-        var name = new TestDbTxCaller(new TxNameGenerator.Default(Set.of())).getTxName();
+        var name = new TestDbTxCaller(new TxNameGenerator.Default()).getTxName();
         assertThat(name).isEqualTo("TesDbTxCal#getTxNam");
     }
 
     @Test
     public void testDbChildPackage_FromStackWalker_User() {
-        var name = new TestDbTxCaller(new TxNameGenerator.Simple("qq")).getTxName();
+        var name = new TestDbTxCaller(new TxNameGenerator.Constant("qq")).getTxName();
         assertThat(name).isEqualTo("qq");
     }
 
     @Test
     public void testNotDbChildPackage_FromStackWalker_Auto() {
-        var name = new TestTxCaller(new TxNameGenerator.Default(Set.of())).getTxName();
+        var name = new TestTxCaller(new TxNameGenerator.Default()).getTxName();
         assertThat(name).isEqualTo("TesTxCal#getTxNam");
     }
 
     @Test
     public void testNotDbChildPackage_FromStackWalker_Auto_SkipCallerPackage() {
-        var name = new TestTxCaller(new TxNameGenerator.Default(Set.of(TestTxCaller.class.getPackageName())))
+        var name = new TestTxCaller(new TxNameGenerator.Default(TestTxCaller.class.getPackageName()))
                 .getTxName();
         assertThat(name).isEqualTo("StdTxManTes#testNotDbChiPac_FroStaWal_Aut_SkiCalPac");
     }
 
     @Test
     public void testNotDbPackage_Same() {
-        var nameOld = new TestTxCaller(new TxNameGenerator.Default(Set.of())).getTxName();
-        var nameNew = new TestTxCaller(new TxNameGenerator.Default(Set.of())).getTxName();
+        var nameOld = new TestTxCaller(new TxNameGenerator.Default()).getTxName();
+        var nameNew = new TestTxCaller(new TxNameGenerator.Default()).getTxName();
         assertThat(nameNew).isEqualTo(nameOld);
     }
 
     @Test
     public void testNotDbPackage_FromStackWalker_User() {
-        var name = new TestTxCaller(new TxNameGenerator.Simple("omg")).getTxName();
+        var name = new TestTxCaller(new TxNameGenerator.Constant("omg")).getTxName();
         assertThat(name).isEqualTo("omg");
     }
 
     // explicitly TxNameGenerator.LONG
     @Test
     public void testDbChildPackage_FromStackWalker_Auto_Long() {
-        var name = new TestDbTxCaller(new TxNameGenerator.Long(Set.of()))
+        var name = new TestDbTxCaller(new TxNameGenerator.Long())
                 .getTxName();
         assertThat(name).isEqualTo("TestDbTxCaller.getTxName");
     }
 
     @Test
     public void testNotDbChildPackage_FromStackWalker_Auto_Long() {
-        var name = new TestTxCaller(new TxNameGenerator.Long(Set.of()))
+        var name = new TestTxCaller(new TxNameGenerator.Long())
                 .getTxName();
         assertThat(name).isEqualTo("TestTxCaller.getTxName");
     }
 
     @Test
     public void testNotDbChildPackage_FromStackWalker_Auto_Long_SkipCallerPackage() {
-        var name = new TestTxCaller(new TxNameGenerator.Long(Set.of(TestTxCaller.class.getPackageName())))
+        var name = new TestTxCaller(new TxNameGenerator.Long(TestTxCaller.class.getPackageName()))
                 .getTxName();
         assertThat(name).isEqualTo("StdTxManagerTest.testNotDbChildPackage_FromStackWalker_Auto_Long_SkipCallerPackage");
     }
 
     @Test
     public void testNotDbPackage_Same_Long() {
-        var nameOld = new TestTxCaller(new TxNameGenerator.Long(Set.of())).getTxName();
-        var nameNew = new TestTxCaller(new TxNameGenerator.Long(Set.of())).getTxName();
+        var nameOld = new TestTxCaller(new TxNameGenerator.Long()).getTxName();
+        var nameNew = new TestTxCaller(new TxNameGenerator.Long()).getTxName();
         assertThat(nameNew).isEqualTo(nameOld);
     }
 
     @Test
     public void testNotDbPackage_ForceExplicitName_MustNotFail() {
-        var name = new TestTxCaller(new TxNameGenerator.Simple("omg")).getTxName();
+        var name = new TestTxCaller(new TxNameGenerator.Constant("omg")).getTxName();
         assertThat(name).isEqualTo("omg");
     }
 
     @Test
     public void testDbPackage_ForceExplicitName_MustNotFail() {
-        var name = new TestDbTxCaller(new TxNameGenerator.Simple("omg")).getTxName();
+        var name = new TestDbTxCaller(new TxNameGenerator.Constant("omg")).getTxName();
         assertThat(name).isEqualTo("omg");
     }
 
