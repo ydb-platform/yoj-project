@@ -329,6 +329,20 @@ public abstract class Schema<T> {
         return fields.stream().flatMap(JavaField::flatten);
     }
 
+    /**
+     * Flattens a schema-conforming object into column representation: a {@code Map} of
+     * <code>{@link JavaField#getName() simple field's column name} -> value</code>, with all simple column
+     * values being of type specified in {@link FieldValueType} documentation for the corresponding
+     * {@link JavaField#getValueType() field value type}. This operation is the opposite of {@link #newInstance(Map)}.
+     * <p><strong>Warning:</strong> Do not make assumptions about the {@code Map} implementation returned.
+     * Map entry order, presence of entries with {@code null} values and map (im)mutability are all considered
+     * to be implementation details.
+     *
+     * @param t object to flatten
+     * @return a {@code Map} of <code>{@link JavaField#getName() simple field's column name} -> value</code>
+     *
+     * @see #newInstance(Map)
+     */
     public final Map<String, Object> flatten(T t) {
         Map<String, Object> res = new LinkedHashMap<>();
         fields.forEach(f -> f.collectTo(t, res));
@@ -348,11 +362,13 @@ public abstract class Schema<T> {
     }
 
     /**
-     * Creates a new object having the specified field values.
+     * Creates a new object having the specified field values. The opposite operation is {@link #flatten(Object)}.
      *
-     * @param cells field value map: <code>{@link JavaField#getName() field name} -> field value</code>
+     * @param cells field value map: <code>{@link JavaField#getName() simple field's column name} -> value</code>
      * @return object with the specified field values
      * @throws ConstructionException could not construct object from {@code cells}
+     *
+     * @see #flatten(Object)
      */
     public final T newInstance(Map<String, Object> cells) throws ConstructionException {
         Object[] args = fields.stream().map(f -> f.newInstance(cells)).toArray();
