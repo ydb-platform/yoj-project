@@ -13,20 +13,19 @@ import lombok.With;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
-import tech.ydb.yoj.DeprecationWarnings;
 import tech.ydb.yoj.repository.db.cache.TransactionLog;
+import tech.ydb.yoj.repository.db.exception.QueryInterruptedException;
 import tech.ydb.yoj.repository.db.exception.RetryableException;
-import tech.ydb.yoj.util.lang.CallStack;
 import tech.ydb.yoj.util.lang.Strings;
 
 import javax.annotation.Nullable;
 import java.time.Duration;
-import java.util.Set;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Supplier;
 
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static tech.ydb.yoj.repository.db.IsolationLevel.ONLINE_CONSISTENT_READ_ONLY;
 import static tech.ydb.yoj.repository.db.IsolationLevel.SERIALIZABLE_READ_WRITE;
 
@@ -45,16 +44,7 @@ import static tech.ydb.yoj.repository.db.IsolationLevel.SERIALIZABLE_READ_WRITE;
  */
 @RequiredArgsConstructor(access = AccessLevel.PRIVATE)
 public final class StdTxManager implements TxManager, TxManagerState {
-    /**
-     * @deprecated Please stop using the {@code StdTxManager.useNewTxNameGeneration} field.
-     * Changing this field has no effect as of YOJ 2.6.1, and it will be <strong>removed completely</strong> in YOJ 2.7.0.
-     */
-    @Deprecated(forRemoval = true)
-    public static volatile boolean useNewTxNameGeneration = true;
-
     private static final Logger log = LoggerFactory.getLogger(StdTxManager.class);
-
-    private static final CallStack callStack = new CallStack();
 
     private static final int DEFAULT_MAX_ATTEMPT_COUNT = 100;
     private static final double[] TX_ATTEMPTS_BUCKETS = new double[]
@@ -92,18 +82,12 @@ public final class StdTxManager implements TxManager, TxManagerState {
     @With(AccessLevel.PRIVATE)
     private final int maxAttemptCount;
     @With
-    private final String name;
-    @With(AccessLevel.PRIVATE)
-    private final Integer logLine;
-    @With
     @Getter
     private final String logContext;
     @With(AccessLevel.PRIVATE)
     private final TxOptions options;
     @With(AccessLevel.PRIVATE)
     private final SeparatePolicy separatePolicy;
-    @With
-    private final Set<String> skipCallerPackages;
     @With
     private final TxNameGenerator txNameGenerator;
 
@@ -113,25 +97,16 @@ public final class StdTxManager implements TxManager, TxManagerState {
         this(
                 /*         repository */ repository,
                 /*    maxAttemptCount */ DEFAULT_MAX_ATTEMPT_COUNT,
-                /*               name */ null,
-                /*            logLine */ null,
                 /*         logContext */ null,
                 /*            options */ TxOptions.create(SERIALIZABLE_READ_WRITE),
                 /*     separatePolicy */ SeparatePolicy.LOG,
-                /* skipCallerPackages */ Set.of(),
-                /*    txNameGenerator */ TxNameGenerator.SHORT
+                /*    txNameGenerator */ new TxNameGenerator.Default()
         );
     }
 
-    /**
-     * @deprecated Constructor is in YOJ 2.x for backwards compatibility, an will be removed in YOJ 3.0.0. Please construct
-     * {@link #StdTxManager(Repository)} and customize it using the {@code with<...>()} methods instead.
-     */
-    @Deprecated(forRemoval = true)
-    public StdTxManager(Repository repository, int maxAttemptCount, String name, Integer logLine, String logContext, TxOptions options) {
-        this(repository, maxAttemptCount, name, logLine, logContext, options, SeparatePolicy.LOG, Set.of(), TxNameGenerator.SHORT);
-        DeprecationWarnings.warnOnce("StdTxManager(Repository, int, String, Integer, String, TxOptions)",
-                "Please use the recommended StdTxManager(Repository) constructor and customize the TxManager by using with<...>() methods");
+    @Override
+    public StdTxManager withName(String name) {
+        return withTxNameGenerator(new TxNameGenerator.Constant(name));
     }
 
     @Override
@@ -215,15 +190,11 @@ public final class StdTxManager implements TxManager, TxManagerState {
 
     @Override
     public <T> T tx(Supplier<T> supplier) {
-        if (name == null) {
-            return withGeneratedNameAndLine().tx(supplier);
-        }
+        TxName txName = txNameGenerator.generate();
+        String name = txName.name();
 
-        checkSeparatePolicy(separatePolicy, name);
-        return txImpl(supplier);
-    }
+        checkSeparatePolicy(separatePolicy, txName.logName());
 
-    private <T> T txImpl(Supplier<T> supplier) {
         RetryableException lastRetryableException = null;
         TxImpl lastTx = null;
         try (Timer ignored = totalDuration.labels(name).startTimer()) {
@@ -231,9 +202,15 @@ public final class StdTxManager implements TxManager, TxManagerState {
                 try {
                     attempts.labels(name).observe(attempt);
                     T result;
-                    try (var ignored1 = attemptDuration.labels(name).startTimer()) {
-                        lastTx = new TxImpl(name, repository.startTransaction(options), options);
-                        result = runAttempt(supplier, lastTx);
+                    try (
+                            var ignored1 = attemptDuration.labels(name).startTimer();
+                            var ignored2 = MDC.putCloseable("tx", formatTx(txName));
+                            var ignored3 = MDC.putCloseable("tx-id", formatTxId());
+                            var ignored4 = MDC.putCloseable("tx-name", txName.logName())
+                    ) {
+                        RepositoryTransaction transaction = repository.startTransaction(options);
+                        lastTx = new TxImpl(name, transaction, options);
+                        result = lastTx.run(supplier);
                     }
 
                     if (options.isDryRun()) {
@@ -247,7 +224,12 @@ public final class StdTxManager implements TxManager, TxManagerState {
                     retries.labels(name, getExceptionNameForMetric(e)).inc();
                     lastRetryableException = e;
                     if (attempt + 1 <= maxAttemptCount) {
-                        e.sleep(attempt);
+                        try {
+                            MILLISECONDS.sleep(e.getRetryPolicy().calcDuration(attempt).toMillis());
+                        } catch (InterruptedException ex) {
+                            Thread.currentThread().interrupt();
+                            throw new QueryInterruptedException("DB query interrupted", ex);
+                        }
                     }
                 } catch (Exception e) {
                     results.labels(name, "rollback").inc();
@@ -284,47 +266,12 @@ public final class StdTxManager implements TxManager, TxManagerState {
         return Strings.removeSuffix(e.getClass().getSimpleName(), "Exception");
     }
 
-    private <T> T runAttempt(Supplier<T> supplier, TxImpl tx) {
-        try (var ignored2 = MDC.putCloseable("tx", formatTx());
-             var ignored3 = MDC.putCloseable("tx-id", formatTxId());
-             var ignored4 = MDC.putCloseable("tx-name", formatTxName(false))) {
-            return tx.run(supplier);
-        }
-    }
-
-    private StdTxManager withGeneratedNameAndLine() {
-        record TxInfo(String name, int lineNumber) {
-        }
-
-        if (!useNewTxNameGeneration) {
-            DeprecationWarnings.warnOnce("StdTxManager.useNewTxNameGeneration",
-                    "Setting StdTxManager.useNewTxNameGeneration has no effect. Please stop setting this field, it will be removed in YOJ 2.7.0");
-        }
-
-        var info = callStack.findCallingFrame()
-                .skipPackage(StdTxManager.class.getPackageName())
-                .skipPackages(skipCallerPackages)
-                .map(
-                        f -> new TxInfo(
-                                txNameGenerator.nameFor(f.getClassName(), f.getMethodName()),
-                                f.getLineNumber()
-                        ),
-                        txNameGenerator
-                );
-
-        return withName(info.name).withLogLine(info.lineNumber);
-    }
-
-    private String formatTx() {
-        return formatTxId() + " {" + formatTxName(true) + "}";
+    private String formatTx(TxName txName) {
+        return formatTxId() + " {" + txName.logName() + (logContext != null ? "/" + logContext : "") + "}";
     }
 
     private String formatTxId() {
         return Strings.leftPad(Long.toUnsignedString(txLogId, 36), 6, '0') + options.getIsolationLevel().getTxIdSuffix();
-    }
-
-    private String formatTxName(boolean withContext) {
-        return name + (logLine != null ? ":" + logLine : "") + (withContext && logContext != null ? "/" + logContext : "");
     }
 
     @Override

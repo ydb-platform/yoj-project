@@ -2,8 +2,6 @@ package tech.ydb.yoj.repository.db.exception;
 
 import tech.ydb.yoj.util.retry.RetryPolicy;
 
-import static java.util.concurrent.TimeUnit.MILLISECONDS;
-
 /**
  * Base class for retryable database access exceptions.
  */
@@ -28,18 +26,8 @@ public non-sealed abstract class RetryableException extends RepositoryException 
         this(message, RetryPolicy.retryImmediately());
     }
 
-    /**
-     * Sleeps for the recommended amount of time before retrying.
-     *
-     * @param attempt request attempt count (starting from 1)
-     */
-    public void sleep(int attempt) {
-        try {
-            MILLISECONDS.sleep(retryPolicy.calcDuration(attempt).toMillis());
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            throw new QueryInterruptedException("DB query interrupted", e);
-        }
+    public final RetryPolicy getRetryPolicy() {
+        return retryPolicy;
     }
 
     public RepositoryException rethrow() {

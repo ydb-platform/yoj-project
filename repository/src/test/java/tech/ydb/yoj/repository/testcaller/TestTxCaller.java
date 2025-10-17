@@ -1,8 +1,6 @@
 package tech.ydb.yoj.repository.testcaller;
 
-import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
-import lombok.With;
 import tech.ydb.yoj.repository.db.IsolationLevel;
 import tech.ydb.yoj.repository.db.Repository;
 import tech.ydb.yoj.repository.db.RepositoryTransaction;
@@ -13,10 +11,6 @@ import tech.ydb.yoj.repository.db.TxOptions;
 import tech.ydb.yoj.repository.db.cache.TransactionLocal;
 import tech.ydb.yoj.repository.db.testcaller.TestDbTxCaller;
 
-import javax.annotation.Nullable;
-import java.util.Set;
-
-import static lombok.AccessLevel.PRIVATE;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -26,21 +20,9 @@ import static org.mockito.Mockito.when;
  * This is a copy of {@link TestDbTxCaller}
  * for testing calls from different packages.
  */
-@With
-@RequiredArgsConstructor(access = PRIVATE)
+@RequiredArgsConstructor
 public class TestTxCaller {
-    @Nullable
-    private final String explicitName;
-
-    @NonNull
-    private final Set<String> skipCallerPackages;
-
-    @NonNull
     private final TxNameGenerator txNameGenerator;
-
-    public TestTxCaller(@Nullable String explicitName) {
-        this(explicitName, Set.of(), explicitName == null ? TxNameGenerator.SHORT : TxNameGenerator.NONE);
-    }
 
     public String getTxName() {
         var repo = mock(Repository.class);
@@ -48,12 +30,7 @@ public class TestTxCaller {
         when(rt.getTransactionLocal()).thenReturn(new TransactionLocal(TxOptions.create(IsolationLevel.SERIALIZABLE_READ_WRITE)));
         when(repo.startTransaction(any(TxOptions.class))).thenReturn(rt);
 
-        var tx = new StdTxManager(repo)
-                .withSkipCallerPackages(skipCallerPackages)
-                .withTxNameGenerator(txNameGenerator);
-        if (explicitName != null) {
-            tx = tx.withName(explicitName);
-        }
-        return tx.tx(() -> Tx.Current.get().getName());
+        var txManager = new StdTxManager(repo).withTxNameGenerator(txNameGenerator);
+        return txManager.tx(() -> Tx.Current.get().getName());
     }
 }
