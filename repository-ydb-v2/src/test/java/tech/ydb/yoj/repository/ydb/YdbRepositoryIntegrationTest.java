@@ -19,7 +19,6 @@ import lombok.experimental.Delegate;
 import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.core.config.Configurator;
 import org.assertj.core.api.Assertions;
-import org.junit.Assert;
 import org.junit.ClassRule;
 import org.junit.Test;
 import tech.ydb.common.transaction.TxMode;
@@ -119,9 +118,9 @@ import java.util.stream.Stream;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 import static org.assertj.core.api.Assertions.assertThatIllegalStateException;
-import static org.junit.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.AssertionsForClassTypes.assertThatExceptionOfType;
 import static tech.ydb.yoj.repository.db.EntityExpressions.newFilterBuilder;
 import static tech.ydb.yoj.repository.db.EntityExpressions.newOrderBuilder;
 
@@ -251,9 +250,9 @@ public class YdbRepositoryIntegrationTest extends RepositoryTest {
                             return QueryType.SELECT;
                         }
                     }, null);
-            assertEquals(List.of(new GroupByResult("id_yql_list", List.of("id_yql_list"),
+            assertThat(result).containsExactly(new GroupByResult("id_yql_list", List.of("id_yql_list"),
                     Map.of("name", "id_yql_list"),
-                    new GroupByResult.Struct("id_yql_list"))), result);
+                    new GroupByResult.Struct("id_yql_list")));
         });
     }
 
@@ -290,11 +289,11 @@ public class YdbRepositoryIntegrationTest extends RepositoryTest {
             db.projects().save(new Project(new Project.Id("1"), "p1"));
             db.projects().save(new Project(new Project.Id("2"), "p2"));
         });
-        Assertions.assertThatExceptionOfType(YdbRepositoryException.class)
+        assertThatExceptionOfType(YdbRepositoryException.class)
                 .isThrownBy(() -> db.scan().withMaxSize(1).run(() -> {
                     db.projects().findAll();
                 }))
-                .satisfies(e -> Assert.assertTrue(e.getCause() instanceof ResultTruncatedException));
+                .satisfies(e -> assertThat(e).hasCauseInstanceOf(ResultTruncatedException.class));
     }
 
     @Test
@@ -512,7 +511,7 @@ public class YdbRepositoryIntegrationTest extends RepositoryTest {
 
     @Test
     public void subdirTable() {
-        Assertions.assertThat(((YdbRepository) repository).getSchemaOperations().getTableNames(true))
+        assertThat(((YdbRepository) repository).getSchemaOperations().getTableNames(true))
                 .contains("subdir/SubdirEntity");
     }
 
@@ -834,10 +833,10 @@ public class YdbRepositoryIntegrationTest extends RepositoryTest {
     public void testCompatibilityDropIndex() {
         var checker = new YdbSchemaCompatibilityChecker(List.of(IndexedEntityDropIndex.class), (YdbRepository) repository);
         checker.run();
-        Assertions.assertThat(checker.getShouldExecuteMessages()).isEmpty();
+        assertThat(checker.getShouldExecuteMessages()).isEmpty();
 
         var ts = getRealYdbConfig().getTablespace();
-        Assertions.assertThat(checker.getCanExecuteMessages()).containsAnyOf(
+        assertThat(checker.getCanExecuteMessages()).containsAnyOf(
                 String.format("ALTER TABLE `%stable_with_indexes` DROP INDEX `key_index`;", ts)
         );
     }
@@ -845,9 +844,9 @@ public class YdbRepositoryIntegrationTest extends RepositoryTest {
     @Test
     public void testCompatibilityCreateIndex() {
         var checker = new YdbSchemaCompatibilityChecker(List.of(IndexedEntityCreateIndex.class), (YdbRepository) repository);
-        Assertions.assertThatThrownBy(checker::run);
+        assertThatThrownBy(checker::run);
         var ts = getRealYdbConfig().getTablespace();
-        Assertions.assertThat(checker.getShouldExecuteMessages()).containsExactly(
+        assertThat(checker.getShouldExecuteMessages()).containsExactly(
                 String.format("ALTER TABLE `%stable_with_indexes` ADD INDEX `key2_index` GLOBAL ON (`key_id`,`valueId2`);", ts)
         );
     }
@@ -855,9 +854,9 @@ public class YdbRepositoryIntegrationTest extends RepositoryTest {
     @Test
     public void testCompatibilityDropTtl() {
         var checker = new YdbSchemaCompatibilityChecker(List.of(EntityDropTtl.class), (YdbRepository) repository);
-        Assertions.assertThatThrownBy(checker::run);
+        assertThatThrownBy(checker::run);
         var ts = getRealYdbConfig().getTablespace();
-        Assertions.assertThat(checker.getShouldExecuteMessages()).containsExactly(
+        assertThat(checker.getShouldExecuteMessages()).containsExactly(
                 String.format("ALTER TABLE `%sTtlEntity` RESET (TTL);", ts)
         );
     }
@@ -865,9 +864,9 @@ public class YdbRepositoryIntegrationTest extends RepositoryTest {
     @Test
     public void testCompatibilityChangeOrCreateTtl() {
         var checker = new YdbSchemaCompatibilityChecker(List.of(EntityChangeTtl.class), (YdbRepository) repository);
-        Assertions.assertThatThrownBy(checker::run);
+        assertThatThrownBy(checker::run);
         var ts = getRealYdbConfig().getTablespace();
-        Assertions.assertThat(checker.getShouldExecuteMessages()).containsExactly(
+        assertThat(checker.getShouldExecuteMessages()).containsExactly(
                 String.format("ALTER TABLE `%sTtlEntity` SET (TTL = Interval(\"PT2H\") ON createdAt);", ts)
         );
     }
@@ -875,7 +874,7 @@ public class YdbRepositoryIntegrationTest extends RepositoryTest {
     @Test
     public void testCompatibilityNewIndexedTable() {
         var checker = new YdbSchemaCompatibilityChecker(List.of(IndexedEntityNew.class), (YdbRepository) repository);
-        Assertions.assertThatThrownBy(checker::run);
+        assertThatThrownBy(checker::run);
         var ts = getRealYdbConfig().getTablespace();
         String expected = String.format(
                 "CREATE TABLE `%snew_table_with_indexes` (\n" +
@@ -890,24 +889,20 @@ public class YdbRepositoryIntegrationTest extends RepositoryTest {
                         "\tINDEX `key3_index` GLOBAL ASYNC ON (`key_id`,`value_id`)\n" +
                         ");",
                 ts);
-        Assert.assertEquals(expected, checker.getShouldExecuteMessages().get(0));
-        Assertions.assertThat(checker.getShouldExecuteMessages()).containsExactly(
-                expected
-        );
-
+        assertThat(checker.getShouldExecuteMessages()).containsExactly(expected);
     }
 
     @Test
     public void testCompatibilityChangeIndex() {
         var checker = new YdbSchemaCompatibilityChecker(List.of(IndexedEntityChangeIndex.class), (YdbRepository) repository);
-        Assertions.assertThatThrownBy(checker::run);
+        assertThatThrownBy(checker::run);
 
         var ts = getRealYdbConfig().getTablespace();
         String message = String.format("Altering index `%stable_with_indexes`.value_index is impossible: " +
                 "columns are changed: [value_id, valueId2] --> [value_id].\n", ts);
         message += String.format("ALTER TABLE `%stable_with_indexes` DROP INDEX `value_index`;\n", ts);
         message += String.format("ALTER TABLE `%stable_with_indexes` ADD INDEX `value_index` GLOBAL ON (`value_id`);", ts);
-        Assertions.assertThat(checker.getShouldExecuteMessages()).containsExactly(message);
+        assertThat(checker.getShouldExecuteMessages()).containsExactly(message);
     }
 
     @Test
@@ -927,11 +922,11 @@ public class YdbRepositoryIntegrationTest extends RepositoryTest {
                 tableDescriptor, schema, schema, parts, false
         );
         var sqlQuery = statement.getQuery("ts/");
-        assertEquals(expectSqlQuery, sqlQuery);
+        assertThat(sqlQuery).isEqualTo(expectSqlQuery);
 
         // Check we use index and query was not failed
         var actual = db.tx(() -> ((YdbTable<IndexedEntity>) db.indexedTable()).find(parts));
-        assertEquals(expectRows, actual);
+        assertThat(actual).isEqualTo(expectRows);
     }
 
     private void checkTxRetryableOnRequestError(StatusCodesProtos.StatusIds.StatusCode statusCode) {

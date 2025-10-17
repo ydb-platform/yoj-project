@@ -1,12 +1,10 @@
 package tech.ydb.yoj.repository.test;
 
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Iterators;
 import lombok.NonNull;
 import lombok.SneakyThrows;
 import org.assertj.core.api.Assertions;
-import org.junit.Assert;
 import org.junit.Test;
 import tech.ydb.yoj.databind.ByteArray;
 import tech.ydb.yoj.databind.expression.FieldValue;
@@ -81,9 +79,7 @@ import tech.ydb.yoj.repository.test.sample.model.annotations.UniqueEntityNative;
 
 import java.time.Instant;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -102,23 +98,12 @@ import java.util.stream.StreamSupport;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.time.temporal.ChronoUnit.MILLIS;
-import static java.util.Arrays.asList;
-import static java.util.Collections.emptyList;
-import static java.util.Collections.singleton;
-import static java.util.Collections.singletonMap;
 import static java.util.Spliterator.ORDERED;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertNotSame;
-import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertSame;
-import static org.junit.Assert.assertThrows;
-import static org.junit.Assert.assertTrue;
+import static org.assertj.core.api.Assertions.fail;
 import static tech.ydb.yoj.repository.db.EntityExpressions.newFilterBuilder;
 
 @SuppressWarnings("checkstyle:MethodCount")
@@ -195,11 +180,11 @@ public abstract class RepositoryTest extends RepositoryTestSupport {
         txManager.tx(() -> {
             TestEntityOperations db = BaseDb.current(TestEntityOperations.class);
 
-            Assert.assertNotNull(db.projects().find(new Project.Id("12312")));
-            Assert.assertNotNull(db.projects().find(new Project.Id("123123")));
+            assertThat(db.projects().find(new Project.Id("12312"))).isNotNull();
+            assertThat(db.projects().find(new Project.Id("123123"))).isNotNull();
 
-            Assert.assertNotNull(db.table(Primitive.class).find(new Primitive.Id(121)));
-            Assert.assertNotNull(db.table(Primitive.class).find(new Primitive.Id(122)));
+            assertThat(db.table(Primitive.class).find(new Primitive.Id(121))).isNotNull();
+            assertThat(db.table(Primitive.class).find(new Primitive.Id(122))).isNotNull();
         });
     }
 
@@ -207,40 +192,40 @@ public abstract class RepositoryTest extends RepositoryTestSupport {
         txManager.tx(() -> {
             TestEntityOperations db = BaseDb.current(TestEntityOperations.class);
 
-            Assert.assertEquals(0, db.projects().streamAllIds(10_000).count());
-            Assert.assertEquals(0, db.table(Primitive.class).streamAllIds(10_000).count());
+            assertThat(db.projects().streamAllIds(10_000).count()).isEqualTo(0L);
+            assertThat(db.table(Primitive.class).streamAllIds(10_000).count()).isEqualTo(0L);
         });
     }
 
     @Test
     public void listWithQueryByNullableField() {
         Project projectWithName1 = db.tx(() -> db.projects().save(new Project(new Project.Id("1"), "named_1")));
-        assertEquals("named_1", projectWithName1.getName());
+        assertThat(projectWithName1.getName()).isEqualTo("named_1");
         Project projectWithName2 = db.tx(() -> db.projects().save(new Project(new Project.Id("2"), "named_2")));
-        assertEquals("named_2", projectWithName2.getName());
+        assertThat(projectWithName2.getName()).isEqualTo("named_2");
         Project projectWithoutName = db.tx(() -> db.projects().save(new Project(new Project.Id("3"), null)));
-        assertNull(projectWithoutName.getName());
-        assertEquals(3, db.readOnly().run(() -> db.projects().findAll()).size());
+        assertThat(projectWithoutName.getName()).isNull();
+        assertThat(db.readOnly().run(() -> db.projects().findAll())).hasSize(3);
 
         FilterExpression<Project> eqNotNullExp = newFilterBuilder(Project.class)
                 .where("name").eq("named_1")
                 .build();
-        testList(eqNotNullExp, projectWithName1);
+        assertListingContains(eqNotNullExp, projectWithName1);
 
         FilterExpression<Project> neqNotNullExp = newFilterBuilder(Project.class)
                 .where("name").neq("named_1")
                 .build();
-        testList(neqNotNullExp, projectWithName2);
+        assertListingContains(neqNotNullExp, projectWithName2);
 
         FilterExpression<Project> notNullExp = newFilterBuilder(Project.class)
                 .where("name").isNotNull()
                 .build();
-        testList(notNullExp, projectWithName1, projectWithName2);
+        assertListingContains(notNullExp, projectWithName1, projectWithName2);
 
         FilterExpression<Project> nullExp = newFilterBuilder(Project.class)
                 .where("name").isNull()
                 .build();
-        testList(nullExp, projectWithoutName);
+        assertListingContains(nullExp, projectWithoutName);
     }
 
     @Test
@@ -252,7 +237,7 @@ public abstract class RepositoryTest extends RepositoryTestSupport {
         });
 
         Project p2 = db.tx(() -> db.projects().find(new Project.Id("1")));
-        assertEquals(p1, p2);
+        assertThat(p2).isEqualTo(p1);
 
         Project p3 = db.tx(() -> {
             Project p = new Project(new Project.Id("1"), "renamed");
@@ -260,18 +245,18 @@ public abstract class RepositoryTest extends RepositoryTestSupport {
             return p;
         });
         Project p4 = db.tx(() -> db.projects().find(new Project.Id("1")));
-        assertEquals(p3, p4);
+        assertThat(p4).isEqualTo(p3);
 
         db.tx(() -> db.projects().delete(new Project.Id("1")));
         Project p5 = db.tx(() -> db.projects().find(new Project.Id("1")));
-        assertNull(p5);
+        assertThat(p5).isNull();
     }
 
     @Test
     public void deferAfterCommitDontRunInDryRun() {
         db.withDryRun(true).tx(
                 () -> Tx.Current.get().defer(
-                        () -> Assert.fail("defer after commit musn't call in dry run")
+                        () -> fail("defer after commit musn't call in dry run")
                 )
         );
     }
@@ -280,7 +265,9 @@ public abstract class RepositoryTest extends RepositoryTestSupport {
     public void deferNotInTxContext() {
         db.tx(
                 () -> Tx.Current.get().defer(
-                        () -> assertFalse(Tx.Current.exists())
+                        () -> assertThat(Tx.Current.exists())
+                                .withFailMessage("defer must not run in tx context")
+                                .isFalse()
                 )
         );
     }
@@ -289,7 +276,7 @@ public abstract class RepositoryTest extends RepositoryTestSupport {
     public void deferFinallyDontRunInDryRun() {
         db.withDryRun(true).tx(
                 () -> Tx.Current.get().deferFinally(
-                        () -> Assert.fail("defer after commit musn't call in dry run")
+                        () -> fail("defer after commit musn't be called in dry-run mode")
                 )
         );
     }
@@ -298,7 +285,7 @@ public abstract class RepositoryTest extends RepositoryTestSupport {
     public void deferFinallyCommit() {
         AtomicInteger executions = new AtomicInteger();
         db.tx(() -> Tx.Current.get().deferFinally(executions::incrementAndGet));
-        assertEquals(1, executions.get());
+        assertThat(executions).hasValue(1);
     }
 
     @Test
@@ -308,7 +295,7 @@ public abstract class RepositoryTest extends RepositoryTestSupport {
             Tx.Current.get().deferFinally(executions::incrementAndGet);
             throw new RuntimeException();
         }));
-        assertEquals(1, executions.get());
+        assertThat(executions).hasValue(1);
     }
 
     @Test
@@ -318,18 +305,26 @@ public abstract class RepositoryTest extends RepositoryTestSupport {
             Tx.Current.get().deferFinally(executions::incrementAndGet);
             throw new OptimisticLockException("");
         }));
-        assertEquals(1, executions.get());
+        assertThat(executions).hasValue(1);
     }
 
     @Test
     public void deferFinallyNotInTxContext() {
-        db.tx(() -> Tx.Current.get().deferFinally(() -> assertFalse(Tx.Current.exists())));
+        db.tx(() -> Tx.Current.get().deferFinally(() ->
+                assertThat(Tx.Current.exists())
+                        .withFailMessage("deferFinally must not be in a tx context")
+                        .isFalse()
+        ));
     }
 
     @Test
     public void deferFinallyRollbackNotInTxContext() {
         assertThatExceptionOfType(RuntimeException.class).isThrownBy(() -> db.tx(() -> {
-            Tx.Current.get().deferFinally(() -> assertFalse(Tx.Current.exists()));
+            Tx.Current.get().deferFinally(() ->
+                    assertThat(Tx.Current.exists())
+                            .withFailMessage("deferFinally must not be in a tx context")
+                            .isFalse()
+            );
             throw new RuntimeException();
         }));
     }
@@ -337,7 +332,7 @@ public abstract class RepositoryTest extends RepositoryTestSupport {
     @Test
     public void findAll() {
         List<Project> all = db.tx(() -> db.projects().findAll());
-        assertEquals(0, all.size());
+        assertThat(all).isEmpty();
 
         Project p1 = db.tx(() -> {
             Project p = new Project(new Project.Id("1"), "p1");
@@ -345,16 +340,16 @@ public abstract class RepositoryTest extends RepositoryTestSupport {
             return p;
         });
         List<Project> all1 = db.tx(() -> db.projects().findAll());
-        assertEquals(1, all1.size());
-        assertEquals(p1, all1.get(0));
+        assertThat(all1).hasSize(1);
+        assertThat(all1.get(0)).isEqualTo(p1);
 
         db.tx(() -> db.projects().save(new Project(new Project.Id("2"), "p2")));
         List<Project> all2 = db.tx(() -> db.projects().findAll());
-        assertEquals(2, all2.size());
+        assertThat(all2).hasSize(2);
 
         db.tx(() -> db.projects().deleteAll());
         List<Project> all3 = db.tx(() -> db.projects().findAll());
-        assertEquals(0, all3.size());
+        assertThat(all3).isEmpty();
     }
 
     @Test
@@ -594,7 +589,7 @@ public abstract class RepositoryTest extends RepositoryTestSupport {
     }
 
     @Test
-    public void testSpliteratorDoubleTryAdvance() {
+    public void spliteratorDoubleTryAdvance() {
         db.tx(() -> {
             for (int i = 0; i < 100; i++) {
                 db.projects().save(new Project(new Project.Id(String.valueOf(i)), ""));
@@ -624,7 +619,7 @@ public abstract class RepositoryTest extends RepositoryTestSupport {
                     false
             );
 
-            assertEquals(100, stream2.mapToLong(List::size).sum());
+            assertThat(stream2.mapToLong(List::size).sum()).isEqualTo(100L);
         });
     }
 
@@ -679,7 +674,7 @@ public abstract class RepositoryTest extends RepositoryTestSupport {
     @Test
     public void viewStreamAll() {
         for (int i = 1; i < 5; i++) {
-            Book b = new Book(new Book.Id(String.valueOf(i)), i, "title-" + i, emptyList());
+            Book b = new Book(new Book.Id(String.valueOf(i)), i, "title-" + i, List.of());
             db.tx(() -> db.table(Book.class).save(b));
             assertThat(db.tx(() -> db.table(Book.class).streamAll(Book.TitleViewId.class, 2).collect(toList())))
                     .hasSize(i);
@@ -806,20 +801,20 @@ public abstract class RepositoryTest extends RepositoryTestSupport {
     @Test
     public void countAll() {
         long allSize = db.tx(() -> db.projects().countAll());
-        assertEquals(0, allSize);
+        assertThat(allSize).isEqualTo(0L);
 
         db.tx(() -> db.projects().save(new Project(new Project.Id("1"), "p1")));
 
         long all1 = db.tx(() -> db.projects().countAll());
-        assertEquals(1, all1);
+        assertThat(all1).isEqualTo(1L);
 
         db.tx(() -> db.projects().save(new Project(new Project.Id("2"), "p2")));
         long all2 = db.tx(() -> db.projects().countAll());
-        assertEquals(2, all2);
+        assertThat(all2).isEqualTo(2L);
 
         db.tx(() -> db.projects().deleteAll());
         long all3 = db.tx(() -> db.projects().countAll());
-        assertEquals(0, all3);
+        assertThat(all3).isEqualTo(0L);
     }
 
     @Test
@@ -860,28 +855,28 @@ public abstract class RepositoryTest extends RepositoryTestSupport {
     public void findRange() {
         db.tx(this::makeComplexes);
         db.tx(() -> {
-            assertEquals(1, db.complexes().find(Range.create(new Complex.Id(0, 0L, "aaa", Complex.Status.OK))).size());
-            assertEquals(2, db.complexes().find(Range.create(new Complex.Id(0, 0L, "aaa", null))).size());
-            assertEquals(6, db.complexes().find(Range.create(new Complex.Id(0, 0L, null, null))).size());
-            assertEquals(18, db.complexes().find(Range.create(new Complex.Id(0, null, null, null))).size());
-            assertEquals(54, db.complexes().find(Range.create(new Complex.Id(null, null, null, null))).size());
+            assertThat(db.complexes().find(Range.create(new Complex.Id(0, 0L, "aaa", Complex.Status.OK)))).hasSize(1);
+            assertThat(db.complexes().find(Range.create(new Complex.Id(0, 0L, "aaa", null)))).hasSize(2);
+            assertThat(db.complexes().find(Range.create(new Complex.Id(0, 0L, null, null)))).hasSize(6);
+            assertThat(db.complexes().find(Range.create(new Complex.Id(0, null, null, null)))).hasSize(18);
+            assertThat(db.complexes().find(Range.create(new Complex.Id(null, null, null, null)))).hasSize(54);
 
-            assertEquals(4, db.complexes().find(Range.create(
+            assertThat(db.complexes().find(Range.create(
                     new Complex.Id(0, 0L, "aaa", null),
                     new Complex.Id(0, 0L, "aab", null)
-            )).size());
-            assertEquals(4, db.complexes().find(Range.create(
+            ))).hasSize(4);
+            assertThat(db.complexes().find(Range.create(
                     new Complex.Id(0, 0L, null, null),
                     new Complex.Id(0, 0L, "aab", null)
-            )).size());
-            assertEquals(2, db.complexes().find(Range.create(
+            ))).hasSize(4);
+            assertThat(db.complexes().find(Range.create(
                     new Complex.Id(0, 0L, "bbb", null),
                     new Complex.Id(0, 0L, null, null)
-            )).size());
-            assertEquals(36, db.complexes().find(Range.create(
+            ))).hasSize(2);
+            assertThat(db.complexes().find(Range.create(
                     new Complex.Id(1, null, null, null),
                     new Complex.Id(2, null, null, null)
-            )).size());
+            ))).hasSize(36);
         });
     }
 
@@ -907,7 +902,7 @@ public abstract class RepositoryTest extends RepositoryTestSupport {
     protected void makeComplexes() {
         for (int a = 0; a < 3; a++) {
             for (long b = 0; b < 3; b++) {
-                for (String c : asList("aaa", "aab", "bbb")) {
+                for (String c : List.of("aaa", "aab", "bbb")) {
                     for (Complex.Status d : Complex.Status.values()) {
                         db.complexes().insert(new Complex(new Complex.Id(a, b, c, d)));
                     }
@@ -920,25 +915,22 @@ public abstract class RepositoryTest extends RepositoryTestSupport {
     public void findInCompleteIdAllFromCache() {
         db.tx(this::makeComplexes);
         db.tx(() -> {
-            var idsToFetch = ImmutableSet.of(
+            var idsToFetch = Set.of(
                     new Id(0, 0L, "aaa", Complex.Status.OK),
                     new Id(0, 0L, "aaa", Complex.Status.FAIL)
             );
             var firstQueryResult = db.complexes().find(idsToFetch).stream().collect(
                     Collectors.toMap(Complex::getId, Function.identity())
             );
-            assertEquals(2, firstQueryResult.size());
+            assertThat(firstQueryResult).hasSize(2);
 
             var complexesSecondQuery = db.complexes().find(idsToFetch).stream().collect(
                     Collectors.toMap(Complex::getId, Function.identity())
             );
-            assertEquals(2, complexesSecondQuery.size());
+            assertThat(complexesSecondQuery).hasSize(2);
 
             for (var pair : firstQueryResult.entrySet()) {
-                assertSame(
-                        pair.getValue(),
-                        complexesSecondQuery.get(pair.getKey())
-                );
+                assertThat(complexesSecondQuery.get(pair.getKey())).isSameAs(pair.getValue());
             }
         });
     }
@@ -961,12 +953,12 @@ public abstract class RepositoryTest extends RepositoryTestSupport {
         db.tx(this::makeComplexes);
         db.tx(() -> {
             var entryInDbAndCache = db.complexes().find(idInDbAndCache);
-            assertNotNull(entryInDbAndCache);
-            assertNull(db.complexes().find(idUnexistentMarkedEmptyInCache));
+            assertThat(entryInDbAndCache).isNotNull();
+            assertThat(db.complexes().find(idUnexistentMarkedEmptyInCache)).isNull();
             var entryInCache = new Complex(idInCacheOnly);
             db.complexes().insert(entryInCache);
 
-            var result = db.complexes().find(ImmutableSet.of(
+            var result = db.complexes().find(Set.of(
                     idInDbOnly,
                     idInDbAndCache,
                     idInCacheOnly,
@@ -976,13 +968,13 @@ public abstract class RepositoryTest extends RepositoryTestSupport {
                     Collectors.toMap(Complex::getId, Function.identity())
             );
 
-            assertEquals(3, result.size());
+            assertThat(result).hasSize(3);
             // is same because it is from cache
-            assertSame(entryInDbAndCache, result.get(idInDbAndCache));
+            assertThat(result.get(idInDbAndCache)).isSameAs(entryInDbAndCache);
             // is same because it is from cache (not inserted to db for now)
-            assertSame(entryInCache, result.get(idInCacheOnly));
+            assertThat(result.get(idInCacheOnly)).isSameAs(entryInCache);
             // this fetched from db and should exist
-            assertNotNull(result.get(idInDbOnly));
+            assertThat(result.get(idInDbOnly)).isNotNull();
         });
 
     }
@@ -1013,24 +1005,25 @@ public abstract class RepositoryTest extends RepositoryTestSupport {
         db.tx(() -> {
             var updatedEntry = new Complex(idInDbAndUpdatedInCache, "UPDATED");
             db.complexes().save(updatedEntry);
-            assertNull(db.complexes().find(idUnexistentMarkedEmptyInCache));
+            assertThat(db.complexes().find(idUnexistentMarkedEmptyInCache)).isNull();
 
-            var result = db.complexes().find(ImmutableSet.of(
+            var result = db.complexes().find(Set.of(
                     new Id(0, null, null, null)
             )).stream().collect(
                     Collectors.toMap(Complex::getId, Function.identity())
             );
 
-            assertEquals(2, result.size());
+            assertThat(result).hasSize(2);
             // is same because it is from cache
-            assertSame(updatedEntry, result.get(idInDbAndUpdatedInCache));
+            assertThat(result.get(idInDbAndUpdatedInCache)).isSameAs(updatedEntry);
 
             // fetched from db, not cache
             var entryIdInDbOnly = result.get(idInDbOnly);
-            assertEquals(createdEntries.get(idInDbOnly), entryIdInDbOnly);
-            assertNotSame(createdEntries.get(idInDbOnly), entryIdInDbOnly);
+            assertThat(entryIdInDbOnly)
+                    .isEqualTo(createdEntries.get(idInDbOnly))
+                    .isNotSameAs(createdEntries.get(idInDbOnly));
             // but in cache now (why not?)
-            assertSame(entryIdInDbOnly, db.complexes().find(idInDbOnly));
+            assertThat(db.complexes().find(idInDbOnly)).isSameAs(entryIdInDbOnly);
         });
     }
 
@@ -1046,18 +1039,16 @@ public abstract class RepositoryTest extends RepositoryTestSupport {
             db.complexes().insert(new Complex(idC, "C"));
         });
         db.tx(() -> {
-            assertEquals(
-                    db.complexes().find(ImmutableSet.of(idA, idB, idC)).stream().map(Entity::getId).collect(toList()),
-                    List.of(idA, idB, idC)
-            );
+            assertThat(db.complexes().find(Set.of(idA, idB, idC)))
+                    .extracting(Entity::getId)
+                    .containsExactly(idA, idB, idC);
 
             // put in cache
             db.complexes().find(idB);
 
-            assertEquals(
-                    db.complexes().find(ImmutableSet.of(idA, idB, idC)).stream().map(Entity::getId).collect(toList()),
-                    List.of(idA, idB, idC)
-            );
+            assertThat(db.complexes().find(Set.of(idA, idB, idC)))
+                    .extracting(Entity::getId)
+                    .containsExactly(idA, idB, idC);
         });
     }
 
@@ -1071,25 +1062,23 @@ public abstract class RepositoryTest extends RepositoryTestSupport {
             db.complexes().insert(new Complex(secondId));
         });
         db.tx(() -> {
-            var result = db.complexes().find(ImmutableSet.of(
+            var result = db.complexes().find(Set.of(
                     firstId,
                     secondId
             )).stream().collect(
                     Collectors.toMap(Complex::getId, Function.identity())
             );
-
-            assertEquals(2, result.size());
+            assertThat(result).hasSize(2);
 
             db.complexes().delete(firstId);
 
-            result = db.complexes().find(ImmutableSet.of(
+            result = db.complexes().find(Set.of(
                     firstId,
                     secondId
             )).stream().collect(
                     Collectors.toMap(Complex::getId, Function.identity())
             );
-
-            assertEquals(1, result.size());
+            assertThat(result).hasSize(1);
         });
     }
 
@@ -1108,12 +1097,12 @@ public abstract class RepositoryTest extends RepositoryTestSupport {
         RepositoryTransaction tx2 = startTransaction();
         tx2.table(Complex.class).delete(id);
 
-        var found = tx1.table(Complex.class).find(ImmutableSet.of(
+        var found = tx1.table(Complex.class).find(Set.of(
                 new Id(0, null, null, null)
         ));
 
         tx2.commit();
-        assertNotNull(found);
+        assertThat(found).isNotNull();
         assertThatExceptionOfType(OptimisticLockException.class)
                 .isThrownBy(tx1::commit);
     }
@@ -1325,8 +1314,7 @@ public abstract class RepositoryTest extends RepositoryTestSupport {
         var actualValueIds = actualViews.stream()
                 .map(IndexedEntity.ValueIdView::getValueId)
                 .collect(toSet());
-
-        assertEquals(Set.of("v-0", "v-1", "v-2"), actualValueIds);
+        assertThat(actualValueIds).containsExactlyInAnyOrder("v-0", "v-1", "v-2");
     }
 
     private void findInKeysViewFilteredAndOrdered(boolean limited) {
@@ -1370,17 +1358,18 @@ public abstract class RepositoryTest extends RepositoryTestSupport {
     }
 
     @Test
-    public void testUniqueIndex() {
+    public void uniqueIndex() {
         String verySameName = "valuableName";
         UniqueProject ue1 = new UniqueProject(new UniqueProject.Id("id1"), verySameName, 1);
         db.tx(() -> db.table(UniqueProject.class).save(ue1));
         db.tx(() -> db.table(UniqueProject.class).save(ue1).withVersion(2)); // no exception
         UniqueProject ue2 = new UniqueProject(new UniqueProject.Id("id2"), verySameName, 1);
-        assertThrows(EntityAlreadyExistsException.class, () -> db.tx(() -> db.table(UniqueProject.class).save(ue2)));
+        assertThatExceptionOfType(EntityAlreadyExistsException.class)
+                .isThrownBy(() -> db.tx(() -> db.table(UniqueProject.class).save(ue2)));
     }
 
     @Test
-    public void testUsingSecondTable() {
+    public void sameEntityMultipleTables() {
         String verySameName = "valuableName";
         UniqueProject ue1 = new UniqueProject(new UniqueProject.Id("id1"), verySameName, 1);
         db.tx(() -> {
@@ -1531,7 +1520,7 @@ public abstract class RepositoryTest extends RepositoryTestSupport {
                     newTypeFreak(7, "AAA8", "ccc")
             );
 
-            assertThat(db.typeFreaks().findWithEmbeddedANotIn(asList("AAA1", "AAA3", "AAA7", "AAA8"))).containsExactlyInAnyOrder(
+            assertThat(db.typeFreaks().findWithEmbeddedANotIn(List.of("AAA1", "AAA3", "AAA7", "AAA8"))).containsExactlyInAnyOrder(
                     newTypeFreak(1, "AAA2", "bbb"),
                     newTypeFreak(3, "AAA4", "bbb"),
                     newTypeFreak(4, "AAA5", "ccc"),
@@ -1592,13 +1581,13 @@ public abstract class RepositoryTest extends RepositoryTestSupport {
 
                 Instant.parse("2018-02-05T14:36:05.960Z"),
 
-                asList("1", "2", "3"),
-                asList(new Embedded(new A("aaa"), new B("bbb")), new Embedded(new A("xxx"), new B("yyy"))),
-                singleton(new Embedded(new A("aaa"), new B("bbb"))),
-                singletonMap(1, new Embedded(new A("mmm"), new B("nnn"))),
-                singletonMap(1, new Embedded(new A("nnn"), new B("ooo"))),
-                singletonMap(1, new Embedded(new A("ooo"), new B("ppp"))),
-                singletonMap(1, new Embedded(new A("ppp"), new B("qqq"))),
+                List.of("1", "2", "3"),
+                List.of(new Embedded(new A("aaa"), new B("bbb")), new Embedded(new A("xxx"), new B("yyy"))),
+                Set.of(new Embedded(new A("aaa"), new B("bbb"))),
+                Map.of(1, new Embedded(new A("mmm"), new B("nnn"))),
+                Map.of(1, new Embedded(new A("nnn"), new B("ooo"))),
+                Map.of(1, new Embedded(new A("ooo"), new B("ppp"))),
+                Map.of(1, new Embedded(new A("ppp"), new B("qqq"))),
 
                 new TypeFreak.StringValueWrapper("the string value wrapper"),
 
@@ -1615,25 +1604,25 @@ public abstract class RepositoryTest extends RepositoryTestSupport {
             db.projects().save(p1); // save() is pending until end of tx
 
             Project p2 = db.projects().find(new Project.Id("1"));
-            assertEquals(new Project(new Project.Id("1"), "named"), p2);
+            assertThat(p2).isEqualTo(new Project(new Project.Id("1"), "named"));
 
             Project p3 = new Project(new Project.Id("1"), "renamed");
             db.projects().save(p3); // save() is pending
 
             Project p4 = db.projects().find(new Project.Id("1"));
-            assertEquals(new Project(new Project.Id("1"), "renamed"), p4);
+            assertThat(p4).isEqualTo(new Project(new Project.Id("1"), "renamed"));
         });
         db.tx(() -> {
             Project p1 = db.projects().find(new Project.Id("1"));
-            assertEquals(new Project(new Project.Id("1"), "renamed"), p1);
+            assertThat(p1).isEqualTo(new Project(new Project.Id("1"), "renamed"));
             db.projects().delete(new Project.Id("1")); // delete() is pending
 
             Project p5 = db.projects().find(new Project.Id("1"));
-            assertNull(p5); // now it's deleted
+            assertThat(p5).isNull(); // now it's deleted
         });
         db.tx(() -> {
             Project p1 = db.projects().find(new Project.Id("1"));
-            assertNull(p1); // now it's deleted
+            assertThat(p1).isNull(); // now it's deleted
         });
     }
 
@@ -1646,7 +1635,9 @@ public abstract class RepositoryTest extends RepositoryTestSupport {
         RepositoryTransaction tx2 = startTransaction();
         RepositoryTransaction tx3 = startTransaction();
         Project p2 = tx2.table(Project.class).find(new Project.Id("1"));
+        assertThat(p2).isNotNull();
         Project p3 = tx3.table(Project.class).find(new Project.Id("1"));
+        assertThat(p3).isNotNull();
         tx2.table(Project.class).save(new Project(new Project.Id("1"), p2.getName() + "y"));
         tx3.table(Project.class).save(new Project(new Project.Id("1"), p3.getName() + "z"));
         tx2.commit();
@@ -1654,7 +1645,7 @@ public abstract class RepositoryTest extends RepositoryTestSupport {
                 .isThrownBy(tx3::commit);
 
         Project p4 = db.tx(() -> db.table(Project.class).find(new Project.Id("1")));
-        assertEquals(new Project(new Project.Id("1"), p2.getName() + "y"), p4);
+        assertThat(p4).isEqualTo(new Project(new Project.Id("1"), p2.getName() + "y"));
     }
 
     @Test
@@ -1697,7 +1688,8 @@ public abstract class RepositoryTest extends RepositoryTestSupport {
         tx2.table(Project.class).save(new Project(new Project.Id("1"), "y"));
         tx1.commit();
         tx2.commit();
-        assertEquals(new Project(new Project.Id("1"), "y"), db.tx(() -> db.table(Project.class).find(new Project.Id("1"))));
+        assertThat(db.tx(() -> db.table(Project.class).find(new Project.Id("1"))))
+                .isEqualTo(new Project(new Project.Id("1"), "y"));
     }
 
     @Test
@@ -1718,7 +1710,7 @@ public abstract class RepositoryTest extends RepositoryTestSupport {
     public void allTypes() {
         TypeFreak t1 = db.tx(() -> db.typeFreaks().save(newTypeFreak(1, "aaa", "bbb")));
         TypeFreak t2 = db.tx(() -> db.typeFreaks().find(new TypeFreak.Id("tf", 1)));
-        assertEquals(t1, t2);
+        assertThat(t2).isEqualTo(t1);
     }
 
     @Test
@@ -1756,10 +1748,10 @@ public abstract class RepositoryTest extends RepositoryTestSupport {
                     null,
                     null,
                     null,
-                    singletonMap(1, new Embedded(new A("a"), new B("b"))),
-                    singletonMap(1, new Embedded(new A("a"), new B("b"))),
-                    singletonMap(1, new Embedded(new A("a"), new B("b"))),
-                    singletonMap(1, new Embedded(new A("a"), new B("b"))),
+                    Map.of(1, new Embedded(new A("a"), new B("b"))),
+                    Map.of(1, new Embedded(new A("a"), new B("b"))),
+                    Map.of(1, new Embedded(new A("a"), new B("b"))),
+                    Map.of(1, new Embedded(new A("a"), new B("b"))),
                     null,
                     null,
                     null
@@ -1768,7 +1760,7 @@ public abstract class RepositoryTest extends RepositoryTestSupport {
             return t;
         });
         TypeFreak t2 = db.tx(() -> db.typeFreaks().find(new TypeFreak.Id("x", 1)));
-        assertEquals(t1, t2);
+        assertThat(t2).isEqualTo(t1);
     }
 
     @Test
@@ -1818,7 +1810,7 @@ public abstract class RepositoryTest extends RepositoryTestSupport {
             return t;
         });
         TypeFreak t2 = db.tx(() -> db.typeFreaks().find(new TypeFreak.Id("x", 1)));
-        assertEquals(t1, t2);
+        assertThat(t2).isEqualTo(t1);
     }
 
     @Test
@@ -1830,8 +1822,8 @@ public abstract class RepositoryTest extends RepositoryTestSupport {
         Referring r = new Referring(new Referring.Id("1"),
                 p1.getId(),
                 c1.getId(),
-                asList(p1.getId(), p2.getId()),
-                asList(c1.getId(), c2.getId())
+                List.of(p1.getId(), p2.getId()),
+                List.of(c1.getId(), c2.getId())
         );
         db.tx(() -> {
             db.projects().save(p1);
@@ -1841,11 +1833,11 @@ public abstract class RepositoryTest extends RepositoryTestSupport {
             db.referrings().save(r);
         });
         db.tx(() -> {
-            assertEquals(r, db.referrings().find(r.getId()));
-            assertEquals(p1, db.projects().find(r.getProject()));
-            assertEquals(c1, db.complexes().find(r.getComplex()));
-            assertEquals(asList(p1, p2), r.getProjects().stream().map(db.projects()::find).collect(toList()));
-            assertEquals(asList(c1, c2), r.getComplexes().stream().map(db.complexes()::find).collect(toList()));
+            assertThat(db.referrings().find(r.getId())).isEqualTo(r);
+            assertThat(db.projects().find(r.getProject())).isEqualTo(p1);
+            assertThat(db.complexes().find(r.getComplex())).isEqualTo(c1);
+            assertThat(r.getProjects().stream().map(db.projects()::find).toList()).containsExactly(p1, p2);
+            assertThat(r.getComplexes().stream().map(db.complexes()::find).toList()).containsExactly(c1, c2);
         });
     }
 
@@ -1865,9 +1857,9 @@ public abstract class RepositoryTest extends RepositoryTestSupport {
         });
 
         db.tx(() -> {
-            assertNull(db.projects().find(new Project.Id("1")));
-            assertNull(db.projects().find(new Project.Id("2")));
-            assertNull(db.complexes().find(complexId));
+            assertThat(db.projects().find(new Project.Id("1"))).isNull();
+            assertThat(db.projects().find(new Project.Id("2"))).isNull();
+            assertThat(db.complexes().find(complexId)).isNull();
         });
     }
 
@@ -1888,8 +1880,8 @@ public abstract class RepositoryTest extends RepositoryTestSupport {
         });
 
         db.tx(() -> {
-            assertEquals(p1, db.projects().find(new Project.Id("1")));
-            assertEquals(complex, db.complexes().find(complexId));
+            assertThat(db.projects().find(new Project.Id("1"))).isEqualTo(p1);
+            assertThat(db.complexes().find(complexId)).isEqualTo(complex);
         });
         assertThatExceptionOfType(EntityAlreadyExistsException.class)
                 .isThrownBy(() -> db.tx(() -> {
@@ -1926,8 +1918,7 @@ public abstract class RepositoryTest extends RepositoryTestSupport {
                     //already exists only on commit
                     executed.set(true);
                 }));
-
-        assertTrue(executed.get());
+        assertThat(executed).isTrue();
     }
 
     @Test
@@ -1937,7 +1928,9 @@ public abstract class RepositoryTest extends RepositoryTestSupport {
         db.tx(() -> db.projects().updateName(new Project.Id("1"), "NEW-P1-NAME"));
 
         db.tx(() -> {
-            assertThat(db.projects().find(new Project.Id("1")).getName()).isEqualTo("NEW-P1-NAME");
+            assertThat(db.projects().find(new Project.Id("1")))
+                    .isNotNull()
+                    .extracting(Project::getName).isEqualTo("NEW-P1-NAME");
         });
     }
 
@@ -1950,7 +1943,9 @@ public abstract class RepositoryTest extends RepositoryTestSupport {
         db.tx(() -> db.typeFreaks().updateEmbedded(tf.getId(), newEmbedded));
 
         db.tx(() -> {
-            assertThat(db.typeFreaks().find(tf.getId()).getEmbedded()).isEqualTo(newEmbedded);
+            assertThat(db.typeFreaks().find(tf.getId()))
+                    .isNotNull()
+                    .extracting(TypeFreak::getEmbedded).isEqualTo(newEmbedded);
         });
     }
 
@@ -1974,9 +1969,9 @@ public abstract class RepositoryTest extends RepositoryTestSupport {
         db.tx(() -> db.projects().insert(projA, projB, proj0));
 
         db.tx(() -> {
-            assertThat(db.projects().findByPredicateWithManyIds(ImmutableSet.of(new Project.Id("A"), new Project.Id("B"))))
+            assertThat(db.projects().findByPredicateWithManyIds(Set.of(new Project.Id("A"), new Project.Id("B"))))
                     .containsOnly(projA, projB);
-            assertThat(db.projects().findByPredicateWithManyIdValues(ImmutableSet.of("A", "B")))
+            assertThat(db.projects().findByPredicateWithManyIdValues(Set.of("A", "B")))
                     .containsOnly(projA, projB);
         });
     }
@@ -2529,7 +2524,7 @@ public abstract class RepositoryTest extends RepositoryTestSupport {
         ));
 
         List<Project> result = db.scan().withMaxSize(maxPageSizeBiggerThatReal).run(() -> db.projects().findAll());
-        assertEquals(maxPageSizeBiggerThatReal, result.size());
+        assertThat(result).hasSize(maxPageSizeBiggerThatReal);
     }
 
     @Test
@@ -2541,7 +2536,7 @@ public abstract class RepositoryTest extends RepositoryTestSupport {
         });
 
         Project result = db.scan().run(() -> db.projects().find(p1.getId()));
-        assertEquals(p1, result);
+        assertThat(result).isEqualTo(p1);
     }
 
     @Test
@@ -2553,7 +2548,7 @@ public abstract class RepositoryTest extends RepositoryTestSupport {
         ));
 
         List<Project> result = db.scan().run(() -> db.projects().streamAll(1).collect(toList()));
-        assertEquals(size, result.size());
+        assertThat(result).hasSize(size);
     }
 
     @Test
@@ -2642,7 +2637,7 @@ public abstract class RepositoryTest extends RepositoryTestSupport {
         db.tx(this::makeComplexes);
         db.tx(() -> {
             List<Complex> rangeResults = db.complexes().find(Range.create(new Complex.Id(0, 0L, null, null)));
-            assertEquals(6, rangeResults.size());
+            assertThat(rangeResults).hasSize(6);
 
             // Check, that there are the same objects, it's mean they was returned from cache
             for (Complex c : rangeResults) {
@@ -2657,7 +2652,7 @@ public abstract class RepositoryTest extends RepositoryTestSupport {
         db.tx(this::makeComplexes);
         db.tx(() -> {
             List<Complex> rangeResults = db.complexes().findAll();
-            assertEquals(54, rangeResults.size());
+            assertThat(rangeResults).hasSize(54);
 
             // Check, that there are the same objects, it's mean they was returned from cache
             for (Complex c : rangeResults) {
@@ -2745,7 +2740,7 @@ public abstract class RepositoryTest extends RepositoryTestSupport {
                 .containsExactlyInAnyOrderElementsOf(inserted.values());
 
         assertThat(db.tx(() -> db.updateFeedEntries().list(ListRequest.builder(UpdateFeedEntry.class)
-                .filter(fb -> fb.where("id").in(inserted.keySet().stream().map(i -> i.toString()).collect(toSet())))
+                .filter(fb -> fb.where("id").in(inserted.keySet().stream().map(Object::toString).collect(toSet())))
                 .build())))
                 .containsExactlyInAnyOrderElementsOf(inserted.values());
 
@@ -3166,8 +3161,8 @@ public abstract class RepositoryTest extends RepositoryTestSupport {
 
         assertThat(listRequest.getSchema()).hasSameHashCodeAs(entitySchema);
         assertThat(listRequest.getSchema()).hasSameHashCodeAs("RepositoryTest_StableListingEntity");
-        assertThat(listRequest.getParams().getFilter().hashCode()).isEqualTo(75992543);
-        assertThat(listRequest.getParams().getOrderBy().hashCode()).isEqualTo(-129411994);
+        assertThat(listRequest.getParams().getFilter()).isNotNull().extracting(Object::hashCode).isEqualTo(75992543);
+        assertThat(listRequest.getParams().getOrderBy()).isNotNull().extracting(Object::hashCode).isEqualTo(-129411994);
         assertThat(listRequest.getParams().hash()).isEqualTo(8087092510576300258L);
     }
 
@@ -3183,16 +3178,13 @@ public abstract class RepositoryTest extends RepositoryTestSupport {
         transaction.commit();
     }
 
-    private void testList(FilterExpression<Project> filterExpression, Project... expectedProjects) {
+    private void assertListingContains(FilterExpression<Project> filterExpression, Project... expectedProjects) {
         ListRequest<Project> request = ListRequest.builder(Project.class)
                 .filter(filterExpression)
                 .build();
 
         ListResult<Project> result = db.readOnly().run(() -> db.projects().list(request));
-
-        Set<Project> expected = new HashSet<>(Arrays.asList(expectedProjects));
-
-        assertEquals(expected, new HashSet<>(result.getEntries()));
+        assertThat(result.getEntries()).containsExactlyInAnyOrder(expectedProjects);
     }
 
     protected static Runnable makeOneShotRunnable(Runnable cmd) {
