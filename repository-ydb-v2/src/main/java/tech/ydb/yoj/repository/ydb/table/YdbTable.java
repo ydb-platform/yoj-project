@@ -273,7 +273,7 @@ public class YdbTable<T extends Entity<T>> implements Table<T> {
 
     @Override
     public <ID extends Entity.Id<T>> List<T> find(Set<ID> ids) {
-        return TableQueryImpl.find(this, getFirstLevelCache(), ids);
+        return TableQueryImpl.find(this, schema, getFirstLevelCache(), ids);
     }
 
     @Override

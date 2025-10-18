@@ -10,6 +10,7 @@ import tech.ydb.yoj.databind.schema.reflect.ReflectField;
 import tech.ydb.yoj.databind.schema.reflect.Reflector;
 
 import java.lang.reflect.Type;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -117,6 +118,13 @@ public final class EntitySchema<T extends Entity<T>> extends Schema<T> {
 
     public <V extends Table.View> ViewSchema<V> getViewSchema(Class<V> viewClass) {
         return ViewSchema.of(getRegistry(), viewClass, getNamingStrategy());
+    }
+
+    /**
+     * @return a comparator for sorting entities by ID ascending (default YOJ sort order)
+     */
+    public Comparator<T> defaultOrder() {
+        return Comparator.comparing(Entity::getId, getIdSchema());
     }
 
     @Override

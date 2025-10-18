@@ -105,7 +105,7 @@ public class InMemoryTable<T extends Entity<T>> implements Table<T> {
             @Nullable Long offset
     ) {
         // NOTE: InMemoryTable doesn't handle index.
-        return InMemoryQueries.find(() -> findAll().stream(), filter, orderBy, limit, offset);
+        return TableQueryImpl.find(() -> findAll().stream(), schema, filter, orderBy, limit, offset);
     }
 
     @Override
@@ -187,7 +187,7 @@ public class InMemoryTable<T extends Entity<T>> implements Table<T> {
 
     @Override
     public <ID extends Entity.Id<T>> List<T> find(Set<ID> ids) {
-        return TableQueryImpl.find(this, getFirstLevelCache(), ids);
+        return TableQueryImpl.find(this, schema, getFirstLevelCache(), ids);
     }
 
     @Override
@@ -213,7 +213,7 @@ public class InMemoryTable<T extends Entity<T>> implements Table<T> {
         transaction.getWatcher().markRangeRead(tableDescriptor, range);
         return findAll0().stream()
                 .filter(e -> range.contains((ID) e.getId()))
-                .sorted(EntityIdSchema.SORT_ENTITY_BY_ID)
+                .sorted(schema.defaultOrder())
                 .collect(toList());
     }
 
@@ -234,7 +234,7 @@ public class InMemoryTable<T extends Entity<T>> implements Table<T> {
 
     @Override
     public <V extends View, ID extends Entity.Id<T>> List<V> find(Class<V> viewType, Set<ID> ids) {
-        return find(viewType, ids, null, EntityExpressions.defaultOrder(getType()), null);
+        return find(viewType, ids, null, EntityExpressions.defaultOrder(schema), null);
     }
 
     @Override
@@ -537,7 +537,7 @@ public class InMemoryTable<T extends Entity<T>> implements Table<T> {
                 .stream()
                 .filter(e -> readTableFilter(e, params));
         if (params.isOrdered()) {
-            stream = stream.sorted(EntityIdSchema.SORT_ENTITY_BY_ID);
+            stream = stream.sorted(schema.defaultOrder());
         }
         if (params.getRowLimit() > 0) {
             stream = stream.limit(params.getRowLimit());
