@@ -34,12 +34,12 @@ import java.util.Set;
     }
 
     public <T extends Entity<T>, ID extends Entity.Id<T>> void markRangeRead(TableDescriptor<T> tableDescriptor, EntitySchema<T> schema, Map<String, Object> map) {
-        Range<ID> range = Range.create(schema.getIdSchema(), map);
+        Range<ID> range = schema.<ID>getIdSchema().newRangeInstance(map);
         markRangeRead(tableDescriptor, range);
     }
 
     public <T extends Entity<T>, ID extends Entity.Id<T>> void markTableRead(TableDescriptor<T> tableDescriptor, EntitySchema<T> schema) {
-        Range<ID> range = Range.create(schema.getIdSchema(), Map.of());
+        Range<ID> range = schema.<ID>getIdSchema().newRangeInstance(Map.of());
         markRangeRead(tableDescriptor, range);
     }
 
