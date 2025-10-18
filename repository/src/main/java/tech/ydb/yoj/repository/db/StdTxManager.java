@@ -13,6 +13,7 @@ import lombok.With;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
+import tech.ydb.yoj.ExperimentalApi;
 import tech.ydb.yoj.repository.db.cache.TransactionLog;
 import tech.ydb.yoj.repository.db.exception.QueryInterruptedException;
 import tech.ydb.yoj.repository.db.exception.RetryableException;
@@ -308,6 +309,15 @@ public final class StdTxManager implements TxManager, TxManagerState {
     @Override
     public String toString() {
         return repository.getClass().getSimpleName();
+    }
+
+    /**
+     * @deprecated Use do not use this method. TxManager will be redesigned in issues/190
+     */
+    @ExperimentalApi(issue = "https://github.com/ydb-platform/yoj-project/issues/190")
+    @Deprecated(forRemoval = true)
+    public StdTxManager withIsolationLevel(IsolationLevel isolationLevel) {
+        return withOptions(options.withIsolationLevel(isolationLevel));
     }
 
     @AllArgsConstructor
