@@ -15,6 +15,7 @@ import tech.ydb.yoj.repository.db.EntitySchema;
 import tech.ydb.yoj.repository.db.Range;
 import tech.ydb.yoj.repository.db.Table;
 import tech.ydb.yoj.repository.db.TableDescriptor;
+import tech.ydb.yoj.repository.db.TableQueryBuilder;
 import tech.ydb.yoj.repository.db.TableQueryImpl;
 import tech.ydb.yoj.repository.db.ViewSchema;
 import tech.ydb.yoj.repository.db.cache.FirstLevelCache;
@@ -562,6 +563,11 @@ public class InMemoryTable<T extends Entity<T>> implements Table<T> {
             return params.isToInclusive() ? compare <= 0 : compare < 0;
         }
         return true;
+    }
+
+    @Override
+    public TableQueryBuilder<T> query() {
+        return new TableQueryBuilder<>(this, schema);
     }
 
     public FirstLevelCache<T> getFirstLevelCache() {

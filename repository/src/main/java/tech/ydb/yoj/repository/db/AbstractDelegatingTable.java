@@ -225,4 +225,9 @@ public abstract class AbstractDelegatingTable<T extends Entity<T>> implements Ta
     public <ID extends Entity.Id<T>> Stream<ID> streamPartialIds(ID partial, int batchSize) {
         return target.streamPartialIds(partial, batchSize);
     }
+
+    @Override
+    public TableQueryBuilder<T> query() {
+        return target.query();
+    }
 }

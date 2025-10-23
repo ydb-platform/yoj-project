@@ -6,14 +6,12 @@ import tech.ydb.core.grpc.GrpcTransport;
 import tech.ydb.yoj.repository.db.IsolationLevel;
 import tech.ydb.yoj.repository.db.RepositoryTransaction;
 import tech.ydb.yoj.repository.db.Table;
-import tech.ydb.yoj.repository.db.TableQueryBuilder;
 import tech.ydb.yoj.repository.db.TxOptions;
 import tech.ydb.yoj.repository.db.common.CommonConverters;
 import tech.ydb.yoj.repository.db.json.JacksonJsonConverter;
 import tech.ydb.yoj.repository.db.statement.Changeset;
 import tech.ydb.yoj.repository.test.sample.TestEntityOperations;
 import tech.ydb.yoj.repository.test.sample.TestEntityOperations.BubbleTable;
-import tech.ydb.yoj.repository.test.sample.TestEntityOperations.ComplexTable;
 import tech.ydb.yoj.repository.test.sample.TestEntityOperations.IndexedTable;
 import tech.ydb.yoj.repository.test.sample.model.Bubble;
 import tech.ydb.yoj.repository.test.sample.model.Complex;
@@ -127,8 +125,8 @@ public class TestYdbRepository extends YdbRepository {
         }
 
         @Override
-        public ComplexTable complexes() {
-            return new ComplexTableImpl(this);
+        public Table<Complex> complexes() {
+            return table(Complex.class);
         }
 
         @Override
@@ -167,8 +165,8 @@ public class TestYdbRepository extends YdbRepository {
         }
 
         @Override
-        public SupabubbleTable supabubbles() {
-            return new SupabubbleTable(table(Supabubble.class));
+        public Table<Supabubble> supabubbles() {
+            return table(Supabubble.class);
         }
 
         @Override
@@ -223,17 +221,6 @@ public class TestYdbRepository extends YdbRepository {
         }
     }
 
-    private static class ComplexTableImpl extends YdbTable<Complex> implements ComplexTable {
-        protected ComplexTableImpl(QueryExecutor executor) {
-            super(Complex.class, executor);
-        }
-
-        @Override
-        public TableQueryBuilder<Complex> query() {
-            return super.query();
-        }
-    }
-
     private static class BubbleTableImpl extends YdbTable<Bubble> implements BubbleTable {
         protected BubbleTableImpl(QueryExecutor executor) {
             super(Bubble.class, executor);
@@ -253,11 +240,6 @@ public class TestYdbRepository extends YdbRepository {
         @Override
         public void updateSomeFields(Set<IndexedEntity.Id> ids, String value, String value2) {
             this.updateIn(ids, new Changeset().set("valueId", value).set("valueId2", value2));
-        }
-
-        @Override
-        public TableQueryBuilder<IndexedEntity> query() {
-            return super.query();
         }
     }
 }

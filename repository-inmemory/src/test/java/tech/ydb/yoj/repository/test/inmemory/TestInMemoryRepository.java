@@ -3,13 +3,11 @@ package tech.ydb.yoj.repository.test.inmemory;
 import tech.ydb.yoj.repository.db.AbstractDelegatingTable;
 import tech.ydb.yoj.repository.db.RepositoryTransaction;
 import tech.ydb.yoj.repository.db.Table;
-import tech.ydb.yoj.repository.db.TableQueryBuilder;
 import tech.ydb.yoj.repository.db.TxOptions;
 import tech.ydb.yoj.repository.db.common.CommonConverters;
 import tech.ydb.yoj.repository.db.json.JacksonJsonConverter;
 import tech.ydb.yoj.repository.test.sample.TestEntityOperations;
 import tech.ydb.yoj.repository.test.sample.TestEntityOperations.BubbleTable;
-import tech.ydb.yoj.repository.test.sample.TestEntityOperations.ComplexTable;
 import tech.ydb.yoj.repository.test.sample.TestEntityOperations.IndexedTable;
 import tech.ydb.yoj.repository.test.sample.TestEntityOperations.Supabubble2Table;
 import tech.ydb.yoj.repository.test.sample.model.Bubble;
@@ -60,8 +58,8 @@ public class TestInMemoryRepository extends InMemoryRepository {
         }
 
         @Override
-        public ComplexTable complexes() {
-            return new ComplexTableImpl(table(Complex.class));
+        public Table<Complex> complexes() {
+            return table(Complex.class);
         }
 
         @Override
@@ -100,8 +98,8 @@ public class TestInMemoryRepository extends InMemoryRepository {
         }
 
         @Override
-        public SupabubbleTable supabubbles() {
-            return new SupabubbleTable(table(Supabubble.class));
+        public Table<Supabubble> supabubbles() {
+            return table(Supabubble.class);
         }
 
         @Override
@@ -151,17 +149,6 @@ public class TestInMemoryRepository extends InMemoryRepository {
         }
     }
 
-    private static class ComplexTableImpl extends AbstractDelegatingTable<Complex> implements ComplexTable {
-        public ComplexTableImpl(Table<Complex> target) {
-            super(target);
-        }
-
-        @Override
-        public TableQueryBuilder<Complex> query() {
-            return super.query();
-        }
-    }
-
     private static class BubbleTableImpl extends AbstractDelegatingTable<Bubble> implements BubbleTable {
         public BubbleTableImpl(Table<Bubble> target) {
             super(target);
@@ -181,11 +168,6 @@ public class TestInMemoryRepository extends InMemoryRepository {
         @Override
         public void updateSomeFields(Set<IndexedEntity.Id> ids, String value, String value2) {
             throw new UnsupportedOperationException("not for in-memory");
-        }
-
-        @Override
-        public TableQueryBuilder<IndexedEntity> query() {
-            return super.query();
         }
     }
 }

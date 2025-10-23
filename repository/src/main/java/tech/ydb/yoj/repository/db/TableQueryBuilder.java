@@ -20,6 +20,7 @@ import static lombok.AccessLevel.PRIVATE;
 
 public final class TableQueryBuilder<T extends Entity<T>> {
     private final Table<T> table;
+    private final EntitySchema<T> schema;
 
     private Set<? extends Entity.Id<T>> ids;
     private Set<?> keys;
@@ -33,8 +34,13 @@ public final class TableQueryBuilder<T extends Entity<T>> {
 
     private OrderExpression<T> orderBy = null;
 
-    public TableQueryBuilder(@NonNull Table<T> table) {
+    public TableQueryBuilder(@NonNull Table<T> table, @NonNull EntitySchema<T> schema) {
         this.table = table;
+        this.schema = schema;
+    }
+
+    public TableQueryBuilder(@NonNull Table<T> table) {
+        this(table, EntitySchema.of(table.getType()));
     }
 
     public long count() {
@@ -151,7 +157,7 @@ public final class TableQueryBuilder<T extends Entity<T>> {
         if (filterBuilder == null) {
             Preconditions.checkState(filter == null, "You can't use both .where/.and/.or and .filter methods");
 
-            filterBuilder = EntityExpressions.newFilterBuilder(table.getType());
+            filterBuilder = EntityExpressions.newFilterBuilder(schema);
         }
         return filterBuilder;
     }
@@ -205,7 +211,7 @@ public final class TableQueryBuilder<T extends Entity<T>> {
     @NonNull
     @ExperimentalApi(issue = "https://github.com/ydb-platform/yoj-project/issues/115")
     public TableQueryBuilder<T> unordered() {
-        return orderBy(EntityExpressions.unordered(table.getType()));
+        return orderBy(EntityExpressions.unordered(schema));
     }
 
     @NonNull
@@ -216,11 +222,11 @@ public final class TableQueryBuilder<T extends Entity<T>> {
 
     @NonNull
     public TableQueryBuilder<T> orderBy(@NonNull UnaryOperator<OrderBuilder<T>> orderBuilderOp) {
-        return orderBy(orderBuilderOp.apply(EntityExpressions.newOrderBuilder(table.getType())).build());
+        return orderBy(orderBuilderOp.apply(EntityExpressions.newOrderBuilder(schema)).build());
     }
 
     public TableQueryBuilder<T> defaultOrder() {
-        orderBy = EntityExpressions.defaultOrder(table.getType());
+        orderBy = EntityExpressions.defaultOrder(schema);
         return this;
     }
 
@@ -258,7 +264,7 @@ public final class TableQueryBuilder<T extends Entity<T>> {
     }
 
     private FilterExpression<T> buildFilterExpression(UnaryOperator<FilterBuilder<T>> filterBuilderOp) {
-        return filterBuilderOp.apply(EntityExpressions.newFilterBuilder(table.getType())).build();
+        return filterBuilderOp.apply(EntityExpressions.newFilterBuilder(schema)).build();
     }
 
     @RequiredArgsConstructor(access = PRIVATE)

@@ -14,6 +14,7 @@ import tech.ydb.yoj.repository.db.EntitySchema;
 import tech.ydb.yoj.repository.db.Range;
 import tech.ydb.yoj.repository.db.Table;
 import tech.ydb.yoj.repository.db.TableDescriptor;
+import tech.ydb.yoj.repository.db.TableQueryBuilder;
 import tech.ydb.yoj.repository.db.TableQueryImpl;
 import tech.ydb.yoj.repository.db.Tx;
 import tech.ydb.yoj.repository.db.ViewSchema;
@@ -579,6 +580,11 @@ public class YdbTable<T extends Entity<T>> implements Table<T> {
         T entityToSave = rawEntity.postLoad().preSave();
         executor.pendingExecute(new UpsertYqlStatement<>(tableDescriptor, schema), entityToSave);
         executor.getTransactionLocal().projectionCache().save(entityToSave);
+    }
+
+    @Override
+    public TableQueryBuilder<T> query() {
+        return new TableQueryBuilder<>(this, schema);
     }
 
     public FirstLevelCache<T> getFirstLevelCache() {

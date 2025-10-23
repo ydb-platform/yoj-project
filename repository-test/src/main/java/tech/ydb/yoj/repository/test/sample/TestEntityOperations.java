@@ -2,9 +2,7 @@ package tech.ydb.yoj.repository.test.sample;
 
 import tech.ydb.yoj.repository.BaseDb;
 import tech.ydb.yoj.repository.db.AbstractDelegatingTable;
-import tech.ydb.yoj.repository.db.Entity;
 import tech.ydb.yoj.repository.db.Table;
-import tech.ydb.yoj.repository.db.TableQueryBuilder;
 import tech.ydb.yoj.repository.db.bulk.BulkParams;
 import tech.ydb.yoj.repository.test.sample.model.Bubble;
 import tech.ydb.yoj.repository.test.sample.model.BytePkEntity;
@@ -40,7 +38,7 @@ public interface TestEntityOperations extends BaseDb {
 
     BubbleTable bubbles();
 
-    ComplexTable complexes();
+    Table<Complex> complexes();
 
     default Table<BytePkEntity> bytePkEntities() {
         return table(BytePkEntity.class);
@@ -60,7 +58,7 @@ public interface TestEntityOperations extends BaseDb {
 
     IndexedTable indexedTable();
 
-    SupabubbleTable supabubbles();
+    Table<Supabubble> supabubbles();
 
     Supabubble2Table supabubbles2();
 
@@ -153,31 +151,12 @@ public interface TestEntityOperations extends BaseDb {
         }
     }
 
-    interface TableWithQueryBuilder<T extends Entity<T>> extends Table<T> {
-        @Override
-        TableQueryBuilder<T> query();
-    }
-
-    interface ComplexTable extends TableWithQueryBuilder<Complex> {
-    }
-
     interface BubbleTable extends Table<Bubble> {
         void updateSomeFields(Set<Bubble.Id> ids, String fieldA, String fieldB);
     }
 
-    interface IndexedTable extends TableWithQueryBuilder<IndexedEntity> {
+    interface IndexedTable extends Table<IndexedEntity> {
         void updateSomeFields(Set<IndexedEntity.Id> ids, String value, String value2);
-    }
-
-    class SupabubbleTable extends AbstractDelegatingTable<Supabubble> {
-        public SupabubbleTable(Table<Supabubble> target) {
-            super(target);
-        }
-
-        @Override
-        public TableQueryBuilder<Supabubble> query() {
-            return super.query();
-        }
     }
 
     interface Supabubble2Table extends Table<Supabubble2> {
