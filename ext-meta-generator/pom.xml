@@ -54,8 +54,8 @@
             <scope>test</scope>
         </dependency>
         <dependency>
-            <groupId>com.github.tschuchortdev</groupId>
-            <artifactId>kotlin-compile-testing</artifactId>
+            <groupId>dev.zacsweers.kctfork</groupId>
+            <artifactId>core</artifactId>
             <scope>test</scope>
             <exclusions>
                 <exclusion>
@@ -72,4 +72,26 @@
             <scope>provided</scope>
         </dependency>
     </dependencies>
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <configuration>
+                    <argLine>
+                        --add-opens=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED
+                        --add-opens=jdk.compiler/com.sun.tools.javac.code=ALL-UNNAMED
+                        --add-opens=jdk.compiler/com.sun.tools.javac.comp=ALL-UNNAMED
+                        --add-opens=jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED
+                        --add-opens=jdk.compiler/com.sun.tools.javac.jvm=ALL-UNNAMED
+                        --add-opens=jdk.compiler/com.sun.tools.javac.main=ALL-UNNAMED
+                        --add-opens=jdk.compiler/com.sun.tools.javac.parser=ALL-UNNAMED
+                        --add-opens=jdk.compiler/com.sun.tools.javac.processing=ALL-UNNAMED
+                        --add-opens=jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED
+                        --add-opens=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED
+                    </argLine>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
 </project>

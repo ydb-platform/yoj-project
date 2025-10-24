@@ -3,6 +3,7 @@ package tech.ydb.yoj.generator;
 import com.google.testing.compile.Compilation;
 import com.google.testing.compile.Compiler;
 import com.google.testing.compile.JavaFileObjects;
+import com.tschuchort.compiletesting.JvmCompilationResult;
 import com.tschuchort.compiletesting.KotlinCompilation;
 import com.tschuchort.compiletesting.SourceFile;
 import lombok.extern.slf4j.Slf4j;
@@ -63,7 +64,6 @@ public class FieldGeneratorAnnotationProcessorTest {
 
     @Test
     public void nonEntity() {
-
         Compilation compilation = Compiler.javac()
                 .withProcessors(new FieldGeneratorAnnotationProcessor())
                 .compile(JavaFileObjects.forResource("input/NonEntityClass.java"));
@@ -77,8 +77,7 @@ public class FieldGeneratorAnnotationProcessorTest {
     public void kotlinSourceClass() {
         // Prepare
         SourceFile sourceFile = SourceFile.Companion.fromPath(
-                new File("src/test/resources/input/KotlinDataClass.kt"),
-                false
+                new File("src/test/resources/input/KotlinDataClass.kt")
         );
         KotlinCompilation compilation = new KotlinCompilation();
         compilation.setAnnotationProcessors(List.of(
@@ -90,7 +89,7 @@ public class FieldGeneratorAnnotationProcessorTest {
         compilation.setInheritClassPath(true);
 
         // Go
-        KotlinCompilation.Result result = compilation.compile();
+        JvmCompilationResult result = compilation.compile();
 
         // Asserts
         try {
@@ -102,7 +101,6 @@ public class FieldGeneratorAnnotationProcessorTest {
     }
 
     private void testCase(String source, String expectations) {
-
         Compilation compilation = Compiler.javac()
                 .withProcessors(new FieldGeneratorAnnotationProcessor())
                 .compile(JavaFileObjects.forResource(source));
@@ -123,8 +121,7 @@ public class FieldGeneratorAnnotationProcessorTest {
         }
     }
 
-    private String getGeneratedSource(KotlinCompilation.Result kotlinCompilation) {
-
+    private String getGeneratedSource(JvmCompilationResult kotlinCompilation) {
         log.info("Total amount of generated files is {}", kotlinCompilation.getGeneratedFiles().size());
         List<String> generatedClasses = kotlinCompilation.getGeneratedFiles().stream()
                 .map(File::getAbsolutePath)
