@@ -10,16 +10,16 @@ on:
 jobs:
   build:
     name: Build YOJ - Unit Tests
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
 
     env:
       MAVEN_ARGS: --batch-mode --update-snapshots -Dstyle.color=always
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Set up JDK
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           java-version: 17
           distribution: 'temurin'
@@ -29,16 +29,16 @@ jobs:
         run: mvn $MAVEN_ARGS verify
   integration-test:
     name: Build YOJ - YDB Repository Integration Tests [defaults]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
 
     env:
       MAVEN_ARGS: --batch-mode --update-snapshots -Dstyle.color=always
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Set up JDK
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           java-version: 17
           distribution: 'temurin'
@@ -48,16 +48,16 @@ jobs:
         run: mvn $MAVEN_ARGS -Plombok,integration-test -am -pl :yoj-repository-ydb-v2 verify
   integration-test-tableservice:
     name: Build YOJ - YDB Repository Integration Tests [TableService]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
 
     env:
       MAVEN_ARGS: --batch-mode --update-snapshots -Dstyle.color=always
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Set up JDK
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           java-version: 17
           distribution: 'temurin'
@@ -67,16 +67,16 @@ jobs:
         run: mvn $MAVEN_ARGS -Plombok,integration-test -DargLine='-Dtech.ydb.yoj.repository.ydb.integrationTest.queryImplementation=TABLE_SERVICE' -am -pl :yoj-repository-ydb-v2 verify
   integration-test-queryservice:
     name: Build YOJ - YDB Repository Integration Tests [QueryService]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
 
     env:
       MAVEN_ARGS: --batch-mode --update-snapshots -Dstyle.color=always
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Set up JDK
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           java-version: 17
           distribution: 'temurin'
@@ -86,16 +86,16 @@ jobs:
         run: mvn $MAVEN_ARGS -Plombok,integration-test -DargLine='-Dtech.ydb.yoj.repository.ydb.integrationTest.queryImplementation=QUERY_SERVICE' -am -pl :yoj-repository-ydb-v2 verify
   javadoc-and-source:
     name: Validate JavaDoc
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
 
     env:
       MAVEN_ARGS: --batch-mode --update-snapshots -Dstyle.color=always
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Set up JDK
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           java-version: 17
           distribution: 'temurin'
