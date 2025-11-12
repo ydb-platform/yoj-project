@@ -9,6 +9,7 @@ import org.junit.Test;
 import tech.ydb.yoj.databind.ByteArray;
 import tech.ydb.yoj.databind.expression.FieldValue;
 import tech.ydb.yoj.databind.expression.FilterExpression;
+import tech.ydb.yoj.databind.expression.OrderExpression.SortOrder;
 import tech.ydb.yoj.databind.expression.values.StringFieldValue;
 import tech.ydb.yoj.repository.BaseDb;
 import tech.ydb.yoj.repository.db.Entity;
@@ -1242,7 +1243,7 @@ public abstract class RepositoryTest extends RepositoryTestSupport {
         findInPrefixedKeysFilteredAndOrdered(true);
     }
 
-    public void findInKeysFilteredAndOrdered(boolean limited) {
+    private void findInKeysFilteredAndOrdered(boolean limited) {
         var keys = IntStream.range(0, 10)
                 .mapToObj(i -> new IndexedEntity.Key(getIndexedEntityValue(i), getIndexedEntityValue2(i)))
                 .collect(toSet());
@@ -1355,6 +1356,18 @@ public abstract class RepositoryTest extends RepositoryTestSupport {
                         .mapToObj(i -> new IndexedEntity.View(getIndexedEntityId(i)))
                         .toList()
         );
+    }
+
+    @Test
+    public void indexMustExistToBeUsedInQueryBuilder() {
+        assertThatExceptionOfType(IllegalArgumentException.class).isThrownBy(() ->
+                db.tx(() -> db.indexedTable().query()
+                        .orderByIndex("nonexistent_index", SortOrder.DESCENDING)
+                        .where("valueId2").neq(getIndexedEntityValue2(2))
+                        .limit(5)
+                        .find()
+                )
+        ).withMessageContaining("nonexistent_index");
     }
 
     @Test

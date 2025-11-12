@@ -1071,8 +1071,7 @@ public class YdbRepositoryIntegrationTest extends RepositoryTest {
         var results = db.tx(() -> db.indexedTable().query()
                 .where("keyId").gte("a")
                 .limit(2)
-                .index(IndexedEntity.KEY_INDEX)
-                .unordered()
+                .unorderedByIndex(IndexedEntity.KEY_INDEX)
                 .find());
         assertThat(results).containsExactly(ie2, ie1);
     }

@@ -3,7 +3,6 @@ package tech.ydb.yoj.repository.ydb;
 import lombok.AllArgsConstructor;
 import lombok.NonNull;
 import lombok.Value;
-import org.junit.Assert;
 import org.junit.Test;
 import tech.ydb.proto.ValueProtos;
 import tech.ydb.yoj.databind.DbType;
@@ -21,11 +20,12 @@ import tech.ydb.yoj.repository.ydb.yql.YqlPrimitiveType;
 import tech.ydb.yoj.repository.ydb.yql.YqlType;
 
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
-import java.util.stream.Collectors;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
+import static org.assertj.core.api.InstanceOfAssertFactories.LIST;
+import static org.assertj.core.api.InstanceOfAssertFactories.MAP;
 
 public class YqlTypeRecommendedTest {
     static {
@@ -38,15 +38,13 @@ public class YqlTypeRecommendedTest {
         record WithNonDeserializableObject(NonDeserializableObject object) {
         }
 
-        Schema<WithNonDeserializableObject> schema = new Schema<>(WithNonDeserializableObject.class) {
+        var schema = new Schema<>(WithNonDeserializableObject.class) {
         };
-
-        assertThatExceptionOfType(ConversionException.class)
-                .isThrownBy(() ->
-                        YqlType.of(schema.getField("object")).fromYql(ValueProtos.Value.newBuilder()
-                                .setTextValue("{}")
-                                .build())
-                );
+        assertThatExceptionOfType(ConversionException.class).isThrownBy(() ->
+                YqlType.of(schema.getField("object")).fromYql(ValueProtos.Value.newBuilder()
+                        .setTextValue("{}")
+                        .build())
+        );
     }
 
     @Test
@@ -54,45 +52,50 @@ public class YqlTypeRecommendedTest {
         record WithNonSerializableObject(NonSerializableObject object) {
         }
 
-        Schema<WithNonSerializableObject> schema = new Schema<>(WithNonSerializableObject.class) {
+        var schema = new Schema<>(WithNonSerializableObject.class) {
         };
-
-        assertThatExceptionOfType(ConversionException.class)
-                .isThrownBy(() -> YqlType.of(schema.getField("object")).toYql(new NonSerializableObject()));
+        assertThatExceptionOfType(ConversionException.class).isThrownBy(() ->
+                YqlType.of(schema.getField("object")).toYql(new NonSerializableObject()));
     }
 
-    @Test(expected = ConversionException.class)
+    @Test
     public void unknownEnumValuesCauseConversionExceptionOnDeserialization() {
         record WithEmptyEnum(EmptyEnum emptyEnum) {
         }
 
-        Schema<WithEmptyEnum> schema = new Schema<>(WithEmptyEnum.class) {
+        var schema = new Schema<>(WithEmptyEnum.class) {
         };
-
-        YqlType.of(schema.getField("emptyEnum")).fromYql(ValueProtos.Value.newBuilder().setTextValue("UZHOS").build());
+        assertThatExceptionOfType(ConversionException.class).isThrownBy(() ->
+                YqlType.of(schema.getField("emptyEnum")).fromYql(
+                        ValueProtos.Value.newBuilder().setTextValue("UZHOS").build()
+                )
+        );
     }
 
     @Test
     public void testSimpleListResponse() {
-        Schema<TestResponse> schema = new Schema<>(TestResponse.class) {
+        var schema = new Schema<>(TestResponse.class) {
         };
-        var actual = YqlType.of(schema.getField("simpleListValue")).fromYql(
+
+        var list1 = YqlType.of(schema.getField("simpleListValue")).fromYql(
                 ValueProtos.Value.newBuilder()
                         .addItems(ValueProtos.Value.newBuilder().setTextValue("1"))
                         .addItems(ValueProtos.Value.newBuilder().setTextValue("2"))
-                        .build());
-        Assert.assertEquals(List.of("1", "2"), actual);
+                        .build()
+        );
+        assertThat(list1).asInstanceOf(LIST).containsExactly("1", "2");
 
-        actual = YqlType.of(schema.getField("simpleListValue")).fromYql(
+        var list2 = YqlType.of(schema.getField("simpleListValue")).fromYql(
                 ValueProtos.Value.newBuilder()
                         .addItems(ValueProtos.Value.newBuilder().setTextValue("{\"name\":\"two\"}"))
-                        .build());
-        Assert.assertEquals(List.of("{\"name\":\"two\"}"), actual);
+                        .build()
+        );
+        assertThat(list2).asInstanceOf(LIST).containsExactly("{\"name\":\"two\"}");
     }
 
     @Test
     public void testComplexListResponse() {
-        Schema schema = new Schema(TestResponse.class) {
+        var schema = new Schema<>(TestResponse.class) {
         };
         var actual = YqlType.of(schema.getField("complexListValue")).fromYql(
                 ValueProtos.Value.newBuilder()
@@ -107,30 +110,32 @@ public class YqlTypeRecommendedTest {
                                         .setPayload(ValueProtos.Value.newBuilder().setTextValue("two"))
                                 ))
                         .build());
-        Assert.assertEquals(List.of(new ListItem("one"), new ListItem("two")), actual);
+        assertThat(actual).asInstanceOf(LIST).containsExactly(new ListItem("one"), new ListItem("two"));
     }
 
-    @Test(expected = ConversionException.class)
+    @Test
     public void testInvalidComplexListResponse() {
-        Schema schema = new Schema(TestResponse.class) {
+        var schema = new Schema<>(TestResponse.class) {
         };
-        YqlType.of(schema.getField("complexListValue")).fromYql(
-                ValueProtos.Value.newBuilder()
-                        .addItems(ValueProtos.Value.newBuilder().setTextValue("{\"name\":\"two\"}"))
-                        .build());
+        assertThatExceptionOfType(ConversionException.class).isThrownBy(() ->
+                YqlType.of(schema.getField("complexListValue")).fromYql(
+                        ValueProtos.Value.newBuilder()
+                                .addItems(ValueProtos.Value.newBuilder().setTextValue("{\"name\":\"two\"}"))
+                                .build())
+        );
     }
 
     @Test
     public void testEmptyListResponse() {
-        Schema schema = new Schema(TestResponse.class) {
+        var schema = new Schema<>(TestResponse.class) {
         };
-        Assert.assertEquals(List.of(), YqlType.of(schema.getField("complexListValue")).fromYql(
-                ValueProtos.Value.newBuilder().build()));
+        var actual = YqlType.of(schema.getField("complexListValue")).fromYql(ValueProtos.Value.newBuilder().build());
+        assertThat(actual).asInstanceOf(LIST).isEmpty();
     }
 
     @Test
     public void testDictResponse() {
-        Schema schema = new Schema(TestResponse.class) {
+        var schema = new Schema<>(TestResponse.class) {
         };
         var actual = YqlType.of(schema.getField("complexDictResponse")).fromYql(
                 ValueProtos.Value.newBuilder()
@@ -141,41 +146,39 @@ public class YqlTypeRecommendedTest {
                                                 .setKey(ValueProtos.Value.newBuilder().setTextValue("name"))
                                                 .setPayload(ValueProtos.Value.newBuilder().setTextValue("two")
                                                 )))).build());
-        Assert.assertEquals(new DictItem(new ListItem("two")), actual);
+        assertThat(actual).isEqualTo(new DictItem(new ListItem("two")));
     }
 
     @Test
     public void testEmptyDictResponse() {
-        Schema schema = new Schema(TestResponse.class) {
+        var schema = new Schema<>(TestResponse.class) {
         };
-        Assert.assertEquals(Map.of(), YqlType.of(schema.getField("complexDictResponse")).fromYql(
-                ValueProtos.Value.newBuilder().build()));
+        var actual = YqlType.of(schema.getField("complexDictResponse")).fromYql(ValueProtos.Value.newBuilder().build());
+        assertThat(actual).asInstanceOf(MAP).isEmpty();
     }
 
     @Test
     public void testBasicMapping() {
         var schema = ObjectSchema.of(BasicMapping.class);
-
-        Assert.assertEquals(
-                List.of(ValueProtos.Type.PrimitiveTypeId.UTF8,
+        assertThat(schema.flattenFields())
+                .extracting(jf -> YqlType.of(jf).getYqlType())
+                .containsExactly(
+                        ValueProtos.Type.PrimitiveTypeId.UTF8,
                         ValueProtos.Type.PrimitiveTypeId.STRING,
                         ValueProtos.Type.PrimitiveTypeId.UTF8,
                         ValueProtos.Type.PrimitiveTypeId.UTF8,
                         ValueProtos.Type.PrimitiveTypeId.STRING,
-                        ValueProtos.Type.PrimitiveTypeId.UTF8),
-                schema.getFields().stream()
-                        .map(YqlType::of)
-                        .map(YqlPrimitiveType::getYqlType)
-                        .collect(Collectors.toList()));
-
+                        ValueProtos.Type.PrimitiveTypeId.UTF8
+                );
     }
 
     @Test
     public void testBasicMappingAndId() {
         var schema = ObjectSchema.of(BasicMappingAndId.class);
-
-        Assert.assertEquals(
-                List.of(// primary key
+        assertThat(schema.flattenFields())
+                .extracting(jf -> YqlType.of(jf).getYqlType())
+                .containsExactly(
+                        // primary key
                         ValueProtos.Type.PrimitiveTypeId.UTF8,
                         ValueProtos.Type.PrimitiveTypeId.STRING,
                         ValueProtos.Type.PrimitiveTypeId.UTF8,
@@ -191,29 +194,46 @@ public class YqlTypeRecommendedTest {
                         ValueProtos.Type.PrimitiveTypeId.UTF8,
                         ValueProtos.Type.PrimitiveTypeId.UTF8,
                         ValueProtos.Type.PrimitiveTypeId.STRING,
-                        ValueProtos.Type.PrimitiveTypeId.UTF8),
-                schema.flattenFields().stream()
-                        .map(YqlType::of)
-                        .map(YqlPrimitiveType::getYqlType)
-                        .collect(Collectors.toList()));
-
+                        ValueProtos.Type.PrimitiveTypeId.UTF8
+                );
     }
 
     @Test
     public void testGlobalIndexSimple() {
         var schema = ObjectSchema.of(GlobalIndexSimple.class);
-        Assert.assertEquals(List.of(new Schema.Index("idx1", List.of("id3"))),
-                schema.getGlobalIndexes());
+        assertThat(schema.getGlobalIndexes()).containsExactlyInAnyOrder(
+                Schema.Index.builder()
+                        .indexName("idx1")
+                        .fields(List.of(schema.getField("id3")))
+                        .build()
+        );
     }
 
     @Test
     public void testGlobalIndexMultiIndex() {
         var schema = ObjectSchema.of(GlobalIndexMultiIndex.class);
-        Assert.assertEquals(List.of(
-                        new Schema.Index("idx1", List.of("id_id1", "id_3")),
-                        new Schema.Index("idx2", List.of("id_2", "id_3"), true, false),
-                        new Schema.Index("idx3", List.of("id_3"), false, true)),
-                schema.getGlobalIndexes());
+        assertThat(schema.getGlobalIndexes()).containsExactlyInAnyOrder(
+                Schema.Index.builder()
+                        .indexName("idx1")
+                        .fields(List.of(
+                                schema.getField("id.id1"),
+                                schema.getField("id3")
+                        ))
+                        .build(),
+                Schema.Index.builder()
+                        .indexName("idx2")
+                        .fields(List.of(
+                                schema.getField("id.id2"),
+                                schema.getField("id3")
+                        ))
+                        .unique(true)
+                        .build(),
+                Schema.Index.builder()
+                        .indexName("idx3")
+                        .fields(List.of(schema.getField("id3")))
+                        .async(true)
+                        .build()
+        );
     }
 
     @Test
@@ -309,7 +329,7 @@ public class YqlTypeRecommendedTest {
 
     @AllArgsConstructor
     public static class BasicMappingAndId implements Entity<BasicMappingAndId> {
-        Id id;
+        BasicMappingAndId.Id id;
         String v1;
         @Column(dbType = DbType.STRING)
         String v2;
@@ -327,7 +347,7 @@ public class YqlTypeRecommendedTest {
         UUID v9;
 
         @Override
-        public Id getId() {
+        public BasicMappingAndId.Id getId() {
             return id;
         }
 
@@ -421,7 +441,6 @@ public class YqlTypeRecommendedTest {
             String id1;
             String id2;
         }
-
     }
 
     @GlobalIndex(name = "idx1", fields = {})
@@ -440,7 +459,6 @@ public class YqlTypeRecommendedTest {
             String id1;
             String id2;
         }
-
     }
 
     @GlobalIndex(name = "idx1", fields = {"id4"})
@@ -459,7 +477,6 @@ public class YqlTypeRecommendedTest {
             String id1;
             String id2;
         }
-
     }
 
     @GlobalIndex(name = "idx1", fields = {"id.id3"})
@@ -478,7 +495,6 @@ public class YqlTypeRecommendedTest {
             String id1;
             String id2;
         }
-
     }
 
     @GlobalIndex(name = "idx1", fields = {"id"})
@@ -497,6 +513,5 @@ public class YqlTypeRecommendedTest {
             String id1;
             String id2;
         }
-
     }
 }
