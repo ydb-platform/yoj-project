@@ -154,7 +154,7 @@ public class YdbRepositoryIntegrationTest extends RepositoryTest {
         var config = getRealYdbConfig();
         Metadata proxyHeaders = new Metadata();
         proxyHeaders.put(YdbHeaders.DATABASE, config.getDatabase());
-        proxyHeaders.put(YdbHeaders.BUILD_INFO, Version.getVersion().get());
+        proxyHeaders.put(YdbHeaders.BUILD_INFO, Version.getVersion().orElseThrow());
 
         var hostAndPort = config.getHostAndPort();
         NettyChannelBuilder channelBuilder = NettyChannelBuilder.forAddress(hostAndPort.getHost(), hostAndPort.getPort())
@@ -348,7 +348,6 @@ public class YdbRepositoryIntegrationTest extends RepositoryTest {
 
     @Test
     public void truncatedDefault() {
-        var ydbRepository = (YdbRepository) repository;
         var queryImplementation = TestYdbRepository.createRepositorySettings().queryImplementation();
         if (queryImplementation instanceof QueryImplementation.TableService) {
             testRowLimitEnforced(db);
@@ -1226,7 +1225,7 @@ public class YdbRepositoryIntegrationTest extends RepositoryTest {
                     .setPartitioningSettings(PartitioningSettings.newBuilder()
                             .setAutoPartitioningStrategy(AutoPartitioningStrategy.DISABLED)
                             .setMinActivePartitions(1)
-                            .setPartitionCountLimit(1)
+                            .setMaxActivePartitions(1)
                             .build())
                     .build()
             ).join().expectSuccess("can't create a new topic");
@@ -1270,7 +1269,7 @@ public class YdbRepositoryIntegrationTest extends RepositoryTest {
                     .setPartitioningSettings(PartitioningSettings.newBuilder()
                             .setAutoPartitioningStrategy(AutoPartitioningStrategy.DISABLED)
                             .setMinActivePartitions(1)
-                            .setPartitionCountLimit(1)
+                            .setMaxActivePartitions(1)
                             .build())
                     .build()
             ).join().expectSuccess("can't create a new topic");
@@ -1319,7 +1318,7 @@ public class YdbRepositoryIntegrationTest extends RepositoryTest {
                     .setPartitioningSettings(PartitioningSettings.newBuilder()
                             .setAutoPartitioningStrategy(AutoPartitioningStrategy.DISABLED)
                             .setMinActivePartitions(1)
-                            .setPartitionCountLimit(1)
+                            .setMaxActivePartitions(1)
                             .build())
                     .build()
             ).join().expectSuccess("can't create a new topic");
