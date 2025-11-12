@@ -2,13 +2,14 @@ package tech.ydb.yoj.databind.schema;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Lists;
-import lombok.AllArgsConstructor;
 import lombok.Builder;
+import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.NonNull;
+import lombok.RequiredArgsConstructor;
 import lombok.SneakyThrows;
+import lombok.ToString;
 import lombok.Value;
-import lombok.With;
 import tech.ydb.yoj.ExperimentalApi;
 import tech.ydb.yoj.databind.DbType;
 import tech.ydb.yoj.databind.FieldValueType;
@@ -46,6 +47,7 @@ import static com.google.common.collect.MoreCollectors.onlyElement;
 import static java.lang.String.format;
 import static java.util.Arrays.asList;
 import static java.util.stream.Collectors.toList;
+import static lombok.AccessLevel.PRIVATE;
 
 public abstract class Schema<T> {
     public static final String PATH_DELIMITER = ".";
@@ -173,7 +175,7 @@ public abstract class Schema<T> {
                         format("index \"%s\" defined for %s has no fields", name, getType())
                 );
             }
-            List<String> columns = new ArrayList<>(fieldPaths.length);
+            List<JavaField> columns = new ArrayList<>(fieldPaths.length);
             for (String fieldPath : fieldPaths) {
                 var field = findField(fieldPath)
                         .orElseThrow(() -> new IllegalArgumentException(
@@ -185,11 +187,11 @@ public abstract class Schema<T> {
                             format("index \"%s\" defined for %s tries to access non-flat field \"%s\"",
                                     name, getType(), fieldPath));
                 }
-                columns.add(field.getName());
+                columns.add(field);
             }
             outputIndexes.add(Index.builder()
                 .indexName(name)
-                .fieldNames(List.copyOf(columns))
+                .fields(columns)
                 .unique(index.type() == GlobalIndex.Type.UNIQUE)
                 .async(index.type() == GlobalIndex.Type.GLOBAL_ASYNC)
                 .build());
@@ -209,7 +211,7 @@ public abstract class Schema<T> {
         var parsedInterval = Duration.parse(ttlAnnotation.interval());
         Preconditions.checkArgument(!(parsedInterval.isNegative() || parsedInterval.isZero()),
                 "ttl value defined for %s must be positive", getType());
-        return new TtlModifier(field.getName(), (int) parsedInterval.getSeconds());
+        return new TtlModifier(field, parsedInterval);
     }
 
     private List<Changefeed> prepareChangefeeds(List<tech.ydb.yoj.databind.schema.Changefeed> changefeeds) {
@@ -858,31 +860,49 @@ public abstract class Schema<T> {
     }
 
     @Value
-    @AllArgsConstructor
     @Builder
+    @RequiredArgsConstructor(access = PRIVATE)
     public static class Index {
-        public Index(@NonNull String indexName, @NonNull List<String> fieldNames) {
-            this(indexName, fieldNames, false, false);
-        }
-
-        @NonNull
         String indexName;
 
-        @With
-        @NonNull
+        @EqualsAndHashCode.Exclude
+        List<JavaField> fields;
+
+        @ToString.Exclude
         List<String> fieldNames;
 
         boolean unique;
-
         boolean async;
+
+        public static class IndexBuilder {
+            public IndexBuilder fields(List<JavaField> fields) {
+                this.fields = List.copyOf(fields);
+                return fieldNames(fields.stream().map(JavaField::getName).toList());
+            }
+            
+            private IndexBuilder fieldNames(List<String> fieldNames) {
+                this.fieldNames = fieldNames;
+                return this;
+            }
+        }
     }
 
     @Value
     public static class TtlModifier {
         @NonNull
-        String fieldName;
+        JavaField field;
 
-        int interval;
+        @NonNull
+        Duration interval;
+
+        @NonNull
+        public String getFieldName() {
+            return field.getName();
+        }
+
+        public int getIntervalSeconds() {
+            return Math.toIntExact(interval.getSeconds());
+        }
     }
 
     @Value

@@ -144,7 +144,8 @@ public final class YdbSchemaOperations {
                 }
             }
             if (ttlModifier != null) {
-                TtlSettings ttlSettings = new TtlSettings(ttlModifier.getFieldName(), ttlModifier.getInterval());
+                // TODO(nvamelichev): Support and use the new TableTtl YDB SDK API (it has TTL time units, yay!)
+                TtlSettings ttlSettings = new TtlSettings(ttlModifier.getFieldName(), ttlModifier.getIntervalSeconds());
                 tableSettings.setTtlSettings(ttlSettings);
             }
             Status status = session.createTable(tablespace + name, builder.build(), tableSettings).join();
@@ -242,7 +243,7 @@ public final class YdbSchemaOperations {
 
         TtlModifier tableTtl = null;
         if (ttlModifier != null) {
-            tableTtl = new TtlModifier(ttlModifier.getFieldName(), ttlModifier.getInterval());
+            tableTtl = new TtlModifier(ttlModifier.getFieldName(), ttlModifier.getIntervalSeconds());
         }
 
         return new Table(tablespace + name, ydbColumns, ydbIndexes, tableTtl);

@@ -24,7 +24,7 @@ public class TtlSchemaTest {
 
         assertThat(entitySchema.getTtlModifier()).isNotNull();
         assertThat(entitySchema.getTtlModifier().getFieldName()).isEqualTo("ttlColumn");
-        assertThat(entitySchema.getTtlModifier().getInterval()).isEqualTo(TEST_TTL_INTERVAL.getSeconds());
+        assertThat(entitySchema.getTtlModifier().getIntervalSeconds()).isEqualTo(TEST_TTL_INTERVAL.getSeconds());
     }
 
     @Test
@@ -33,7 +33,7 @@ public class TtlSchemaTest {
 
         assertThat(entitySchema.getTtlModifier()).isNotNull();
         assertThat(entitySchema.getTtlModifier().getFieldName()).isEqualTo("ttlEntity_ttlColumn");
-        assertThat(entitySchema.getTtlModifier().getInterval()).isEqualTo(TEST_TTL_INTERVAL.getSeconds());
+        assertThat(entitySchema.getTtlModifier().getIntervalSeconds()).isEqualTo(TEST_TTL_INTERVAL.getSeconds());
     }
 
     @Test
