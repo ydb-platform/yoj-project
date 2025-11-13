@@ -79,7 +79,17 @@ public class FieldGeneratorAnnotationProcessorTest {
         SourceFile sourceFile = SourceFile.Companion.fromPath(
                 new File("src/test/resources/input/KotlinDataClass.kt")
         );
+
         KotlinCompilation compilation = new KotlinCompilation();
+
+        // NB(nvamelichev): kotlin-compilation fork that supports Java 25+ also bundles Kotlin 2.2.x embedded compiler.
+        // The 2.2 compiler can still compile to 1.9 language and API level, but kotlin-compilation can't invoke our
+        // **Java** annotation processor if 1.9 language level is used. ==> We **have to** use 2.2 level in the test :-(
+        // (YOJ itself still declares dependency on Kotlin 1.9.x stdlib, for backwards compatibility.)
+        compilation.setUseKapt4(true);
+        compilation.setApiVersion("2.2");
+        compilation.setLanguageVersion("2.2");
+
         compilation.setAnnotationProcessors(List.of(
                 new FieldGeneratorAnnotationProcessor()
         ));

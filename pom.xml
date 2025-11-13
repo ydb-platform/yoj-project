@@ -144,7 +144,12 @@
         <auto-service.version>1.1.1</auto-service.version>
 
         <!-- optional dependencies (Kotlin support) -->
-        <kotlin.version>2.2.21</kotlin.version>
+        <!-- NB(nvamelichev): Kotlin Maven Plugin version is currently 2.2.x to support building YOJ on Java 25,
+             but we still wish to **target** Kotlin 1.9 -->
+        <kotlin-maven-plugin.version>2.2.21</kotlin-maven-plugin.version>
+        <kotlin-stdlib.version>1.9.24</kotlin-stdlib.version>
+        <kotlin-language.version>1.9</kotlin-language.version>
+        <kotlin-api.version>1.9</kotlin-api.version>
 
         <!-- test dependencies -->
         <junit.version>4.13.2</junit.version>
@@ -471,7 +476,11 @@
                 <plugin>
                     <groupId>org.jetbrains.kotlin</groupId>
                     <artifactId>kotlin-maven-plugin</artifactId>
-                    <version>${kotlin.version}</version>
+                    <version>${kotlin-maven-plugin.version}</version>
+                    <configuration>
+                        <languageVersion>${kotlin-language.version}</languageVersion>
+                        <apiVersion>${kotlin-api.version}</apiVersion>
+                    </configuration>
                 </plugin>
             </plugins>
         </pluginManagement>
@@ -710,13 +719,13 @@
             <dependency>
                 <groupId>org.jetbrains.kotlin</groupId>
                 <artifactId>kotlin-reflect</artifactId>
-                <version>${kotlin.version}</version>
+                <version>${kotlin-stdlib.version}</version>
                 <optional>true</optional>
             </dependency>
             <dependency>
                 <groupId>org.jetbrains.kotlin</groupId>
                 <artifactId>kotlin-stdlib</artifactId>
-                <version>${kotlin.version}</version>
+                <version>${kotlin-stdlib.version}</version>
                 <optional>true</optional>
             </dependency>
             <dependency>
