@@ -147,7 +147,7 @@
         <!-- NB(nvamelichev): Kotlin Maven Plugin version is currently 2.2.x to support building YOJ on Java 25,
              but we still wish to **target** Kotlin 1.9 -->
         <kotlin-maven-plugin.version>2.2.21</kotlin-maven-plugin.version>
-        <kotlin-stdlib.version>1.9.24</kotlin-stdlib.version>
+        <kotlin-stdlib.version>1.9.25</kotlin-stdlib.version>
         <kotlin-language.version>1.9</kotlin-language.version>
         <kotlin-api.version>1.9</kotlin-api.version>
 
