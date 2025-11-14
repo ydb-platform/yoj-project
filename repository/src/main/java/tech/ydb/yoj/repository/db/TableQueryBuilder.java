@@ -18,6 +18,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Set;
 import java.util.function.UnaryOperator;
+import java.util.stream.Stream;
 
 import static lombok.AccessLevel.PRIVATE;
 
@@ -317,10 +318,10 @@ public final class TableQueryBuilder<T extends Entity<T>> {
                 .findAny()
                 .orElseThrow(() -> new IllegalArgumentException("Index not found: '" + indexName + "'"));
 
-        this.orderBy = new OrderExpression<>(
-                schema,
-                index.getFields().stream().map(jf -> new SortKey(jf, sortOrder)).toList()
-        );
+        List<SortKey> sortKeys = Stream.concat(index.getFields().stream(), schema.flattenId().stream())
+                .map(jf -> new SortKey(jf, sortOrder))
+                .toList();
+        this.orderBy = new OrderExpression<>(schema, sortKeys);
         this.indexName = indexName;
 
         return this;
