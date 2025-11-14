@@ -200,7 +200,9 @@ public class YdbRepositoryIntegrationTest extends RepositoryTest {
 
         });
 
-        ReadTableParams<Project.Id> params = ReadTableParams.<Project.Id>builder().useNewSpliterator(true).build();
+        ReadTableParams<Project.Id> params = ReadTableParams.<Project.Id>builder()
+                .spliteratorType(ReadTableParams.SpliteratorType.LEGACY_SLOW)
+                .build();
         Stream<Project> readOnlyStream = db.readOnly().run(() -> db.projects().readTable(params));
 
         assertThatExceptionOfType(IllegalStateException.class).isThrownBy(() ->
