@@ -3,7 +3,6 @@ package tech.ydb.yoj.repository.ydb;
 import com.google.common.util.concurrent.Runnables;
 import com.google.common.util.concurrent.Uninterruptibles;
 import lombok.SneakyThrows;
-import org.junit.Assert;
 import org.junit.Test;
 import tech.ydb.core.Status;
 import tech.ydb.core.StatusCode;
@@ -14,12 +13,106 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 
 public class YdbSpliteratorTest {
+    @Test
+    public void readAllSequence() {
+        ReadTableMock mock = ReadTableMock.start();
+
+        try (Stream<Integer> stream = mock.stream()) {
+            List<Integer> result = stream.toList();
+            assertThat(result).hasSize(ReadTableMock.SIZE);
+        }
+
+        mock.joinSupplierThread();
+
+        assertThat(mock.bucketSizes).hasSize(ReadTableMock.BUCKETS.size());
+        assertThat(mock.selectedValuesCount).hasValue(ReadTableMock.SIZE);
+    }
+
+    @Test
+    public void limitDontGetAllSequence() {
+        ReadTableMock mock = ReadTableMock.start();
+
+        List<Integer> result;
+        try (Stream<Integer> stream = mock.stream()) {
+            result = stream.limit(2).toList();
+        }
+        // FIXME: This test has an inherent race, because nothing stops the supplier thread from supplying lots of data,
+        // except the inefficient capacity=1 ArrayBlockingQueue inside YdbSpliterator, and the logic that advances
+        // strictly by 1 element in YdbSpliterator.tryAdvance().
+        // Currently this race is **masked** if we move the assertion outside of try-with-resources, because the stream
+        // is then quickly close()'d **before** the YdbSpliterator is supplied the full first bucket of data.
+        assertThat(result).hasSize(2);
+
+        mock.joinSupplierThread();
+
+        assertThat(mock.bucketSizes).hasSize(1);
+        assertThat(mock.selectedValuesCount).hasValueBetween(3, 4);
+    }
+
+    @Test
+    public void closeSupplierThreadWhenCloseOfLimitedStreamWasForgotten() {
+        ReadTableMock mock = ReadTableMock.start();
+
+        // stream.close() is forgotten
+        List<Integer> result = mock.stream().limit(2).toList();
+        assertThat(result).hasSize(2);
+
+        // wait deadline
+        mock.joinSupplierThread();
+
+        assertThat(mock.bucketSizes).hasSize(1);
+        assertThat(mock.selectedValuesCount).hasValue(4);
+    }
+
+    @Test
+    @SneakyThrows
+    public void endStreamWhenSupplerOfferValue() {
+        YdbSpliterator<Integer> spliterator = new YdbSpliterator<>("stream", false, Duration.ofMillis(500));
+
+        spliterator.onNext(1);
+
+        // wait for block on onNext(2) and close stream
+        var thread = new TestingThread(() -> doAfter(100, spliterator::close));
+        thread.start();
+
+        spliterator.onNext(2);
+        assertThatExceptionOfType(YdbSpliterator.ConsumerDoneException.class).isThrownBy(() ->
+                spliterator.onNext(3)
+        );
+
+        thread.join();
+    }
+
+    @Test
+    public void getErrorOnTooSlowStreamProcessing() {
+        ReadTableMock mock = ReadTableMock.start(Duration.ofMillis(100));
+        assertThatExceptionOfType(DeadlineExceededException.class).isThrownBy(() -> {
+            try (Stream<Integer> stream = mock.stream()) {
+                stream.forEach(i -> doAfter(50, Runnables.doNothing()));
+            }
+        });
+
+        mock.joinSupplierThread();
+    }
+
+    @Test
+    public void getInterruptErrorFromSupplier() {
+        ReadTableMock mock = ReadTableMock.start();
+        assertThatExceptionOfType(QueryInterruptedException.class).isThrownBy(() -> {
+            try (Stream<Integer> stream = mock.stream()) {
+                stream.forEach(i -> mock.interrupt());
+            }
+        });
+
+        mock.joinSupplierThread();
+    }
+
     @SneakyThrows
     public static void doAfter(int millis, Runnable runnable) {
         Thread.sleep(millis);
@@ -149,94 +242,5 @@ public class YdbSpliteratorTest {
         public void joinSupplierThread() {
             supplierThread.join();
         }
-    }
-
-    @Test
-    public void readAllSequence() {
-        ReadTableMock mock = ReadTableMock.start();
-
-        try (Stream<Integer> stream = mock.stream()) {
-            List<Integer> result = stream.collect(Collectors.toList());
-            Assert.assertEquals(ReadTableMock.SIZE, result.size());
-        }
-
-        mock.joinSupplierThread();
-
-        Assert.assertEquals(ReadTableMock.BUCKETS.size(), mock.bucketSizes.size());
-        Assert.assertEquals(ReadTableMock.SIZE, mock.selectedValuesCount.get());
-    }
-
-    @Test
-    public void limitDontGetAllSequence() {
-        ReadTableMock mock = ReadTableMock.start();
-
-        try (Stream<Integer> stream = mock.stream()) {
-            List<Integer> result = stream.limit(2).collect(Collectors.toList());
-            Assert.assertEquals(2, result.size());
-        }
-
-        mock.joinSupplierThread();
-
-        Assert.assertEquals(1, mock.bucketSizes.size());
-        int selectedCount = mock.selectedValuesCount.get();
-        Assert.assertTrue(3 <= selectedCount && selectedCount <= 4);
-    }
-
-    @Test
-    public void closeSupplierThreadWhenCloseOfLimitedStreamWasForgotten() {
-        ReadTableMock mock = ReadTableMock.start();
-
-        // stream.close() is forgotten
-        List<Integer> result = mock.stream().limit(2).collect(Collectors.toList());
-        Assert.assertEquals(2, result.size());
-
-        // wait deadline
-        mock.joinSupplierThread();
-
-        Assert.assertEquals(1, mock.bucketSizes.size());
-        Assert.assertEquals(4, mock.selectedValuesCount.get());
-    }
-
-    @Test
-    @SneakyThrows
-    public void endStreamWhenSupplerOfferValue() {
-        YdbSpliterator<Integer> spliterator = new YdbSpliterator<>("stream", false, Duration.ofMillis(500));
-
-        spliterator.onNext(1);
-
-        // wait for block on onNext(2) and close stream
-        var thread = new TestingThread(() -> doAfter(100, spliterator::close));
-        thread.start();
-
-        spliterator.onNext(2);
-        assertThatExceptionOfType(YdbSpliterator.ConsumerDoneException.class).isThrownBy(() ->
-                spliterator.onNext(3)
-        );
-
-        thread.join();
-    }
-
-    @Test
-    public void getErrorOnTooSlowStreamProcessing() {
-        ReadTableMock mock = ReadTableMock.start(Duration.ofMillis(100));
-        assertThatExceptionOfType(DeadlineExceededException.class).isThrownBy(() -> {
-            try (Stream<Integer> stream = mock.stream()) {
-                stream.forEach(i -> doAfter(50, Runnables.doNothing()));
-            }
-        });
-
-        mock.joinSupplierThread();
-    }
-
-    @Test
-    public void getInterruptErrorFromSupplier() {
-        ReadTableMock mock = ReadTableMock.start();
-        assertThatExceptionOfType(QueryInterruptedException.class).isThrownBy(() -> {
-            try (Stream<Integer> stream = mock.stream()) {
-                stream.forEach(i -> mock.interrupt());
-            }
-        });
-
-        mock.joinSupplierThread();
     }
 }

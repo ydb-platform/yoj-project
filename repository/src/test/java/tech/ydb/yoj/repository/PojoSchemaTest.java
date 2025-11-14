@@ -1,7 +1,6 @@
 package tech.ydb.yoj.repository;
 
 import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableMap;
 import lombok.AccessLevel;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
@@ -65,6 +64,40 @@ public class PojoSchemaTest {
         assertThat(idSchema.findField("zone")).isPresent();
         assertThat(idSchema.getField("zone").getName()).isEqualTo("id_zone");
         assertThat(idSchema.getField("zone").getType()).isEqualTo(String.class);
+    }
+
+    @Test
+    public void find_field_in_view_schema() {
+        assertThat(viewSchema.findField("created")).isPresent();
+        assertThat(viewSchema.getField("created").getName()).isEqualTo("created");
+        assertThat(viewSchema.getField("created").getType()).isEqualTo(Instant.class);
+    }
+
+    @Test
+    public void serialize_view_to_map() {
+        assertThat(viewSchema.flatten(new SampleEntityView(
+                Set.of("hello", "world"),
+                Instant.EPOCH,
+                "hi"
+        ))).isEqualTo(Map.of(
+                "name", "hi",
+                "created", Instant.EPOCH,
+                "tags", Set.of("hello", "world")
+        ));
+    }
+
+    @Test
+    public void deserialize_view_from_map() {
+        var view = viewSchema.newInstance(Map.of(
+                "name", "hi",
+                "created", Instant.EPOCH,
+                "tags", Set.of("hello", "world")
+        ));
+        assertThat(view).isEqualTo(new SampleEntityView(
+                Set.of("hello", "world"),
+                Instant.EPOCH,
+                "hi"
+        ));
     }
 
     @Test(expected = IllegalArgumentException.class)
@@ -208,7 +241,7 @@ public class PojoSchemaTest {
     }
 
     @Test
-    public void allowed_id_filed_types() {
+    public void allowed_id_field_types() {
         EntitySchema<AllowedIdFieldTypeEntity> schema = EntitySchema.of(AllowedIdFieldTypeEntity.class);
         assertThat(schema.flattenId().stream().map(Schema.JavaField::getName))
                 .containsExactlyInAnyOrder("id_boolValue", "id_intValue", "id_stringValue", "id_tsValue", "id_enumValue");
@@ -219,7 +252,7 @@ public class PojoSchemaTest {
     }
 
     @Test
-    public void fail_on_not_allowed_id_filed_types() {
+    public void fail_on_not_allowed_id_field_types() {
         assertThatIllegalArgumentException().isThrownBy(() -> EntityIdSchema.ofEntity(NotAllowedIdFieldTypeEntity.class));
         assertThatIllegalArgumentException().isThrownBy(() -> EntityIdSchema.of(NotAllowedIdFieldTypeEntity.Id.class));
 
@@ -244,7 +277,7 @@ public class PojoSchemaTest {
                         entry("used", sampleEntity.used)
                 );
 
-        EntityWithTransientFields deserialized = schema.newInstance(ImmutableMap.of(
+        EntityWithTransientFields deserialized = schema.newInstance(Map.of(
                 "id", sampleEntity.id.value,
                 "used", sampleEntity.used,
                 "ignored", sampleEntity.ignored));
@@ -272,7 +305,7 @@ public class PojoSchemaTest {
                         entry("dummy", entity.dummy)
                 );
 
-        EntityWithSingleFieldComposite deserialized = schema.newInstance(ImmutableMap.of(
+        EntityWithSingleFieldComposite deserialized = schema.newInstance(Map.of(
                 "id", entity.id.value,
                 "payload_singleField", entity.payload.singleField,
                 "dummy", entity.dummy));
@@ -296,7 +329,7 @@ public class PojoSchemaTest {
                         entry("payload_singleField", view.payload.singleField)
                 );
 
-        ViewWithSingleFieldComposite deserialized = schema.newInstance(ImmutableMap.of(
+        ViewWithSingleFieldComposite deserialized = schema.newInstance(Map.of(
                 "id", view.id.value,
                 "payload_singleField", view.payload.singleField));
         assertThat(deserialized).isEqualTo(view);
@@ -335,7 +368,7 @@ public class PojoSchemaTest {
                         entry("child_compositePayload_integer", entity.child.compositePayload.integer)
                 );
 
-        ParentEntity deserialized = schema.newInstance(ImmutableMap.of(
+        ParentEntity deserialized = schema.newInstance(Map.of(
                 "id", entity.id.value,
                 "child_id", entity.child.id.value,
                 "child_payload", entity.child.payload,
@@ -359,7 +392,7 @@ public class PojoSchemaTest {
                         entry("unflattenable", entity.unflattenable)
                 );
 
-        WithUnflattenableField deserialized = schema.newInstance(ImmutableMap.of(
+        WithUnflattenableField deserialized = schema.newInstance(Map.of(
                 "id", entity.id.value,
                 "unflattenable", entity.unflattenable));
         assertThat(deserialized).isEqualTo(entity);

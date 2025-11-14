@@ -121,7 +121,7 @@ public class PojoEntitySchemaTest {
     }
 
     @Value
-    private static final class ColumnNameClashes implements Entity<ColumnNameClashes> {
+    private static class ColumnNameClashes implements Entity<ColumnNameClashes> {
         @Column
         Id id;
 
@@ -129,8 +129,7 @@ public class PojoEntitySchemaTest {
         String value;
 
         @Value
-        private static final class Id implements Entity.Id<ColumnNameClashes> {
-
+        private static class Id implements Entity.Id<ColumnNameClashes> {
             @Column
             long uid;
         }

@@ -1,10 +1,8 @@
 package tech.ydb.yoj.repository.ydb;
 
-import com.google.common.collect.ImmutableSet;
 import lombok.NonNull;
 import lombok.SneakyThrows;
 import org.junit.After;
-import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 import org.mockito.Mock;
@@ -18,7 +16,6 @@ import tech.ydb.table.query.Params;
 import tech.ydb.table.values.StructType;
 import tech.ydb.yoj.repository.db.EntitySchema;
 import tech.ydb.yoj.repository.db.Range;
-import tech.ydb.yoj.repository.db.SchemaOperations;
 import tech.ydb.yoj.repository.db.TableDescriptor;
 import tech.ydb.yoj.repository.db.exception.EntityAlreadyExistsException;
 import tech.ydb.yoj.repository.test.sample.TestEntityOperations;
@@ -32,13 +29,11 @@ import tech.ydb.yoj.repository.ydb.statement.MultipleVarsYqlStatement;
 import tech.ydb.yoj.repository.ydb.statement.UpsertYqlStatement;
 
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 
-import static java.util.Collections.emptyList;
-import static java.util.Collections.singletonList;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.refEq;
 import static org.mockito.Mockito.clearInvocations;
@@ -97,7 +92,7 @@ public class YdbRepositoryCacheTest {
 
         TestEntityOperations ops = new TestYdbRepository.TestYdbRepositoryTransaction(testYdbRepository);
 
-        when(session.executeDataQuery(any(), any(), any(), any())).thenReturn(convertEntity(emptyList()));
+        when(session.executeDataQuery(any(), any(), any(), any())).thenReturn(convertEntity(List.of()));
 
         ops.complexes().find(id);
         ops.complexes().find(id);
@@ -129,7 +124,7 @@ public class YdbRepositoryCacheTest {
 
         when(session.executeDataQuery(any(), any(), any(), any())).thenReturn(convertEntity(results));
 
-        ImmutableSet<Id> ids = ImmutableSet.of(new Id(1, 0L, null, null), new Id(1, 1L, null, null));
+        Set<Id> ids = Set.of(new Id(1, 0L, null, null), new Id(1, 1L, null, null));
         ops.complexes().find(ids);
         for (Complex c : results) {
             ops.complexes().find(c.getId());
@@ -173,11 +168,11 @@ public class YdbRepositoryCacheTest {
         clearInvocations();
         when(session.executeDataQuery(any(), any(), any(), any())).thenReturn(convertEntity(List.of(secondItem)));
 
-        ImmutableSet<Id> ids = ImmutableSet.of(firstItem.getId(), secondItem.getId());
+        Set<Id> ids = Set.of(firstItem.getId(), secondItem.getId());
         var fetched = ops.complexes().find(ids);
 
         verify(session, times(2)).executeDataQuery(any(), any(), any(), any());
-        Assert.assertEquals(ImmutableSet.of(firstItem, secondItem), new HashSet<>(fetched));
+        assertThat(fetched).containsExactlyInAnyOrder(firstItem, secondItem);
     }
 
     @Test
@@ -204,12 +199,12 @@ public class YdbRepositoryCacheTest {
         clearInvocations();
         // we should get first from cache (actual) and second from db
         when(session.executeDataQuery(any(), any(), any(), any())).thenReturn(convertEntity(List.of(firstOutdated, second)));
-        var fetched = ops.complexes().find(ImmutableSet.of(
+        var fetched = ops.complexes().find(Set.of(
                 new Complex.Id(1, null, null, null),
                 third.getId()
         ));
         verify(session, times(3)).executeDataQuery(any(), any(), any(), any());
-        Assert.assertEquals(ImmutableSet.of(first, second, third), new HashSet<>(fetched));
+        assertThat(fetched).containsExactlyInAnyOrder(first, second, third);
     }
 
     @Test
@@ -219,14 +214,14 @@ public class YdbRepositoryCacheTest {
         var firstOutdated = new Complex(id, "outdated");
         TestEntityOperations ops = new TestYdbRepository.TestYdbRepositoryTransaction(testYdbRepository);
 
-        when(session.executeDataQuery(any(), any(), any(), any())).thenReturn(convertEntity(singletonList(firstActual)));
+        when(session.executeDataQuery(any(), any(), any(), any())).thenReturn(convertEntity(List.of(firstActual)));
         var found = ops.complexes().find(id);
-        Assert.assertEquals(found, firstActual);
+        assertThat(firstActual).isEqualTo(found);
 
-        when(session.executeDataQuery(any(), any(), any(), any())).thenReturn(convertEntity(singletonList(firstOutdated)));
-        ops.complexes().find(ImmutableSet.of(new Id(1, null, null, null)));
+        when(session.executeDataQuery(any(), any(), any(), any())).thenReturn(convertEntity(List.of(firstOutdated)));
+        ops.complexes().find(Set.of(new Id(1, null, null, null)));
         found = ops.complexes().find(id);
-        Assert.assertEquals(found, firstActual);
+        assertThat(firstActual).isEqualTo(found);
 
         verify(session, times(2)).executeDataQuery(any(), any(), any(), any());
     }
@@ -238,12 +233,12 @@ public class YdbRepositoryCacheTest {
 
         TestEntityOperations ops = new TestYdbRepository.TestYdbRepositoryTransaction(testYdbRepository);
 
-        when(session.executeDataQuery(any(), any(), any(), any())).thenReturn(convertEntity(singletonList(existsInDb)));
-        var found = ops.complexes().find(ImmutableSet.of(existsInDbId));
-        Assert.assertEquals(found, singletonList(existsInDb));
+        when(session.executeDataQuery(any(), any(), any(), any())).thenReturn(convertEntity(List.of(existsInDb)));
+        var found = ops.complexes().find(Set.of(existsInDbId));
+        assertThat(List.of(existsInDb)).isEqualTo(found);
 
         var foundInCache = ops.complexes().find(existsInDbId);
-        Assert.assertEquals(existsInDb, foundInCache);
+        assertThat(foundInCache).isEqualTo(existsInDb);
 
         verify(session, times(1)).executeDataQuery(any(), any(), any(), any());
     }
@@ -255,12 +250,12 @@ public class YdbRepositoryCacheTest {
 
         TestEntityOperations ops = new TestYdbRepository.TestYdbRepositoryTransaction(testYdbRepository);
 
-        when(session.executeDataQuery(any(), any(), any(), any())).thenReturn(convertEntity(singletonList(existsInDb)));
-        var found = ops.complexes().find(ImmutableSet.of(new Id(1, null, null, null)));
-        Assert.assertEquals(found, singletonList(existsInDb));
+        when(session.executeDataQuery(any(), any(), any(), any())).thenReturn(convertEntity(List.of(existsInDb)));
+        var found = ops.complexes().find(Set.of(new Id(1, null, null, null)));
+        assertThat(List.of(existsInDb)).isEqualTo(found);
 
         var foundInCache = ops.complexes().find(existsInDbId);
-        Assert.assertEquals(existsInDb, foundInCache);
+        assertThat(foundInCache).isEqualTo(existsInDb);
 
         verify(session, times(1)).executeDataQuery(any(), any(), any(), any());
     }
@@ -272,12 +267,12 @@ public class YdbRepositoryCacheTest {
         var notExistInDbId = new Id(2, 2L, "c", Complex.Status.OK);
         TestEntityOperations ops = new TestYdbRepository.TestYdbRepositoryTransaction(testYdbRepository);
 
-        when(session.executeDataQuery(any(), any(), any(), any())).thenReturn(convertEntity(singletonList(existsInDb)));
-        var found = ops.complexes().find(ImmutableSet.of(existsInDbId, notExistInDbId));
-        Assert.assertEquals(found, singletonList(existsInDb));
+        when(session.executeDataQuery(any(), any(), any(), any())).thenReturn(convertEntity(List.of(existsInDb)));
+        var found = ops.complexes().find(Set.of(existsInDbId, notExistInDbId));
+        assertThat(List.of(existsInDb)).isEqualTo(found);
 
         var foundInCache = ops.complexes().find(notExistInDbId);
-        Assert.assertNull(foundInCache);
+        assertThat(foundInCache).isNull();
 
         verify(session, times(1)).executeDataQuery(any(), any(), any(), any());
     }
@@ -306,7 +301,7 @@ public class YdbRepositoryCacheTest {
                 new TestYdbRepository.TestYdbRepositoryTransaction(testYdbRepository);
 
         when(session.executeDataQuery(any(), any(), any(), any()))
-                .thenReturn(convertEntity(singletonList(new Complex(id))));
+                .thenReturn(convertEntity(List.of(new Complex(id))));
 
         ops.complexes().find(id);
         ops.complexes().save(new Complex(id));
@@ -324,7 +319,7 @@ public class YdbRepositoryCacheTest {
                 new TestYdbRepository.TestYdbRepositoryTransaction(testYdbRepository);
 
         when(session.executeDataQuery(any(), any(), any(), any()))
-                .thenReturn(convertEntity(singletonList(new Complex(id))));
+                .thenReturn(convertEntity(List.of(new Complex(id))));
 
         ops.complexes().find(id);
         ops.complexes().insert(new Complex(id));

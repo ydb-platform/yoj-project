@@ -4,11 +4,9 @@ import lombok.NonNull;
 import lombok.Value;
 import org.junit.Test;
 
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class PojoEntityTest {
-
     @Value
     private static class Ent implements Entity<Ent> {
         @NonNull
@@ -23,11 +21,11 @@ public class PojoEntityTest {
     }
 
     @Test
-    public void testPartialId() {
+    public void partialId() {
         var completeId = new Ent.Id("a", "b");
         var partialId = new Ent.Id("a", null);
 
-        assertTrue(partialId.isPartial());
-        assertFalse(completeId.isPartial());
+        assertThat(partialId.isPartial()).withFailMessage("expected ('a', null) to be a partial ID").isTrue();
+        assertThat(completeId.isPartial()).withFailMessage("expected ('a', b') to be a non-partial ID").isFalse();
     }
 }

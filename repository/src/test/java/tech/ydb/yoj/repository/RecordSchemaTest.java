@@ -1,7 +1,6 @@
 package tech.ydb.yoj.repository;
 
 import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableMap;
 import lombok.NonNull;
 import lombok.Value;
 import org.junit.After;
@@ -17,11 +16,9 @@ import tech.ydb.yoj.repository.db.RecordEntity;
 import tech.ydb.yoj.repository.db.Table.View;
 import tech.ydb.yoj.repository.db.ViewSchema;
 
-import java.beans.ConstructorProperties;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -60,6 +57,40 @@ public class RecordSchemaTest {
         assertThat(idSchema.findField("zone")).isPresent();
         assertThat(idSchema.getField("zone").getName()).isEqualTo("id_zone");
         assertThat(idSchema.getField("zone").getType()).isEqualTo(String.class);
+    }
+
+    @Test
+    public void find_field_in_view_schema() {
+        assertThat(viewSchema.findField("created")).isPresent();
+        assertThat(viewSchema.getField("created").getName()).isEqualTo("created");
+        assertThat(viewSchema.getField("created").getType()).isEqualTo(Instant.class);
+    }
+
+    @Test
+    public void serialize_view_to_map() {
+        assertThat(viewSchema.flatten(new SampleEntityView(
+                Instant.EPOCH,
+                Set.of("hello", "world"),
+                "hi"
+        ))).isEqualTo(Map.of(
+                "name", "hi",
+                "created", Instant.EPOCH,
+                "tags", Set.of("hello", "world")
+        ));
+    }
+
+    @Test
+    public void deserialize_view_from_map() {
+        var view = viewSchema.newInstance(Map.of(
+                "name", "hi",
+                "created", Instant.EPOCH,
+                "tags", Set.of("hello", "world")
+        ));
+        assertThat(view).isEqualTo(new SampleEntityView(
+                Instant.EPOCH,
+                Set.of("hello", "world"),
+                "hi"
+        ));
     }
 
     @Test(expected = IllegalArgumentException.class)
@@ -234,7 +265,7 @@ public class RecordSchemaTest {
                         entry("dummy", entity.dummy)
                 );
 
-        EntityWithSingleFieldComposite deserialized = schema.newInstance(ImmutableMap.of(
+        EntityWithSingleFieldComposite deserialized = schema.newInstance(Map.of(
                 "id", entity.id.value,
                 "payload_singleField", entity.payload.singleField,
                 "dummy", entity.dummy));
@@ -258,7 +289,7 @@ public class RecordSchemaTest {
                         entry("payload_singleField", view.payload.singleField)
                 );
 
-        ViewWithSingleFieldComposite deserialized = schema.newInstance(ImmutableMap.of(
+        ViewWithSingleFieldComposite deserialized = schema.newInstance(Map.of(
                 "id", view.id.value,
                 "payload_singleField", view.payload.singleField));
         assertThat(deserialized).isEqualTo(view);
@@ -297,7 +328,7 @@ public class RecordSchemaTest {
                         entry("child_compositePayload_integer", entity.child.compositePayload.integer)
                 );
 
-        ParentEntity deserialized = schema.newInstance(ImmutableMap.of(
+        ParentEntity deserialized = schema.newInstance(Map.of(
                 "id", entity.id.value,
                 "child_id", entity.child.id.value,
                 "child_payload", entity.child.payload,
@@ -321,7 +352,7 @@ public class RecordSchemaTest {
                         entry("unflattenable", entity.unflattenable)
                 );
 
-        WithUnflattenableField deserialized = schema.newInstance(ImmutableMap.of(
+        WithUnflattenableField deserialized = schema.newInstance(Map.of(
                 "id", entity.id.value,
                 "unflattenable", entity.unflattenable));
         assertThat(deserialized).isEqualTo(entity);
@@ -435,39 +466,11 @@ public class RecordSchemaTest {
         }
     }
 
-    // INTENTIONALLY hand-written code!
-    private static final class SampleEntityView implements View {
-        private final Instant created;
-        private final Set<String> tags;
-        private final String name;
-
-        @ConstructorProperties({"tags", "created", "name"})
-        private SampleEntityView(Set<String> tags, Instant created, String name) {
-            this.tags = Objects.requireNonNull(tags, "tags");
-            this.created = Objects.requireNonNull(created, "created");
-            this.name = Objects.requireNonNull(name, "name");
-        }
-
-        @Override
-        public boolean equals(Object o) {
-            if (this == o) {
-                return true;
-            }
-            if (o == null || getClass() != o.getClass()) {
-                return false;
-            }
-
-            SampleEntityView that = (SampleEntityView) o;
-            return name.equals(that.name) && tags.equals(that.tags) && created.equals(that.created);
-        }
-
-        @Override
-        public int hashCode() {
-            int result = created.hashCode();
-            result = 31 * result + tags.hashCode();
-            result = 31 * result + name.hashCode();
-            return result;
-        }
+    private record SampleEntityView(
+            Instant created,
+            Set<String> tags,
+            String name
+    ) implements View {
     }
 
     private record EntityWithSingleFieldComposite(
