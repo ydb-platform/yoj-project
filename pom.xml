@@ -109,8 +109,8 @@
         <os-maven-plugin.version>1.7.1</os-maven-plugin.version>
 
         <!-- YDB SDK 2.x -->
-        <ydb-sdk-v2.version>2.3.22</ydb-sdk-v2.version>
-        <ydb-proto-api.version>1.8.0</ydb-proto-api.version>
+        <ydb-sdk-v2.version>2.3.24</ydb-sdk-v2.version>
+        <ydb-proto-api.version>1.7.1</ydb-proto-api.version>
 
         <!-- build-only dependencies (provided) -->
         <lombok.version>1.18.42</lombok.version>
@@ -120,7 +120,7 @@
 
         <!-- compile dependencies -->
         <protobuf.version>3.25.5</protobuf.version>
-        <grpc.version>1.68.3</grpc.version>
+        <grpc.version>1.59.1</grpc.version>
         <proto-google-common-protos.version>2.41.0</proto-google-common-protos.version>
         <!-- Netty should be kept in sync with GRPC version
              Currently, Netty revision is a little bit higher because of multiple vulnerabilities in Netty 4.1.x

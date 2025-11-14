@@ -4,9 +4,11 @@ import tech.ydb.common.transaction.TxMode;
 import tech.ydb.core.Result;
 import tech.ydb.core.Status;
 import tech.ydb.core.grpc.GrpcReadStream;
+import tech.ydb.proto.ValueProtos;
 import tech.ydb.table.Session;
 import tech.ydb.table.description.TableDescription;
 import tech.ydb.table.description.TableOptionDescription;
+import tech.ydb.table.query.BulkUpsertData;
 import tech.ydb.table.query.DataQuery;
 import tech.ydb.table.query.DataQueryResult;
 import tech.ydb.table.query.ExplainDataQueryResult;
@@ -47,6 +49,8 @@ import java.util.function.Function;
  * Calls {@link QueryInterceptor} before {@link #executeScanQuery(String, Params, ExecuteScanQuerySettings, Consumer)}
  * and {@link #executeDataQuery(String, TxControl, Params, ExecuteDataQuerySettings)}
  * then delegates to underlying {@link Session}
+ *
+ * @see #makeWrapper(QueryInterceptor)
  */
 public final class QueryInterceptingSession implements Session {
     private final Session delegate;
@@ -143,6 +147,11 @@ public final class QueryInterceptingSession implements Session {
     }
 
     @Override
+    public GrpcReadStream<ValueProtos.ResultSet> executeScanQueryRaw(String s, Params params, ExecuteScanQuerySettings executeScanQuerySettings) {
+        return delegate.executeScanQueryRaw(s, params, executeScanQuerySettings);
+    }
+
+    @Override
     public GrpcReadStream<ResultSetReader> executeScanQuery(String s, Params params, ExecuteScanQuerySettings executeScanQuerySettings) {
         return delegate.executeScanQuery(s, params, executeScanQuerySettings);
     }
@@ -169,12 +178,14 @@ public final class QueryInterceptingSession implements Session {
     }
 
     @Override
+    public CompletableFuture<Status> executeBulkUpsert(String s, BulkUpsertData bulkUpsertData, BulkUpsertSettings bulkUpsertSettings) {
+        return delegate.executeBulkUpsert(s, bulkUpsertData, bulkUpsertSettings);
+    }
+
+    @Override
     public void close() {
         delegate.close();
     }
-
-    //////////////////////////
-    // @since: YDB SDK v2.2.0:
 
     @Override
     public CompletableFuture<Status> renameTables(RenameTablesSettings renameTablesSettings) {
