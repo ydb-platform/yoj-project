@@ -78,12 +78,13 @@ public class ListRequest<T> {
     }
 
     @NonNull
+    @SuppressWarnings({"rawtypes", "unchecked"})
     @ExperimentalApi(issue = "https://github.com/ydb-platform/yoj-project/issues/192")
     public ListRequest<T> withOrderByIndex(@NonNull String indexName, @NonNull SortOrder sortOrder) {
-        if (!(schema instanceof EntitySchema<T> entitySchema)) {
+        if (!(schema instanceof EntitySchema<?> entitySchema)) {
             throw new IllegalArgumentException("Expected ListRequest for an entity, but got a non-entity schema: " + schema);
         }
-        return withOrderBy(EntityExpressions.orderByIndex(entitySchema, indexName, sortOrder));
+        return withOrderBy(EntityExpressions.orderByIndex((EntitySchema) entitySchema, indexName, sortOrder));
     }
 
     @NonNull
@@ -170,12 +171,13 @@ public class ListRequest<T> {
         }
 
         @NonNull
+        @SuppressWarnings({"rawtypes", "unchecked"})
         @ExperimentalApi(issue = "https://github.com/ydb-platform/yoj-project/issues/192")
         public Builder<T> orderByIndex(@NonNull String indexName, @NonNull SortOrder sortOrder) {
-            if (!(schema instanceof EntitySchema<T> entitySchema)) {
+            if (!(schema instanceof EntitySchema<?> entitySchema)) {
                 throw new IllegalArgumentException("Expected ListRequest for an entity, but got a non-entity schema: " + schema);
             }
-            return orderBy(EntityExpressions.orderByIndex(entitySchema, indexName, sortOrder));
+            return orderBy(EntityExpressions.orderByIndex((EntitySchema) entitySchema, indexName, sortOrder));
         }
 
         @NonNull
