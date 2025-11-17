@@ -1,16 +1,20 @@
 package tech.ydb.yoj.repository.db.list;
 
+import com.google.common.base.Preconditions;
 import com.google.common.hash.Hashing;
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
 import lombok.Value;
 import lombok.With;
+import tech.ydb.yoj.ExperimentalApi;
 import tech.ydb.yoj.databind.expression.FilterBuilder;
 import tech.ydb.yoj.databind.expression.FilterExpression;
 import tech.ydb.yoj.databind.expression.OrderBuilder;
 import tech.ydb.yoj.databind.expression.OrderExpression;
+import tech.ydb.yoj.databind.expression.OrderExpression.SortOrder;
 import tech.ydb.yoj.databind.schema.Schema;
 import tech.ydb.yoj.repository.db.Entity;
+import tech.ydb.yoj.repository.db.EntityExpressions;
 import tech.ydb.yoj.repository.db.EntitySchema;
 import tech.ydb.yoj.repository.db.list.token.PageToken;
 
@@ -63,6 +67,7 @@ public class ListRequest<T> {
         return withFilter(filterCtor.apply(FilterBuilder.forSchema(schema)).build());
     }
 
+    @NonNull
     public ListRequest<T> withFilter(@Nullable FilterExpression<T> filter) {
         return withParams(params.withFilter(filter));
     }
@@ -72,6 +77,16 @@ public class ListRequest<T> {
         return withOrderBy(orderCtor.apply(OrderBuilder.forSchema(schema)).build());
     }
 
+    @NonNull
+    @ExperimentalApi(issue = "https://github.com/ydb-platform/yoj-project/issues/192")
+    public ListRequest<T> withOrderByIndex(@NonNull String indexName, @NonNull SortOrder sortOrder) {
+        if (!(schema instanceof EntitySchema<T> entitySchema)) {
+            throw new IllegalArgumentException("Expected ListRequest for an entity, but got a non-entity schema: " + schema);
+        }
+        return withOrderBy(EntityExpressions.orderByIndex(entitySchema, indexName, sortOrder));
+    }
+
+    @NonNull
     public ListRequest<T> withOrderBy(@Nullable OrderExpression<T> orderBy) {
         return withParams(params.withOrderBy(orderBy));
     }
@@ -155,7 +170,18 @@ public class ListRequest<T> {
         }
 
         @NonNull
+        @ExperimentalApi(issue = "https://github.com/ydb-platform/yoj-project/issues/192")
+        public Builder<T> orderByIndex(@NonNull String indexName, @NonNull SortOrder sortOrder) {
+            if (!(schema instanceof EntitySchema<T> entitySchema)) {
+                throw new IllegalArgumentException("Expected ListRequest for an entity, but got a non-entity schema: " + schema);
+            }
+            return orderBy(EntityExpressions.orderByIndex(entitySchema, indexName, sortOrder));
+        }
+
+        @NonNull
         public Builder<T> orderBy(@Nullable OrderExpression<T> orderBy) {
+            Preconditions.checkArgument(orderBy == null || orderBy.isOrdered(),
+                    "OrderExpression for ListRequest must not be OrderExpression.unordered()");
             this.orderBy = orderBy;
             return this;
         }

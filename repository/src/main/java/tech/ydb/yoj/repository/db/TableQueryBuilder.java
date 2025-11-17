@@ -9,7 +9,6 @@ import tech.ydb.yoj.databind.expression.FilterBuilder;
 import tech.ydb.yoj.databind.expression.FilterExpression;
 import tech.ydb.yoj.databind.expression.OrderBuilder;
 import tech.ydb.yoj.databind.expression.OrderExpression;
-import tech.ydb.yoj.databind.expression.OrderExpression.SortKey;
 import tech.ydb.yoj.databind.expression.OrderExpression.SortOrder;
 import tech.ydb.yoj.databind.schema.Schema;
 
@@ -18,7 +17,6 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Set;
 import java.util.function.UnaryOperator;
-import java.util.stream.Stream;
 
 import static lombok.AccessLevel.PRIVATE;
 
@@ -313,17 +311,8 @@ public final class TableQueryBuilder<T extends Entity<T>> {
     @NonNull
     @ExperimentalApi(issue = "https://github.com/ydb-platform/yoj-project/issues/192")
     public TableQueryBuilder<T> orderByIndex(@NonNull String indexName, @NonNull SortOrder sortOrder) {
-        Schema.Index index = schema.getGlobalIndexes().stream()
-                .filter(idx -> indexName.equals(idx.getIndexName()))
-                .findAny()
-                .orElseThrow(() -> new IllegalArgumentException("Index not found: '" + indexName + "'"));
-
-        List<SortKey> sortKeys = Stream.concat(index.getFields().stream(), schema.flattenId().stream())
-                .map(jf -> new SortKey(jf, sortOrder))
-                .toList();
-        this.orderBy = new OrderExpression<>(schema, sortKeys);
+        this.orderBy = EntityExpressions.orderByIndex(schema, indexName, sortOrder);
         this.indexName = indexName;
-
         return this;
     }
 

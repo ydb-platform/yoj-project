@@ -87,7 +87,7 @@ public class OrderExpression<T> {
     public OrderExpression(@NonNull Schema<T> schema, @NonNull List<SortKey> keys) {
         Preconditions.checkArgument(!keys.isEmpty(), "At least one sort key must be specified");
         this.schema = schema;
-        this.keys = keys;
+        this.keys = List.copyOf(keys);
     }
 
     private OrderExpression(@NonNull Schema<T> schema) {

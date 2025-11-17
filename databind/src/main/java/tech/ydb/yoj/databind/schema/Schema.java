@@ -6,7 +6,6 @@ import lombok.Builder;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.NonNull;
-import lombok.RequiredArgsConstructor;
 import lombok.SneakyThrows;
 import lombok.ToString;
 import lombok.Value;
@@ -47,7 +46,6 @@ import static com.google.common.collect.MoreCollectors.onlyElement;
 import static java.lang.String.format;
 import static java.util.Arrays.asList;
 import static java.util.stream.Collectors.toList;
-import static lombok.AccessLevel.PRIVATE;
 
 public abstract class Schema<T> {
     public static final String PATH_DELIMITER = ".";
@@ -190,11 +188,11 @@ public abstract class Schema<T> {
                 columns.add(field);
             }
             outputIndexes.add(Index.builder()
-                .indexName(name)
-                .fields(columns)
-                .unique(index.type() == GlobalIndex.Type.UNIQUE)
-                .async(index.type() == GlobalIndex.Type.GLOBAL_ASYNC)
-                .build());
+                    .indexName(name)
+                    .fields(columns)
+                    .unique(index.type() == GlobalIndex.Type.UNIQUE)
+                    .async(index.type() == GlobalIndex.Type.GLOBAL_ASYNC)
+                    .build());
         }
         return outputIndexes;
     }
@@ -409,6 +407,19 @@ public abstract class Schema<T> {
 
     private Optional<JavaField> findField(String... pathComponents) {
         return fields.stream().map(f -> f.findField(asList(pathComponents))).filter(Objects::nonNull).findAny();
+    }
+
+    /**
+     * @param indexName index name (the value of {@link GlobalIndex#name()} annotation property);
+     *                  must not be {@code null}
+     * @return index with the specified name
+     * @throws IllegalArgumentException no index with the specified name exists
+     */
+    public Index getGlobalIndex(@NonNull String indexName) {
+        return getGlobalIndexes().stream()
+                .filter(idx -> indexName.equals(idx.getIndexName()))
+                .findAny()
+                .orElseThrow(() -> new IllegalArgumentException("Index not found: '" + indexName + "'"));
     }
 
     @Override
@@ -861,7 +872,6 @@ public abstract class Schema<T> {
 
     @Value
     @Builder
-    @RequiredArgsConstructor(access = PRIVATE)
     public static class Index {
         String indexName;
 
@@ -874,12 +884,29 @@ public abstract class Schema<T> {
         boolean unique;
         boolean async;
 
+        @java.beans.ConstructorProperties({"indexName", "fields", "fieldNames", "unique", "async"})
+        private Index(
+                @NonNull String indexName,
+                @NonNull List<JavaField> fields, @NonNull List<String> fieldNames,
+                boolean unique,
+                boolean async
+        ) {
+            this.indexName = indexName;
+
+            Preconditions.checkArgument(!fields.isEmpty() && !fieldNames.isEmpty(), "Index must have at least 1 field");
+            this.fields = fields;
+            this.fieldNames = fieldNames;
+
+            this.unique = unique;
+            this.async = async;
+        }
+
         public static class IndexBuilder {
             public IndexBuilder fields(List<JavaField> fields) {
                 this.fields = List.copyOf(fields);
                 return fieldNames(fields.stream().map(JavaField::getName).toList());
             }
-            
+
             private IndexBuilder fieldNames(List<String> fieldNames) {
                 this.fieldNames = fieldNames;
                 return this;

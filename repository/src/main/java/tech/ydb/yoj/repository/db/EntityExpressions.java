@@ -5,7 +5,12 @@ import tech.ydb.yoj.ExperimentalApi;
 import tech.ydb.yoj.databind.expression.FilterBuilder;
 import tech.ydb.yoj.databind.expression.OrderBuilder;
 import tech.ydb.yoj.databind.expression.OrderExpression;
+import tech.ydb.yoj.databind.expression.OrderExpression.SortKey;
+import tech.ydb.yoj.databind.expression.OrderExpression.SortOrder;
 import tech.ydb.yoj.databind.schema.Schema;
+
+import java.util.List;
+import java.util.stream.Stream;
 
 import static tech.ydb.yoj.databind.expression.OrderExpression.SortOrder.ASCENDING;
 
@@ -37,9 +42,9 @@ public final class EntityExpressions {
         return orderById(entityType, ASCENDING);
     }
 
-    public static <T extends Entity<T>> OrderExpression<T> orderById(Class<T> entityType, OrderExpression.SortOrder sortOrder) {
+    public static <T extends Entity<T>> OrderExpression<T> orderById(Class<T> entityType, SortOrder sortOrder) {
         return newOrderBuilder(entityType)
-                .orderBy(new OrderExpression.SortKey(schema(entityType).getField(EntityIdSchema.ID_FIELD_NAME), sortOrder))
+                .orderBy(new SortKey(schema(entityType).getField(EntityIdSchema.ID_FIELD_NAME), sortOrder))
                 .build();
     }
 
@@ -69,9 +74,24 @@ public final class EntityExpressions {
         return orderById(schema, ASCENDING);
     }
 
-    public static <T extends Entity<T>> OrderExpression<T> orderById(EntitySchema<T> schema, OrderExpression.SortOrder sortOrder) {
+    public static <T extends Entity<T>> OrderExpression<T> orderById(
+            @NonNull EntitySchema<T> schema, @NonNull SortOrder sortOrder
+    ) {
         return newOrderBuilder(schema)
-                .orderBy(new OrderExpression.SortKey(schema.getField(EntityIdSchema.ID_FIELD_NAME), sortOrder))
+                .orderBy(new SortKey(schema.getField(EntityIdSchema.ID_FIELD_NAME), sortOrder))
                 .build();
+    }
+
+    @ExperimentalApi(issue = "https://github.com/ydb-platform/yoj-project/issues/192")
+    public static <T extends Entity<T>> OrderExpression<T> orderByIndex(
+            @NonNull EntitySchema<T> schema, @NonNull String indexName, @NonNull SortOrder sortOrder
+    ) {
+        Schema.Index index = schema.getGlobalIndex(indexName);
+
+        List<SortKey> sortKeys = Stream.concat(index.getFields().stream(), schema.flattenId().stream())
+                .map(jf -> new SortKey(jf, sortOrder))
+                .toList();
+
+        return new OrderExpression<>(schema, sortKeys);
     }
 }
