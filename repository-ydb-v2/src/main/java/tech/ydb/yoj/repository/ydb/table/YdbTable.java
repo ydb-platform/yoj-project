@@ -535,7 +535,7 @@ public class YdbTable<T extends Entity<T>> implements Table<T> {
         executor.pendingExecute(new InsertYqlStatement<>(tableDescriptor, schema), entityToSave);
         executor.getTransactionLocal().firstLevelCache(tableDescriptor).put(entityToSave);
         executor.getTransactionLocal().projectionCache().save(entityToSave);
-        return t;
+        return entityToSave;
     }
 
     @Override
@@ -544,7 +544,7 @@ public class YdbTable<T extends Entity<T>> implements Table<T> {
         executor.pendingExecute(new UpsertYqlStatement<>(tableDescriptor, schema), entityToSave);
         executor.getTransactionLocal().firstLevelCache(tableDescriptor).put(entityToSave);
         executor.getTransactionLocal().projectionCache().save(entityToSave);
-        return t;
+        return entityToSave;
     }
 
     @Override

@@ -54,6 +54,7 @@ import tech.ydb.yoj.repository.test.sample.model.DetachedEntityId;
 import tech.ydb.yoj.repository.test.sample.model.EntityWithValidation;
 import tech.ydb.yoj.repository.test.sample.model.EnumEntity;
 import tech.ydb.yoj.repository.test.sample.model.IndexedEntity;
+import tech.ydb.yoj.repository.test.sample.model.MigrationEntity;
 import tech.ydb.yoj.repository.test.sample.model.MultiLevelDirectory;
 import tech.ydb.yoj.repository.test.sample.model.MultiWrappedEntity2;
 import tech.ydb.yoj.repository.test.sample.model.NetworkAppliance;
@@ -79,6 +80,7 @@ import tech.ydb.yoj.repository.test.sample.model.annotations.UniqueEntity;
 import tech.ydb.yoj.repository.test.sample.model.annotations.UniqueEntityNative;
 
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -3066,6 +3068,47 @@ public abstract class RepositoryTest extends RepositoryTestSupport {
             assertThatExceptionOfType(ConversionException.class).isThrownBy(() -> db.table(EnumEntity.class).find(entity3.id()));
             // unknown constants 'IPV5' and 'zz' lead to ConversionError
             assertThatExceptionOfType(ConversionException.class).isThrownBy(() -> db.table(EnumEntity.class).find(entity4.id()));
+        });
+    }
+
+    @Test
+    public void postLoadAndPreSave() {
+        var now = Instant.now().truncatedTo(ChronoUnit.MILLIS);
+        db.tx(() -> {
+            var table = db.table(MigrationEntity.class);
+            var saved = table.save(new MigrationEntity(new MigrationEntity.Id("id"), null, null));
+            assertThat(saved).isEqualTo(new MigrationEntity(new MigrationEntity.Id("id"), null, Instant.EPOCH));
+
+            var saved2 = table.save(new MigrationEntity(new MigrationEntity.Id("id2"), "Hello, world!", now));
+            assertThat(saved2).isEqualTo(new MigrationEntity(new MigrationEntity.Id("id2"), "Hello, world!", now));
+
+            var inserted = table.insert(new MigrationEntity(new MigrationEntity.Id("iid"), null, null));
+            assertThat(inserted).isEqualTo(new MigrationEntity(new MigrationEntity.Id("iid"), null, Instant.EPOCH));
+
+            var inserted2 = table.insert(new MigrationEntity(new MigrationEntity.Id("iid2"), "Hello, world!", now));
+            assertThat(inserted2).isEqualTo(new MigrationEntity(new MigrationEntity.Id("iid2"), "Hello, world!", now));
+        });
+
+        db.tx(() -> {
+            var table = db.table(MigrationEntity.class);
+            assertThat(table.find(new MigrationEntity.Id("id")))
+                    .isEqualTo(new MigrationEntity(new MigrationEntity.Id("id"), "Default Value", Instant.EPOCH));
+            assertThat(table.find(new MigrationEntity.Id("id2")))
+                    .isEqualTo(new MigrationEntity(new MigrationEntity.Id("id2"), "Hello, world!", now));
+            assertThat(table.find(new MigrationEntity.Id("iid")))
+                    .isEqualTo(new MigrationEntity(new MigrationEntity.Id("iid"), "Default Value", Instant.EPOCH));
+            assertThat(table.find(new MigrationEntity.Id("iid2")))
+                    .isEqualTo(new MigrationEntity(new MigrationEntity.Id("iid2"), "Hello, world!", now));
+        });
+
+        db.tx(() -> {
+            var table = db.table(MigrationEntity.class);
+            table.update(new MigrationEntity.Id("id"), Changeset.setField("fillOnPreSave", null));
+        });
+        db.tx(() -> {
+            var table = db.table(MigrationEntity.class);
+            assertThat(table.find(new MigrationEntity.Id("id")))
+                    .isEqualTo(new MigrationEntity(new MigrationEntity.Id("id"), "Default Value", null));
         });
     }
 

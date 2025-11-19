@@ -14,6 +14,7 @@ import tech.ydb.yoj.repository.test.sample.model.EntityWithValidation;
 import tech.ydb.yoj.repository.test.sample.model.EnumEntity;
 import tech.ydb.yoj.repository.test.sample.model.IndexedEntity;
 import tech.ydb.yoj.repository.test.sample.model.LogEntry;
+import tech.ydb.yoj.repository.test.sample.model.MigrationEntity;
 import tech.ydb.yoj.repository.test.sample.model.MultiWrappedEntity;
 import tech.ydb.yoj.repository.test.sample.model.MultiWrappedEntity2;
 import tech.ydb.yoj.repository.test.sample.model.NetworkAppliance;
@@ -66,7 +67,8 @@ public final class TestEntities {
             BadlyWrappedEntity.class,
             UniqueEntity.class,
             UniqueEntityNative.class,
-            EnumEntity.class
+            EnumEntity.class,
+            MigrationEntity.class
     );
 
     public static final List<TableDescriptor<?>> ALL_TABLE_DESCRIPTORS = List.of(
