@@ -14,7 +14,6 @@ import tech.ydb.yoj.databind.schema.Schema;
 import tech.ydb.yoj.databind.schema.Schema.JavaField;
 import tech.ydb.yoj.repository.db.Entity;
 import tech.ydb.yoj.repository.db.EntityIdSchema;
-import tech.ydb.yoj.repository.db.EntitySchema;
 import tech.ydb.yoj.repository.db.TableQueryImpl;
 import tech.ydb.yoj.util.function.StreamSupplier;
 
@@ -44,14 +43,11 @@ public final class InMemoryQueries {
 
     public static <T extends Entity<T>> ListResult<T> list(@NonNull StreamSupplier<T> streamSupplier,
                                                            @NonNull ListRequest<T> request) {
-        if (!(request.getSchema() instanceof EntitySchema<T> entitySchema)) {
-            throw new IllegalArgumentException("Expected ListRequest for an entity, but got a non-entity schema: " + request.getSchema());
-        }
         return ListResult.forPage(
                 request,
                 TableQueryImpl.find(
                         streamSupplier,
-                        entitySchema,
+                        request.getSchema(),
                         request.getFilter(),
                         request.getOrderBy(),
                         request.getPageSize() + 1,

@@ -10,9 +10,9 @@ import static java.util.Collections.emptyList;
 import static java.util.stream.Collectors.toList;
 
 /**
- * Listing result page.
+ * Entity listing result page.
  */
-public final class ListResult<T> extends GenericListResult<T, T> implements Iterable<T> {
+public final class ListResult<T extends Entity<T>> extends GenericListResult<T, T> implements Iterable<T> {
     private ListResult(@NonNull List<T> entries, boolean lastPage, @NonNull ListRequest<T> request) {
         super(entries, request.getSchema(), lastPage, request);
     }
