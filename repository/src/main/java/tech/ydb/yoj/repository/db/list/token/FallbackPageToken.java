@@ -4,6 +4,7 @@ import lombok.Builder;
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
 import lombok.Value;
+import tech.ydb.yoj.repository.db.Entity;
 import tech.ydb.yoj.repository.db.list.BadListingException.InvalidPageToken;
 import tech.ydb.yoj.repository.db.list.GenericListResult;
 import tech.ydb.yoj.repository.db.list.ListRequest;
@@ -42,14 +43,16 @@ public class FallbackPageToken implements PageToken {
 
     @Nullable
     @Override
-    public <T, R> String encode(@NonNull GenericListResult<T, R> result) {
+    public <T extends Entity<T>, R> String encode(@NonNull GenericListResult<T, R> result) {
         return (encodeAsPrimary ? primary : fallback).encode(result);
     }
 
     @NonNull
     @Override
-    public <T> ListRequest.Builder<T> decode(@NonNull ListRequest.Builder<T> bldr,
-                                             @NonNull String token) throws InvalidPageToken {
+    public <T extends Entity<T>> ListRequest.Builder<T> decode(
+            @NonNull ListRequest.Builder<T> bldr,
+            @NonNull String token
+    ) throws InvalidPageToken {
         try {
             return primary.decode(bldr, token);
         } catch (InvalidPageToken primaryFailed) {
