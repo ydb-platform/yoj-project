@@ -1,6 +1,7 @@
 package tech.ydb.yoj.repository.db.list.token;
 
 import lombok.NonNull;
+import tech.ydb.yoj.repository.db.Entity;
 import tech.ydb.yoj.repository.db.list.BadListingException.InvalidPageToken;
 import tech.ydb.yoj.repository.db.list.GenericListResult;
 import tech.ydb.yoj.repository.db.list.ListRequest;
@@ -16,14 +17,16 @@ public final class EmptyPageToken implements PageToken {
 
     @Nullable
     @Override
-    public <T, R> String encode(@NonNull GenericListResult<T, R> result) {
+    public <T extends Entity<T>, R> String encode(@NonNull GenericListResult<T, R> result) {
         return null;
     }
 
     @NonNull
     @Override
-    public <T> ListRequest.Builder<T> decode(@NonNull ListRequest.Builder<T> bldr,
-                                             @NonNull String token) throws InvalidPageToken {
+    public <T extends Entity<T>> ListRequest.Builder<T> decode(
+            @NonNull ListRequest.Builder<T> bldr,
+            @NonNull String token
+    ) throws InvalidPageToken {
         throw new InvalidPageToken();
     }
 }
