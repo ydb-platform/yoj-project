@@ -5,6 +5,7 @@ import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
 import tech.ydb.yoj.databind.schema.Schema;
 import tech.ydb.yoj.repository.db.Entity;
+import tech.ydb.yoj.repository.db.EntitySchema;
 
 import java.util.Iterator;
 import java.util.List;
@@ -23,7 +24,7 @@ import static lombok.AccessLevel.PROTECTED;
  */
 @Getter
 @RequiredArgsConstructor(access = PROTECTED)
-public abstract class GenericListResult<T, R> implements Iterable<R> {
+public abstract class GenericListResult<T extends Entity<T>, R> implements Iterable<R> {
     /**
      * Result entries. This list might be empty.
      */
@@ -94,7 +95,7 @@ public abstract class GenericListResult<T, R> implements Iterable<R> {
     }
 
     @NonNull
-    public Schema<T> getRequestSchema() {
+    public EntitySchema<T> getRequestSchema() {
         return request.getSchema();
     }
 

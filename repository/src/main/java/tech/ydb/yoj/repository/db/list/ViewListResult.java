@@ -3,7 +3,6 @@ package tech.ydb.yoj.repository.db.list;
 import lombok.NonNull;
 import tech.ydb.yoj.databind.schema.Schema;
 import tech.ydb.yoj.repository.db.Entity;
-import tech.ydb.yoj.repository.db.EntitySchema;
 import tech.ydb.yoj.repository.db.Table;
 import tech.ydb.yoj.repository.db.ViewSchema;
 
@@ -49,10 +48,7 @@ public final class ViewListResult<T extends Entity<T>, V extends Table.View> ext
             @NonNull ListRequest<T> request,
             @NonNull Class<V> viewClass
     ) {
-        if (!(request.getSchema() instanceof EntitySchema<?> entitySchema)) {
-            throw new IllegalArgumentException("Expected ListRequest for an entity, but got a non-entity schema: " + request.getSchema());
-        }
-        return entitySchema.getViewSchema(viewClass);
+        return request.getSchema().getViewSchema(viewClass);
     }
 
     public static final class ViewListResultBuilder<T extends Entity<T>, V extends Table.View> extends Builder<T, V, ViewListResult<T, V>> {

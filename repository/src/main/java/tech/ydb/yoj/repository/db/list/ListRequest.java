@@ -29,14 +29,14 @@ import static lombok.AccessLevel.PRIVATE;
  */
 @Value
 @RequiredArgsConstructor(access = PRIVATE)
-public class ListRequest<T> {
+public class ListRequest<T extends Entity<T>> {
     @With
     long offset;
 
     @With
     int pageSize;
 
-    Schema<T> schema;
+    EntitySchema<T> schema;
 
     @With
     ListingParams<T> params;
@@ -48,7 +48,7 @@ public class ListRequest<T> {
         return builder(EntitySchema.of(entityClass));
     }
 
-    public static <T> Builder<T> builder(@NonNull Schema<T> schema) {
+    public static <T extends Entity<T>> Builder<T> builder(@NonNull EntitySchema<T> schema) {
         return new Builder<>(schema);
     }
 
@@ -78,13 +78,9 @@ public class ListRequest<T> {
     }
 
     @NonNull
-    @SuppressWarnings({"rawtypes", "unchecked"})
     @ExperimentalApi(issue = "https://github.com/ydb-platform/yoj-project/issues/192")
     public ListRequest<T> withOrderByIndex(@NonNull String indexName, @NonNull SortOrder sortOrder) {
-        if (!(schema instanceof EntitySchema<?> entitySchema)) {
-            throw new IllegalArgumentException("Expected ListRequest for an entity, but got a non-entity schema: " + schema);
-        }
-        return withOrderBy(EntityExpressions.orderByIndex((EntitySchema) entitySchema, indexName, sortOrder));
+        return withOrderBy(EntityExpressions.orderByIndex(schema, indexName, sortOrder));
     }
 
     @NonNull
@@ -94,17 +90,21 @@ public class ListRequest<T> {
 
     public <U extends Entity<U>> ListRequest<U> forEntity(@NonNull Class<U> dstEntityType,
                                                           @NonNull UnaryOperator<String> pathTransformer) {
-        Schema<U> dstSchema = EntitySchema.of(dstEntityType);
+        return forSchema(EntitySchema.of(dstEntityType), pathTransformer);
+    }
+
+    public <U extends Entity<U>> ListRequest<U> forSchema(@NonNull EntitySchema<U> dstSchema,
+                                                          @NonNull UnaryOperator<String> pathTransformer) {
         return new ListRequest<>(offset, pageSize, dstSchema, params.forSchema(dstSchema, pathTransformer), null);
     }
 
     @RequiredArgsConstructor(access = PRIVATE)
-    public static final class Builder<T> {
+    public static final class Builder<T extends Entity<T>> {
         public static final int DEFAULT_PAGE_SIZE = 100;
         public static final int MAX_PAGE_SIZE = 1_000;
         public static final int MAX_SKIP_SIZE = 10_000;
 
-        private final Schema<T> schema;
+        private final EntitySchema<T> schema;
 
         private int pageSize = DEFAULT_PAGE_SIZE;
         private long offset = 0L;
@@ -171,13 +171,9 @@ public class ListRequest<T> {
         }
 
         @NonNull
-        @SuppressWarnings({"rawtypes", "unchecked"})
         @ExperimentalApi(issue = "https://github.com/ydb-platform/yoj-project/issues/192")
         public Builder<T> orderByIndex(@NonNull String indexName, @NonNull SortOrder sortOrder) {
-            if (!(schema instanceof EntitySchema<?> entitySchema)) {
-                throw new IllegalArgumentException("Expected ListRequest for an entity, but got a non-entity schema: " + schema);
-            }
-            return orderBy(EntityExpressions.orderByIndex((EntitySchema) entitySchema, indexName, sortOrder));
+            return orderBy(EntityExpressions.orderByIndex(schema, indexName, sortOrder));
         }
 
         @NonNull
@@ -204,7 +200,7 @@ public class ListRequest<T> {
         }
 
         @NonNull
-        public Schema<T> schema() {
+        public EntitySchema<T> schema() {
             return schema;
         }
 

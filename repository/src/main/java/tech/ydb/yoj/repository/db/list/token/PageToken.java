@@ -1,6 +1,7 @@
 package tech.ydb.yoj.repository.db.list.token;
 
 import lombok.NonNull;
+import tech.ydb.yoj.repository.db.Entity;
 import tech.ydb.yoj.repository.db.list.BadListingException.InvalidPageToken;
 import tech.ydb.yoj.repository.db.list.GenericListResult;
 import tech.ydb.yoj.repository.db.list.ListRequest;
@@ -29,7 +30,7 @@ public interface PageToken {
      * @return next page token or {@code null} if this is the last page of results
      */
     @Nullable
-    <T, R> String encode(@NonNull GenericListResult<T, R> result);
+    <T extends Entity<T>, R> String encode(@NonNull GenericListResult<T, R> result);
 
     /**
      * Decodes page token into listing request.<br>
@@ -42,6 +43,8 @@ public interface PageToken {
      * @return listing request builder for to the page encoded by the token
      * @throws InvalidPageToken page token is invalid
      */
-    @NonNull <T> ListRequest.Builder<T> decode(@NonNull ListRequest.Builder<T> bldr,
-                                               @NonNull String token) throws InvalidPageToken;
+    @NonNull <T extends Entity<T>> ListRequest.Builder<T> decode(
+            @NonNull ListRequest.Builder<T> bldr,
+            @NonNull String token
+    ) throws InvalidPageToken;
 }
