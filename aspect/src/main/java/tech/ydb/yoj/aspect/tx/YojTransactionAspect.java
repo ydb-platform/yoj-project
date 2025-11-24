@@ -54,11 +54,11 @@ public class YojTransactionAspect {
             validateIsolationLevel(name, transactional);
 
             if (transactional.readOnly()) {
-                return localTx
+                return reThrowSkipped(localTx
                     .readOnly()
                     .noFirstLevelCache()
                     .withStatementIsolationLevel(transactional.isolation())
-                    .run(() -> safeCall(pjp));
+                    .run(() -> safeCall(pjp, transactional.noRollbackFor())));
             } else {
                 localTx = switch (transactional.writeMode()) {
                     case UNSPECIFIED -> localTx;
@@ -66,11 +66,18 @@ public class YojTransactionAspect {
                     case IMMEDIATE -> localTx.immediateWrites();
                 };
 
-                return localTx.tx(() -> safeCall(pjp));
+                return reThrowSkipped(localTx.tx(() -> safeCall(pjp, transactional.noRollbackFor())));
             }
         } catch (CallRetryableException | CallException e) {
             throw e.getCause();
         }
+    }
+
+    private static Object reThrowSkipped(Object result) throws Throwable {
+        if (result instanceof CallException resultException) {
+            throw resultException.getCause();
+        }
+        return result;
     }
 
     private void validateIsolationLevel(String name, YojTransactional transactional) {
@@ -83,12 +90,19 @@ public class YojTransactionAspect {
         return signature.getDeclaringType().getSimpleName() + "." + signature.getName();
     }
 
-    Object safeCall(ProceedingJoinPoint pjp) {
+    Object safeCall(ProceedingJoinPoint pjp, Class<? extends Throwable>[] noRollbackExceptions) {
         try {
             return pjp.proceed();
         } catch (RetryableException e) {
             throw new CallRetryableException(e);
         } catch (Throwable e) {
+            if (noRollbackExceptions != null) {
+                for (Class<? extends Throwable> t : noRollbackExceptions) {
+                    if (t.isAssignableFrom(e.getClass())) {
+                        return new CallException(e);
+                    }
+                }
+            }
             throw new CallException(e);
         }
     }
