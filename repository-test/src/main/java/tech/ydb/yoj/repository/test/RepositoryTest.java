@@ -9,11 +9,11 @@ import org.junit.Test;
 import tech.ydb.yoj.databind.ByteArray;
 import tech.ydb.yoj.databind.expression.FieldValue;
 import tech.ydb.yoj.databind.expression.FilterExpression;
-import tech.ydb.yoj.databind.expression.OrderExpression.SortOrder;
 import tech.ydb.yoj.databind.expression.values.StringFieldValue;
 import tech.ydb.yoj.repository.BaseDb;
 import tech.ydb.yoj.repository.db.Entity;
 import tech.ydb.yoj.repository.db.EntitySchema;
+import tech.ydb.yoj.repository.db.IndexOrder;
 import tech.ydb.yoj.repository.db.IsolationLevel;
 import tech.ydb.yoj.repository.db.Range;
 import tech.ydb.yoj.repository.db.RecordEntity;
@@ -1364,7 +1364,7 @@ public abstract class RepositoryTest extends RepositoryTestSupport {
     public void indexMustExistToBeUsedInQueryBuilder() {
         assertThatExceptionOfType(IllegalArgumentException.class).isThrownBy(() ->
                 db.tx(() -> db.indexedTable().query()
-                        .orderByIndex("nonexistent_index", SortOrder.DESCENDING)
+                        .index("nonexistent_index", IndexOrder.DESCENDING)
                         .where("valueId2").neq(getIndexedEntityValue2(2))
                         .limit(5)
                         .find()

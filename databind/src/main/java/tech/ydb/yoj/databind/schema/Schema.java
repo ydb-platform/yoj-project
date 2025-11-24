@@ -46,6 +46,7 @@ import static com.google.common.collect.MoreCollectors.onlyElement;
 import static java.lang.String.format;
 import static java.util.Arrays.asList;
 import static java.util.stream.Collectors.toList;
+import static java.util.stream.Collectors.toMap;
 
 public abstract class Schema<T> {
     public static final String PATH_DELIMITER = ".";
@@ -55,6 +56,8 @@ public abstract class Schema<T> {
 
     @Getter
     private final List<Index> globalIndexes;
+
+    private final Map<String, Index> globalIndexesByName;
 
     @Getter
     @Nullable
@@ -102,6 +105,8 @@ public abstract class Schema<T> {
         validateFieldNames();
 
         this.globalIndexes = prepareIndexes(collectIndexes(type));
+        this.globalIndexesByName = globalIndexes.stream().collect(toMap(Index::getIndexName, i -> i));
+
         this.ttlModifier = prepareTtlModifier(extractTtlModifier(type));
         this.changefeeds = prepareChangefeeds(collectChangefeeds(type));
     }
@@ -122,6 +127,7 @@ public abstract class Schema<T> {
         this.staticName = "";
         this.ttlModifier = null;
         this.globalIndexes = List.of();
+        this.globalIndexesByName = Map.of();
         this.changefeeds = List.of();
 
         if (subSchemaField.fields != null) {
@@ -416,10 +422,9 @@ public abstract class Schema<T> {
      * @throws IllegalArgumentException no index with the specified name exists
      */
     public Index getGlobalIndex(@NonNull String indexName) {
-        return getGlobalIndexes().stream()
-                .filter(idx -> indexName.equals(idx.getIndexName()))
-                .findAny()
-                .orElseThrow(() -> new IllegalArgumentException("Index not found: '" + indexName + "'"));
+        Index index = globalIndexesByName.get(indexName);
+        Preconditions.checkArgument(index != null, "Index not found: '%s'", indexName);
+        return index;
     }
 
     @Override

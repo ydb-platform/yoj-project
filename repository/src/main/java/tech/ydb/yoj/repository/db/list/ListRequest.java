@@ -41,7 +41,6 @@ public class ListRequest<T extends Entity<T>> {
     @With
     ListingParams<T> params;
 
-    @With
     String index;
 
     public static <T extends Entity<T>> Builder<T> builder(@NonNull Class<T> entityClass) {
@@ -77,10 +76,65 @@ public class ListRequest<T extends Entity<T>> {
         return withOrderBy(orderCtor.apply(OrderBuilder.forSchema(schema)).build());
     }
 
+    /**
+     * Specifies the index to use for this listing query, if any.
+     *
+     * <p><strong>WARNING:</strong> Using 1-arg {@code ListRequest.withIndex("index name")} is error-prone!
+     * It's <strong>very</strong> easy to forget that you also have to call {@code orderBy()},
+     * and without an explicitly set {@code OrderExpression}, YOJ will assume that the results are sorted
+     * {@link EntityExpressions#defaultOrder(EntitySchema) by Entity ID ascending}, which is most likely unintended,
+     * very surprising and much less efficient.
+     * <br><strong>We recommend to use {@link #withIndex(String, SortOrder)} instead</strong>: it explicitly requires
+     * you to choose the desired order of query results, reducing the risk of mistakes.
+     *
+     * @param index index name; may be {@code null} to indicate "don't use any explicit index"
+     * @return {@code this}
+     * @throws IllegalArgumentException index not found
+     * @see #withIndex(String, SortOrder)
+     */
+    @NonNull
+    public ListRequest<T> withIndex(@Nullable String index) {
+        return new ListRequest<>(
+                this.offset,
+                this.pageSize,
+                this.schema,
+                this.params,
+                index == null ? null : ensureIndexExists(this.schema, index)
+        );
+    }
+
+    private static String ensureIndexExists(@NonNull Schema<?> schema, @NonNull String indexName) {
+        var ignore = schema.getGlobalIndex(indexName);
+        return indexName;
+    }
+
+    /**
+     * Specifies the index to use for the listing query and orders the results by
+     * {@code (all index fields, then all Entity ID fields)} in the chosen {@link SortOrder sort order}
+     * (either ascending or descending).
+     *
+     * <p><strong>Note</strong>: This method accepts the narrower {@link SortOrder} enum, in contrast to
+     * {@link tech.ydb.yoj.repository.db.TableQueryBuilder#index(String, tech.ydb.yoj.repository.db.IndexOrder)
+     * TableQueryBuilder.index(String, IndexOrder)}, because the listing results must be ordered deterministically,
+     * and {@code IndexOrder} allows a {@link tech.ydb.yoj.repository.db.IndexOrder#UNORDERED non-deterministic
+     * ordering}.
+     *
+     * @param index     index name; must not be {@code null}
+     * @param sortOrder order for listing results (either ascending or descending)
+     * @return {@code this}
+     * @throws IllegalArgumentException index not found
+     */
     @NonNull
     @ExperimentalApi(issue = "https://github.com/ydb-platform/yoj-project/issues/192")
-    public ListRequest<T> withOrderByIndex(@NonNull String indexName, @NonNull SortOrder sortOrder) {
-        return withOrderBy(EntityExpressions.orderByIndex(schema, indexName, sortOrder));
+    public ListRequest<T> withIndex(@NonNull String index, @NonNull SortOrder sortOrder) {
+        OrderExpression<T> orderByIndex = EntityExpressions.orderByIndex(schema, index, sortOrder);
+        return new ListRequest<>(
+                this.offset,
+                this.pageSize,
+                this.schema,
+                this.params.withOrderBy(orderByIndex),
+                index
+        );
     }
 
     @NonNull
@@ -155,7 +209,54 @@ public class ListRequest<T extends Entity<T>> {
         }
 
         @NonNull
+        public Builder<T> noIndex() {
+            return index(null);
+        }
+
+        /**
+         * Specifies the index to use for this listing query, if any.
+         *
+         * <p><strong>WARNING:</strong> Using 1-arg {@code ListRequest.Builder.index("index name")} is error-prone!
+         * It's <strong>very</strong> easy to forget that you also have to call {@code orderBy()},
+         * and without an explicitly set {@code OrderExpression}, YOJ will assume that the results are sorted
+         * {@link EntityExpressions#defaultOrder(EntitySchema) by Entity ID ascending}, which is most likely unintended,
+         * very surprising and much less efficient.
+         * <br><strong>We recommend to use {@link #index(String, SortOrder)} instead</strong>: it explicitly requires
+         * you to choose the desired order of query results, reducing the risk of mistakes; and if you need to specify
+         * "don't use any explicit index", call {@link #noIndex()}.
+         *
+         * @param index index name; may be {@code null} to indicate "don't use any explicit index"
+         * @return {@code this}
+         * @throws IllegalArgumentException index not found
+         * @see #index(String, SortOrder)
+         * @see #noIndex()
+         */
+        @NonNull
         public Builder<T> index(@Nullable String index) {
+            this.index = index == null ? null : ensureIndexExists(schema, index);
+            return this;
+        }
+
+        /**
+         * Specifies the index to use for the listing query and orders the results by
+         * {@code (all index fields, then all Entity ID fields)} in the chosen {@link SortOrder sort order}
+         * (either ascending or descending).
+         *
+         * <p><strong>Note</strong>: This method accepts the narrower {@link SortOrder} enum, in contrast to
+         * {@link tech.ydb.yoj.repository.db.TableQueryBuilder#index(String, tech.ydb.yoj.repository.db.IndexOrder)
+         * TableQueryBuilder.index(String, IndexOrder)}, because the listing results must be ordered deterministically,
+         * and {@code IndexOrder} allows a {@link tech.ydb.yoj.repository.db.IndexOrder#UNORDERED non-deterministic
+         * ordering}.
+         *
+         * @param index     index name; must not be {@code null}
+         * @param sortOrder order for listing results (either ascending or descending)
+         * @return {@code this}
+         * @throws IllegalArgumentException index not found
+         */
+        @NonNull
+        @ExperimentalApi(issue = "https://github.com/ydb-platform/yoj-project/issues/192")
+        public Builder<T> index(@NonNull String index, @NonNull SortOrder sortOrder) {
+            this.orderBy = EntityExpressions.orderByIndex(schema, index, sortOrder);
             this.index = index;
             return this;
         }
@@ -170,12 +271,15 @@ public class ListRequest<T extends Entity<T>> {
             return orderBy(orderCtor.apply(OrderBuilder.forSchema(schema)).build());
         }
 
-        @NonNull
-        @ExperimentalApi(issue = "https://github.com/ydb-platform/yoj-project/issues/192")
-        public Builder<T> orderByIndex(@NonNull String indexName, @NonNull SortOrder sortOrder) {
-            return orderBy(EntityExpressions.orderByIndex(schema, indexName, sortOrder));
-        }
-
+        /**
+         * Sets the ordering for the {@code ListRequest} being constructed. The ordering must be deterministic
+         * (otherwise it's not clear what the <em>next page of results</em> refers to), so using
+         * {@link OrderExpression#unordered(Schema)} is disallowed.
+         *
+         * @param orderBy ordering to use; must be deterministic. Specify {@code null} to order results by Entity ID ASC
+         * @return {@code this}
+         * @throws IllegalArgumentException {@code orderBy} is not a deterministic ordering
+         */
         @NonNull
         public Builder<T> orderBy(@Nullable OrderExpression<T> orderBy) {
             Preconditions.checkArgument(orderBy == null || orderBy.isOrdered(),

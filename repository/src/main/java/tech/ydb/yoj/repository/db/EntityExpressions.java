@@ -9,8 +9,9 @@ import tech.ydb.yoj.databind.expression.OrderExpression.SortKey;
 import tech.ydb.yoj.databind.expression.OrderExpression.SortOrder;
 import tech.ydb.yoj.databind.schema.Schema;
 
+import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.stream.Stream;
+import java.util.Set;
 
 import static tech.ydb.yoj.databind.expression.OrderExpression.SortOrder.ASCENDING;
 
@@ -84,14 +85,38 @@ public final class EntityExpressions {
 
     @ExperimentalApi(issue = "https://github.com/ydb-platform/yoj-project/issues/192")
     public static <T extends Entity<T>> OrderExpression<T> orderByIndex(
+            @NonNull EntitySchema<T> schema, @NonNull String indexName, @NonNull IndexOrder indexOrder
+    ) {
+        return switch (indexOrder) {
+            case ASCENDING -> orderByIndex(schema, indexName, SortOrder.ASCENDING);
+            case DESCENDING -> orderByIndex(schema, indexName, SortOrder.DESCENDING);
+            case UNORDERED -> {
+                ensureIndexExists(schema, indexName);
+                yield unordered(schema);
+            }
+        };
+    }
+
+    @ExperimentalApi(issue = "https://github.com/ydb-platform/yoj-project/issues/192")
+    public static <T extends Entity<T>> @NonNull OrderExpression<T> orderByIndex(
             @NonNull EntitySchema<T> schema, @NonNull String indexName, @NonNull SortOrder sortOrder
     ) {
-        Schema.Index index = schema.getGlobalIndex(indexName);
+        Schema.Index index = ensureIndexExists(schema, indexName);
 
-        List<SortKey> sortKeys = Stream.concat(index.getFields().stream(), schema.flattenId().stream())
-                .map(jf -> new SortKey(jf, sortOrder))
-                .toList();
+        // Using **Linked**HashSet here to de-duplicate SortKeys while preserving the field order
+        Set<SortKey> uniqueSortKeys = new LinkedHashSet<>();
+        for (var jf: index.getFields()) {
+            uniqueSortKeys.add(new SortKey(jf, sortOrder));
+        }
+        for (var idF: schema.flattenId()) {
+            uniqueSortKeys.add(new SortKey(idF, sortOrder));
+        }
 
-        return new OrderExpression<>(schema, sortKeys);
+        return new OrderExpression<>(schema, List.copyOf(uniqueSortKeys));
+    }
+
+    @NonNull
+    private static Schema.Index ensureIndexExists(@NonNull EntitySchema<?> schema, @NonNull String indexName) {
+        return schema.getGlobalIndex(indexName);
     }
 }
