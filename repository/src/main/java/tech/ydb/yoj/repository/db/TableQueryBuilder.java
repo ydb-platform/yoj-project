@@ -4,12 +4,12 @@ import com.google.common.base.Preconditions;
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import tech.ydb.yoj.DeprecationWarnings;
 import tech.ydb.yoj.ExperimentalApi;
 import tech.ydb.yoj.databind.expression.FilterBuilder;
 import tech.ydb.yoj.databind.expression.FilterExpression;
 import tech.ydb.yoj.databind.expression.OrderBuilder;
 import tech.ydb.yoj.databind.expression.OrderExpression;
-import tech.ydb.yoj.databind.expression.OrderExpression.SortOrder;
 import tech.ydb.yoj.databind.schema.Schema;
 
 import javax.annotation.Nullable;
@@ -86,12 +86,14 @@ public final class TableQueryBuilder<T extends Entity<T>> {
 
     private List<T> find(Integer limit) {
         if (indexName != null && orderBy == null) {
-            // TODO(nvamelichev): Add enforcement (e.g., Preconditions.checkState()) in the future
-            log.warn("""
-                            TableQueryBuilder.index("{}") was called but orderBy()/unordered() was NOT! \
-                            Query results will be fetched through the index BUT ordered by the Entity's ID ascending. \
-                            This is probably NOT what you've intended!""",
-                    indexName);
+            String key = "TableQueryBuilder|" + schema.getType().getTypeName() + "|" + indexName;
+            DeprecationWarnings.warnOnce(key, """
+                            TableQueryBuilder.index("%s") was called but orderBy()/unordered() was NOT!\
+                            Query results will be fetched through the index BUT ordered by the Entity's ID ascending.\
+                            This is probably NOT what you've intended!\
+                            Please use TableQueryBuilder.index("%s", IndexOrder.<desired ordering>) instead""",
+                    indexName, indexName
+            );
         }
 
         if (ids == null && keys == null) {
@@ -272,69 +274,43 @@ public final class TableQueryBuilder<T extends Entity<T>> {
     /**
      * Specifies the index to use for this query, if any.
      *
-     * <p><strong>WARNING:</strong> Using {@code TableQueryBuilder.index()} is error-prone! It's very easy to forget
-     * {@code TableQueryBuilder.orderBy()}, and without an explicit ordering, YOJ will sort the query results
-     * {@link EntitySchema#defaultOrder() by Entity ID ascending}, which is less efficient and most likely unintended.
-     * <br><strong>Please consider the following alternatives:</strong>
-     * <ul>
-     * <li>{@link #orderByIndex(String, SortOrder)} orders results by index ascending/descending, which is probably what
-     * you need in most cases,</li>
-     * <li>{@link #unorderedByIndex(String)} explicitly removes result ordering constraints and lets the database decide
-     * on the best ordering (typically, it'll be <em>almost</em> sorted by index ascending).</li>
-     * </ul>
+     * <p><strong>WARNING:</strong> Using 1-arg {@code TableQueryBuilder.index("index name")} is error-prone!
+     * It's <strong>very</strong> easy to forget that you also have to call {@code orderBy()} or {@code unordered()},
+     * and without an explicitly set {@code OrderExpression}, YOJ will assume that the results are sorted
+     * {@link EntityExpressions#defaultOrder(EntitySchema) by Entity ID ascending}, which is most likely unintended,
+     * very surprising and much less efficient.
+     * <br><strong>We recommend to use {@link #index(String, IndexOrder)} instead</strong>: it explicitly requires
+     * you to choose the desired order of query results, reducing the risk of mistakes.
      *
      * @param indexName index name; may be {@code null} to indicate "don't use any explicit index"
      * @return {@code this}
      * @throws IllegalArgumentException index not found
-     *
-     * @see #orderByIndex(String, SortOrder)
-     * @see #unorderedByIndex(String)
+     * @see #index(String, IndexOrder)
      */
     @NonNull
     public TableQueryBuilder<T> index(@Nullable String indexName) {
-        Preconditions.checkArgument(
-                indexName == null || schema.getGlobalIndexes().stream().anyMatch(i -> indexName.equals(i.getIndexName())),
-                "Index not found: '%s'", indexName
-        );
-        this.indexName = indexName;
+        this.indexName = indexName == null ? null : ensureIndexExists(indexName);
         return this;
     }
 
+    private String ensureIndexExists(@NonNull String indexName) {
+        var ignore = schema.getGlobalIndex(indexName);
+        return indexName;
+    }
+
     /**
-     * Specifies the index to use for this query and orders the results by all index fields ascending or descending.
+     * Specifies the index to use for this query and orders the results according to the chosen ordering mode.
      *
      * @param indexName index name; must not be {@code null}
-     * @param sortOrder sort order
+     * @param indexOrder ordering mode to use
      * @return {@code this}
      * @throws IllegalArgumentException index not found
      */
     @NonNull
     @ExperimentalApi(issue = "https://github.com/ydb-platform/yoj-project/issues/192")
-    public TableQueryBuilder<T> orderByIndex(@NonNull String indexName, @NonNull SortOrder sortOrder) {
-        this.orderBy = EntityExpressions.orderByIndex(schema, indexName, sortOrder);
+    public TableQueryBuilder<T> index(@NonNull String indexName, @NonNull IndexOrder indexOrder) {
+        this.orderBy = EntityExpressions.orderByIndex(schema, indexName, indexOrder);
         this.indexName = indexName;
-        return this;
-    }
-
-    /**
-     * Specifies the index to use for this query and explicitly removes result ordering constraints to let the database
-     * decide on the best ordering (typically it'll be <em>almost</em> sorted by index ascending).
-     *
-     * @param indexName index name; must not be {@code null}
-     * @return {@code this}
-     * @throws IllegalArgumentException index not found
-     */
-    @NonNull
-    @ExperimentalApi(issue = "https://github.com/ydb-platform/yoj-project/issues/192")
-    public TableQueryBuilder<T> unorderedByIndex(@NonNull String indexName) {
-        Preconditions.checkArgument(
-                schema.getGlobalIndexes().stream().anyMatch(i -> indexName.equals(i.getIndexName())),
-                "Index not found: '%s'", indexName
-        );
-
-        this.orderBy = OrderExpression.unordered(schema);
-        this.indexName = indexName;
-
         return this;
     }
 

@@ -49,6 +49,7 @@ import tech.ydb.yoj.databind.schema.GlobalIndex;
 import tech.ydb.yoj.databind.schema.ObjectSchema;
 import tech.ydb.yoj.repository.db.Entity;
 import tech.ydb.yoj.repository.db.EntitySchema;
+import tech.ydb.yoj.repository.db.IndexOrder;
 import tech.ydb.yoj.repository.db.IsolationLevel;
 import tech.ydb.yoj.repository.db.QueryStatsMode;
 import tech.ydb.yoj.repository.db.RecordEntity;
@@ -1071,7 +1072,7 @@ public class YdbRepositoryIntegrationTest extends RepositoryTest {
         var results = db.tx(() -> db.indexedTable().query()
                 .where("keyId").gte("a")
                 .limit(2)
-                .unorderedByIndex(IndexedEntity.KEY_INDEX)
+                .index(IndexedEntity.KEY_INDEX, IndexOrder.UNORDERED)
                 .find());
         assertThat(results).containsExactly(ie2, ie1);
     }
