@@ -46,6 +46,14 @@ public class YojTransactionAspect {
                     localTx = localTx.separate();
                 }
             }
+            Class<? extends Throwable>[] noRollbackExceptions = transactional.noRollbackFor();
+            if (noRollbackExceptions != null) {
+                for (Class<? extends Throwable> t : noRollbackExceptions) {
+                    if (RetryableException.class.isAssignableFrom(t)) {
+                        throw new IllegalStateException("RetryableException exceptions are intended to roll back transactions!");
+                    }
+                }
+            }
 
             if (transactional.maxRetries() != YojTransactional.UNDEFINED) {
                 localTx = localTx.withMaxRetries(transactional.maxRetries());
