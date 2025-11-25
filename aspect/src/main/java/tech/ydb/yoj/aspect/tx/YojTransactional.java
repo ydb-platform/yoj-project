@@ -67,6 +67,11 @@ public @interface YojTransactional {
     int maxRetries() default UNDEFINED;
 
     /**
+     * Specifies exception's list that doesn't lead to transaction rollback
+     */
+    Class<? extends Throwable>[] noRollbackFor();
+
+    /**
      * Specifies how writes are performed in this transaction.
      * If transaction is {@link #readOnly() read-only}, the write mode is ignored.
      *

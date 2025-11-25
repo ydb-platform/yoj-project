@@ -46,6 +46,14 @@ public class YojTransactionAspect {
                     localTx = localTx.separate();
                 }
             }
+            Class<? extends Throwable>[] noRollbackExceptions = transactional.noRollbackFor();
+            if (noRollbackExceptions != null) {
+                for (Class<? extends Throwable> t : noRollbackExceptions) {
+                    if (RetryableException.class.isAssignableFrom(t)) {
+                        throw new IllegalStateException("RetryableException exceptions are intended to roll back transactions!");
+                    }
+                }
+            }
 
             if (transactional.maxRetries() != YojTransactional.UNDEFINED) {
                 localTx = localTx.withMaxRetries(transactional.maxRetries());
@@ -58,7 +66,8 @@ public class YojTransactionAspect {
                     .readOnly()
                     .noFirstLevelCache()
                     .withStatementIsolationLevel(transactional.isolation())
-                    .run(() -> safeCall(pjp));
+                    .run(() -> safeCall(pjp, transactional.noRollbackFor()))
+                    .reThrowSkipped();
             } else {
                 localTx = switch (transactional.writeMode()) {
                     case UNSPECIFIED -> localTx;
@@ -66,7 +75,8 @@ public class YojTransactionAspect {
                     case IMMEDIATE -> localTx.immediateWrites();
                 };
 
-                return localTx.tx(() -> safeCall(pjp));
+                return localTx.tx(() -> safeCall(pjp, transactional.noRollbackFor()))
+                    .reThrowSkipped();
             }
         } catch (CallRetryableException | CallException e) {
             throw e.getCause();
@@ -83,12 +93,19 @@ public class YojTransactionAspect {
         return signature.getDeclaringType().getSimpleName() + "." + signature.getName();
     }
 
-    Object safeCall(ProceedingJoinPoint pjp) {
+    CallResult safeCall(ProceedingJoinPoint pjp, Class<? extends Throwable>[] noRollbackExceptions) {
         try {
-            return pjp.proceed();
+            return CallResult.ofSuccess(pjp.proceed());
         } catch (RetryableException e) {
             throw new CallRetryableException(e);
         } catch (Throwable e) {
+            if (noRollbackExceptions != null) {
+                for (Class<? extends Throwable> t : noRollbackExceptions) {
+                    if (t.isAssignableFrom(e.getClass())) {
+                        return CallResult.ofError(e);
+                    }
+                }
+            }
             throw new CallException(e);
         }
     }
@@ -105,6 +122,23 @@ public class YojTransactionAspect {
     static class CallException extends RuntimeException {
         CallException(Throwable e) {
             super(e);
+        }
+    }
+
+    record CallResult(Object result, Throwable error) {
+        public static CallResult ofSuccess(Object r) {
+            return new CallResult(r, null);
+        }
+
+        public static CallResult ofError(Throwable e) {
+            return new CallResult(null, e);
+        }
+
+        Object reThrowSkipped() throws Throwable {
+            if (error != null) {
+                throw error;
+            }
+            return result;
         }
     }
 }
