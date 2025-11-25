@@ -599,13 +599,19 @@ public class InMemoryTable<T extends Entity<T>> implements Table<T> {
 
     /**
      * @deprecated Legacy class, used only for creating {@code InMemoryTable}.
-     * This class will be removed in YOJ 2.7.0.
-     * Please use the {@code InMemoryTable(InMemoryRepositoryTransaction, Class)} constructor instead of {@code InMemoryTable(DbMemory)} constructor.
+     * This class will be removed in YOJ 2.8.0.
+     * Please use the {@code InMemoryTable(InMemoryRepositoryTransaction, Class)} constructor instead of
+     * the {@code InMemoryTable(DbMemory)} constructor.
      */
     @Deprecated(forRemoval = true)
     public record DbMemory<T extends Entity<T>>(
             Class<T> type,
             InMemoryRepositoryTransaction transaction
     ) {
+        public DbMemory {
+            DeprecationWarnings.warnOnce("InMemoryTable.DbMemory(" + type.getTypeName() + ")", """
+                    Please use new InMemoryTable(InMemoryRepositoryTransaction, Class) constructor instead of the \
+                    new InMemoryTable(InMemoryTable.DbMemory) constructor""");
+        }
     }
 }

@@ -288,14 +288,14 @@ public final class CommonConverters {
                                 "Returning null because no name() in enum class <" + clazz.getName() + "> matches '" + name + "'. "
                                         + "If you expect to get null value for unknown enum constants, please explicitly call "
                                         + "CommonConverters.defineEnumDeserializer(EnumDeserializer.LENIENT). "
-                                        + "In YOJ 2.7.0 you will get ConversionException by default, if this property is not explicitly set."
+                                        + "In YOJ 3.0.0 you will get ConversionException by default, if this property is not explicitly set."
                         );
                     } else if (!e.name().equals(name)) {
                         DeprecationWarnings.warnOnce(
                                 "EnumDeserializer[" + clazz.getName() + "].name.caseInsensitive",
                                 "You rely on case insensitive enum deserialization for enum class <" + clazz.getName() + ">. "
                                         + "Please explicitly call CommonConverters.defineEnumDeserializer(EnumDeserializer.LENIENT). "
-                                        + "In YOJ 2.7.0 you will get ConversionException by default, if this property is not explicitly set."
+                                        + "In YOJ 3.0.0 you will get ConversionException by default, if this property is not explicitly set."
                         );
                     }
                 }
@@ -313,7 +313,7 @@ public final class CommonConverters {
                             "Returning null because no toString() in enum class <" + clazz.getName() + "> matches '" + toStringValue + "'. "
                                     + "If you expect to get null value for unknown enum constants, please explicitly call "
                                     + "CommonConverters.defineEnumDeserializer(EnumDeserializer.LENIENT). "
-                                    + "In YOJ 2.7.0 you will get ConversionException by default, if this setting is not explicitly set."
+                                    + "In YOJ 3.0.0 you will get ConversionException by default, if this setting is not explicitly set."
                     );
                 }
                 return e;

@@ -3002,7 +3002,7 @@ public abstract class RepositoryTest extends RepositoryTestSupport {
 
     @Test
     public void lenientEnumBehaviorImplicit() {
-        // NB: Currently the implicit system property uses LENIENT deserializer, but this will change in YOJ 2.7.0!
+        // NB: Currently the implicit system property uses LENIENT deserializer, but this will change in YOJ 3.0.0!
         CommonConverters.useDefaultEnumDeserializer();
         lenientEnumBehaviorTestImpl();
     }

@@ -13,7 +13,6 @@ import tech.ydb.yoj.databind.expression.values.FieldValue;
 import tech.ydb.yoj.databind.schema.Schema;
 import tech.ydb.yoj.databind.schema.Schema.JavaField;
 import tech.ydb.yoj.repository.db.Entity;
-import tech.ydb.yoj.repository.db.EntityIdSchema;
 import tech.ydb.yoj.repository.db.TableQueryImpl;
 import tech.ydb.yoj.util.function.StreamSupplier;
 
@@ -26,21 +25,14 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.function.Function;
 import java.util.function.Predicate;
-import java.util.stream.Stream;
 
 import static java.util.function.Predicate.not;
-import static java.util.stream.Collectors.toList;
 import static tech.ydb.yoj.databind.expression.OrderExpression.SortOrder.ASCENDING;
 
 /**
  * Utilities for in-memory filtering and sorting objects that have a {@link Schema} (mostly {@link Entity entities}).
  */
 public final class InMemoryQueries {
-    @Deprecated(forRemoval = true)
-    private static final Comparator<Entity<?>> ENTITY_DEFAULT_ORDER_VIA_REFLECTION = Comparator.comparing(
-            Entity::getId, (a, b) -> EntityIdSchema.ofEntity(a.getType()).compare(a, b)
-    );
-
     public static <T extends Entity<T>> ListResult<T> list(@NonNull StreamSupplier<T> streamSupplier,
                                                            @NonNull ListRequest<T> request) {
         return ListResult.forPage(
@@ -54,40 +46,6 @@ public final class InMemoryQueries {
                         request.getOffset()
                 )
         );
-    }
-
-    /**
-     * @deprecated This method is an implementation detail leaked into the public YOJ API. It will be removed in YOJ 2.7.0.
-     */
-    @Deprecated(forRemoval = true)
-    public static <T extends Entity<T>> List<T> find(@NonNull StreamSupplier<T> streamSupplier,
-                                                     @Nullable FilterExpression<T> filter,
-                                                     @Nullable OrderExpression<T> orderBy,
-                                                     @Nullable Integer limit,
-                                                     @Nullable Long offset) {
-        if (limit == null && offset != null && offset > 0) {
-            throw new IllegalArgumentException("offset > 0 with limit=null is not supported");
-        }
-
-        try (Stream<T> stream = streamSupplier.stream()) {
-            Stream<T> foundStream = stream;
-            if (filter != null) {
-                foundStream = foundStream.filter(toPredicate(filter));
-            }
-            if (orderBy != null) {
-                foundStream = foundStream.sorted(toComparator(orderBy));
-            } else {
-                foundStream = foundStream.sorted(ENTITY_DEFAULT_ORDER_VIA_REFLECTION);
-            }
-
-            foundStream = foundStream.skip(offset == null ? 0L : offset);
-
-            if (limit != null) {
-                foundStream = foundStream.limit(limit);
-            }
-
-            return foundStream.collect(toList());
-        }
     }
 
     public static <T> Predicate<T> toPredicate(@NonNull FilterExpression<T> filter) {

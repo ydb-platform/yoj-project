@@ -1,13 +1,9 @@
 package tech.ydb.yoj.repository.db.cache;
 
-import com.google.common.base.Preconditions;
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
 import lombok.Value;
-import tech.ydb.yoj.DeprecationWarnings;
 import tech.ydb.yoj.InternalApi;
-import tech.ydb.yoj.repository.db.Entity;
-import tech.ydb.yoj.repository.db.EntitySchema;
 import tech.ydb.yoj.repository.db.TableDescriptor;
 
 import java.util.Optional;
@@ -90,37 +86,5 @@ public interface RepositoryCache {
          */
         @NonNull
         Object id;
-
-        /**
-         * @deprecated This constructor will start throwing {@code UnsupportedOperationException} in YOJ 2.7.0
-         * and will be permanently removed in YOJ 3.0.0.
-         * <p>If your custom {@code YqlStatement}s make use of {@code readFromCache()} and {@code storeToCache()},
-         * please migrate them to use the new constructors: {@code RepositoryCache.Key(TableDescriptor, Entity.Id)}
-         * for caching entities themselves, and {@code RepositoryCache.Key(Class, TableDescriptor, Object)}
-         * for a more general version suitable for caching e.g. {@code View}s.
-         */
-        @Deprecated(forRemoval = true)
-        public Key(@NonNull Class<?> clazz, @NonNull Object id) {
-            DeprecationWarnings.warnOnce("tech.ydb.yoj.repository.db.cache.RepositoryCache.Key(Class<?>, Object)",
-                    "Please migrate to RepositoryCache.Key(Class<?>, TableDescriptor<?>, Object) constructor");
-
-            Preconditions.checkArgument(clazz.isAssignableFrom(Entity.class),
-                    "Deprecated RepositoryCache.Key(Class<?>, Object) constructor only entities, but got: %s", clazz);
-
-            this.valueType = clazz;
-
-            @SuppressWarnings({"unchecked", "rawtypes"}) EntitySchema<?> schema = EntitySchema.of((Class<Entity>) clazz);
-            this.tableDescriptor = TableDescriptor.from(schema);
-
-            this.id = id;
-        }
-
-        /**
-         * @deprecated Use the more clearly named {@code getValueType()} method.
-         */
-        @Deprecated(forRemoval = true)
-        public Class<?> getClazz() {
-            return valueType;
-        }
     }
 }
