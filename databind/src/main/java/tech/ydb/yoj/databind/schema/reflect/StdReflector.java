@@ -30,6 +30,10 @@ public final class StdReflector implements Reflector {
             PojoType.FACTORY,
             SimpleType.FACTORY
     ));
+    public static final String FIND_ALL_ARGS_CTOR_MODE_SYSTEM_PROPERTY_NAME =
+        "tech.ydb.yoj.databind.schema.reflect.PojoType.findAllArgsCtor.mode";
+    public static final String PERMISSIVE_MODE = "permissive";
+    public static final String STRICT_MODE = "strict";
 
     private final List<TypeFactory> matchers;
 
