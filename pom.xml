@@ -134,8 +134,8 @@
         <guava.version>33.5.0-jre</guava.version>
         <slf4j-api.version>1.7.36</slf4j-api.version>
         <eclipse-collections.version>9.2.0</eclipse-collections.version>
-        <commons-lang.version>3.13.0</commons-lang.version>
-        <commons-text.version>1.10.0</commons-text.version>
+        <commons-lang.version>3.18.0</commons-lang.version>
+        <commons-text.version>1.14.0</commons-text.version>
         <compile-testing.version>0.21.0</compile-testing.version>
         <kotlin-compile-testing-fork.version>0.11.0</kotlin-compile-testing-fork.version>
         <prometheus-simpleclient.version>0.16.0</prometheus-simpleclient.version>
