@@ -153,14 +153,18 @@
 
         <!-- test dependencies -->
         <junit.version>4.13.2</junit.version>
-        <assertj-core.version>3.25.3</assertj-core.version>
-        <log4j2.version>2.23.1</log4j2.version>
+        <assertj-core.version>3.27.6</assertj-core.version>
+        <log4j2.version>2.24.3</log4j2.version>
         <mockito.version>5.20.0</mockito.version>
         <!-- NB: testcontainers and docker-java versions are related - when bumping one, check if another needs to be bumped too -->
         <docker-java.version>3.4.2</docker-java.version>
-        <testcontainers.version>1.21.1</testcontainers.version>
-        <!-- testcontainers ships with a vulnerable commons-compress=1.24.0 -->
-        <commons-compress.version>1.27.1</commons-compress.version>
+        <!-- FIXME(nvamelichev): We cannot migrate to testcontainers 2.x unless we abandon JUnit4, and we cannot do that
+             without also abandoning downstream inheritors of our test classes from `repository-test` :-(
+             This means that we have to use a workaround instead of a good fix for the Docker API version issue:
+                 https://github.com/testcontainers/testcontainers-java/issues/11212 -->
+        <testcontainers.version>1.21.3</testcontainers.version>
+        <!-- testcontainers 1.x ships with a vulnerable commons-compress=1.24.0 => we explicitly use a later version -->
+        <commons-compress.version>1.28.0</commons-compress.version>
         <jackson.version>2.17.3</jackson.version>
         <bytebuddy.version>1.17.7</bytebuddy.version>
         <snakeyaml.version>2.4</snakeyaml.version>
