@@ -180,6 +180,11 @@ public class PojoSchemaStrictFindConstructorMethodTest {
         assertThatThrownBy(() -> new TestSchema<>(EntityWithMismatchingFieldTypeForName.class))
             .isInstanceOf(IllegalArgumentException.class);
     }
+    @Test
+    public void failIfThereAreDuplicateEntitiesInConstructorPropertiesAnnotation() {
+        assertThatThrownBy(() -> new TestSchema<>(EntityWithDuplicatedGettersInConstructorProperties.class))
+            .isInstanceOf(IllegalArgumentException.class);
+    }
 
     private static class TestSchema<T> extends Schema<T> {
         private TestSchema(Class<T> entityType) {
@@ -403,6 +408,17 @@ public class PojoSchemaStrictFindConstructorMethodTest {
         String aux;
 
         public EntityWithMismatchingFieldTypeForName(String value, int aux) {
+        }
+    }
+
+    private static class EntityWithDuplicatedGettersInConstructorProperties {
+        int first;
+        int second;
+
+        @ConstructorProperties({"first", "first"})
+        public EntityWithDuplicatedGettersInConstructorProperties(int first, int second) {
+            this.first = first;
+            this.second = second;
         }
     }
 }

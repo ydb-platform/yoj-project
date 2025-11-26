@@ -74,10 +74,6 @@ import static tech.ydb.yoj.databind.schema.reflect.StdReflector.STRICT_MODE;
                 .filter(PojoType::isEntityField)
                 .toList();
 
-            // Group fields by name for quick lookup
-            Map<String, List<Field>> fieldsByName = entityFields.stream()
-                .collect(Collectors.groupingBy(Field::getName));
-
             Class<?>[] paramTypes = constructor.getParameterTypes();
             Parameter[] params = constructor.getParameters();
             int paramCount = constructor.getParameterCount();
@@ -114,30 +110,13 @@ import static tech.ydb.yoj.databind.schema.reflect.StdReflector.STRICT_MODE;
                 .map(i -> {
                     String pName = paramNames[i];
                     Class<?> pType = paramTypes[i];
-
-                    List<Field> sameName = fieldsByName.get(pName);
-                    if (sameName == null || sameName.isEmpty()) {
+                    Field field = getField(type, pName);
+                    Class<?> fieldType = field.getType();
+                    if (!pType.equals(fieldType)) {
                         throw new IllegalArgumentException(
-                            "No field named '" + pName + "' found in " + type +
-                                " for constructor parameter #" + i);
+                            "Field " + field + " type: '" + fieldType + "' doesn't match the parameter '" + pName +
+                                "' type: '" + pType.getName() + "'");
                     }
-
-                    List<Field> matching = sameName.stream()
-                        .filter(f -> f.getType().equals(pType))
-                        .toList();
-
-                    if (matching.isEmpty()) {
-                        throw new IllegalArgumentException(
-                            "No field in " + type + " matches constructor parameter '" + pName +
-                                "' of type " + pType.getName());
-                    }
-                    if (matching.size() > 1) {
-                        throw new IllegalArgumentException(
-                            "Multiple fields in " + type + " match constructor parameter '" + pName +
-                                "' of type " + pType.getName() + ": " + matching);
-                    }
-
-                    Field field = matching.get(0);
                     return (ReflectField) new PojoField(reflector, field);
                 })
                 .toList();
