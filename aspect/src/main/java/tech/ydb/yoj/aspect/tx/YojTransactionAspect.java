@@ -99,11 +99,9 @@ public class YojTransactionAspect {
         } catch (RetryableException e) {
             throw new CallRetryableException(e);
         } catch (Throwable e) {
-            if (noRollbackExceptions != null) {
-                for (Class<? extends Throwable> t : noRollbackExceptions) {
-                    if (t.isAssignableFrom(e.getClass())) {
-                        return CallResult.ofError(e);
-                    }
+            for (Class<? extends Throwable> t : noRollbackExceptions) {
+                if (t.isAssignableFrom(e.getClass())) {
+                    return CallResult.ofError(e);
                 }
             }
             throw new CallException(e);
