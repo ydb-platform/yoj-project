@@ -10,9 +10,8 @@ import java.beans.ConstructorProperties;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.util.Arrays;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
+import java.util.Map;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -178,20 +177,20 @@ import static tech.ydb.yoj.databind.schema.reflect.StdReflector.STRICT_MODE;
             .filter(PojoType::isEntityField)
             .map(Field::getType)
             .collect(Collectors.toList());
-
-        Set<Class<?>> fieldTypeSet = new HashSet<>(fieldTypes);
-
+        Map<Class<?>, Long> fieldTypeCounts = typeMultiplicityMap(fieldTypes.stream());
+        int fieldCount = fieldTypes.size();
         @SuppressWarnings("unchecked")
         List<Constructor<T>> matches = (List<Constructor<T>>) (List<?>)
             Stream.of(type.getDeclaredConstructors())
                 .filter(c -> !c.isSynthetic())
-                .filter(c -> c.getParameterCount() == fieldTypes.size())
+                .filter(c -> c.getParameterCount() == fieldCount)
                 .filter(c -> {
-                    Set<Class<?>> paramTypes = new HashSet<>(Arrays.asList(c.getParameterTypes()));
-                    return paramTypes.equals(fieldTypeSet);
+                    Map<Class<?>, Long> paramTypeCounts = typeMultiplicityMap(c.getParameterTypes());
+                    return paramTypeCounts.equals(fieldTypeCounts);
                 })
-                .toList();
+                .collect(Collectors.toList());
 
+        // If multiple constructors match, prefer those annotated with @ConstructorProperties
         if (matches.size() > 1) {
             matches = matches.stream()
                 .filter(c -> c.getAnnotation(ConstructorProperties.class) != null)
@@ -210,6 +209,14 @@ import static tech.ydb.yoj.databind.schema.reflect.StdReflector.STRICT_MODE;
         Constructor<T> ctor = matches.get(0);
         ctor.setAccessible(true);
         return ctor;
+    }
+
+    private static Map<Class<?>, Long> typeMultiplicityMap(Class<?>[] classes) {
+        return typeMultiplicityMap(Arrays.stream(classes));
+    }
+
+    private static Map<Class<?>, Long> typeMultiplicityMap(Stream<Class<?>> stream) {
+        return stream.collect(Collectors.groupingBy(t -> t, Collectors.counting()));
     }
 
     /// This method is fundamentally flawed. The [Class#getDeclaredConstructors()] method used inside

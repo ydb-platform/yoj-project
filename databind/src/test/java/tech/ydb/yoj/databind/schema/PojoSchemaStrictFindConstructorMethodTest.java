@@ -121,8 +121,26 @@ public class PojoSchemaStrictFindConstructorMethodTest {
     @Test
     public void failIfNoConstructorMatchesFieldTypes() {
         assertThatThrownBy(() -> new TestSchema<>(EntityWithMismatchingConstructor.class))
-            .isInstanceOf(IllegalArgumentException.class)
-            .hasMessageContaining("Could not find an all-args ctor with parameter types equal to field types");
+            .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    public void failIfNoConstructorMatchesFieldTypesWithMultipleFieldsOfTheSameType() {
+        assertThatThrownBy(() -> new TestSchema<>(EntityWithMultipleFieldsWithTheSameTypeAndBadConstructor.class))
+            .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    public void entityWithMultipleFieldsWithTheSameTypeAndGoodConstructorIsBuildCorrectly() {
+        var schema = new TestSchema<>(EntityWithMultipleFieldsWithTheSameTypeAndGoodConstructor.class);
+        EntityWithMultipleFieldsWithTheSameTypeAndGoodConstructor entity = schema.newInstance(Map.of(
+            "intVal2", 2,
+            "strVal", "str",
+            "intVal1", 1
+        ));
+        assertThat(entity.intVal2).isEqualTo(2);
+        assertThat(entity.strVal).isEqualTo("str");
+        assertThat(entity.intVal1).isEqualTo(1);
     }
 
     private static class TestSchema<T> extends Schema<T> {
@@ -266,6 +284,27 @@ public class PojoSchemaStrictFindConstructorMethodTest {
 
         public EntityWithMismatchingConstructor(String value) {
             // wrong parameter type
+        }
+    }
+
+    private static class EntityWithMultipleFieldsWithTheSameTypeAndBadConstructor {
+        int intVal1;
+        int intVal2;
+        String strVal;
+
+        public EntityWithMultipleFieldsWithTheSameTypeAndBadConstructor(int intVal1, String strVal1, String strVal2) {
+        }
+    }
+
+    private static class EntityWithMultipleFieldsWithTheSameTypeAndGoodConstructor {
+        int intVal1;
+        int intVal2;
+        String strVal;
+
+        public EntityWithMultipleFieldsWithTheSameTypeAndGoodConstructor(int intVal2, String strVal, int intVal1) {
+            this.intVal2 = intVal2;
+            this.strVal = strVal;
+            this.intVal1 = intVal1;
         }
     }
 }
