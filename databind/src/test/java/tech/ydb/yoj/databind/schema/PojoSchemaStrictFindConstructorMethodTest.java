@@ -143,6 +143,44 @@ public class PojoSchemaStrictFindConstructorMethodTest {
         assertThat(entity.intVal1).isEqualTo(1);
     }
 
+    @Test
+    public void entityWithFieldsOrderedByCtorWithConstructorPropertiesAnnotationIsBuildCorrectly() {
+        var schema = new TestSchema<>(EntityOrderedByCtorWithAnnotation.class);
+        EntityOrderedByCtorWithAnnotation entity = schema.newInstance(Map.of(
+            "second", "str",
+            "third", true,
+            "first", 11
+        ));
+        assertThat(entity.second).isEqualTo("str");
+        assertThat(entity.third).isEqualTo(true);
+        assertThat(entity.first).isEqualTo(11);
+    }
+
+    @Test
+    public void failIfNoConstructorParameterNameDoesNotMatchFieldName() {
+        assertThatThrownBy(() -> new TestSchema<>(EntityWithConstructorParameterNameNotMatchingFieldName.class))
+            .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    public void failIfNoConstructorParameterNameDoesNotMatchFieldNameInConstructorPropertiesAnnotation() {
+        assertThatThrownBy(
+            () -> new TestSchema<>(EntityWithConstructorParameterNameNotMatchingFieldNameFromConstructorPropertiesAnnotation.class))
+            .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    public void failIfCountOfGetterNamesInConstructorPropertiesAnnotationIsNotEqualToConstructorParametersCount() {
+        assertThatThrownBy(() -> new TestSchema<>(EntityWithTooShortConstructorProperties.class))
+            .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    public void failIfFieldTypeDoesNotMatchConstructorParameterType() {
+        assertThatThrownBy(() -> new TestSchema<>(EntityWithMismatchingFieldTypeForName.class))
+            .isInstanceOf(IllegalArgumentException.class);
+    }
+
     private static class TestSchema<T> extends Schema<T> {
         private TestSchema(Class<T> entityType) {
             super(entityType);
@@ -305,6 +343,66 @@ public class PojoSchemaStrictFindConstructorMethodTest {
             this.intVal2 = intVal2;
             this.strVal = strVal;
             this.intVal1 = intVal1;
+        }
+    }
+
+    /// Field names: value.
+    /// Types of the field and constructor parameter match (int), but names don't.
+    /// strictFindAllArgsCtor will select the ctor (type match),
+    /// but PojoType’s field mapping must fail because "param" is not a field name.
+    private static class EntityWithConstructorParameterNameNotMatchingFieldName {
+        int value;
+
+        public EntityWithConstructorParameterNameNotMatchingFieldName(int param) {
+        }
+    }
+
+    /// Field names: value.
+    /// Type match (int), but @ConstructorProperties refers to "param" instead of "value".
+    /// strictFindAllArgsCtor will select the ctor (type match),
+    /// but PojoType’s field mapping must fail because "param" is not a field name.
+    private static class EntityWithConstructorParameterNameNotMatchingFieldNameFromConstructorPropertiesAnnotation {
+        int value;
+
+        @ConstructorProperties({"param"})
+        public EntityWithConstructorParameterNameNotMatchingFieldNameFromConstructorPropertiesAnnotation(int value) {
+        }
+    }
+
+    /// 3 fields, 3-arg ctor with [ConstructorProperties] giving a different order.
+    /// Fields must follow ctor param order: second, third, first.
+    private static class EntityOrderedByCtorWithAnnotation {
+        int first;
+        String second;
+        boolean third;
+
+        @ConstructorProperties({"second", "third", "first"})
+        public EntityOrderedByCtorWithAnnotation(String second, boolean third, int first) {
+            this.first = first;
+            this.second = second;
+            this.third = third;
+        }
+    }
+
+    /// Two parameters, but [ConstructorProperties] has only one name.
+    /// This must fail during PojoType construction with an IllegalArgumentException
+    /// complaining about the length mismatch.
+    private static class EntityWithTooShortConstructorProperties {
+        int value1;
+        int value2;
+
+        @ConstructorProperties({"value1"})
+        public EntityWithTooShortConstructorProperties(int value1, int value2) {
+            this.value1 = value1;
+            this.value2 = value2;
+        }
+    }
+
+    private static class EntityWithMismatchingFieldTypeForName {
+        int value;
+        String aux;
+
+        public EntityWithMismatchingFieldTypeForName(String value, int aux) {
         }
     }
 }
