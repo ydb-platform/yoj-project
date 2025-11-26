@@ -99,6 +99,40 @@ import static tech.ydb.yoj.databind.schema.reflect.StdReflector.STRICT_MODE;
         return !isStatic(modifiers) && !isTransient(modifiers);
     }
 
+    /// Locates the "all-arguments" constructor for the given POJO type
+    /// according to the configured lookup mode.
+    ///
+    /// The lookup strategy is controlled by the
+    /// [StdReflector#FIND_ALL_ARGS_CTOR_MODE_SYSTEM_PROPERTY_NAME]
+    /// system property:
+    ///
+    /// - [StdReflector#PERMISSIVE_MODE] (default) –
+    ///   delegates to [PojoType#permissiveFindAllArgsCtor(Class)], which uses a heuristic:
+    ///   it selects a non-synthetic constructor whose parameter count equals
+    ///   the number of non-static, non-transient declared fields, preferring
+    ///   constructors annotated with [ConstructorProperties] when multiple candidates exist.
+    /// - [StdReflector#STRICT_MODE] –
+    ///   delegates to [PojoType#strictFindAllArgsCtor(Class)]
+    ///   which enforces a stronger match between constructor parameter types and
+    ///   entity field types and fails fast on ambiguity.
+    ///
+    /// Regardless of mode, the returned constructor is made accessible via
+    /// [Constructor#setAccessible(boolean)] before being returned.
+    ///
+    /// @param <T> the POJO type
+    /// @param type the concrete class for which an all-arguments constructor
+    ///        should be found; must not be `null` and is expected to be a
+    ///        non-local, non-anonymous, non-abstract, top-level or static inner class
+    ///
+    /// @return a [Constructor] instance representing the selected
+    ///         all-arguments constructor; the constructor is guaranteed
+    ///         to be accessible
+    ///
+    /// @throws IllegalArgumentException if no suitable all-arguments constructor
+    ///         can be found for the given type in the selected mode
+    /// @throws IllegalStateException if the system property
+    ///         [StdReflector#FIND_ALL_ARGS_CTOR_MODE_SYSTEM_PROPERTY_NAME]
+    ///         is set to an unsupported value
     private static <T> Constructor<T> findAllArgsCtor(Class<T> type) {
         String mode = System.getProperty(FIND_ALL_ARGS_CTOR_MODE_SYSTEM_PROPERTY_NAME, PERMISSIVE_MODE);
         Constructor<T> ctor = switch (mode) {
@@ -110,6 +144,33 @@ import static tech.ydb.yoj.databind.schema.reflect.StdReflector.STRICT_MODE;
         return ctor;
     }
 
+    /// Performs a strict search for an "all-arguments" constructor of the given POJO type.
+    ///
+    /// In strict mode, an all-arguments constructor is defined as a non-synthetic
+    /// constructor whose:
+    ///
+    /// - parameter count is exactly equal to the number of “entity” fields
+    ///   (declared fields that are neither `static` nor `transient`), and
+    /// - set of parameter types is equal to the set of entity field types (ignoring order).
+    ///
+    /// All declared constructors are inspected, and those that satisfy the criteria above  
+    /// are collected as candidates. If more than one candidate is found, the set is further
+    /// reduced to constructors annotated with [ConstructorProperties];
+    /// this annotation is therefore required to disambiguate multiple matching signatures.
+    ///
+    /// If after this disambiguation step there is no unique matching constructor, the method
+    /// fails with an [IllegalArgumentException]. Otherwise, the single matching constructor
+    /// is made accessible using [Constructor#setAccessible(boolean)] and returned.
+    ///
+    /// @param <T> the POJO type
+    /// @param type the concrete class for which an all-arguments constructor should be located;
+    ///             must not be `null`
+    /// @return the unique all-arguments constructor matching the entity field types;  
+    ///         guaranteed to be accessible
+    ///
+    /// @throws IllegalArgumentException if no constructor matches the entity field types, or if
+    ///         more than one constructor matches after applying
+    ///         [ConstructorProperties](java.beans.ConstructorProperties)-based disambiguation
     private static <T> Constructor<T> strictFindAllArgsCtor(Class<T> type) {
         // Collect entity field types
         List<Class<?>> fieldTypes = Stream.of(type.getDeclaredFields())
