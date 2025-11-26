@@ -9,6 +9,7 @@ import tech.ydb.yoj.databind.FieldValueType;
 import java.beans.ConstructorProperties;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
+import java.lang.reflect.Parameter;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -64,16 +65,99 @@ import static tech.ydb.yoj.databind.schema.reflect.StdReflector.STRICT_MODE;
         this.constructor = findAllArgsCtor(type);
         this.constructor.setAccessible(true);
         ConstructorProperties propNamesAnnotation = constructor.getAnnotation(ConstructorProperties.class);
-        if (propNamesAnnotation != null) {
-            this.fields = Stream.of(propNamesAnnotation.value())
+        if (STRICT_MODE.equals(getFindAllArgsCtorMode())) {
+            // STRICT_MODE: fields must follow constructor parameter order and match by *name and type*.
+            // If matching is unclear/ambiguous → IllegalArgumentException.
+
+            // Collect entity fields
+            List<Field> entityFields = Stream.of(type.getDeclaredFields())
+                .filter(PojoType::isEntityField)
+                .toList();
+
+            // Group fields by name for quick lookup
+            Map<String, List<Field>> fieldsByName = entityFields.stream()
+                .collect(Collectors.groupingBy(Field::getName));
+
+            Class<?>[] paramTypes = constructor.getParameterTypes();
+            Parameter[] params = constructor.getParameters();
+            int paramCount = constructor.getParameterCount();
+
+            if (paramCount != entityFields.size()) {
+                // Should normally be prevented by findAllArgsCtor, but be defensive.
+                throw new IllegalArgumentException(
+                    "Constructor parameter count (" + paramCount +
+                        ") does not match entity field count (" + entityFields.size() +
+                        ") for " + type);
+            }
+
+            // Determine parameter names: use @ConstructorProperties if present, otherwise reflection parameter names
+            String[] paramNames;
+            if (propNamesAnnotation != null) {
+                paramNames = propNamesAnnotation.value();
+                if (paramNames.length != paramCount) {
+                    throw new IllegalArgumentException(
+                        "@ConstructorProperties length (" + paramNames.length +
+                            ") does not match constructor parameter count (" + paramCount +
+                            ") for " + type);
+                }
+            } else {
+                paramNames = new String[paramCount];
+                for (int i = 0; i < paramCount; i++) {
+                    paramNames[i] = params[i].getName();
+                }
+            }
+
+            // For each parameter (in order), find the unique matching field by name + type
+            this.fields = Stream
+                .iterate(0, i -> i + 1)
+                .limit(paramCount)
+                .map(i -> {
+                    String pName = paramNames[i];
+                    Class<?> pType = paramTypes[i];
+
+                    List<Field> sameName = fieldsByName.get(pName);
+                    if (sameName == null || sameName.isEmpty()) {
+                        throw new IllegalArgumentException(
+                            "No field named '" + pName + "' found in " + type +
+                                " for constructor parameter #" + i);
+                    }
+
+                    List<Field> matching = sameName.stream()
+                        .filter(f -> f.getType().equals(pType))
+                        .toList();
+
+                    if (matching.isEmpty()) {
+                        throw new IllegalArgumentException(
+                            "No field in " + type + " matches constructor parameter '" + pName +
+                                "' of type " + pType.getName());
+                    }
+                    if (matching.size() > 1) {
+                        throw new IllegalArgumentException(
+                            "Multiple fields in " + type + " match constructor parameter '" + pName +
+                                "' of type " + pType.getName() + ": " + matching);
+                    }
+
+                    Field field = matching.get(0);
+                    return (ReflectField) new PojoField(reflector, field);
+                })
+                .toList();
+        } else {
+            // PERMISSIVE_MODE (or any other non-strict mode): keep the previous behavior.
+            if (propNamesAnnotation != null) {
+                this.fields = Stream.of(propNamesAnnotation.value())
                     .<ReflectField>map(fieldName -> new PojoField(reflector, getField(type, fieldName)))
                     .toList();
-        } else {
-            this.fields = Stream.of(type.getDeclaredFields())
+            } else {
+                this.fields = Stream.of(type.getDeclaredFields())
                     .filter(PojoType::isEntityField)
                     .<ReflectField>map(f -> new PojoField(reflector, f))
                     .toList();
+            }
         }
+    }
+
+    private static String getFindAllArgsCtorMode() {
+        return System.getProperty(FIND_ALL_ARGS_CTOR_MODE_SYSTEM_PROPERTY_NAME, PERMISSIVE_MODE);
     }
 
     private static java.lang.reflect.Field getField(@NonNull Class<?> type, @NonNull String fieldName) {
@@ -134,11 +218,10 @@ import static tech.ydb.yoj.databind.schema.reflect.StdReflector.STRICT_MODE;
     ///         [StdReflector#FIND_ALL_ARGS_CTOR_MODE_SYSTEM_PROPERTY_NAME]
     ///         is set to an unsupported value
     private static <T> Constructor<T> findAllArgsCtor(Class<T> type) {
-        String mode = System.getProperty(FIND_ALL_ARGS_CTOR_MODE_SYSTEM_PROPERTY_NAME, PERMISSIVE_MODE);
-        Constructor<T> ctor = switch (mode) {
+        Constructor<T> ctor = switch (getFindAllArgsCtorMode()) {
             case PERMISSIVE_MODE -> permissiveFindAllArgsCtor(type);
             case STRICT_MODE -> strictFindAllArgsCtor(type);
-            default -> throw new IllegalStateException("Unknown " + FIND_ALL_ARGS_CTOR_MODE_SYSTEM_PROPERTY_NAME + " mode: " + mode);
+            default -> throw new IllegalStateException("Unknown " + FIND_ALL_ARGS_CTOR_MODE_SYSTEM_PROPERTY_NAME + " mode: " + getFindAllArgsCtorMode());
         };
         ctor.setAccessible(true);
         return ctor;
