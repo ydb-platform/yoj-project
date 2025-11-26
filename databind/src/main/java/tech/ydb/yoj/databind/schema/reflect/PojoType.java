@@ -20,7 +20,6 @@ import static java.lang.reflect.Modifier.isAbstract;
 import static java.lang.reflect.Modifier.isStatic;
 import static java.lang.reflect.Modifier.isTransient;
 import static java.util.Comparator.comparing;
-
 import static tech.ydb.yoj.databind.schema.reflect.StdReflector.FIND_ALL_ARGS_CTOR_MODE_SYSTEM_PROPERTY_NAME;
 import static tech.ydb.yoj.databind.schema.reflect.StdReflector.PERMISSIVE_MODE;
 import static tech.ydb.yoj.databind.schema.reflect.StdReflector.STRICT_MODE;
