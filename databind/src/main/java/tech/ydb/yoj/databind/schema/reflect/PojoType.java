@@ -151,6 +151,10 @@ import static tech.ydb.yoj.databind.schema.reflect.StdReflector.STRICT_MODE;
         return ctor;
     }
 
+    /// This method is fundamentally flawed. The [Class#getDeclaredConstructors()] method used inside
+    /// returns constructors in an unspecified order. If there are multiple constructors that satisfy
+    /// the other requirements, an arbitrary one is returned, making applications that rely on
+    /// this method unstable and prone to incidents.
     private static <T> @NotNull Constructor<T> permissiveFindAllArgsCtor(Class<T> type) {
         long instanceFieldCount = Stream.of(type.getDeclaredFields())
                 .filter(PojoType::isEntityField)
