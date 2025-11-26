@@ -106,12 +106,13 @@ import static tech.ydb.yoj.databind.schema.reflect.StdReflector.STRICT_MODE;
     /// [StdReflector#FIND_ALL_ARGS_CTOR_MODE_SYSTEM_PROPERTY_NAME]
     /// system property:
     ///
-    /// - [StdReflector#PERMISSIVE_MODE] (default) –
+    /// - [StdReflector#PERMISSIVE_MODE]
+    ///   (default **only for backward compatibility**; **use is discouraged**) –
     ///   delegates to [PojoType#permissiveFindAllArgsCtor(Class)], which uses a heuristic:
     ///   it selects a non-synthetic constructor whose parameter count equals
     ///   the number of non-static, non-transient declared fields, preferring
     ///   constructors annotated with [ConstructorProperties] when multiple candidates exist.
-    /// - [StdReflector#STRICT_MODE] –
+    /// - [StdReflector#STRICT_MODE] (strongly recommended) –
     ///   delegates to [PojoType#strictFindAllArgsCtor(Class)]
     ///   which enforces a stronger match between constructor parameter types and
     ///   entity field types and fails fast on ambiguity.
