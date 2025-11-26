@@ -118,6 +118,13 @@ public class PojoSchemaStrictFindConstructorMethodTest {
         assertThat(e.value1).isEqualTo(1);
     }
 
+    @Test
+    public void failIfNoConstructorMatchesFieldTypes() {
+        assertThatThrownBy(() -> new TestSchema<>(EntityWithMismatchingConstructor.class))
+            .isInstanceOf(IllegalArgumentException.class)
+            .hasMessageContaining("Could not find an all-args ctor with parameter types equal to field types");
+    }
+
     private static class TestSchema<T> extends Schema<T> {
         private TestSchema(Class<T> entityType) {
             super(entityType);
@@ -251,6 +258,14 @@ public class PojoSchemaStrictFindConstructorMethodTest {
         public EntityWithTwoValuesAndTwoConstructorsBothWithAnnotation(String value2, int value1) {
             this.value1 = value1;
             this.value2 = value2;
+        }
+    }
+
+    private static class EntityWithMismatchingConstructor {
+        int value;
+
+        public EntityWithMismatchingConstructor(String value) {
+            // wrong parameter type
         }
     }
 }
