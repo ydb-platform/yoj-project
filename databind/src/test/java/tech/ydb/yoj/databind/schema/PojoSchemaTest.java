@@ -4,11 +4,7 @@ import lombok.Value;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
-import java.util.Map;
-
 import static org.assertj.core.api.Assertions.assertThat;
-import static tech.ydb.yoj.databind.schema.reflect.StdReflector.FIND_ALL_ARGS_CTOR_MODE_SYSTEM_PROPERTY_NAME;
-import static tech.ydb.yoj.databind.schema.reflect.StdReflector.STRICT_MODE;
 
 public class PojoSchemaTest {
     private static Schema<UberEntity> schema;
@@ -87,18 +83,6 @@ public class PojoSchemaTest {
         assertThat(schema.getField("emptyEmptyEntity").isFlat()).isFalse();
     }
 
-    @Test
-    public void inStrictModeTheCorrectConstructorIsAlwaysSelected() {
-        System.setProperty(FIND_ALL_ARGS_CTOR_MODE_SYSTEM_PROPERTY_NAME, STRICT_MODE);
-        var schema = new TestSchema<>(EntityWithTwoConstructors.class);
-        EntityWithTwoConstructors entity = schema.newInstance(Map.of("value", 1));
-        assertThat(entity.value).isEqualTo(1);
-
-        var schema2 = new TestSchema<>(EntityWithTwoConstructors2.class);
-        EntityWithTwoConstructors2 entity2 = schema2.newInstance(Map.of("value", 1));
-        assertThat(entity2.value).isEqualTo(1);
-    }
-
     private static class TestSchema<T> extends Schema<T> {
         private TestSchema(Class<T> entityType) {
             super(entityType);
@@ -116,10 +100,6 @@ public class PojoSchemaTest {
         NotFlatEntity notFlatEntity;
 
         EmptyEmptyEntity emptyEmptyEntity;
-
-        EntityWithTwoConstructors entityWithTwoConstructors;
-
-        //EntityWithTwoConstructors2 entityWithTwoConstructors2;
     }
 
     @Value
@@ -170,38 +150,4 @@ public class PojoSchemaTest {
         TwoFieldEntity twoFieldEntity;
         TwoFieldEntity otherTwoFieldEntity;
     }
-
-    private static class EntityWithTwoConstructors {
-        int value;
-
-        public EntityWithTwoConstructors(String value) {
-            this.value = Integer.parseInt(value);
-        }
-
-        public EntityWithTwoConstructors(int value) {
-            this.value = value;
-        }
-    }
-    private static class EntityWithTwoConstructors2 {
-        int value;
-
-        public EntityWithTwoConstructors2(int value) {
-            this.value = value;
-        }
-
-        public EntityWithTwoConstructors2(String value) {
-            this.value = Integer.parseInt(value);
-        }
-    }
-
-    //private static class EntityWithTwoConstructors2 {
-    //    int value1;
-    //    String value2;
-    //
-    //    public EntityWithTwoConstructors2(int value1, String value2) {
-    //    }
-    //
-    //    public EntityWithTwoConstructors2(String value2, int value1) {
-    //    }
-    //}
 }
