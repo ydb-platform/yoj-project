@@ -18,10 +18,13 @@ import static lombok.AccessLevel.PRIVATE;
  * doRunTx()}</li>
  * </ul>
  *
+ * @param <SELF> This class's type. This allows to have {@code TxManager} configuration calls return specific subtype
+ *               instead of just {@code TxManager}
+ *
  * @see #wrapTxBody(Supplier)
  * @see #doRunTx(Supplier)
  */
-public abstract class DelegatingTxManager implements TxManager {
+public abstract class DelegatingTxManager<SELF extends DelegatingTxManager<SELF>> implements TxManager {
     protected final TxManager delegate;
 
     protected DelegatingTxManager(@NonNull TxManager delegate) {
@@ -61,7 +64,7 @@ public abstract class DelegatingTxManager implements TxManager {
      * @param delegate transaction manager to delegate to
      * @return wrapped {@code delegate}
      */
-    protected abstract TxManager createTxManager(TxManager delegate);
+    protected abstract SELF createTxManager(TxManager delegate);
 
     @Override
     public final void tx(Runnable runnable) {
@@ -77,102 +80,102 @@ public abstract class DelegatingTxManager implements TxManager {
     }
 
     @Override
-    public final TxManager withName(String name, String logContext) {
+    public final SELF withName(String name, String logContext) {
         return createTxManager(this.delegate.withName(name, logContext));
     }
 
     @Override
-    public final TxManager withName(String name) {
+    public final SELF withName(String name) {
         return createTxManager(this.delegate.withName(name));
     }
 
     @Override
-    public final TxManager withLogContext(String logContext) {
+    public final SELF withLogContext(String logContext) {
         return createTxManager(this.delegate.withLogContext(logContext));
     }
 
     @Override
-    public final TxManager separate() {
+    public final SELF separate() {
         return createTxManager(this.delegate.separate());
     }
 
     @Override
-    public TxManager delayedWrites() {
+    public final SELF delayedWrites() {
         return createTxManager(this.delegate.delayedWrites());
     }
 
     @Override
-    public final TxManager immediateWrites() {
+    public final SELF immediateWrites() {
         return createTxManager(this.delegate.immediateWrites());
     }
 
     @Override
-    public final TxManager noFirstLevelCache() {
+    public final SELF noFirstLevelCache() {
         return createTxManager(this.delegate.noFirstLevelCache());
     }
 
     @Override
-    public final TxManager failOnUnknownSeparateTx() {
+    public final SELF failOnUnknownSeparateTx() {
         return createTxManager(this.delegate.failOnUnknownSeparateTx());
     }
 
     @Override
-    public final TxManager withMaxRetries(int maxRetries) {
+    public final SELF withMaxRetries(int maxRetries) {
         return createTxManager(this.delegate.withMaxRetries(maxRetries));
     }
 
     @Override
-    public final TxManager withDryRun(boolean dryRun) {
+    public final SELF withDryRun(boolean dryRun) {
         return createTxManager(this.delegate.withDryRun(dryRun));
     }
 
     @Override
-    public final TxManager withLogLevel(TransactionLog.Level level) {
+    public final SELF withLogLevel(TransactionLog.Level level) {
         return createTxManager(this.delegate.withLogLevel(level));
     }
 
     @Override
-    public final TxManager withLogStatementOnSuccess(boolean logStatementOnSuccess) {
+    public final SELF withLogStatementOnSuccess(boolean logStatementOnSuccess) {
         return createTxManager(this.delegate.withLogStatementOnSuccess(logStatementOnSuccess));
     }
 
     @Override
-    public final TxManager withTimeout(@NonNull Duration timeout) {
+    public final SELF withTimeout(@NonNull Duration timeout) {
         return createTxManager(this.delegate.withTimeout(timeout));
     }
 
     @Override
-    public final TxManager withQueryStats(@NonNull QueryStatsMode queryStats) {
+    public final SELF withQueryStats(@NonNull QueryStatsMode queryStats) {
         return createTxManager(this.delegate.withQueryStats(queryStats));
     }
 
     @Override
-    public TxManager withFullQueryTracing() {
+    public final SELF withFullQueryTracing() {
         return createTxManager(this.delegate.withFullQueryTracing());
     }
 
     @Override
-    public TxManager noQueryTracing() {
+    public final SELF noQueryTracing() {
         return createTxManager(this.delegate.noQueryTracing());
     }
 
     @Override
-    public TxManager withTracingFilter(@NonNull QueryTracingFilter tracingFilter) {
+    public final SELF withTracingFilter(@NonNull QueryTracingFilter tracingFilter) {
         return createTxManager(this.delegate.withTracingFilter(tracingFilter));
     }
 
     @Override
-    public final TxManager withVerboseLogging() {
+    public final SELF withVerboseLogging() {
         return createTxManager(this.delegate.withVerboseLogging());
     }
 
     @Override
-    public final TxManager withBriefLogging() {
+    public final SELF withBriefLogging() {
         return createTxManager(this.delegate.withBriefLogging());
     }
 
     @Override
-    public final TxManager noLogging() {
+    public final SELF noLogging() {
         return createTxManager(this.delegate.noLogging());
     }
 

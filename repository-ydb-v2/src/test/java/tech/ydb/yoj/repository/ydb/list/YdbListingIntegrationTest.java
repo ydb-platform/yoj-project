@@ -32,7 +32,7 @@ public class YdbListingIntegrationTest extends ListingTest {
         Complex c2 = new Complex(new Complex.Id(999_999, 15L, "UUU", Complex.Status.OK));
         Complex c3 = new Complex(new Complex.Id(999_999, 15L, "KKK", Complex.Status.OK));
         Complex c4 = new Complex(new Complex.Id(999_000, 15L, "AAA", Complex.Status.OK));
-        db.tx(() -> db.complexes().insert(c1, c2, c3, c4));
+        tx.run(db -> db.complexes().insert(c1, c2, c3, c4));
 
         FilterExpression<Complex> filter = newFilterBuilder(Complex.class).where("id.b").eq(15L).and("id.a").eq(999_999).build();
         ListRequest<Complex> listRequest = ListRequest.builder(Complex.class).pageSize(3).filter(filter).build();
@@ -40,8 +40,8 @@ public class YdbListingIntegrationTest extends ListingTest {
         YqlPredicate predicate = YqlListingQuery.toYqlPredicate(filter);
         assertThat(predicate.toYql(EntitySchema.of(Complex.class))).isEqualTo("(`id_a` = ?) AND (`id_b` = ?)");
 
-        db.tx(() -> {
-            ListResult<Complex> page = listComplex(listRequest);
+        tx.run(db -> {
+            ListResult<Complex> page = db.complexes().list(listRequest);
             assertThat(page).containsExactly(c3, c2, c1);
             assertThat(page.isLastPage()).isTrue();
         });
