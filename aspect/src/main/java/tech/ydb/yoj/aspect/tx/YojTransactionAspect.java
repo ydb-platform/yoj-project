@@ -39,19 +39,22 @@ public class YojTransactionAspect {
 
             if (Tx.Current.exists()) {
                 if (transactional.propagation() == YojTransactional.Propagation.NEVER) {
-                    throw new IllegalStateException("Transaction already exists (tried to start transaction '" + name + "')");
+                    throw new IllegalStateException(
+                            "Transaction already exists (tried to start transaction '" + name + "')"
+                    );
                 } else if (transactional.propagation() == YojTransactional.Propagation.REQUIRED) {
                     return pjp.proceed();
                 } else if (transactional.propagation() == YojTransactional.Propagation.REQUIRES_NEW) {
                     localTx = localTx.separate();
                 }
             }
+
             Class<? extends Throwable>[] noRollbackExceptions = transactional.noRollbackFor();
-            if (noRollbackExceptions != null) {
-                for (Class<? extends Throwable> t : noRollbackExceptions) {
-                    if (RetryableException.class.isAssignableFrom(t)) {
-                        throw new IllegalStateException("RetryableException exceptions are intended to roll back transactions!");
-                    }
+            for (Class<? extends Throwable> t : noRollbackExceptions) {
+                if (RetryableException.class.isAssignableFrom(t)) {
+                    throw new IllegalStateException(
+                            "RetryableExceptions always cause rollback, you cannot add them to noRollbackExceptions"
+                    );
                 }
             }
 
@@ -85,7 +88,9 @@ public class YojTransactionAspect {
 
     private void validateIsolationLevel(String name, YojTransactional transactional) {
         if (transactional.isolation().isReadWrite() && transactional.readOnly()) {
-            throw new IllegalStateException("Unsupported isolation level for read-only transaction '" + name + "': " + transactional.isolation());
+            throw new IllegalStateException(
+                    "Unsupported isolation level for read-only transaction '" + name + "': " + transactional.isolation()
+            );
         }
     }
 
