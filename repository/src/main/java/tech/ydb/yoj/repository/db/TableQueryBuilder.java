@@ -46,15 +46,8 @@ public final class TableQueryBuilder<T extends Entity<T>> {
         this(table, EntitySchema.of(table.getType()));
     }
 
-    public long count() {
-        Preconditions.checkState(ids == null && keys == null, "Count query doesn't support selecting by ids/keys");
-
-        FilterExpression<T> filter = getFinalFilter();
-        if (filter == null) {
-            return table.countAll();
-        }
-        return table.count(indexName, filter);
-    }
+    // ////////////////////
+    // Terminal Operations:
 
     public boolean exists() {
         return findOne() != null;
@@ -85,16 +78,7 @@ public final class TableQueryBuilder<T extends Entity<T>> {
     }
 
     private List<T> find(Integer limit) {
-        if (indexName != null && orderBy == null) {
-            String key = "TableQueryBuilder|" + schema.getType().getTypeName() + "|" + indexName;
-            DeprecationWarnings.warnOnce(key, """
-                            TableQueryBuilder.index("%s") was called but orderBy()/unordered() was NOT!\
-                            Query results will be fetched through the index BUT ordered by the Entity's ID ascending.\
-                            This is probably NOT what you've intended!\
-                            Please use TableQueryBuilder.index("%s", IndexOrder.<desired ordering>) instead""",
-                    indexName, indexName
-            );
-        }
+        checkIndexOrder();
 
         if (ids == null && keys == null) {
             return table.find(indexName, getFinalFilter(), orderBy, limit, offset);
@@ -113,6 +97,8 @@ public final class TableQueryBuilder<T extends Entity<T>> {
     }
 
     public <V extends Table.View> List<V> find(Class<V> viewClass, boolean distinct) {
+        checkIndexOrder();
+
         if (ids == null && keys == null) {
             return table.find(viewClass, indexName, getFinalFilter(), orderBy, limit, offset, distinct);
         }
@@ -132,8 +118,37 @@ public final class TableQueryBuilder<T extends Entity<T>> {
 
     @NonNull
     public <ID extends Entity.Id<T>> List<ID> findIds() {
+        checkIndexOrder();
         return table.findIds(indexName, getFinalFilter(), orderBy, limit, offset);
     }
+
+    public long count() {
+        checkIndexOrder();
+
+        Preconditions.checkState(ids == null && keys == null, "Count query doesn't support selecting by ids/keys");
+
+        FilterExpression<T> filter = getFinalFilter();
+        if (filter == null) {
+            return table.countAll();
+        }
+        return table.count(indexName, filter);
+    }
+
+    private void checkIndexOrder() {
+        if (indexName != null && orderBy == null) {
+            String key = "TableQueryBuilder|" + schema.getType().getTypeName() + "|" + indexName;
+            DeprecationWarnings.warnOnce(key, """
+                            TableQueryBuilder.index("%s") was called but orderBy()/unordered() was NOT!\
+                            Query results will be fetched through the index BUT ordered by the Entity's ID ascending.\
+                            This is probably NOT what you've intended!\
+                            Please use TableQueryBuilder.index("%s", IndexOrder.<desired ordering>) instead""",
+                    indexName, indexName
+            );
+        }
+    }
+
+    // ////////////////////////
+    // Non-Terminal Operations:
 
     @NonNull
     public <ID extends Entity.Id<T>> TableQueryBuilder<T> ids(Set<ID> ids) {
@@ -319,7 +334,7 @@ public final class TableQueryBuilder<T extends Entity<T>> {
     }
 
     @RequiredArgsConstructor(access = PRIVATE)
-    public class TableQueryFieldFilterBuilder {
+    public final class TableQueryFieldFilterBuilder {
         @NonNull
         private final FilterBuilder<T>.FieldBuilder fieldBuilder;
 
