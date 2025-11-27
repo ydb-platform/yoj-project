@@ -144,6 +144,19 @@ public class PojoSchemaStrictFindConstructorMethodTest {
     }
 
     @Test
+    public void orderOfTheValuesInTheCellsMapMakesNotDifference() {
+        var schema = new TestSchema<>(EntityWithMultipleFieldsWithTheSameTypeAndGoodConstructor.class);
+        EntityWithMultipleFieldsWithTheSameTypeAndGoodConstructor entity = schema.newInstance(Map.of(
+            "intVal1", 1,
+            "strVal", "str",
+            "intVal2", 2
+        ));
+        assertThat(entity.intVal2).isEqualTo(2);
+        assertThat(entity.strVal).isEqualTo("str");
+        assertThat(entity.intVal1).isEqualTo(1);
+    }
+
+    @Test
     public void entityWithFieldsOrderedByCtorWithConstructorPropertiesAnnotationIsBuildCorrectly() {
         var schema = new TestSchema<>(EntityOrderedByCtorWithAnnotation.class);
         EntityOrderedByCtorWithAnnotation entity = schema.newInstance(Map.of(
