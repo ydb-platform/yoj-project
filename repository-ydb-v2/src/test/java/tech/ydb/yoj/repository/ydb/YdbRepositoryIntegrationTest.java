@@ -18,7 +18,6 @@ import lombok.Value;
 import lombok.experimental.Delegate;
 import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.core.config.Configurator;
-import org.assertj.core.api.Assertions;
 import org.junit.ClassRule;
 import org.junit.Test;
 import tech.ydb.common.transaction.TxMode;
@@ -47,6 +46,7 @@ import tech.ydb.topic.settings.WriterSettings;
 import tech.ydb.yoj.databind.schema.Column;
 import tech.ydb.yoj.databind.schema.GlobalIndex;
 import tech.ydb.yoj.databind.schema.ObjectSchema;
+import tech.ydb.yoj.repository.BaseDb;
 import tech.ydb.yoj.repository.db.Entity;
 import tech.ydb.yoj.repository.db.EntitySchema;
 import tech.ydb.yoj.repository.db.IndexOrder;
@@ -55,6 +55,7 @@ import tech.ydb.yoj.repository.db.QueryStatsMode;
 import tech.ydb.yoj.repository.db.RecordEntity;
 import tech.ydb.yoj.repository.db.Repository;
 import tech.ydb.yoj.repository.db.RepositoryTransaction;
+import tech.ydb.yoj.repository.db.ScopedTxManager;
 import tech.ydb.yoj.repository.db.StdTxManager;
 import tech.ydb.yoj.repository.db.TableDescriptor;
 import tech.ydb.yoj.repository.db.Tx;
@@ -64,12 +65,10 @@ import tech.ydb.yoj.repository.db.exception.ConversionException;
 import tech.ydb.yoj.repository.db.exception.RetryableException;
 import tech.ydb.yoj.repository.db.exception.UnavailableException;
 import tech.ydb.yoj.repository.db.list.ListRequest;
-import tech.ydb.yoj.repository.db.list.ListResult;
 import tech.ydb.yoj.repository.db.readtable.ReadTableParams;
 import tech.ydb.yoj.repository.test.RepositoryTest;
 import tech.ydb.yoj.repository.test.entity.TestEntities;
 import tech.ydb.yoj.repository.test.sample.TestDb;
-import tech.ydb.yoj.repository.test.sample.TestDbImpl;
 import tech.ydb.yoj.repository.test.sample.model.Bubble;
 import tech.ydb.yoj.repository.test.sample.model.ChangefeedEntity;
 import tech.ydb.yoj.repository.test.sample.model.IndexedEntity;
@@ -120,6 +119,8 @@ import java.util.stream.Stream;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatIllegalStateException;
+import static org.assertj.core.api.Assertions.assertThatList;
+import static org.assertj.core.api.Assertions.assertThatObject;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.AssertionsForClassTypes.assertThatExceptionOfType;
 import static tech.ydb.yoj.repository.db.EntityExpressions.newFilterBuilder;
@@ -195,14 +196,14 @@ public class YdbRepositoryIntegrationTest extends RepositoryTest {
 
     @Test
     public void useClosedReadTableStream() {
-        db.tx(() -> {
+        tx.run(db -> {
             db.projects().save(new Project(new Project.Id("1"), "p1"));
             db.projects().save(new Project(new Project.Id("2"), "p2"));
-
         });
 
         ReadTableParams<Project.Id> params = ReadTableParams.<Project.Id>builder().useNewSpliterator(true).build();
-        Stream<Project> readOnlyStream = db.readOnly().run(() -> db.projects().readTable(params));
+        // FIXME
+        Stream<Project> readOnlyStream = tx.readOnly().run(() -> BaseDb.current(TestDb.class).projects().readTable(params));
 
         assertThatExceptionOfType(IllegalStateException.class).isThrownBy(() ->
                 readOnlyStream.forEach(System.err::println)
@@ -217,7 +218,7 @@ public class YdbRepositoryIntegrationTest extends RepositoryTest {
         );
 
         assertThatExceptionOfType(ConversionException.class)
-                .isThrownBy(() -> db.tx(() -> db.table(NonSerializableEntity.class).insert(nonSerializableEntity)));
+                .isThrownBy(() -> tx.call(db -> db.table(NonSerializableEntity.class).insert(nonSerializableEntity)));
     }
 
     @Test
@@ -226,11 +227,11 @@ public class YdbRepositoryIntegrationTest extends RepositoryTest {
                 new WithUnflattenableField.Id("id_yql_list"),
                 new WithUnflattenableField.Unflattenable("Hello, world!", 100_500)
         );
-        db.tx(() -> db.table(WithUnflattenableField.class).insert(entity));
-        db.tx(() -> {
+        tx.run(db -> db.table(WithUnflattenableField.class).insert(entity));
+        tx.run((_1, txControl) -> {
             EntitySchema<WithUnflattenableField> schema = EntitySchema.of(WithUnflattenableField.class);
             var tableDescriptor = TableDescriptor.from(schema);
-            List<GroupByResult> result = ((YdbRepositoryTransaction<?>) Tx.Current.get().getRepositoryTransaction())
+            List<GroupByResult> result = ((YdbRepositoryTransaction<?>) txControl.getRepositoryTransaction())
                     .execute(new YqlStatement<>(tableDescriptor, schema, ObjectSchema.of(GroupByResult.class)) {
                         @Override
                         public String getQuery(String tablespace) {
@@ -274,9 +275,9 @@ public class YdbRepositoryIntegrationTest extends RepositoryTest {
     @Test
     public void readViewFromCache() {
         TypeFreak tf1 = newTypeFreak(0, "AAA1", "bbb");
-        db.tx(() -> db.typeFreaks().insert(tf1));
+        tx.run(db -> db.typeFreaks().insert(tf1));
 
-        db.tx(() -> {
+        tx.run(db -> {
             TypeFreak.View foundView1 = db.typeFreaks().find(TypeFreak.View.class, tf1.getId());
             TypeFreak.View foundView2 = db.typeFreaks().find(TypeFreak.View.class, tf1.getId());
             // should be the same object, because of cache
@@ -286,13 +287,14 @@ public class YdbRepositoryIntegrationTest extends RepositoryTest {
 
     @Test
     public void scanMoreThenMaxSize() {
-        db.tx(() -> {
+        tx.run(db -> {
             db.projects().save(new Project(new Project.Id("1"), "p1"));
             db.projects().save(new Project(new Project.Id("2"), "p2"));
         });
         assertThatExceptionOfType(YdbRepositoryException.class)
-                .isThrownBy(() -> db.scan().withMaxSize(1).run(() -> {
-                    db.projects().findAll();
+                .isThrownBy(() -> tx.scan().withMaxSize(1).run(() -> {
+                    // FIXME
+                    BaseDb.current(TestDb.class).projects().findAll();
                 }))
                 .satisfies(e -> assertThat(e).hasCauseInstanceOf(ResultTruncatedException.class));
     }
@@ -302,22 +304,23 @@ public class YdbRepositoryIntegrationTest extends RepositoryTest {
         Project expected = new Project(new Project.Id("RO"), "readonly");
 
         SessionManager sessionManager = ((YdbRepository) this.repository).getSessionManager();
-        TestDb db = new TestDbImpl<>(this.repository);
+        //TestDb db = new TestDbImpl<>(this.repository);
 
         Session firstSession = sessionManager.getSession();
         firstSession.close();
 
-        db.tx(() -> db.projects().save(expected));
+        tx.run(db -> db.projects().save(expected));
 
         // Reuse the same session in RO transaction
         ensureSameSessionId(sessionManager, firstSession);
-        Project actual = db.readOnly().run(() -> db.projects().find(expected.getId()));
+        // FIXME
+        Project actual = tx.readOnly().run(() -> BaseDb.current(TestDb.class).projects().find(expected.getId()));
 
         assertThat(actual).isEqualTo(expected);
 
         // Reuse the same session in RW transaction
         ensureSameSessionId(sessionManager, firstSession);
-        actual = db.tx(() -> db.projects().find(expected.getId()));
+        actual = tx.call(db -> db.projects().find(expected.getId()));
 
         assertThat(actual).isEqualTo(expected);
         ensureSameSessionId(sessionManager, firstSession);
@@ -328,21 +331,24 @@ public class YdbRepositoryIntegrationTest extends RepositoryTest {
         Project expected1 = new Project(new Project.Id("SP1"), "snapshot1");
         Project expected2 = new Project(new Project.Id("SP2"), "snapshot2");
 
-        db.tx(() -> db.projects().save(expected1));
-        db.tx(() -> db.projects().save(expected2));
+        tx.run(db -> db.projects().save(expected1));
+        tx.run(db -> db.projects().save(expected2));
 
-        Project actual1 = db.tx(() -> db.projects().find(expected1.getId()));
+        Project actual1 = tx.call(db -> db.projects().find(expected1.getId()));
         assertThat(actual1).isEqualTo(expected1);
-        Project actual2 = db.readOnly().run(() -> db.projects().find(expected2.getId()));
+        // FIXME
+        Project actual2 = tx.readOnly().run(() -> BaseDb.current(TestDb.class).projects().find(expected2.getId()));
         assertThat(actual2).isEqualTo(expected2);
 
-        db.readOnly()
+        tx.readOnly()
                 .withStatementIsolationLevel(IsolationLevel.SNAPSHOT)
                 .run(() -> {
-                    Project actualSnapshot1 = db.projects().find(expected1.getId());
+                    // FIXME
+                    Project actualSnapshot1 = BaseDb.current(TestDb.class).projects().find(expected1.getId());
                     assertThat(actualSnapshot1).isEqualTo(expected1);
 
-                    Project actualSnapshot2 = db.projects().find(expected2.getId());
+                    // FIXME
+                    Project actualSnapshot2 = BaseDb.current(TestDb.class).projects().find(expected2.getId());
                     assertThat(actualSnapshot2).isEqualTo(expected2);
                 });
     }
@@ -351,9 +357,9 @@ public class YdbRepositoryIntegrationTest extends RepositoryTest {
     public void truncatedDefault() {
         var queryImplementation = TestYdbRepository.createRepositorySettings().queryImplementation();
         if (queryImplementation instanceof QueryImplementation.TableService) {
-            testRowLimitEnforced(db);
+            testRowLimitEnforced(tx);
         } else if (queryImplementation instanceof QueryImplementation.QueryService) {
-            testRowLimitNotEnforced(db);
+            testRowLimitNotEnforced(tx);
         } else {
             throw new UnsupportedOperationException("Unknown query implementation: <" + queryImplementation.getClass() + ">");
         }
@@ -368,9 +374,9 @@ public class YdbRepositoryIntegrationTest extends RepositoryTest {
                         .build(),
                 ydbEnvAndTransport.getGrpcTransport()
         );
-        TestDb db = new TestDbImpl<>(ydbRepository);
+        ScopedTxManager<TestDb> tx = new ScopedTxManager<>(ydbRepository, TestDb.class);
 
-        testRowLimitEnforced(db);
+        testRowLimitEnforced(tx);
     }
 
     @Test
@@ -382,13 +388,13 @@ public class YdbRepositoryIntegrationTest extends RepositoryTest {
                         .build(),
                 ydbEnvAndTransport.getGrpcTransport()
         );
-        TestDb db = new TestDbImpl<>(ydbRepository);
+        ScopedTxManager<TestDb> tx = new ScopedTxManager<>(ydbRepository, TestDb.class);
 
-        testRowLimitNotEnforced(db);
+        testRowLimitNotEnforced(tx);
     }
 
     @SneakyThrows
-    private void testRowLimitEnforced(TestDb db) {
+    private void testRowLimitEnforced(ScopedTxManager<TestDb> tx) {
         int rowLimit = YdbEnvAndTransportRule.TABLESERVICE_ROW_LIMIT;
 
         int maxPageSizeBiggerThatReal = rowLimit + 1;
@@ -400,24 +406,24 @@ public class YdbRepositoryIntegrationTest extends RepositoryTest {
         }
         ListRequest<Project> bigListRequest = builder.build();
         ListRequest<Project> smallListRequest = ListRequest.builder(Project.class).pageSize(100).build();
-        db.tx(() -> db.projects().save(new Project(new Project.Id("id"), "name")));
+        tx.run(db -> db.projects().save(new Project(new Project.Id("id"), "name")));
 
-        db.tx(() -> db.projects().list(smallListRequest));
-        db.tx(() -> db.projects().list(bigListRequest));
-        db.tx(() -> db.projects().findAll());
+        tx.run(db -> db.projects().list(smallListRequest));
+        tx.run(db -> db.projects().list(bigListRequest));
+        tx.run(db -> db.projects().findAll());
 
-        db.tx(() -> IntStream.range(0, maxPageSizeBiggerThatReal)
+        tx.run(db -> IntStream.range(0, maxPageSizeBiggerThatReal)
                 .forEach(i -> db.projects().save(new Project(new Project.Id("id_" + i), "name"))));
 
-        db.tx(() -> db.projects().list(smallListRequest));
+        tx.run(db -> db.projects().list(smallListRequest));
         assertThatExceptionOfType(ResultTruncatedException.class)
-                .isThrownBy(() -> db.tx(() -> db.projects().list(bigListRequest)))
+                .isThrownBy(() -> tx.run(db -> db.projects().list(bigListRequest)))
                 .satisfies(te -> {
                     assertThat(te.getMaxResultRows()).isEqualTo(rowLimit);
                     assertThat(te.getRowCount()).isGreaterThanOrEqualTo(rowLimit);
                 });
         assertThatExceptionOfType(ResultTruncatedException.class)
-                .isThrownBy(() -> db.tx(() -> db.projects().findAll()))
+                .isThrownBy(() -> tx.run(db -> db.projects().findAll()))
                 .satisfies(te -> {
                     assertThat(te.getMaxResultRows()).isEqualTo(rowLimit);
                     assertThat(te.getRowCount()).isGreaterThanOrEqualTo(rowLimit);
@@ -425,7 +431,7 @@ public class YdbRepositoryIntegrationTest extends RepositoryTest {
     }
 
     @SneakyThrows
-    private void testRowLimitNotEnforced(TestDb db) {
+    private void testRowLimitNotEnforced(ScopedTxManager<TestDb> tx) {
         ListRequest.Builder<Project> builder = ListRequest.builder(Project.class);
 
         // (KQP_MAX_RESULT_ROWS)+1K
@@ -437,30 +443,30 @@ public class YdbRepositoryIntegrationTest extends RepositoryTest {
         }
         ListRequest<Project> bigListRequest = builder.build();
         ListRequest<Project> smallListRequest = ListRequest.builder(Project.class).pageSize(100).build();
-        db.tx(() -> db.projects().save(new Project(new Project.Id("id"), "name")));
+        tx.run(db -> db.projects().save(new Project(new Project.Id("id"), "name")));
 
-        db.tx(() -> db.projects().list(smallListRequest));
-        db.tx(() -> db.projects().list(bigListRequest));
-        db.tx(() -> db.projects().findAll());
+        tx.run(db -> db.projects().list(smallListRequest));
+        tx.run(db -> db.projects().list(bigListRequest));
+        tx.run(db -> db.projects().findAll());
 
-        db.tx(() -> IntStream.range(0, pageSize)
+        tx.run(db -> IntStream.range(0, pageSize)
                 .forEach(i -> db.projects().save(new Project(new Project.Id("id_" + i), "name"))));
 
-        db.tx(() -> db.projects().list(smallListRequest));
-        Assertions.<ListResult<Project>>assertThat(db.tx(() -> db.projects().list(bigListRequest))).satisfies(listResult -> {
+        tx.run(db -> db.projects().list(smallListRequest));
+        assertThatObject(tx.call(db -> db.projects().list(bigListRequest))).satisfies(listResult -> {
             assertThat(listResult.getEntries()).hasSize(pageSize);
             assertThat(listResult.isLastPage()).isFalse();
         });
-        assertThat(db.tx(() -> db.projects().findAll())).hasSize(pageSize + 1);
+        assertThatList(tx.call(db -> db.projects().findAll())).hasSize(pageSize + 1);
     }
 
     @Test
     public void inSingleElementListOptimizedToEq() {
         Project expected1 = new Project(new Project.Id("SP1"), "snapshot1");
         Project expected2 = new Project(new Project.Id("SP2"), "snapshot2");
-        db.tx(() -> db.projects().insert(expected1, expected2));
+        tx.run(db -> db.projects().insert(expected1, expected2));
 
-        List<Project> found = db.tx(() -> db.projects().query()
+        List<Project> found = tx.call(db -> db.projects().query()
                 .where("id").in(expected1.getId())
                 .find());
         assertThat(found).singleElement().isEqualTo(expected1);
@@ -470,9 +476,9 @@ public class YdbRepositoryIntegrationTest extends RepositoryTest {
     public void notInSingleElementListOptimizedToNeq() {
         Project expected1 = new Project(new Project.Id("SP1"), "snapshot1");
         Project expected2 = new Project(new Project.Id("SP2"), "snapshot2");
-        db.tx(() -> db.projects().insert(expected1, expected2));
+        tx.run(db -> db.projects().insert(expected1, expected2));
 
-        List<Project> found = db.tx(() -> db.projects().query()
+        List<Project> found = tx.call(db -> db.projects().query()
                 .where("id").notIn(expected1.getId())
                 .find());
         assertThat(found).singleElement().isEqualTo(expected2);
@@ -521,18 +527,18 @@ public class YdbRepositoryIntegrationTest extends RepositoryTest {
         var id2 = new Bubble.Id("b", "c");
         var id3 = new Bubble.Id("b", "a");
 
-        db.tx(() -> {
+        tx.run(db -> {
             db.bubbles().insert(new Bubble(id1, "oldA", "oldB", "oldC"));
             db.bubbles().insert(new Bubble(id2, "oldA", "oldB", "oldC"));
             db.bubbles().insert(new Bubble(id3, "oldA", "oldB", "oldC"));
         });
 
-        db.tx(() -> this.db.bubbles().updateSomeFields(Set.of(id1, id2), "newA", "newB"));
+        tx.run(db -> db.bubbles().updateSomeFields(Set.of(id1, id2), "newA", "newB"));
 
-        db.tx(() -> {
-            var first = this.db.bubbles().find(id1);
-            var second = this.db.bubbles().find(id2);
-            var third = this.db.bubbles().find(id3);
+        tx.run(db -> {
+            var first = db.bubbles().find(id1);
+            var second = db.bubbles().find(id2);
+            var third = db.bubbles().find(id3);
 
             assertThat(first.getFieldA()).isEqualTo("newA");
             assertThat(first.getFieldB()).isEqualTo("newB");
@@ -552,15 +558,15 @@ public class YdbRepositoryIntegrationTest extends RepositoryTest {
     public void updateInSingleKey() {
         var id1 = new IndexedEntity.Id("1");
         var id2 = new IndexedEntity.Id("2");
-        db.tx(() -> {
+        tx.run(db -> {
             db.indexedTable().insert(new IndexedEntity(id1, "11", "111", "1111"));
             db.indexedTable().insert(new IndexedEntity(id2, "22", "222", "2222"));
         });
 
-        db.tx(() -> db.indexedTable().updateSomeFields(Set.of(id1, id2), "4", "5"));
-        db.tx(() -> {
-            var v1 = this.db.indexedTable().find(id1);
-            var v2 = this.db.indexedTable().find(id2);
+        tx.run(db -> db.indexedTable().updateSomeFields(Set.of(id1, id2), "4", "5"));
+        tx.run(db -> {
+            var v1 = db.indexedTable().find(id1);
+            var v2 = db.indexedTable().find(id2);
 
             assertThat(v1).isEqualTo(new IndexedEntity(id1, "11", "4", "5"));
             assertThat(v2).isEqualTo(new IndexedEntity(id2, "22", "4", "5"));
@@ -570,10 +576,8 @@ public class YdbRepositoryIntegrationTest extends RepositoryTest {
     @Test
     public void predicateWithBoxedValues() {
         var p = new Project(new Project.Id("abcdefg"), "hijklmnop");
-        db.tx(() -> {
-            db.projects().save(p);
-        });
-        db.tx(() -> {
+        tx.run(db -> db.projects().save(p));
+        tx.run(db -> {
             var table = (YdbTable<Project>) db.table(Project.class);
             var res = table.find(YqlPredicate.where("id").eq(p.getId()));
             assertThat(res)
@@ -585,10 +589,8 @@ public class YdbRepositoryIntegrationTest extends RepositoryTest {
     @Test
     public void predicateWithMultipleBoxedId() {
         var m = new MultiWrappedEntity(new MultiWrappedEntity.Id(new MultiWrappedEntity.StringWrapper("string-id")), "payload", null);
-        db.tx(() -> {
-            db.multiWrappedIdEntities().save(m);
-        });
-        db.tx(() -> {
+        tx.run(db -> db.multiWrappedIdEntities().save(m));
+        tx.run(db -> {
             assertThat(db.multiWrappedIdEntities().query().where("id").eq(m.id()).findOne()).isEqualTo(m);
             assertThat(db.multiWrappedIdEntities().query().where("id").eq(m.id().itIsReallyString()).findOne()).isEqualTo(m);
             assertThat(db.multiWrappedIdEntities().query().where("id").eq(m.id().itIsReallyString().value()).findOne()).isEqualTo(m);
@@ -607,10 +609,8 @@ public class YdbRepositoryIntegrationTest extends RepositoryTest {
                 "fakefakefake",
                 new MultiWrappedEntity.OptionalPayload(new MultiWrappedEntity.StringWrapper("real-payload"))
         );
-        db.tx(() -> {
-            db.multiWrappedIdEntities().save(m);
-        });
-        db.tx(() -> {
+        tx.run(db -> db.multiWrappedIdEntities().save(m));
+        tx.run(db -> {
             assertThat(db.multiWrappedIdEntities().query().where("optionalPayload").eq(m.optionalPayload()).findOne()).isEqualTo(m);
             assertThat(db.multiWrappedIdEntities().query().where("optionalPayload").eq(m.optionalPayload().wrapper()).findOne()).isEqualTo(m);
             assertThat(db.multiWrappedIdEntities().query().where("optionalPayload").eq(m.optionalPayload().wrapper().value()).findOne()).isEqualTo(m);
@@ -624,7 +624,7 @@ public class YdbRepositoryIntegrationTest extends RepositoryTest {
 
     @Test
     public void testSelectDefault() {
-        db.tx(() -> db.indexedTable().insert(e1, e2));
+        tx.run(db -> db.indexedTable().insert(e1, e2));
         executeQuery("DECLARE $pred_0_version_id AS String;\n" +
                         "SELECT `version_id`, `key_id`, `value_id`, `valueId2` " +
                         "FROM `ts/table_with_indexes` " +
@@ -636,7 +636,7 @@ public class YdbRepositoryIntegrationTest extends RepositoryTest {
 
     @Test
     public void testSelectIndex1Default() {
-        db.tx(() -> db.indexedTable().insert(e1, e2));
+        tx.run(db -> db.indexedTable().insert(e1, e2));
         executeQuery("DECLARE $pred_0_key_id AS String;\n" +
                         "SELECT `version_id`, `key_id`, `value_id`, `valueId2` " +
                         "FROM `ts/table_with_indexes` " +
@@ -650,7 +650,7 @@ public class YdbRepositoryIntegrationTest extends RepositoryTest {
     public void testSelectIndex1WithoutFields() {
         // No exception at this point, but should be?
 
-        db.tx(() -> db.indexedTable().insert(e1, e2));
+        tx.run(db -> db.indexedTable().insert(e1, e2));
         executeQuery("DECLARE $pred_0_version_id AS String;\n" +
                         "SELECT `version_id`, `key_id`, `value_id`, `valueId2` " +
                         "FROM `ts/table_with_indexes` VIEW `key_index` " +
@@ -663,7 +663,7 @@ public class YdbRepositoryIntegrationTest extends RepositoryTest {
 
     @Test
     public void testSelectIndex1WithEmptyIndex() {
-        db.tx(() -> db.indexedTable().insert(e1, e2));
+        tx.run(db -> db.indexedTable().insert(e1, e2));
         executeQuery("DECLARE $pred_0_key_id AS String;\n" +
                         "SELECT `version_id`, `key_id`, `value_id`, `valueId2` " +
                         "FROM `ts/table_with_indexes`  " +
@@ -675,7 +675,7 @@ public class YdbRepositoryIntegrationTest extends RepositoryTest {
 
     @Test
     public void testSelectIndex1WithIndex() {
-        db.tx(() -> db.indexedTable().insert(e1, e2));
+        tx.run(db -> db.indexedTable().insert(e1, e2));
         executeQuery("DECLARE $pred_0_key_id AS String;\n" +
                         "SELECT `version_id`, `key_id`, `value_id`, `valueId2` " +
                         "FROM `ts/table_with_indexes` VIEW `key_index` " +
@@ -688,7 +688,7 @@ public class YdbRepositoryIntegrationTest extends RepositoryTest {
 
     @Test
     public void testSelectIndex2Default() {
-        db.tx(() -> db.indexedTable().insert(e1, e2));
+        tx.run(db -> db.indexedTable().insert(e1, e2));
         executeQuery("DECLARE $pred_0_value_id AS String;\n" +
                         "DECLARE $pred_1_valueId2 AS String;\n" +
                         "SELECT `version_id`, `key_id`, `value_id`, `valueId2` " +
@@ -701,7 +701,7 @@ public class YdbRepositoryIntegrationTest extends RepositoryTest {
 
     @Test
     public void testSelectIndex2WithIndex() {
-        db.tx(() -> db.indexedTable().insert(e1, e2));
+        tx.run(db -> db.indexedTable().insert(e1, e2));
         executeQuery("DECLARE $pred_0_value_id AS String;\n" +
                         "DECLARE $pred_1_valueId2 AS String;\n" +
                         "SELECT `version_id`, `key_id`, `value_id`, `valueId2` " +
@@ -717,7 +717,7 @@ public class YdbRepositoryIntegrationTest extends RepositoryTest {
     public void testSelectIndex2WithFirstFieldOnly() {
         // No exception at this point, but should be?
 
-        db.tx(() -> db.indexedTable().insert(e1, e2));
+        tx.run(db -> db.indexedTable().insert(e1, e2));
         executeQuery("DECLARE $pred_0_value_id AS String;\n" +
                         "SELECT `version_id`, `key_id`, `value_id`, `valueId2` " +
                         "FROM `ts/table_with_indexes` VIEW `value_index` " +
@@ -732,7 +732,7 @@ public class YdbRepositoryIntegrationTest extends RepositoryTest {
     public void testSelectIndex2WithSecondFieldOnly() {
         // No exception at this point, but should be?
 
-        db.tx(() -> db.indexedTable().insert(e1, e2));
+        tx.run(db -> db.indexedTable().insert(e1, e2));
         executeQuery("DECLARE $pred_0_valueId2 AS String;\n" +
                         "SELECT `version_id`, `key_id`, `value_id`, `valueId2` " +
                         "FROM `ts/table_with_indexes` VIEW `value_index` " +
@@ -745,7 +745,7 @@ public class YdbRepositoryIntegrationTest extends RepositoryTest {
 
     @Test
     public void testBuildStatementPartsWithGlobalIndex() {
-        db.tx(() -> db.indexedTable().insert(e1, e2));
+        tx.run(db -> db.indexedTable().insert(e1, e2));
 
         var filter = newFilterBuilder(IndexedEntity.class)
                 .where("valueId2").eq("value2.1")
@@ -777,12 +777,12 @@ public class YdbRepositoryIntegrationTest extends RepositoryTest {
             ));
         }
         var searchingBubbles = bubbles.subList(0, bubbles.size() / 2);
-        db.tx(() -> db.bubbles().insertAll(bubbles));
+        tx.run(db -> db.bubbles().insertAll(bubbles));
 
         var searchingIds = searchingBubbles.stream()
                 .map(Bubble::getId)
                 .collect(Collectors.toList());
-        db.tx(() -> {
+        tx.run(db -> {
             var table = (YdbTable<Bubble>) db.bubbles();
             var foundBubbles = table.find(
                     YqlPredicate.where("id").in(searchingIds)
@@ -796,18 +796,18 @@ public class YdbRepositoryIntegrationTest extends RepositoryTest {
         var id1 = new Bubble.Id("a", "b");
         var id2 = new Bubble.Id("c", "d");
 
-        db.tx(() -> {
-            db.bubbles().bulkUpsert(
-                    List.of(new Bubble(id1, "oldA", "oldB", "oldC"), new Bubble(id2, "oldA", "oldB", "oldC")),
-                    BulkParams.DEFAULT
-            );
-        });
+        tx.run(db -> db.bubbles().bulkUpsert(
+                List.of(new Bubble(id1, "oldA", "oldB", "oldC"), new Bubble(id2, "oldA", "oldB", "oldC")),
+                BulkParams.DEFAULT
+        ));
 
-        db.readOnly().run(() -> {
-            var first = this.db.bubbles().find(id1);
+        tx.readOnly().run(() -> {
+            // FIXME
+            var first = BaseDb.current(TestDb.class).bubbles().find(id1);
             assertThat(first).isNotNull();
             assertThat(first.getFieldA()).isEqualTo("oldA");
-            assertThat(this.db.bubbles().find(id2)).isNotNull();
+            // FIXME
+            assertThat(BaseDb.current(TestDb.class).bubbles().find(id2)).isNotNull();
         });
     }
 
@@ -821,9 +821,9 @@ public class YdbRepositoryIntegrationTest extends RepositoryTest {
     }
 
     private void testTransactionTakesTimeoutFromGrpcContext(int timeoutMin) {
-        db.withTimeout(Duration.ofMinutes(timeoutMin)).tx(() -> {
-            RepositoryTransaction transaction = Tx.Current.get().getRepositoryTransaction();
-            var testTransaction = (TestYdbRepository.TestYdbRepositoryTransaction) transaction;
+        tx.withTimeout(Duration.ofMinutes(timeoutMin)).run((_1, txControl) -> {
+            RepositoryTransaction transaction = txControl.getRepositoryTransaction();
+            var testTransaction = (YdbRepositoryTransaction<?>) transaction;
             var actualTimeout = testTransaction.getOptions().getTimeoutOptions().getTimeout();
             assertThat(actualTimeout.toMinutes()).isEqualTo(timeoutMin);
         });
@@ -910,9 +910,9 @@ public class YdbRepositoryIntegrationTest extends RepositoryTest {
         Supabubble2 sa = new Supabubble2(new Supabubble2.Id(new Project.Id("naher"), "bubble-A"));
         Supabubble2 sb = new Supabubble2(new Supabubble2.Id(new Project.Id("naher"), "bubble-B"));
         Supabubble2 sc = new Supabubble2(new Supabubble2.Id(new Project.Id("naher"), "bubble-C"));
-        db.tx(() -> db.supabubbles2().insert(sa, sb, sc));
+        tx.run(db -> db.supabubbles2().insert(sa, sb, sc));
 
-        assertThat(db.tx(() -> db.supabubbles2().findLessThan(sc.getId()))).containsOnly(sa, sb);
+        assertThatList(tx.call(db -> db.supabubbles2().findLessThan(sc.getId()))).containsOnly(sa, sb);
     }
 
     private void executeQuery(String expectSqlQuery, List<IndexedEntity> expectRows, List<YqlStatementPart<?>> parts) {
@@ -925,7 +925,7 @@ public class YdbRepositoryIntegrationTest extends RepositoryTest {
         assertThat(sqlQuery).isEqualTo(expectSqlQuery);
 
         // Check we use index and query was not failed
-        var actual = db.tx(() -> ((YdbTable<IndexedEntity>) db.indexedTable()).find(parts));
+        var actual = tx.call(db -> ((YdbTable<IndexedEntity>) db.indexedTable()).find(parts));
         assertThat(actual).isEqualTo(expectRows);
     }
 
@@ -1017,7 +1017,7 @@ public class YdbRepositoryIntegrationTest extends RepositoryTest {
 
     @Test
     public void ydbTransactionCompatibility() {
-        db.tx(() -> {
+        tx.run(db -> {
             // No db tx or session yet!
             var sdkTx = ((YdbRepositoryTransaction<?>) Tx.Current.get().getRepositoryTransaction()).toSdkTransaction();
             assertThatIllegalStateException().isThrownBy(sdkTx::getSessionId);
@@ -1043,8 +1043,9 @@ public class YdbRepositoryIntegrationTest extends RepositoryTest {
             var isolationLevel = entry.getKey();
             var txMode = entry.getValue();
 
-            db.readOnly().withStatementIsolationLevel(isolationLevel).run(() -> {
+            tx.readOnly().withStatementIsolationLevel(isolationLevel).run(() -> {
                 // No db tx or session yet!
+                // FIXME - use txControl when available
                 var sdkTx = ((YdbRepositoryTransaction<?>) Tx.Current.get().getRepositoryTransaction()).toSdkTransaction();
                 assertThatIllegalStateException().isThrownBy(sdkTx::getSessionId);
                 assertThat(sdkTx.getId()).isNull();
@@ -1052,7 +1053,8 @@ public class YdbRepositoryIntegrationTest extends RepositoryTest {
                 assertThatExceptionOfType(UnsupportedOperationException.class).isThrownBy(sdkTx::getStatusFuture);
 
                 // Perform any read - session and tx ID appear
-                db.projects().countAll();
+                // FIXME
+                BaseDb.current(TestDb.class).projects().countAll();
                 sdkTx = ((YdbRepositoryTransaction<?>) Tx.Current.get().getRepositoryTransaction()).toSdkTransaction();
                 assertThat(sdkTx.getSessionId()).isNotNull();
                 // Read transactions might have no ID or might have an ID, depending on your YDB version (that's what YDB returns, folks!)
@@ -1067,9 +1069,9 @@ public class YdbRepositoryIntegrationTest extends RepositoryTest {
         // YDB tends to return data in index-order, not "by PK ascending" order, if we don't force the result order
         IndexedEntity ie1 = new IndexedEntity(new IndexedEntity.Id("abc"), "z", "v1-1", "v1-2");
         IndexedEntity ie2 = new IndexedEntity(new IndexedEntity.Id("def"), "y", "v2-1", "v2-2");
-        db.tx(() -> db.indexedTable().insert(ie1, ie2));
+        tx.run(db -> db.indexedTable().insert(ie1, ie2));
 
-        var results = db.tx(() -> db.indexedTable().query()
+        var results = tx.call(db -> db.indexedTable().query()
                 .where("keyId").gte("a")
                 .limit(2)
                 .index(IndexedEntity.KEY_INDEX, IndexOrder.UNORDERED)
@@ -1080,15 +1082,15 @@ public class YdbRepositoryIntegrationTest extends RepositoryTest {
     @Test
     public void multipleTablesSameEntitySameTransaction() {
         UniqueProject ue = new UniqueProject(new UniqueProject.Id("id1"), "valuableName", 1);
-        db.tx(() -> db.table(UniqueProject.class).save(ue));
+        tx.run(db -> db.table(UniqueProject.class).save(ue));
 
-        List<UniqueProject> findFirstTableThenSecond = db.tx(() -> {
+        List<UniqueProject> findFirstTableThenSecond = tx.call(db -> {
             var p1 = db.table(UniqueProject.class).find(ue.getId());
             var p2 = db.table(TestEntities.SECOND_UNIQUE_PROJECT_TABLE).find(ue.getId());
             return Stream.of(p1, p2).filter(Objects::nonNull).toList();
         });
 
-        List<UniqueProject> findSecondTableThenFirst = db.tx(() -> {
+        List<UniqueProject> findSecondTableThenFirst = tx.call(db -> {
             var p1 = db.table(TestEntities.SECOND_UNIQUE_PROJECT_TABLE).find(ue.getId());
             var p2 = db.table(UniqueProject.class).find(ue.getId());
             return Stream.of(p1, p2).filter(Objects::nonNull).toList();
@@ -1100,15 +1102,15 @@ public class YdbRepositoryIntegrationTest extends RepositoryTest {
     @Test
     public void multipleTablesSameEntitySameTransactionQueryView() {
         UniqueProject ue = new UniqueProject(new UniqueProject.Id("id1"), "valuableName", 1);
-        db.tx(() -> db.table(UniqueProject.class).save(ue));
+        tx.run(db -> db.table(UniqueProject.class).save(ue));
 
-        List<UniqueProject.NameView> findFirstTableThenSecond = db.tx(() -> {
+        List<UniqueProject.NameView> findFirstTableThenSecond = tx.call(db -> {
             var n1 = db.table(UniqueProject.class).find(UniqueProject.NameView.class, ue.getId());
             var n2 = db.table(TestEntities.SECOND_UNIQUE_PROJECT_TABLE).find(UniqueProject.NameView.class, ue.getId());
             return Stream.of(n1, n2).filter(Objects::nonNull).toList();
         });
 
-        List<UniqueProject.NameView> findSecondTableThenFirst = db.tx(() -> {
+        List<UniqueProject.NameView> findSecondTableThenFirst = tx.call(db -> {
             var n1 = db.table(TestEntities.SECOND_UNIQUE_PROJECT_TABLE).find(UniqueProject.NameView.class, ue.getId());
             var n2 = db.table(UniqueProject.class).find(UniqueProject.NameView.class, ue.getId());
             return Stream.of(n1, n2).filter(Objects::nonNull).toList();
@@ -1119,7 +1121,7 @@ public class YdbRepositoryIntegrationTest extends RepositoryTest {
 
     @Test
     public void queryStatsCollectionMode() {
-        db.tx(() -> {
+        tx.run(db -> {
             for (int i = 0; i < 1_000; i++) {
                 var ue = new UniqueProject(new UniqueProject.Id("id" + i), "valuableName-" + i, i);
                 db.table(UniqueProject.class).save(ue);
@@ -1133,7 +1135,8 @@ public class YdbRepositoryIntegrationTest extends RepositoryTest {
                 .readOnly()
                 .noFirstLevelCache()
                 .withStatementIsolationLevel(IsolationLevel.SNAPSHOT)
-                .run(() -> db.table(UniqueProject.class).query()
+                // FIXME
+                .run(() -> BaseDb.current(TestDb.class).table(UniqueProject.class).query()
                         .where("id").in(List.of(
                                 new UniqueProject.Id("id501"),
                                 new UniqueProject.Id("id502"),
@@ -1173,14 +1176,14 @@ public class YdbRepositoryIntegrationTest extends RepositoryTest {
         Configurator.setLevel(YdbRepositoryTransaction.class.getCanonicalName(), Level.TRACE);
         try {
             var filterCallCount = new AtomicInteger();
-            var txMgr1 = db.withName("with-query-tracing")
+            var txMgr1 = tx.withName("with-query-tracing")
                     .withTracingFilter((_1, _2, _3, _4) -> {
                         filterCallCount.incrementAndGet();
                         return true;
                     })
                     .immediateWrites();
             var project3 = new ToStringCountingProject(new ToStringCountingProject.Id("id3"), "name-3", 3);
-            txMgr1.tx(() -> {
+            txMgr1.run(db -> {
                 db.table(ToStringCountingProject.class).insert(new ToStringCountingProject(new ToStringCountingProject.Id("id1"), "name-1", 1));
                 db.table(ToStringCountingProject.class).insert(new ToStringCountingProject(new ToStringCountingProject.Id("id2"), "name-2", 2));
                 db.table(ToStringCountingProject.class).insert(project3);
@@ -1193,7 +1196,8 @@ public class YdbRepositoryIntegrationTest extends RepositoryTest {
                     .readOnly()
                     .noFirstLevelCache()
                     .withStatementIsolationLevel(IsolationLevel.SNAPSHOT);
-            var found = txMgr2.run(() -> db.table(ToStringCountingProject.class).find(new ToStringCountingProject.Id("id3")));
+            // FIXME
+            var found = txMgr2.run(() -> BaseDb.current(TestDb.class).table(ToStringCountingProject.class).find(new ToStringCountingProject.Id("id3")));
             assertThat(found).isEqualTo(project3);
 
             // Allow only 1 call to toString() in logging of debug result, but not the second one in TRACE:
@@ -1234,7 +1238,7 @@ public class YdbRepositoryIntegrationTest extends RepositoryTest {
             var data = CommonConverters.serializeOpaqueObjectValue(Project.class, project).getBytes(UTF_8);
 
             try {
-                db.immediateWrites().tx(() -> {
+                tx.immediateWrites().run(db -> {
                     db.projects().save(project);
 
                     var transaction = (YdbRepositoryTransaction<?>) Tx.Current.get().getRepositoryTransaction();
@@ -1279,7 +1283,7 @@ public class YdbRepositoryIntegrationTest extends RepositoryTest {
 
             var retried = new AtomicBoolean();
             try {
-                db.immediateWrites().tx(() -> {
+                tx.immediateWrites().run(db -> {
                     db.projects().save(project);
 
                     var transaction = (YdbRepositoryTransaction<?>) Tx.Current.get().getRepositoryTransaction();
@@ -1327,7 +1331,7 @@ public class YdbRepositoryIntegrationTest extends RepositoryTest {
             var data = CommonConverters.serializeOpaqueObjectValue(Project.class, project).getBytes(UTF_8);
 
             try {
-                assertThatIllegalStateException().isThrownBy(() -> db.immediateWrites().tx(() -> {
+                assertThatIllegalStateException().isThrownBy(() -> tx.immediateWrites().call(db -> {
                     db.projects().save(project);
 
                     var transaction = (YdbRepositoryTransaction<?>) Tx.Current.get().getRepositoryTransaction();

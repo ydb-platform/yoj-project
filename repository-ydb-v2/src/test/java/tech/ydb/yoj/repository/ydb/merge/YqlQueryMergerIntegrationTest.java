@@ -3,10 +3,10 @@ package tech.ydb.yoj.repository.ydb.merge;
 import org.junit.ClassRule;
 import org.junit.Test;
 import tech.ydb.yoj.repository.db.Repository;
+import tech.ydb.yoj.repository.db.ScopedTxManager;
 import tech.ydb.yoj.repository.test.RepositoryTestSupport;
 import tech.ydb.yoj.repository.test.entity.TestEntities;
 import tech.ydb.yoj.repository.test.sample.TestDb;
-import tech.ydb.yoj.repository.test.sample.TestDbImpl;
 import tech.ydb.yoj.repository.test.sample.model.Project;
 import tech.ydb.yoj.repository.ydb.TestYdbRepository;
 import tech.ydb.yoj.repository.ydb.YdbEnvAndTransportRule;
@@ -20,17 +20,17 @@ public class YqlQueryMergerIntegrationTest extends RepositoryTestSupport {
     @ClassRule
     public static final YdbEnvAndTransportRule ydbEnvAndTransport = new YdbEnvAndTransportRule();
 
-    protected TestDb db;
+    protected ScopedTxManager<TestDb> tx;
 
     @Override
     public void setUp() {
         super.setUp();
-        this.db = new TestDbImpl<>(this.repository);
+        this.tx = new ScopedTxManager<>(this.repository, TestDb.class);
     }
 
     @Override
     public void tearDown() {
-        this.db = null;
+        this.tx = null;
         super.tearDown();
     }
 
@@ -41,7 +41,7 @@ public class YqlQueryMergerIntegrationTest extends RepositoryTestSupport {
 
     @Test
     public void insertAfterFindByIdWorks() {
-        db.tx(() -> {
+        tx.run(db -> {
             Project.Id id = new Project.Id(RandomUtils.nextString(10));
 
             assertThat(db.projects().find(id)).isNull();
