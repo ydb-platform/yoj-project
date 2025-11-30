@@ -1,8 +1,9 @@
 package tech.ydb.yoj.databind;
 
-import org.jetbrains.annotations.NotNull;
+import lombok.NonNull;
 
 import java.util.Arrays;
+import java.util.Objects;
 
 public final class ByteArray implements Comparable<ByteArray> {
     private static final char[] HEX_CHARS = "0123456789abcdef".toCharArray();
@@ -10,17 +11,19 @@ public final class ByteArray implements Comparable<ByteArray> {
     private final byte[] array;
 
     private ByteArray(byte[] array) {
-        this.array = array;
+        this.array = Objects.requireNonNull(array, "array");
     }
 
     public static ByteArray wrap(byte[] array) {
         return new ByteArray(array);
     }
 
+    @NonNull
     public static ByteArray copy(byte[] array) {
         return new ByteArray(array.clone());
     }
 
+    @NonNull
     public ByteArray copy() {
         return ByteArray.copy(array);
     }
@@ -47,10 +50,11 @@ public final class ByteArray implements Comparable<ByteArray> {
     }
 
     @Override
-    public int compareTo(@NotNull ByteArray o) {
+    public int compareTo(@NonNull ByteArray o) {
         return Arrays.compare(array, o.array);
     }
 
+    @NonNull
     @Override
     public String toString() {
         if (array.length > 16) {
