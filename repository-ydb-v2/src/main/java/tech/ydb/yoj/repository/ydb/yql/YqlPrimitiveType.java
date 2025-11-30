@@ -24,6 +24,7 @@ import tech.ydb.yoj.databind.FieldValueType;
 import tech.ydb.yoj.databind.schema.Column;
 import tech.ydb.yoj.databind.schema.CustomValueTypeInfo;
 import tech.ydb.yoj.databind.schema.Schema.JavaField;
+import tech.ydb.yoj.databind.schema.reflect.StdReflector;
 import tech.ydb.yoj.repository.DbTypeQualifier;
 import tech.ydb.yoj.repository.db.common.CommonConverters;
 import tech.ydb.yoj.repository.db.common.CommonConverters.EnumDeserializer;
@@ -438,6 +439,7 @@ public class YqlPrimitiveType implements YqlType {
     @ExperimentalApi(issue = "https://github.com/ydb-platform/yoj-project/issues/20")
     public static void useRecommendedMappingFor(FieldValueType... fieldValueTypes) {
         typeMappingExplicitlySet = true;
+        StdReflector.enableStrictMode();
         for (var fvt : fieldValueTypes) {
             switch (fvt) {
                 case STRING, ENUM -> {

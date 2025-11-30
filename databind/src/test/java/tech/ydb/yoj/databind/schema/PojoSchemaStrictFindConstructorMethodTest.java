@@ -1,24 +1,33 @@
 package tech.ydb.yoj.databind.schema;
 
 import lombok.Value;
+import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.Test;
+import tech.ydb.yoj.databind.schema.reflect.StdReflector;
 
 import java.beans.ConstructorProperties;
+import java.util.Arrays;
+import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static tech.ydb.yoj.databind.schema.reflect.StdReflector.FIND_ALL_ARGS_CTOR_MODE_SYSTEM_PROPERTY_NAME;
-import static tech.ydb.yoj.databind.schema.reflect.StdReflector.STRICT_MODE;
 
 public class PojoSchemaStrictFindConstructorMethodTest {
     private static Schema<UberEntity> schema;
 
     @BeforeClass
-    public static void setUpClass() {
-        System.setProperty(FIND_ALL_ARGS_CTOR_MODE_SYSTEM_PROPERTY_NAME, STRICT_MODE);
+    public static void setUp() {
+        StdReflector.enableStrictMode();
         schema = new TestSchema<>(UberEntity.class);
+    }
+
+    @AfterClass
+    public static void tearDown() {
+        schema = null;
+        StdReflector.disableStrictMode();
     }
 
     @Test
@@ -93,7 +102,7 @@ public class PojoSchemaStrictFindConstructorMethodTest {
     @Test
     public void inStrictModeTheCorrectConstructorIsAlwaysSelected() {
         var schema = new TestSchema<>(EntityWithTwoConstructors.class);
-        EntityWithTwoConstructors entity = schema.newInstance(Map.of("value", 1));
+        var entity = schema.newInstance(Map.of("value", 1));
         assertThat(entity.value).isEqualTo(1);
 
         var schema2 = new TestSchema<>(EntityWithTwoConstructors2.class);
@@ -104,16 +113,24 @@ public class PojoSchemaStrictFindConstructorMethodTest {
     @Test
     public void failIfItIsUnclearWhichConstructorShouldBeChosen() {
         assertThatThrownBy(() -> new TestSchema<>(EntityWithTwoValuesAndTwoConstructors.class))
-            .isInstanceOf(IllegalArgumentException.class);
+                .isInstanceOf(IllegalArgumentException.class);
 
         assertThatThrownBy(() -> new TestSchema<>(EntityWithTwoValuesAndTwoConstructorsBothWithAnnotation.class))
-            .isInstanceOf(IllegalArgumentException.class);
+                .isInstanceOf(IllegalArgumentException.class);
     }
 
     @Test
     public void constructorPropertiesAnnotationMarksTheConstructorToBeChosen() {
         var schema = new TestSchema<>(EntityWithTwoValuesAndTwoConstructorsOneWithAnnotation.class);
-        EntityWithTwoValuesAndTwoConstructorsOneWithAnnotation e = schema.newInstance(Map.of("value2", "str", "value1", 1));
+        var e = schema.newInstance(Map.of("value2", "str", "value1", 1));
+        assertThat(e.value2).isEqualTo("str");
+        assertThat(e.value1).isEqualTo(1);
+    }
+
+    @Test
+    public void constructorPropertiesAnnotationMarksTheConstructorToBeChosenAndFieldNames() {
+        var schema = new TestSchema<>(EntityWithTwoValuesAndTwoConstructorsOneWithAnnotationAndArgNamesDifferentFromFieldNames.class);
+        var e = schema.newInstance(Map.of("value2", "str", "value1", 1));
         assertThat(e.value2).isEqualTo("str");
         assertThat(e.value1).isEqualTo(1);
     }
@@ -121,22 +138,126 @@ public class PojoSchemaStrictFindConstructorMethodTest {
     @Test
     public void failIfNoConstructorMatchesFieldTypes() {
         assertThatThrownBy(() -> new TestSchema<>(EntityWithMismatchingConstructor.class))
-            .isInstanceOf(IllegalArgumentException.class);
+                .isInstanceOf(IllegalArgumentException.class);
     }
 
     @Test
     public void failIfNoConstructorMatchesFieldTypesWithMultipleFieldsOfTheSameType() {
         assertThatThrownBy(() -> new TestSchema<>(EntityWithMultipleFieldsWithTheSameTypeAndBadConstructor.class))
-            .isInstanceOf(IllegalArgumentException.class);
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    public void entityWithGenericsInConstructorExactMatchInField() {
+        var schema = new TestSchema<>(EntityWithGenericsInConstructorExactMatchInField.class);
+        var lst = List.of("str1", "str2");
+        var entity = schema.newInstance(Map.of("lst", lst));
+        assertThat(entity.lst).isEqualTo(lst);
+    }
+
+    @Test
+    public void failEntityWithGenericsInConstructorMismatchInField() {
+        assertThatThrownBy(() -> new TestSchema<>(EntityWithGenericsInConstructorMismatchInField.class)
+                        .newInstance(Map.of("lst", List.of(UUID.randomUUID())))
+                )
+                .isExactlyInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("declared field 'lst' type <java.util.List<java.lang.String>> "
+                        + "is not a subtype of constructor parameter 'lst' type <java.util.List<java.util.UUID>>"
+                );
+    }
+
+    @Test
+    public void entityWithGenericsInConstructorBoundedWildcardMatchInField() {
+        var schema = new TestSchema<>(EntityWithGenericsInConstructorBoundedWildcardMatchInField.class);
+        var lst = List.of("str1", "str2");
+        var entity = schema.newInstance(Map.of("lst", lst));
+        assertThat(entity.lst).isEqualTo(lst);
+    }
+
+    @Test
+    public void failEntityWithGenericsInConstructorBoundedWildcardMismatchInField() {
+        assertThatThrownBy(() -> new TestSchema<>(EntityWithGenericsInConstructorBoundedWildcardMismatchInField.class)
+                        .newInstance(Map.of("lst", Arrays.asList(new Void[]{null})))
+                )
+                .isExactlyInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("declared field 'lst' type <java.util.List<? extends java.lang.Comparable<?>>> "
+                        + "is not a subtype of constructor parameter 'lst' type <java.util.List<java.lang.Void>>"
+                );
+    }
+
+    @Test
+    public void entityWithGenericInConstructorWildcardMatchInField() {
+        var schema = new TestSchema<>(EntityWithGenericInConstructorWildcardMatchInField.class);
+        var lst = List.of("str1", "str2");
+        var entity = schema.newInstance(Map.of("lst", lst));
+        assertThat(entity.lst).isEqualTo(lst);
+    }
+
+    @Test
+    public void genericEntityWithGenericsInConstructorExactMatchInField() {
+        var schema = new TestSchema<>(GenericEntityWithGenericsInConstructorExactMatchInField.class);
+        var lst = List.of("str1", "str2");
+        var entity = schema.newInstance(Map.of("lst", lst));
+        assertThat(entity.lst).isEqualTo(lst);
+    }
+
+    @Test
+    public void entityWithParameterSubtypeOfField() {
+        var schema = new TestSchema<>(EntityWithParameterSubtypeOfField.class);
+        var lng = 42L;
+        var entity = schema.newInstance(Map.of("number", lng));
+        assertThat(entity.number).isEqualTo(lng);
+    }
+
+    @Test
+    public void emptyEntity() {
+        var schema = new TestSchema<>(EmptyEntity.class);
+        var entity = schema.newInstance(Map.of());
+        assertThat(schema.flatten(entity)).isEmpty();
+    }
+
+    @Test
+    public void empty2Entity() {
+        var schema = new TestSchema<>(Empty2Entity.class);
+        var entity = schema.newInstance(Map.of());
+        assertThat(schema.flatten(entity)).isEmpty();
+    }
+
+    @Test
+    public void emptyEmptyEmptyEntity() {
+        var schema = new TestSchema<>(EmptyEmptyEntity.class);
+        var entity = schema.newInstance(Map.of());
+        assertThat(schema.flatten(entity)).isEmpty();
+    }
+
+    @Test
+    public void manualEmptyEntity() {
+        var schema = new TestSchema<>(ManualEmptyEntity.class);
+        var entity = schema.newInstance(Map.of());
+        assertThat(schema.flatten(entity)).isEmpty();
+    }
+
+    @Test
+    public void manualEmptyEntityExplicitConstructor() {
+        var schema = new TestSchema<>(ManualEmptyEntityExplicitConstructor.class);
+        var entity = schema.newInstance(Map.of());
+        assertThat(schema.flatten(entity)).isEmpty();
+    }
+
+    @Test
+    public void manualEmptyEntityExplicitConstructorProperties() {
+        var schema = new TestSchema<>(ManualEmptyEntityExplicitConstructorProperties.class);
+        var entity = schema.newInstance(Map.of());
+        assertThat(schema.flatten(entity)).isEmpty();
     }
 
     @Test
     public void entityWithMultipleFieldsWithTheSameTypeAndGoodConstructorIsBuildCorrectly() {
         var schema = new TestSchema<>(EntityWithMultipleFieldsWithTheSameTypeAndGoodConstructor.class);
-        EntityWithMultipleFieldsWithTheSameTypeAndGoodConstructor entity = schema.newInstance(Map.of(
-            "intVal2", 2,
-            "strVal", "str",
-            "intVal1", 1
+        var entity = schema.newInstance(Map.of(
+                "intVal2", 2,
+                "strVal", "str",
+                "intVal1", 1
         ));
         assertThat(entity.intVal2).isEqualTo(2);
         assertThat(entity.strVal).isEqualTo("str");
@@ -146,10 +267,10 @@ public class PojoSchemaStrictFindConstructorMethodTest {
     @Test
     public void orderOfTheValuesInTheCellsMapMakesNotDifference() {
         var schema = new TestSchema<>(EntityWithMultipleFieldsWithTheSameTypeAndGoodConstructor.class);
-        EntityWithMultipleFieldsWithTheSameTypeAndGoodConstructor entity = schema.newInstance(Map.of(
-            "intVal1", 1,
-            "strVal", "str",
-            "intVal2", 2
+        var entity = schema.newInstance(Map.of(
+                "intVal1", 1,
+                "strVal", "str",
+                "intVal2", 2
         ));
         assertThat(entity.intVal2).isEqualTo(2);
         assertThat(entity.strVal).isEqualTo("str");
@@ -159,10 +280,10 @@ public class PojoSchemaStrictFindConstructorMethodTest {
     @Test
     public void entityWithFieldsOrderedByCtorWithConstructorPropertiesAnnotationIsBuildCorrectly() {
         var schema = new TestSchema<>(EntityOrderedByCtorWithAnnotation.class);
-        EntityOrderedByCtorWithAnnotation entity = schema.newInstance(Map.of(
-            "second", "str",
-            "third", true,
-            "first", 11
+        var entity = schema.newInstance(Map.of(
+                "second", "str",
+                "third", true,
+                "first", 11
         ));
         assertThat(entity.second).isEqualTo("str");
         assertThat(entity.third).isEqualTo(true);
@@ -172,31 +293,32 @@ public class PojoSchemaStrictFindConstructorMethodTest {
     @Test
     public void failIfNoConstructorParameterNameDoesNotMatchFieldName() {
         assertThatThrownBy(() -> new TestSchema<>(EntityWithConstructorParameterNameNotMatchingFieldName.class))
-            .isInstanceOf(IllegalArgumentException.class);
+                .isInstanceOf(IllegalArgumentException.class);
     }
 
     @Test
     public void failIfNoConstructorParameterNameDoesNotMatchFieldNameInConstructorPropertiesAnnotation() {
         assertThatThrownBy(
-            () -> new TestSchema<>(EntityWithConstructorParameterNameNotMatchingFieldNameFromConstructorPropertiesAnnotation.class))
-            .isInstanceOf(IllegalArgumentException.class);
+                () -> new TestSchema<>(EntityWithConstructorParameterNameNotMatchingFieldNameFromConstructorPropertiesAnnotation.class))
+                .isInstanceOf(IllegalArgumentException.class);
     }
 
     @Test
     public void failIfCountOfGetterNamesInConstructorPropertiesAnnotationIsNotEqualToConstructorParametersCount() {
         assertThatThrownBy(() -> new TestSchema<>(EntityWithTooShortConstructorProperties.class))
-            .isInstanceOf(IllegalArgumentException.class);
+                .isInstanceOf(IllegalArgumentException.class);
     }
 
     @Test
     public void failIfFieldTypeDoesNotMatchConstructorParameterType() {
         assertThatThrownBy(() -> new TestSchema<>(EntityWithMismatchingFieldTypeForName.class))
-            .isInstanceOf(IllegalArgumentException.class);
+                .isInstanceOf(IllegalArgumentException.class);
     }
+
     @Test
     public void failIfThereAreDuplicateEntitiesInConstructorPropertiesAnnotation() {
         assertThatThrownBy(() -> new TestSchema<>(EntityWithDuplicatedGettersInConstructorProperties.class))
-            .isInstanceOf(IllegalArgumentException.class);
+                .isInstanceOf(IllegalArgumentException.class);
     }
 
     private static class TestSchema<T> extends Schema<T> {
@@ -248,6 +370,20 @@ public class PojoSchemaStrictFindConstructorMethodTest {
     private static class EmptyEmptyEntity {
         EmptyEntity emptyEntity;
         Empty2Entity empty2Entity;
+    }
+
+    private static final class ManualEmptyEntity {
+    }
+
+    private static final class ManualEmptyEntityExplicitConstructor {
+        private ManualEmptyEntityExplicitConstructor() {
+        }
+    }
+
+    private static final class ManualEmptyEntityExplicitConstructorProperties {
+        @ConstructorProperties({})
+        public ManualEmptyEntityExplicitConstructorProperties() {
+        }
     }
 
     @Value
@@ -319,6 +455,21 @@ public class PojoSchemaStrictFindConstructorMethodTest {
         }
     }
 
+    private static class EntityWithTwoValuesAndTwoConstructorsOneWithAnnotationAndArgNamesDifferentFromFieldNames {
+        int value1;
+        String value2;
+
+        public EntityWithTwoValuesAndTwoConstructorsOneWithAnnotationAndArgNamesDifferentFromFieldNames(int value1, String value2) {
+            throw new AssertionError("this constructor should never be called");
+        }
+
+        @ConstructorProperties({"value2", "value1"})
+        public EntityWithTwoValuesAndTwoConstructorsOneWithAnnotationAndArgNamesDifferentFromFieldNames(String arg1, int arg2) {
+            this.value1 = arg2;
+            this.value2 = arg1;
+        }
+    }
+
     private static class EntityWithTwoValuesAndTwoConstructorsBothWithAnnotation {
         int value1;
         String value2;
@@ -332,6 +483,62 @@ public class PojoSchemaStrictFindConstructorMethodTest {
         public EntityWithTwoValuesAndTwoConstructorsBothWithAnnotation(String value2, int value1) {
             this.value1 = value1;
             this.value2 = value2;
+        }
+    }
+
+    private static class EntityWithParameterSubtypeOfField {
+        Number number;
+
+        public EntityWithParameterSubtypeOfField(Long number) {
+            this.number = number;
+        }
+    }
+
+    private static class GenericEntityWithGenericsInConstructorExactMatchInField<T> {
+        List<T> lst;
+
+        public GenericEntityWithGenericsInConstructorExactMatchInField(List<T> lst) {
+            this.lst = lst;
+        }
+    }
+
+    private static class EntityWithGenericsInConstructorExactMatchInField {
+        List<String> lst;
+
+        public EntityWithGenericsInConstructorExactMatchInField(List<String> lst) {
+            this.lst = lst;
+        }
+    }
+
+    private static class EntityWithGenericsInConstructorMismatchInField {
+        List<String> lst;
+
+        public EntityWithGenericsInConstructorMismatchInField(List<UUID> lst) {
+            throw new AssertionError("this constructor should never be called");
+        }
+    }
+
+    private static class EntityWithGenericsInConstructorBoundedWildcardMatchInField {
+        List<? extends Comparable<?>> lst;
+
+        public EntityWithGenericsInConstructorBoundedWildcardMatchInField(List<String> lst) {
+            this.lst = lst;
+        }
+    }
+
+    private static class EntityWithGenericsInConstructorBoundedWildcardMismatchInField {
+        List<? extends Comparable<?>> lst;
+
+        public EntityWithGenericsInConstructorBoundedWildcardMismatchInField(List<Void> lst) {
+            throw new AssertionError("this constructor should never be called");
+        }
+    }
+
+    private static class EntityWithGenericInConstructorWildcardMatchInField {
+        List<?> lst;
+
+        public EntityWithGenericInConstructorWildcardMatchInField(List<String> lst) {
+            this.lst = List.copyOf(lst);
         }
     }
 

@@ -30,15 +30,47 @@ public final class StdReflector implements Reflector {
             PojoType.FACTORY,
             SimpleType.FACTORY
     ));
-    public static final String FIND_ALL_ARGS_CTOR_MODE_SYSTEM_PROPERTY_NAME =
-        "tech.ydb.yoj.databind.schema.reflect.PojoType.findAllArgsCtor.mode";
-    public static final String PERMISSIVE_MODE = "permissive";
-    public static final String STRICT_MODE = "strict";
+
+    /// Enables or disables *strict* reflection mode (which currently only affects POJO constructor lookup).
+    /// Backwards Compatibility:
+    /// - YOJ 2.7.x: *strict* reflection mode is off by default.
+    /// - YOJ 2.8.x: the hope is that the strict mode is on by default and cannot be disabled.
+    @Deprecated(forRemoval = true)
+    /*package*/ static volatile boolean strictMode = false;
 
     private final List<TypeFactory> matchers;
 
     public StdReflector(@NonNull List<TypeFactory> matchers) {
         this.matchers = matchers.stream().sorted(comparing(TypeFactory::priority).reversed()).toList();
+    }
+
+    /// Enables *strict* reflection mode (**strongly recommended**):
+    /// "All-arguments" POJO constructor used will be *any* non-synthetic constructor whose parameter count equals
+    /// the number of non-`static`, non-`transient` declared entity fields; entity fields' generic types **must** be
+    /// assigment-compatible with constructor's arguments' generic types.
+    /// Constructors annotated with [java.beans.ConstructorProperties] will be preferred if multiple candidates exist.
+    ///
+    /// In *strict* mode, any ambiguity is *fail-fast*: schema construction will fail with an [IllegalArgumentException]
+    ///
+    /// Eventually all POJOs' constructors will be resolved in *strict* mode, and this method will become a no-op
+    /// (and will be removed later).
+    public static void enableStrictMode() {
+        strictMode = true;
+    }
+
+    /// Disables *strict* reflection mode (default **only for backward compatibility**; **use is discouraged**):
+    /// "All-arguments" POJO constructor used will be *any* non-synthetic constructor whose parameter count equals
+    /// the number of non-`static`, non-`transient` declared entity fields.
+    /// Constructors annotated with [java.beans.ConstructorProperties] will be preferred if multiple candidates exist.
+    ///
+    /// The behavior of this strategy is undefined when multiple constructors satisfy the criteria
+    /// (**both** when [java.beans.ConstructorProperties] are used and when they're not.)
+    ///
+    /// @deprecated Eventually all POJOs' constructors will be resolved in *strict* mode, and this method
+    /// will be removed.
+    @Deprecated(forRemoval = true)
+    public static void disableStrictMode() {
+        strictMode = false;
     }
 
     @Override
