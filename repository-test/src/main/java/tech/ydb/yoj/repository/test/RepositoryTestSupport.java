@@ -2,6 +2,7 @@ package tech.ydb.yoj.repository.test;
 
 import org.junit.After;
 import org.junit.Before;
+import tech.ydb.yoj.databind.schema.reflect.StdReflector;
 import tech.ydb.yoj.repository.db.Repository;
 import tech.ydb.yoj.repository.db.StdTxManager;
 import tech.ydb.yoj.repository.db.TableDescriptor;
@@ -20,11 +21,13 @@ public abstract class RepositoryTestSupport {
 
     @Before
     public void setUp() {
+        StdReflector.enableStrictMode();
         this.repository = repositoryMap.computeIfAbsent(this.getClass(), aClass -> createRepository());
     }
 
     @After
     public void tearDown() {
+        StdReflector.disableStrictMode();
         clearDb(this.repository);
     }
 
