@@ -107,6 +107,7 @@ public final class StdTxManager implements TxManager, TxManagerState {
 
     @Override
     public StdTxManager withName(String name) {
+        Preconditions.checkNotNull(name, "transaction name should not be null");
         return withTxNameGenerator(new TxNameGenerator.Constant(name));
     }
 
