@@ -16,6 +16,7 @@ import tech.ydb.yoj.repository.test.sample.TestEntityOperations.IndexedTable;
 import tech.ydb.yoj.repository.test.sample.model.Bubble;
 import tech.ydb.yoj.repository.test.sample.model.Complex;
 import tech.ydb.yoj.repository.test.sample.model.DetachedEntity;
+import tech.ydb.yoj.repository.test.sample.model.EntityWithNullableField;
 import tech.ydb.yoj.repository.test.sample.model.EntityWithValidation;
 import tech.ydb.yoj.repository.test.sample.model.IndexedEntity;
 import tech.ydb.yoj.repository.test.sample.model.LogEntry;
@@ -207,6 +208,11 @@ public class TestYdbRepository extends YdbRepository {
         @Override
         public Table<MultiWrappedEntity2> multiWrappedEntities2() {
             return table(MultiWrappedEntity2.class);
+        }
+
+        @Override
+        public Table<EntityWithNullableField> entitiesWithNullableField() {
+            return table(EntityWithNullableField.class);
         }
     }
 
