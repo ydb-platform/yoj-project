@@ -78,8 +78,8 @@ import static java.util.stream.Collectors.toMap;
         List<PojoType<R>> validMatches = new ArrayList<>();
         for (Constructor<?> match : matches) {
             try {
-                PojoType<R> ctorAndArgs = strictVerifyMatch(reflector, match, entityFields);
-                validMatches.add(ctorAndArgs);
+                PojoType<R> pojoType = strictVerifyMatch(reflector, match, entityFields);
+                validMatches.add(pojoType);
             } catch (IllegalArgumentException e) {
                 matchErrors.add(new MatchError(match, e));
             }
@@ -96,7 +96,9 @@ import static java.util.stream.Collectors.toMap;
                 "Multiple all-args constructors match for <%s>:\n%s",
                 type, validMatches.stream().map(c -> c.getConstructor().toGenericString()).collect(joining("\n")));
 
-        return validMatches.iterator().next();
+        PojoType<R> pojoType = validMatches.iterator().next();
+        pojoType.getConstructor().setAccessible(true);
+        return pojoType;
     }
 
     /// Verifies a potentially matching constructor against the names and types of entity's declared fields.
@@ -140,7 +142,6 @@ import static java.util.stream.Collectors.toMap;
 
             args.add(new PojoField(reflector, field));
         }
-        constructor.setAccessible(true);
         return new PojoType<>(type, constructor, args);
     }
 

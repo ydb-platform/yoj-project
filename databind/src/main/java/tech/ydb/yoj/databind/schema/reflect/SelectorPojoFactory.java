@@ -37,14 +37,10 @@ import static java.lang.reflect.Modifier.isStatic;
 
     @Override
     public <R> ReflectType<R> create(Reflector reflector, Class<R> type, FieldValueType fvt) {
-        Preconditions.checkArgument(
-                !type.isLocalClass() &&
-                !type.isAnonymousClass() &&
-                !type.isInterface() &&
-                !isAbstract(type.getModifiers()) &&
-                (type.getEnclosingClass() == null || isStatic(type.getModifiers())),
-                "Only concrete top-level and static inner classes can have schema"
-        );
+        Preconditions.checkArgument(!type.isLocalClass() && !type.isAnonymousClass()
+                        && !type.isInterface() && !isAbstract(type.getModifiers())
+                        && (type.getEnclosingClass() == null || isStatic(type.getModifiers())),
+                "Only concrete top-level and static inner classes can have schema");
 
         return detectFactory().create(reflector, type, fvt);
     }
