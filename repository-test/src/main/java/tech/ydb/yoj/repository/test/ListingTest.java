@@ -4,6 +4,7 @@ import org.junit.Test;
 import tech.ydb.yoj.databind.expression.FilterExpression;
 import tech.ydb.yoj.databind.expression.OrderExpression;
 import tech.ydb.yoj.repository.db.Repository;
+import tech.ydb.yoj.repository.db.ScopedTxManager;
 import tech.ydb.yoj.repository.db.list.BadListingException.BadOffset;
 import tech.ydb.yoj.repository.db.list.BadListingException.BadPageSize;
 import tech.ydb.yoj.repository.db.list.ListRequest;
@@ -12,7 +13,6 @@ import tech.ydb.yoj.repository.db.list.ListResult;
 import tech.ydb.yoj.repository.db.list.ViewListResult;
 import tech.ydb.yoj.repository.test.entity.TestEntities;
 import tech.ydb.yoj.repository.test.sample.TestDb;
-import tech.ydb.yoj.repository.test.sample.TestDbImpl;
 import tech.ydb.yoj.repository.test.sample.model.Complex;
 import tech.ydb.yoj.repository.test.sample.model.LogEntry;
 import tech.ydb.yoj.repository.test.sample.model.Project;
@@ -34,17 +34,17 @@ import static tech.ydb.yoj.repository.db.EntityExpressions.newFilterBuilder;
 import static tech.ydb.yoj.repository.db.EntityExpressions.newOrderBuilder;
 
 public abstract class ListingTest extends RepositoryTestSupport {
-    protected TestDb db;
+    protected ScopedTxManager<TestDb> tx;
 
     @Override
     public void setUp() {
         super.setUp();
-        this.db = new TestDbImpl<>(this.repository);
+        this.tx = new ScopedTxManager<>(this.repository, TestDb.class);
     }
 
     @Override
     public void tearDown() {
-        this.db = null;
+        this.tx = null;
         super.tearDown();
     }
 
@@ -61,19 +61,19 @@ public abstract class ListingTest extends RepositoryTestSupport {
         Project notInOutput = new Project(new Project.Id("uuid333"), "WWW");
         Project p2 = new Project(new Project.Id("uuid777"), "XXX");
         Project p3 = new Project(new Project.Id("uuid001"), "ZZZ");
-        db.tx(() -> db.projects().insert(p1, p2, notInOutput, p3));
+        tx.run(db -> db.projects().insert(p1, p2, notInOutput, p3));
 
         OrderExpression<Project> orderBy = newOrderBuilder(Project.class).orderBy("name").descending().build();
         FilterExpression<Project> filter = newFilterBuilder(Project.class).where("name").in("AAA", "XXX", "ZZZ").build();
-        db.tx(() -> {
-            ListResult<Project> page1 = listProjects(ListRequest.builder(Project.class)
+        tx.run(db -> {
+            ListResult<Project> page1 = db.projects().list(ListRequest.builder(Project.class)
                     .pageSize(1)
                     .orderBy(orderBy)
                     .filter(filter)
                     .build());
             assertThat(page1).containsExactly(p3);
 
-            ListResult<Project> page2 = listProjects(ListRequest.builder(Project.class)
+            ListResult<Project> page2 = db.projects().list(ListRequest.builder(Project.class)
                     .pageSize(1)
                     .orderBy(orderBy)
                     .filter(filter)
@@ -81,7 +81,7 @@ public abstract class ListingTest extends RepositoryTestSupport {
                     .build());
             assertThat(page2).containsExactly(p2);
 
-            ListResult<Project> page3 = listProjects(ListRequest.builder(Project.class)
+            ListResult<Project> page3 = db.projects().list(ListRequest.builder(Project.class)
                     .pageSize(1)
                     .orderBy(orderBy)
                     .filter(filter)
@@ -98,10 +98,10 @@ public abstract class ListingTest extends RepositoryTestSupport {
         Complex c2 = new Complex(new Complex.Id(999_999, 15L, "UUU", Complex.Status.OK));
         Complex c3 = new Complex(new Complex.Id(999_999, 15L, "KKK", Complex.Status.OK));
         Complex c4 = new Complex(new Complex.Id(999_000, 15L, "AAA", Complex.Status.OK));
-        db.tx(() -> db.complexes().insert(c1, c2, c3, c4));
+        tx.run(db -> db.complexes().insert(c1, c2, c3, c4));
 
-        db.tx(() -> {
-            ListResult<Complex> page = listComplex(ListRequest.builder(Complex.class)
+        tx.run(db -> {
+            ListResult<Complex> page = db.complexes().list(ListRequest.builder(Complex.class)
                     .pageSize(3)
                     .filter(fb -> fb.where("id.a").eq(999_999))
                     .build());
@@ -116,10 +116,10 @@ public abstract class ListingTest extends RepositoryTestSupport {
         Complex c2 = new Complex(new Complex.Id(999_999, 15L, "UUU", Complex.Status.OK));
         Complex c3 = new Complex(new Complex.Id(999_999, 15L, "KKK", Complex.Status.OK));
         Complex c4 = new Complex(new Complex.Id(999_000, 15L, "AAA", Complex.Status.OK));
-        db.tx(() -> db.complexes().insert(c1, c2, c3, c4));
+        tx.run(db -> db.complexes().insert(c1, c2, c3, c4));
 
-        db.tx(() -> {
-            ListResult<Complex> page = listComplex(ListRequest.builder(Complex.class)
+        tx.run(db -> {
+            ListResult<Complex> page = db.complexes().list(ListRequest.builder(Complex.class)
                     .pageSize(3)
                     .filter(fb -> fb.where("id.c").eq("UUU"))
                     .build());
@@ -139,9 +139,9 @@ public abstract class ListingTest extends RepositoryTestSupport {
         UniqueEntityNative c2 = new UniqueEntityNative(new UniqueEntityNative.Id(uuid2), "c2");
         UniqueEntityNative c3 = new UniqueEntityNative(new UniqueEntityNative.Id(uuid3), "c3");
         UniqueEntityNative c4 = new UniqueEntityNative(new UniqueEntityNative.Id(uuid4), "c4");
-        db.tx(() -> db.table(UniqueEntityNative.class).insert(c1, c2, c3, c4));
+        tx.run(db -> db.table(UniqueEntityNative.class).insert(c1, c2, c3, c4));
 
-        db.tx(() -> {
+        tx.run(db -> {
             ListResult<UniqueEntityNative> page1 = db.table(UniqueEntityNative.class).list(
                     ListRequest.builder(UniqueEntityNative.class)
                             .pageSize(3)
@@ -162,32 +162,29 @@ public abstract class ListingTest extends RepositoryTestSupport {
 
     @Test
     public void failOnZeroPageSize() {
-        db.tx(() -> {
-            assertThatExceptionOfType(BadPageSize.class).isThrownBy(() ->
-                    listProjects(ListRequest.builder(Project.class)
-                            .pageSize(0)
-                            .build()));
-        });
+        tx.run(db -> assertThatExceptionOfType(BadPageSize.class).isThrownBy(() ->
+                db.projects().list(ListRequest.builder(Project.class)
+                        .pageSize(0)
+                        .build())
+        ));
     }
 
     @Test
     public void failOnTooLargePageSize() {
-        db.tx(() -> {
-            assertThatExceptionOfType(BadPageSize.class).isThrownBy(() ->
-                    listProjects(ListRequest.builder(Project.class)
-                            .pageSize(100_000)
-                            .build()));
-        });
+        tx.run(db -> assertThatExceptionOfType(BadPageSize.class).isThrownBy(() ->
+                db.projects().list(ListRequest.builder(Project.class)
+                        .pageSize(100_000)
+                        .build())
+        ));
     }
 
     @Test
     public void failOnTooLargeOffset() {
-        db.tx(() -> {
-            assertThatExceptionOfType(BadOffset.class).isThrownBy(() ->
-                    listProjects(ListRequest.builder(Project.class)
-                            .offset(10_001)
-                            .build()));
-        });
+        tx.run(db -> assertThatExceptionOfType(BadOffset.class).isThrownBy(() ->
+                db.projects().list(ListRequest.builder(Project.class)
+                        .offset(10_001)
+                        .build())
+        ));
     }
 
     @Test
@@ -196,10 +193,10 @@ public abstract class ListingTest extends RepositoryTestSupport {
         Complex c2 = new Complex(new Complex.Id(999_999, 15L, "UUU", Complex.Status.OK));
         Complex c3 = new Complex(new Complex.Id(999_999, 0L, "UUU", Complex.Status.OK));
         Complex c4 = new Complex(new Complex.Id(999_000, 0L, "UUU", Complex.Status.OK));
-        db.tx(() -> db.complexes().insert(c1, c2, c3, c4));
+        tx.run(db -> db.complexes().insert(c1, c2, c3, c4));
 
-        db.tx(() -> {
-            ListResult<Complex> page = listComplex(ListRequest.builder(Complex.class)
+        tx.run(db -> {
+            ListResult<Complex> page = db.complexes().list(ListRequest.builder(Complex.class)
                     .pageSize(4)
                     .build());
             assertThat(page).containsExactly(c4, c3, c2, c1);
@@ -214,10 +211,10 @@ public abstract class ListingTest extends RepositoryTestSupport {
         Complex c3 = new Complex(new Complex.Id(1, 300L, "KKK", Complex.Status.OK));
         Complex notInOutput = new Complex(new Complex.Id(2, 300L, "AAA", Complex.Status.OK));
 
-        db.tx(() -> db.complexes().insert(c1, c2, c3, notInOutput));
+        tx.run(db -> db.complexes().insert(c1, c2, c3, notInOutput));
 
-        db.tx(() -> {
-            ListResult<Complex> page = listComplex(ListRequest.builder(Complex.class)
+        tx.run(db -> {
+            ListResult<Complex> page = db.complexes().list(ListRequest.builder(Complex.class)
                     .pageSize(3)
                     .filter(fb -> fb.where("id.a").eq(1).and("id.b").gte(100L).and("id.b").lte(300L))
                     .build());
@@ -238,17 +235,17 @@ public abstract class ListingTest extends RepositoryTestSupport {
                 .filter(filter)
                 .build();
 
-        db.tx(() -> db.typeFreaks()
+        tx.run(db -> db.typeFreaks()
                 .list(request)
                 .returnWithParams(ListingParams.empty()));
     }
 
     @Test
     public void embeddedNulls() {
-        db.tx(() -> db.typeFreaks().insert(
+        tx.run(db -> db.typeFreaks().insert(
                 new TypeFreak(new TypeFreak.Id("b1p", 1), false, (byte) 0, (byte) 0, (short) 0, 0, 0, 0.0f, 0.0, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null)
         ));
-        ListResult<TypeFreak> lst = db.tx(() -> db.typeFreaks().list(ListRequest.builder(TypeFreak.class)
+        ListResult<TypeFreak> lst = tx.call(db -> db.typeFreaks().list(ListRequest.builder(TypeFreak.class)
                 .filter(fb -> fb.where("embedded.a.a").eq("myfqdn"))
                 .pageSize(1)
                 .build()));
@@ -260,9 +257,9 @@ public abstract class ListingTest extends RepositoryTestSupport {
     @Test
     public void flattenedIsNull() {
         var tf = new TypeFreak(new TypeFreak.Id("b1p", 1), false, (byte) 0, (byte) 0, (short) 0, 0, 0, 0.0f, 0.0, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
-        db.tx(() -> db.typeFreaks().insert(tf));
+        tx.run(db -> db.typeFreaks().insert(tf));
 
-        ListResult<TypeFreak> lst = db.tx(() -> db.typeFreaks().list(ListRequest.builder(TypeFreak.class)
+        ListResult<TypeFreak> lst = tx.call(db -> db.typeFreaks().list(ListRequest.builder(TypeFreak.class)
                 .filter(fb -> fb.where("jsonEmbedded").isNull())
                 .pageSize(1)
                 .build()));
@@ -274,9 +271,9 @@ public abstract class ListingTest extends RepositoryTestSupport {
     @Test
     public void flattenedIsNotNull() {
         var tf = new TypeFreak(new TypeFreak.Id("b1p", 1), false, (byte) 0, (byte) 0, (short) 0, 0, 0, 0.0f, 0.0, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, new TypeFreak.Embedded(new TypeFreak.A("A"), new TypeFreak.B("B")), null, null, null, null, null, null, null, null, null, null, null);
-        db.tx(() -> db.typeFreaks().insert(tf));
+        tx.run(db -> db.typeFreaks().insert(tf));
 
-        ListResult<TypeFreak> lst = db.tx(() -> db.typeFreaks().list(ListRequest.builder(TypeFreak.class)
+        ListResult<TypeFreak> lst = tx.call(db -> db.typeFreaks().list(ListRequest.builder(TypeFreak.class)
                 .filter(fb -> fb.where("jsonEmbedded").isNotNull())
                 .pageSize(1)
                 .build()));
@@ -291,12 +288,12 @@ public abstract class ListingTest extends RepositoryTestSupport {
         Project notInOutput = new Project(new Project.Id("uuid333"), "WWW");
         Project p2 = new Project(new Project.Id("uuid777"), "XXX");
         Project p3 = new Project(new Project.Id("uuid001"), "ZZZ");
-        db.tx(() -> db.projects().insert(p1, p2, notInOutput, p3));
+        tx.run(db -> db.projects().insert(p1, p2, notInOutput, p3));
 
         FilterExpression<Project> filter = newFilterBuilder(Project.class).where("id").in("uuid777", "uuid001", "uuid002").build();
         OrderExpression<Project> orderBy = newOrderBuilder(Project.class).orderBy("id").ascending().build();
-        db.tx(() -> {
-            ListResult<Project> page = listProjects(ListRequest.builder(Project.class)
+        tx.run(db -> {
+            ListResult<Project> page = db.projects().list(ListRequest.builder(Project.class)
                     .pageSize(100)
                     .filter(filter)
                     .orderBy(orderBy)
@@ -312,10 +309,10 @@ public abstract class ListingTest extends RepositoryTestSupport {
         Complex c2 = new Complex(new Complex.Id(999_999, 14L, "BBB", Complex.Status.OK));
         Complex c3 = new Complex(new Complex.Id(999_000, 13L, "CCC", Complex.Status.FAIL));
         Complex c4 = new Complex(new Complex.Id(999_000, 12L, "DDD", Complex.Status.OK));
-        db.tx(() -> db.complexes().insert(c1, c2, c3, c4));
+        tx.run(db -> db.complexes().insert(c1, c2, c3, c4));
 
-        db.tx(() -> {
-            ListResult<Complex> page = listComplex(ListRequest.builder(Complex.class)
+        tx.run(db -> {
+            ListResult<Complex> page = db.complexes().list(ListRequest.builder(Complex.class)
                     .pageSize(100)
                     .filter(fb -> fb
                             .where("id.a").in(999_999, 999_000)
@@ -339,10 +336,10 @@ public abstract class ListingTest extends RepositoryTestSupport {
         Complex c1 = new Complex(new Complex.Id(999_999, now.toEpochMilli(), "AAA", Complex.Status.OK));
         Complex c2 = new Complex(new Complex.Id(999_999, nowPlus1.toEpochMilli(), "BBB", Complex.Status.OK));
         Complex c3 = new Complex(new Complex.Id(999_000, nowPlus2.toEpochMilli(), "CCC", Complex.Status.FAIL));
-        db.tx(() -> db.complexes().insert(c1, c2, c3));
+        tx.run(db -> db.complexes().insert(c1, c2, c3));
 
-        db.tx(() -> {
-            ListResult<Complex> page = listComplex(ListRequest.builder(Complex.class)
+        tx.run(db -> {
+            ListResult<Complex> page = db.complexes().list(ListRequest.builder(Complex.class)
                     .pageSize(100)
                     .filter(fb -> fb.where("id.a").in(999_999, 999_000).and("id.b").gte(now).and("id.b").lt(nowPlus2))
                     .orderBy(ob -> ob.orderBy("id.a").descending())
@@ -361,10 +358,10 @@ public abstract class ListingTest extends RepositoryTestSupport {
         Complex c1 = new Complex(new Complex.Id(999_999, now.toEpochMilli(), "AAA", Complex.Status.OK));
         Complex c2 = new Complex(new Complex.Id(999_999, nowPlus1.toEpochMilli(), "BBB", Complex.Status.OK));
         Complex c3 = new Complex(new Complex.Id(999_000, nowPlus2.toEpochMilli(), "CCC", Complex.Status.FAIL));
-        db.tx(() -> db.complexes().insert(c1, c2, c3));
+        tx.run(db -> db.complexes().insert(c1, c2, c3));
 
-        db.tx(() -> {
-            ListResult<Complex> page = listComplex(ListRequest.builder(Complex.class)
+        tx.run(db -> {
+            ListResult<Complex> page = db.complexes().list(ListRequest.builder(Complex.class)
                     .pageSize(100)
                     .filter(fb -> fb.where("id.a").in(999_999, 999_000).and("id.b").in(now, nowPlus2))
                     .orderBy(ob -> ob.orderBy("id.a").descending())
@@ -379,10 +376,10 @@ public abstract class ListingTest extends RepositoryTestSupport {
         Project p1 = new Project(new Project.Id("uuid002"), "AAA");
         Project notInOutput = new Project(new Project.Id("uuid333"), "WWW");
         Project p2 = new Project(new Project.Id("uuid777"), "XXX");
-        db.tx(() -> db.projects().insert(p1, p2, notInOutput));
+        tx.run(db -> db.projects().insert(p1, p2, notInOutput));
 
-        db.tx(() -> {
-            ListResult<Project> page = listProjects(ListRequest.builder(Project.class)
+        tx.run(db -> {
+            ListResult<Project> page = db.projects().list(ListRequest.builder(Project.class)
                     .pageSize(100)
                     .filter(newFilterBuilder(Project.class)
                             .where("id").eq("uuid002").or("id").eq("uuid777")
@@ -398,10 +395,10 @@ public abstract class ListingTest extends RepositoryTestSupport {
         Project p1 = new Project(new Project.Id("uuid002"), "AAA");
         Project inOutput = new Project(new Project.Id("uuid333"), "WWW");
         Project p2 = new Project(new Project.Id("uuid777"), "XXX");
-        db.tx(() -> db.projects().insert(p1, p2, inOutput));
+        tx.run(db -> db.projects().insert(p1, p2, inOutput));
 
-        db.tx(() -> {
-            ListResult<Project> page = listProjects(ListRequest.builder(Project.class)
+        tx.run(db -> {
+            ListResult<Project> page = db.projects().list(ListRequest.builder(Project.class)
                     .pageSize(100)
                     .filter(not(newFilterBuilder(Project.class)
                             .where("id").eq("uuid002").or("id").eq("uuid777")
@@ -417,10 +414,10 @@ public abstract class ListingTest extends RepositoryTestSupport {
         Project p1 = new Project(new Project.Id("uuid002"), "AAA");
         Project inOutput = new Project(new Project.Id("uuid333"), "WWW");
         Project p2 = new Project(new Project.Id("uuid777"), "XXX");
-        db.tx(() -> db.projects().insert(p1, p2, inOutput));
+        tx.run(db -> db.projects().insert(p1, p2, inOutput));
 
-        db.tx(() -> {
-            ListResult<Project> page = listProjects(ListRequest.builder(Project.class)
+        tx.run(db -> {
+            ListResult<Project> page = db.projects().list(ListRequest.builder(Project.class)
                     .pageSize(100)
                     .filter(not(newFilterBuilder(Project.class)
                             .where("id").gt("uuid002")
@@ -436,10 +433,10 @@ public abstract class ListingTest extends RepositoryTestSupport {
         Project p1 = new Project(new Project.Id("uuid002"), "AAA");
         Project inOutput = new Project(new Project.Id("uuid333"), "WWW");
         Project p2 = new Project(new Project.Id("uuid777"), "XXX");
-        db.tx(() -> db.projects().insert(p1, p2, inOutput));
+        tx.run(db -> db.projects().insert(p1, p2, inOutput));
 
-        db.tx(() -> {
-            ListResult<Project> page = listProjects(ListRequest.builder(Project.class)
+        tx.run(db -> {
+            ListResult<Project> page = db.projects().list(ListRequest.builder(Project.class)
                     .pageSize(100)
                     .filter(not(newFilterBuilder(Project.class)
                             .where("id").in("uuid002", "uuid777")
@@ -492,10 +489,10 @@ public abstract class ListingTest extends RepositoryTestSupport {
                 "CUSTOM NAMED COLUMN",
                 null
         );
-        db.tx(() -> db.typeFreaks().insert(tf));
+        tx.run(db -> db.typeFreaks().insert(tf));
 
-        db.tx(() -> {
-            ListResult<TypeFreak> page = listTypeFreak(ListRequest.builder(TypeFreak.class)
+        tx.run(db -> {
+            ListResult<TypeFreak> page = db.typeFreaks().list(ListRequest.builder(TypeFreak.class)
                     .pageSize(50)
                     .filter(newFilterBuilder(TypeFreak.class)
                             .where("customNamedColumn").eq("CUSTOM NAMED COLUMN")
@@ -509,10 +506,10 @@ public abstract class ListingTest extends RepositoryTestSupport {
     @Test
     public void listStringValuedFilteredByString() {
         TypeFreak typeFreak = new TypeFreak(new TypeFreak.Id("b1p", 1), false, (byte) 0, (byte) 0, (short) 0, 0, 0, 0.0f, 0.0, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, new TypeFreak.Ticket("CLOUD", 100500));
-        db.tx(() -> db.typeFreaks().insert(typeFreak));
+        tx.run(db -> db.typeFreaks().insert(typeFreak));
 
-        db.tx(() -> {
-            ListResult<TypeFreak> page = listTypeFreak(ListRequest.builder(TypeFreak.class)
+        tx.run(db -> {
+            ListResult<TypeFreak> page = db.typeFreaks().list(ListRequest.builder(TypeFreak.class)
                     .pageSize(100)
                     .filter(newFilterBuilder(TypeFreak.class)
                             .where("ticket").eq("CLOUD-100500")
@@ -526,10 +523,10 @@ public abstract class ListingTest extends RepositoryTestSupport {
     @Test
     public void listStringValuedFilteredByString2() {
         TypeFreak typeFreak = new TypeFreak(new TypeFreak.Id("b1p", 1), false, (byte) 0, (byte) 0, (short) 0, 0, 0, 0.0f, 0.0, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, new TypeFreak.StringValueWrapper("svw 123"), null, null);
-        db.tx(() -> db.typeFreaks().insert(typeFreak));
+        tx.run(db -> db.typeFreaks().insert(typeFreak));
 
-        db.tx(() -> {
-            ListResult<TypeFreak> page = listTypeFreak(ListRequest.builder(TypeFreak.class)
+        tx.run(db -> {
+            ListResult<TypeFreak> page = db.typeFreaks().list(ListRequest.builder(TypeFreak.class)
                     .pageSize(100)
                     .filter(newFilterBuilder(TypeFreak.class)
                             .where("stringValueWrapper").eq("svw 123")
@@ -544,10 +541,10 @@ public abstract class ListingTest extends RepositoryTestSupport {
     public void listStringValuedFilteredByStruct() {
         TypeFreak.Ticket ticket = new TypeFreak.Ticket("CLOUD", 100500);
         TypeFreak typeFreak = new TypeFreak(new TypeFreak.Id("b1p", 1), false, (byte) 0, (byte) 0, (short) 0, 0, 0, 0.0f, 0.0, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, ticket);
-        db.tx(() -> db.typeFreaks().insert(typeFreak));
+        tx.run(db -> db.typeFreaks().insert(typeFreak));
 
-        db.tx(() -> {
-            ListResult<TypeFreak> page = listTypeFreak(ListRequest.builder(TypeFreak.class)
+        tx.run(db -> {
+            ListResult<TypeFreak> page = db.typeFreaks().list(ListRequest.builder(TypeFreak.class)
                     .pageSize(100)
                     .filter(newFilterBuilder(TypeFreak.class)
                             .where("ticket").eq(ticket)
@@ -564,10 +561,10 @@ public abstract class ListingTest extends RepositoryTestSupport {
         LogEntry notInOutput = new LogEntry(new LogEntry.Id("log2", 2L), LogEntry.Level.DEBUG, "will be ignored");
         LogEntry e2 = new LogEntry(new LogEntry.Id("log1", 4L), LogEntry.Level.WARN, "middle msg");
         LogEntry e3 = new LogEntry(new LogEntry.Id("log1", 5L), LogEntry.Level.INFO, "latest msg");
-        db.tx(() -> db.logEntries().insert(e1, e2, notInOutput, e3));
+        tx.run(db -> db.logEntries().insert(e1, e2, notInOutput, e3));
 
-        db.tx(() -> {
-            ListResult<LogEntry> page = listLogEntries(ListRequest.builder(LogEntry.class)
+        tx.run(db -> {
+            ListResult<LogEntry> page = db.logEntries().list(ListRequest.builder(LogEntry.class)
                     .pageSize(100)
                     .filter(fb -> fb.where("message").contains("msg"))
                     .build());
@@ -582,10 +579,10 @@ public abstract class ListingTest extends RepositoryTestSupport {
         LogEntry notInOutput = new LogEntry(new LogEntry.Id("log2", 2L), LogEntry.Level.DEBUG, "will be ignored");
         LogEntry e2 = new LogEntry(new LogEntry.Id("log1", 4L), LogEntry.Level.WARN, "middle msg");
         LogEntry e3 = new LogEntry(new LogEntry.Id("log1", 5L), LogEntry.Level.INFO, "latest msg");
-        db.tx(() -> db.logEntries().insert(e1, e2, notInOutput, e3));
+        tx.run(db -> db.logEntries().insert(e1, e2, notInOutput, e3));
 
-        db.tx(() -> {
-            ListResult<LogEntry> page = listLogEntries(ListRequest.builder(LogEntry.class)
+        tx.run(db -> {
+            ListResult<LogEntry> page = db.logEntries().list(ListRequest.builder(LogEntry.class)
                     .pageSize(100)
                     .filter(fb -> fb.where("message").containsIgnoreCase("MsG"))
                     .build());
@@ -600,10 +597,10 @@ public abstract class ListingTest extends RepositoryTestSupport {
         LogEntry inOutput = new LogEntry(new LogEntry.Id("log2", 2L), LogEntry.Level.DEBUG, "will be ignored");
         LogEntry e2 = new LogEntry(new LogEntry.Id("log1", 4L), LogEntry.Level.WARN, "middle msg");
         LogEntry e3 = new LogEntry(new LogEntry.Id("log1", 5L), LogEntry.Level.INFO, "latest msg");
-        db.tx(() -> db.logEntries().insert(e1, e2, inOutput, e3));
+        tx.run(db -> db.logEntries().insert(e1, e2, inOutput, e3));
 
-        db.tx(() -> {
-            ListResult<LogEntry> page = listLogEntries(ListRequest.builder(LogEntry.class)
+        tx.run(db -> {
+            ListResult<LogEntry> page = db.logEntries().list(ListRequest.builder(LogEntry.class)
                     .pageSize(100)
                     .filter(fb -> fb.where("message").doesNotContain("msg"))
                     .build());
@@ -618,10 +615,10 @@ public abstract class ListingTest extends RepositoryTestSupport {
         LogEntry notInOutput = new LogEntry(new LogEntry.Id("log2", 2L), LogEntry.Level.DEBUG, "will be ignored");
         LogEntry e2 = new LogEntry(new LogEntry.Id("log1", 4L), LogEntry.Level.WARN, "__hi%_there_");
         LogEntry e3 = new LogEntry(new LogEntry.Id("log1", 5L), LogEntry.Level.INFO, "%_");
-        db.tx(() -> db.logEntries().insert(e1, e2, notInOutput, e3));
+        tx.run(db -> db.logEntries().insert(e1, e2, notInOutput, e3));
 
-        db.tx(() -> {
-            ListResult<LogEntry> page = listLogEntries(ListRequest.builder(LogEntry.class)
+        tx.run(db -> {
+            ListResult<LogEntry> page = db.logEntries().list(ListRequest.builder(LogEntry.class)
                     .pageSize(100)
                     .filter(fb -> fb.where("message").contains("%_"))
                     .build());
@@ -636,10 +633,10 @@ public abstract class ListingTest extends RepositoryTestSupport {
         LogEntry notInOutput = new LogEntry(new LogEntry.Id("log2", 2L), LogEntry.Level.DEBUG, "will be ignored");
         LogEntry e2 = new LogEntry(new LogEntry.Id("log1", 4L), LogEntry.Level.WARN, "#tag middle msg");
         LogEntry e3 = new LogEntry(new LogEntry.Id("log1", 5L), LogEntry.Level.INFO, "#tag latest msg");
-        db.tx(() -> db.logEntries().insert(e1, e2, notInOutput, e3));
+        tx.run(db -> db.logEntries().insert(e1, e2, notInOutput, e3));
 
-        db.tx(() -> {
-            ListResult<LogEntry> page = listLogEntries(ListRequest.builder(LogEntry.class)
+        tx.run(db -> {
+            ListResult<LogEntry> page = db.logEntries().list(ListRequest.builder(LogEntry.class)
                     .pageSize(100)
                     .filter(fb -> fb.where("message").startsWith("#tag"))
                     .build());
@@ -654,10 +651,10 @@ public abstract class ListingTest extends RepositoryTestSupport {
         LogEntry notInOutput = new LogEntry(new LogEntry.Id("log2", 2L), LogEntry.Level.DEBUG, "will be ignored");
         LogEntry e2 = new LogEntry(new LogEntry.Id("log1", 4L), LogEntry.Level.WARN, "__hi%_there_");
         LogEntry e3 = new LogEntry(new LogEntry.Id("log1", 5L), LogEntry.Level.INFO, "%_");
-        db.tx(() -> db.logEntries().insert(e1, e2, notInOutput, e3));
+        tx.run(db -> db.logEntries().insert(e1, e2, notInOutput, e3));
 
-        db.tx(() -> {
-            ListResult<LogEntry> page = listLogEntries(ListRequest.builder(LogEntry.class)
+        tx.run(db -> {
+            ListResult<LogEntry> page = db.logEntries().list(ListRequest.builder(LogEntry.class)
                     .pageSize(100)
                     .filter(fb -> fb.where("message").startsWith("%_"))
                     .build());
@@ -672,10 +669,10 @@ public abstract class ListingTest extends RepositoryTestSupport {
         LogEntry inOutput = new LogEntry(new LogEntry.Id("log2", 2L), LogEntry.Level.DEBUG, "will be ignored");
         LogEntry e2 = new LogEntry(new LogEntry.Id("log1", 4L), LogEntry.Level.WARN, "middle msg #tag");
         LogEntry e3 = new LogEntry(new LogEntry.Id("log1", 5L), LogEntry.Level.INFO, "latest msg #tag");
-        db.tx(() -> db.logEntries().insert(e1, e2, inOutput, e3));
+        tx.run(db -> db.logEntries().insert(e1, e2, inOutput, e3));
 
-        db.tx(() -> {
-            ListResult<LogEntry> page = listLogEntries(ListRequest.builder(LogEntry.class)
+        tx.run(db -> {
+            ListResult<LogEntry> page = db.logEntries().list(ListRequest.builder(LogEntry.class)
                     .pageSize(100)
                     .filter(fb -> fb.where("message").endsWith(" #tag"))
                     .build());
@@ -690,10 +687,10 @@ public abstract class ListingTest extends RepositoryTestSupport {
         LogEntry notInOutput = new LogEntry(new LogEntry.Id("log2", 2L), LogEntry.Level.DEBUG, "will be ignored");
         LogEntry e2 = new LogEntry(new LogEntry.Id("log1", 4L), LogEntry.Level.WARN, "__hi%_there_");
         LogEntry e3 = new LogEntry(new LogEntry.Id("log1", 5L), LogEntry.Level.INFO, "%_");
-        db.tx(() -> db.logEntries().insert(e1, e2, notInOutput, e3));
+        tx.run(db -> db.logEntries().insert(e1, e2, notInOutput, e3));
 
-        db.tx(() -> {
-            ListResult<LogEntry> page = listLogEntries(ListRequest.builder(LogEntry.class)
+        tx.run(db -> {
+            ListResult<LogEntry> page = db.logEntries().list(ListRequest.builder(LogEntry.class)
                     .pageSize(100)
                     .filter(fb -> fb.where("message").endsWith("%_"))
                     .build());
@@ -702,20 +699,21 @@ public abstract class ListingTest extends RepositoryTestSupport {
         });
     }
 
-
     @Test
     public void view() {
         LogEntry e1 = new LogEntry(new LogEntry.Id("log1", 1L), LogEntry.Level.ERROR, "earliest msg");
         LogEntry notInOutput = new LogEntry(new LogEntry.Id("log2", 2L), LogEntry.Level.DEBUG, "will be ignored");
         LogEntry e2 = new LogEntry(new LogEntry.Id("log1", 4L), LogEntry.Level.WARN, "middle msg");
         LogEntry e3 = new LogEntry(new LogEntry.Id("log1", 5L), LogEntry.Level.INFO, "latest msg");
-        db.tx(() -> db.logEntries().insert(e1, e2, notInOutput, e3));
+        tx.run(db -> db.logEntries().insert(e1, e2, notInOutput, e3));
 
-        db.tx(() -> {
-            ViewListResult<LogEntry, LogEntry.Message> page = listLogMessages(ListRequest.builder(LogEntry.class)
-                    .pageSize(100)
-                    .filter(fb -> fb.where("id.logId").eq("log1"))
-                    .build());
+        tx.run(db -> {
+            ViewListResult<LogEntry, LogEntry.Message> page = db.logEntries().list(
+                    LogEntry.Message.class,
+                    ListRequest.builder(LogEntry.class)
+                            .pageSize(100)
+                            .filter(fb -> fb.where("id.logId").eq("log1"))
+                            .build());
             assertThat(page).containsExactly(
                     new LogEntry.Message(new LogEntry.Id("log1", 1L), "earliest msg"),
                     new LogEntry.Message(new LogEntry.Id("log1", 4L), "middle msg"),
@@ -723,25 +721,5 @@ public abstract class ListingTest extends RepositoryTestSupport {
             );
             assertThat(page.isLastPage()).isTrue();
         });
-    }
-
-    protected final ListResult<Project> listProjects(ListRequest<Project> request) {
-        return db.projects().list(request);
-    }
-
-    protected final ListResult<Complex> listComplex(ListRequest<Complex> request) {
-        return db.complexes().list(request);
-    }
-
-    protected final ListResult<TypeFreak> listTypeFreak(ListRequest<TypeFreak> request) {
-        return db.typeFreaks().list(request);
-    }
-
-    protected final ListResult<LogEntry> listLogEntries(ListRequest<LogEntry> request) {
-        return db.logEntries().list(request);
-    }
-
-    protected final ViewListResult<LogEntry, LogEntry.Message> listLogMessages(ListRequest<LogEntry> request) {
-        return db.logEntries().list(LogEntry.Message.class, request);
     }
 }

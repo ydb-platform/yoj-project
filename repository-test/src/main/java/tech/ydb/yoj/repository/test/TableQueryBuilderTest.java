@@ -2,9 +2,9 @@ package tech.ydb.yoj.repository.test;
 
 import org.junit.Test;
 import tech.ydb.yoj.repository.db.Repository;
+import tech.ydb.yoj.repository.db.ScopedTxManager;
 import tech.ydb.yoj.repository.test.entity.TestEntities;
 import tech.ydb.yoj.repository.test.sample.TestDb;
-import tech.ydb.yoj.repository.test.sample.TestDbImpl;
 import tech.ydb.yoj.repository.test.sample.model.Complex;
 import tech.ydb.yoj.repository.test.sample.model.Project;
 import tech.ydb.yoj.repository.test.sample.model.TypeFreak;
@@ -22,17 +22,17 @@ import static tech.ydb.yoj.databind.expression.FilterBuilder.not;
 import static tech.ydb.yoj.repository.db.EntityExpressions.newFilterBuilder;
 
 public abstract class TableQueryBuilderTest extends RepositoryTestSupport {
-    protected TestDb db;
+    protected ScopedTxManager<TestDb> tx;
 
     @Override
     public void setUp() {
         super.setUp();
-        this.db = new TestDbImpl<>(this.repository);
+        this.tx = new ScopedTxManager<>(this.repository, TestDb.class);
     }
 
     @Override
     public void tearDown() {
-        this.db = null;
+        this.tx = null;
         super.tearDown();
     }
 
@@ -49,9 +49,9 @@ public abstract class TableQueryBuilderTest extends RepositoryTestSupport {
         Project notInOutput = new Project(new Project.Id("uuid333"), "WWW");
         Project p2 = new Project(new Project.Id("uuid777"), "XXX");
         Project p3 = new Project(new Project.Id("uuid001"), "ZZZ");
-        db.tx(() -> db.projects().insert(p1, p2, notInOutput, p3));
+        tx.run(db -> db.projects().insert(p1, p2, notInOutput, p3));
 
-        db.tx(() -> {
+        tx.run(db -> {
             List<Project> page1 = db.projects().query()
                     .limit(1)
                     .orderBy(ob -> ob.orderBy("name").descending())
@@ -91,9 +91,9 @@ public abstract class TableQueryBuilderTest extends RepositoryTestSupport {
         Complex c2 = new Complex(new Complex.Id(999_999, 15L, "UUU", Complex.Status.OK));
         Complex c3 = new Complex(new Complex.Id(999_999, 15L, "KKK", Complex.Status.OK));
         Complex c4 = new Complex(new Complex.Id(999_000, 15L, "AAA", Complex.Status.OK));
-        db.tx(() -> db.complexes().insert(c1, c2, c3, c4));
+        tx.run(db -> db.complexes().insert(c1, c2, c3, c4));
 
-        db.tx(() -> {
+        tx.run(db -> {
             List<Complex> page = db.complexes().query()
                     .limit(3)
                     .filter(fb -> fb.where("id.a").eq(999_999))
@@ -108,9 +108,9 @@ public abstract class TableQueryBuilderTest extends RepositoryTestSupport {
         Complex c2 = new Complex(new Complex.Id(999_999, 15L, "UUU", Complex.Status.OK));
         Complex c3 = new Complex(new Complex.Id(999_999, 15L, "KKK", Complex.Status.OK));
         Complex c4 = new Complex(new Complex.Id(999_000, 15L, "AAA", Complex.Status.OK));
-        db.tx(() -> db.complexes().insert(c1, c2, c3, c4));
+        tx.run(db -> db.complexes().insert(c1, c2, c3, c4));
 
-        db.tx(() -> {
+        tx.run(db -> {
             List<Complex> page = db.complexes().query()
                     .limit(3)
                     .filter(fb -> fb.where("id.c").eq("UUU"))
@@ -125,9 +125,9 @@ public abstract class TableQueryBuilderTest extends RepositoryTestSupport {
         Complex c2 = new Complex(new Complex.Id(999_999, 15L, "UUU", Complex.Status.OK));
         Complex c3 = new Complex(new Complex.Id(999_999, 0L, "UUU", Complex.Status.OK));
         Complex c4 = new Complex(new Complex.Id(999_000, 0L, "UUU", Complex.Status.OK));
-        db.tx(() -> db.complexes().insert(c1, c2, c3, c4));
+        tx.run(db -> db.complexes().insert(c1, c2, c3, c4));
 
-        db.tx(() -> {
+        tx.run(db -> {
             List<Complex> page = db.complexes().query()
                     .limit(4)
                     .find();
@@ -142,9 +142,9 @@ public abstract class TableQueryBuilderTest extends RepositoryTestSupport {
         Complex c3 = new Complex(new Complex.Id(1, 300L, "KKK", Complex.Status.OK));
         Complex notInOutput = new Complex(new Complex.Id(2, 300L, "AAA", Complex.Status.OK));
 
-        db.tx(() -> db.complexes().insert(c1, c2, c3, notInOutput));
+        tx.run(db -> db.complexes().insert(c1, c2, c3, notInOutput));
 
-        db.tx(() -> {
+        tx.run(db -> {
             List<Complex> page = db.complexes().query()
                     .limit(4)
                     .filter(fb -> fb.where("id.a").eq(1).and("id.b").gte(100L).and("id.b").lte(300L))
@@ -155,7 +155,7 @@ public abstract class TableQueryBuilderTest extends RepositoryTestSupport {
 
     @Test
     public void enumParsing() {
-        db.tx(() -> db.typeFreaks().query()
+        tx.run(db -> db.typeFreaks().query()
                 .where("status").eq(Status.DRAFT)
                 .orderBy(ob -> ob.orderBy("status").descending())
                 .limit(1)
@@ -165,9 +165,9 @@ public abstract class TableQueryBuilderTest extends RepositoryTestSupport {
     @Test
     public void flattenedIsNull() {
         var tf = new TypeFreak(new TypeFreak.Id("b1p", 1), false, (byte) 0, (byte) 0, (short) 0, 0, 0, 0.0f, 0.0, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
-        db.tx(() -> db.typeFreaks().insert(tf));
+        tx.run(db -> db.typeFreaks().insert(tf));
 
-        List<TypeFreak> lst = db.tx(() -> db.typeFreaks().query()
+        List<TypeFreak> lst = tx.call(db -> db.typeFreaks().query()
                 .where("jsonEmbedded").isNull()
                 .limit(100)
                 .find());
@@ -177,9 +177,9 @@ public abstract class TableQueryBuilderTest extends RepositoryTestSupport {
     @Test
     public void flattenedIsNotNull() {
         var tf = new TypeFreak(new TypeFreak.Id("b1p", 1), false, (byte) 0, (byte) 0, (short) 0, 0, 0, 0.0f, 0.0, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, new TypeFreak.Embedded(new TypeFreak.A("A"), new TypeFreak.B("B")), null, null, null, null, null, null, null, null, null, null, null);
-        db.tx(() -> db.typeFreaks().insert(tf));
+        tx.run(db -> db.typeFreaks().insert(tf));
 
-        List<TypeFreak> lst = db.tx(() -> db.typeFreaks().query()
+        List<TypeFreak> lst = tx.call(db -> db.typeFreaks().query()
                 .where("jsonEmbedded").isNotNull()
                 .limit(100)
                 .find());
@@ -189,8 +189,8 @@ public abstract class TableQueryBuilderTest extends RepositoryTestSupport {
     @Test
     public void filterStringValuedByString() {
         TypeFreak typeFreak = new TypeFreak(new TypeFreak.Id("b1p", 1), false, (byte) 0, (byte) 0, (short) 0, 0, 0, 0.0f, 0.0, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, new TypeFreak.Ticket("CLOUD", 100500));
-        db.tx(() -> db.typeFreaks().insert(typeFreak));
-        List<TypeFreak> lst = db.tx(() -> db.typeFreaks().query()
+        tx.run(db -> db.typeFreaks().insert(typeFreak));
+        List<TypeFreak> lst = tx.call(db -> db.typeFreaks().query()
                 .filter(fb -> fb.where("ticket").eq("CLOUD-100500"))
                 .limit(1)
                 .find());
@@ -202,8 +202,8 @@ public abstract class TableQueryBuilderTest extends RepositoryTestSupport {
     public void filterStringValuedByStruct() {
         TypeFreak.Ticket ticket = new TypeFreak.Ticket("CLOUD", 100500);
         TypeFreak typeFreak = new TypeFreak(new TypeFreak.Id("b1p", 1), false, (byte) 0, (byte) 0, (short) 0, 0, 0, 0.0f, 0.0, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, ticket);
-        db.tx(() -> db.typeFreaks().insert(typeFreak));
-        List<TypeFreak> lst = db.tx(() -> db.typeFreaks().query()
+        tx.run(db -> db.typeFreaks().insert(typeFreak));
+        List<TypeFreak> lst = tx.call(db -> db.typeFreaks().query()
                 .filter(newFilterBuilder(TypeFreak.class)
                         .where("ticket").eq(ticket)
                         .build())
@@ -215,10 +215,10 @@ public abstract class TableQueryBuilderTest extends RepositoryTestSupport {
 
     @Test
     public void embeddedNulls() {
-        db.tx(() -> db.typeFreaks().insert(
+        tx.run(db -> db.typeFreaks().insert(
                 new TypeFreak(new TypeFreak.Id("b1p", 1), false, (byte) 0, (byte) 0, (short) 0, 0, 0, 0.0f, 0.0, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null)
         ));
-        List<TypeFreak> lst = db.tx(() -> db.typeFreaks().query()
+        List<TypeFreak> lst = tx.call(db -> db.typeFreaks().query()
                 .filter(fb -> fb.where("embedded.a.a").eq("myfqdn"))
                 .limit(1)
                 .find());
@@ -232,9 +232,9 @@ public abstract class TableQueryBuilderTest extends RepositoryTestSupport {
         Project notInOutput = new Project(new Project.Id("uuid333"), "WWW");
         Project p2 = new Project(new Project.Id("uuid777"), "XXX");
         Project p3 = new Project(new Project.Id("uuid001"), "ZZZ");
-        db.tx(() -> db.projects().insert(p1, p2, notInOutput, p3));
+        tx.run(db -> db.projects().insert(p1, p2, notInOutput, p3));
 
-        db.tx(() -> {
+        tx.run(db -> {
             List<Project> page = db.projects().query()
                     .limit(100)
                     .filter(fb -> fb.where("id").in("uuid777", "uuid001", "uuid002"))
@@ -250,9 +250,9 @@ public abstract class TableQueryBuilderTest extends RepositoryTestSupport {
         Complex c2 = new Complex(new Complex.Id(999_999, 14L, "BBB", Complex.Status.OK));
         Complex c3 = new Complex(new Complex.Id(999_000, 13L, "CCC", Complex.Status.FAIL));
         Complex c4 = new Complex(new Complex.Id(999_000, 12L, "DDD", Complex.Status.OK));
-        db.tx(() -> db.complexes().insert(c1, c2, c3, c4));
+        tx.run(db -> db.complexes().insert(c1, c2, c3, c4));
 
-        db.tx(() -> {
+        tx.run(db -> {
             List<Complex> page = db.complexes().query()
                     .limit(100)
                     .filter(fb -> fb
@@ -276,9 +276,9 @@ public abstract class TableQueryBuilderTest extends RepositoryTestSupport {
         Complex c1 = new Complex(new Complex.Id(999_999, now.toEpochMilli(), "AAA", Complex.Status.OK));
         Complex c2 = new Complex(new Complex.Id(999_999, nowPlus1.toEpochMilli(), "BBB", Complex.Status.OK));
         Complex c3 = new Complex(new Complex.Id(999_000, nowPlus2.toEpochMilli(), "CCC", Complex.Status.FAIL));
-        db.tx(() -> db.complexes().insert(c1, c2, c3));
+        tx.run(db -> db.complexes().insert(c1, c2, c3));
 
-        db.tx(() -> {
+        tx.run(db -> {
             List<Complex> page = db.complexes().query()
                     .limit(100)
                     .filter(fb -> fb.where("id.a").in(999_999, 999_000).and("id.b").gte(now).and("id.b").lt(nowPlus2))
@@ -297,9 +297,9 @@ public abstract class TableQueryBuilderTest extends RepositoryTestSupport {
         Complex c1 = new Complex(new Complex.Id(999_999, now.toEpochMilli(), "AAA", Complex.Status.OK));
         Complex c2 = new Complex(new Complex.Id(999_999, nowPlus1.toEpochMilli(), "BBB", Complex.Status.OK));
         Complex c3 = new Complex(new Complex.Id(999_000, nowPlus2.toEpochMilli(), "CCC", Complex.Status.FAIL));
-        db.tx(() -> db.complexes().insert(c1, c2, c3));
+        tx.run(db -> db.complexes().insert(c1, c2, c3));
 
-        db.tx(() -> {
+        tx.run(db -> {
             List<Complex> page = db.complexes().query()
                     .limit(100)
                     .filter(fb -> fb.where("id.a").in(999_999, 999_000).and("id.b").in(now, nowPlus2))
@@ -314,9 +314,9 @@ public abstract class TableQueryBuilderTest extends RepositoryTestSupport {
         Project p1 = new Project(new Project.Id("uuid002"), "AAA");
         Project notInOutput = new Project(new Project.Id("uuid333"), "WWW");
         Project p2 = new Project(new Project.Id("uuid777"), "XXX");
-        db.tx(() -> db.projects().insert(p1, p2, notInOutput));
+        tx.run(db -> db.projects().insert(p1, p2, notInOutput));
 
-        db.tx(() -> {
+        tx.run(db -> {
             List<Project> page = db.projects().query()
                     .where("id").eq("uuid002")
                     .or("id").eq("uuid777")
@@ -331,9 +331,9 @@ public abstract class TableQueryBuilderTest extends RepositoryTestSupport {
         Project p1 = new Project(new Project.Id("uuid002"), "AAA");
         Project inOutput = new Project(new Project.Id("uuid333"), "WWW");
         Project p2 = new Project(new Project.Id("uuid777"), "XXX");
-        db.tx(() -> db.projects().insert(p1, p2, inOutput));
+        tx.run(db -> db.projects().insert(p1, p2, inOutput));
 
-        db.tx(() -> {
+        tx.run(db -> {
             List<Project> page = db.projects().query()
                     .limit(100)
                     .filter(not(newFilterBuilder(Project.class)
@@ -349,9 +349,9 @@ public abstract class TableQueryBuilderTest extends RepositoryTestSupport {
         Project p1 = new Project(new Project.Id("uuid002"), "AAA");
         Project inOutput = new Project(new Project.Id("uuid333"), "WWW");
         Project p2 = new Project(new Project.Id("uuid777"), "XXX");
-        db.tx(() -> db.projects().insert(p1, p2, inOutput));
+        tx.run(db -> db.projects().insert(p1, p2, inOutput));
 
-        db.tx(() -> {
+        tx.run(db -> {
             List<Project> page = db.projects().query()
                     .limit(100)
                     .filter(not(newFilterBuilder(Project.class)
@@ -367,9 +367,9 @@ public abstract class TableQueryBuilderTest extends RepositoryTestSupport {
         Project p1 = new Project(new Project.Id("uuid002"), "AAA");
         Project inOutput = new Project(new Project.Id("uuid333"), "WWW");
         Project p2 = new Project(new Project.Id("uuid777"), "XXX");
-        db.tx(() -> db.projects().insert(p1, p2, inOutput));
+        tx.run(db -> db.projects().insert(p1, p2, inOutput));
 
-        db.tx(() -> {
+        tx.run(db -> {
             List<Project> page = db.projects().query()
                     .limit(100)
                     .filter(not(newFilterBuilder(Project.class)
@@ -422,9 +422,9 @@ public abstract class TableQueryBuilderTest extends RepositoryTestSupport {
                 "CUSTOM NAMED COLUMN",
                 null
         );
-        db.tx(() -> db.typeFreaks().insert(tf));
+        tx.run(db -> db.typeFreaks().insert(tf));
 
-        db.tx(() -> {
+        tx.run(db -> {
             List<TypeFreak> page = db.typeFreaks().query()
                     .limit(50)
                     .where("customNamedColumn").eq("CUSTOM NAMED COLUMN")
@@ -439,13 +439,14 @@ public abstract class TableQueryBuilderTest extends RepositoryTestSupport {
         Project p1 = new Project(new Project.Id("uuid002"), "AAA");
         Project inOutput = new Project(new Project.Id("uuid333"), "WWW");
         Project p2 = new Project(new Project.Id("uuid777"), "XXX");
-        db.tx(() -> db.projects().insert(p1, p2, inOutput));
+        tx.run(db -> db.projects().insert(p1, p2, inOutput));
 
-        assertThat(db.tx(() -> db.projects().query()
+        List<Project> found = tx.call(db -> db.projects().query()
                 .and("id").in(p1.getId(), inOutput.getId())
                 .where("name").in(p2.getName())
                 .find()
-        )).isEmpty();
+        );
+        assertThat(found).isEmpty();
     }
 
     @Test
@@ -453,13 +454,14 @@ public abstract class TableQueryBuilderTest extends RepositoryTestSupport {
         Project p1 = new Project(new Project.Id("uuid002"), "AAA");
         Project inOutput = new Project(new Project.Id("uuid333"), "WWW");
         Project p2 = new Project(new Project.Id("uuid777"), "XXX");
-        db.tx(() -> db.projects().insert(p1, p2, inOutput));
+        tx.run(db -> db.projects().insert(p1, p2, inOutput));
 
-        assertThat(db.tx(() -> db.projects().query()
+        List<Project> found = tx.call(db -> db.projects().query()
                 .where("id").in(p1.getId(), inOutput.getId())
                 .where("name").in(p2.getName())
                 .find()
-        )).isEmpty();
+        );
+        assertThat(found).isEmpty();
     }
 
     @Test
@@ -467,13 +469,14 @@ public abstract class TableQueryBuilderTest extends RepositoryTestSupport {
         Project p1 = new Project(new Project.Id("uuid002"), "AAA");
         Project inOutput = new Project(new Project.Id("uuid333"), "WWW");
         Project p2 = new Project(new Project.Id("uuid777"), "XXX");
-        db.tx(() -> db.projects().insert(p1, p2, inOutput));
+        tx.run(db -> db.projects().insert(p1, p2, inOutput));
 
-        assertThat(db.tx(() -> db.projects().query()
+        List<Project> found = tx.call(db -> db.projects().query()
                 .and("id").in(p1.getId(), inOutput.getId())
                 .and("name").in(p2.getName())
                 .find()
-        )).isEmpty();
+        );
+        assertThat(found).isEmpty();
     }
 
     @Test
@@ -481,13 +484,14 @@ public abstract class TableQueryBuilderTest extends RepositoryTestSupport {
         Project p1 = new Project(new Project.Id("uuid002"), "AAA");
         Project inOutput = new Project(new Project.Id("uuid333"), "WWW");
         Project p2 = new Project(new Project.Id("uuid777"), "XXX");
-        db.tx(() -> db.projects().insert(p1, p2, inOutput));
+        tx.run(db -> db.projects().insert(p1, p2, inOutput));
 
-        assertThat(db.tx(() -> db.projects().query()
+        List<Project> found = tx.call(db -> db.projects().query()
                 .or("name").eq(p1.getName()) // funny way to write WHERE name='...'
                 .where("id").eq(p2.getId())  // funny way to write ...AND id='...'
                 .find()
-        )).isEmpty();
+        );
+        assertThat(found).isEmpty();
     }
 
     @Test
@@ -495,13 +499,14 @@ public abstract class TableQueryBuilderTest extends RepositoryTestSupport {
         Project p1 = new Project(new Project.Id("uuid002"), "AAA");
         Project inOutput = new Project(new Project.Id("uuid333"), "WWW");
         Project p2 = new Project(new Project.Id("uuid777"), "XXX");
-        db.tx(() -> db.projects().insert(p1, p2, inOutput));
+        tx.run(db -> db.projects().insert(p1, p2, inOutput));
 
-        assertThat(db.tx(() -> db.projects().query()
+        List<Project> found = tx.call(db -> db.projects().query()
                 .or("name").eq(p1.getName()) // funny way to write WHERE name='...'
                 .and("id").eq(p2.getId())    // funny way to write ...AND id='...'
                 .find()
-        )).isEmpty();
+        );
+        assertThat(found).isEmpty();
     }
 
     @Test
@@ -510,9 +515,9 @@ public abstract class TableQueryBuilderTest extends RepositoryTestSupport {
         Complex c2 = new Complex(new Complex.Id(999_999, 15L, "UUU", Complex.Status.OK));
         Complex c3 = new Complex(new Complex.Id(999_999, 15L, "KKK", Complex.Status.OK));
         Complex c4 = new Complex(new Complex.Id(999_999, 15L, "AAA", Complex.Status.OK));
-        db.tx(() -> db.complexes().insert(c1, c2, c3, c4));
+        tx.run(db -> db.complexes().insert(c1, c2, c3, c4));
 
-        db.tx(() -> {
+        tx.run(db -> {
             List<Complex> page = db.complexes().query()
                     .limit(3)
                     .filter(fb -> fb
@@ -530,9 +535,9 @@ public abstract class TableQueryBuilderTest extends RepositoryTestSupport {
         Complex c2 = new Complex(new Complex.Id(999_999, 15L, "UUU", Complex.Status.OK));
         Complex c3 = new Complex(new Complex.Id(999_999, 15L, "KKK", Complex.Status.OK));
         Complex c4 = new Complex(new Complex.Id(999_999, 15L, "AAA", Complex.Status.OK));
-        db.tx(() -> db.complexes().insert(c1, c2, c3, c4));
+        tx.run(db -> db.complexes().insert(c1, c2, c3, c4));
 
-        db.tx(() -> {
+        tx.run(db -> {
             List<Complex> page = db.complexes().query()
                     .limit(3)
                     .filter(fb -> fb
