@@ -5,7 +5,6 @@ import com.google.common.reflect.TypeToken;
 import lombok.AccessLevel;
 import lombok.NoArgsConstructor;
 import lombok.NonNull;
-import tech.ydb.yoj.databind.FieldValueType;
 
 import java.beans.ConstructorProperties;
 import java.lang.reflect.Constructor;
@@ -21,18 +20,8 @@ import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toMap;
 
 @NoArgsConstructor(access = AccessLevel.PRIVATE)
-/*package*/ final class StrictPojoFactory implements StdReflector.TypeFactory {
+/*package*/ final class StrictPojoFactory extends BasePojoFactory {
     public static final StrictPojoFactory INSTANCE = new StrictPojoFactory();
-
-    @Override
-    public int priority() {
-        return 100;
-    }
-
-    @Override
-    public boolean matches(Class<?> __, FieldValueType fvt) {
-        return fvt.isComposite();
-    }
 
     /// Locates the "all-arguments" constructor for the given POJO type, requiring that constructor to:
     /// - be non-synthetic,
@@ -55,7 +44,7 @@ import static java.util.stream.Collectors.toMap;
     /// @throws IllegalArgumentException no matching all-args constructor is found
     /// @throws IllegalArgumentException multiple matching all-args constructors found
     @Override
-    public <R> ReflectType<R> create(Reflector reflector, Class<R> type, FieldValueType __) {
+    protected <R> PojoType<R> createPojoType(Reflector reflector, Class<R> type) {
         // Collect entity's declared instance (non-`static`) fields that are not `transient`
         Map<String, Field> entityFields = Stream.of(type.getDeclaredFields())
                 .filter(PojoType::isEntityField)
@@ -96,9 +85,7 @@ import static java.util.stream.Collectors.toMap;
                 "Multiple all-args constructors match for <%s>:\n%s",
                 type, validMatches.stream().map(c -> c.getConstructor().toGenericString()).collect(joining("\n")));
 
-        PojoType<R> pojoType = validMatches.iterator().next();
-        pojoType.getConstructor().setAccessible(true);
-        return pojoType;
+        return validMatches.iterator().next();
     }
 
     /// Verifies a potentially matching constructor against the names and types of entity's declared fields.

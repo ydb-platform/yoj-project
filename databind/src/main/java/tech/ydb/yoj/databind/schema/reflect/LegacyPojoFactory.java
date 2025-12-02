@@ -4,7 +4,6 @@ import lombok.AccessLevel;
 import lombok.NoArgsConstructor;
 import lombok.NonNull;
 import tech.ydb.yoj.DeprecationWarnings;
-import tech.ydb.yoj.databind.FieldValueType;
 
 import java.beans.ConstructorProperties;
 import java.lang.reflect.Constructor;
@@ -16,18 +15,8 @@ import static java.util.Comparator.comparing;
 
 @Deprecated(forRemoval = true)
 @NoArgsConstructor(access = AccessLevel.PRIVATE)
-/*package*/ final class LegacyPojoFactory implements StdReflector.TypeFactory {
+/*package*/ final class LegacyPojoFactory extends BasePojoFactory {
     public static final LegacyPojoFactory INSTANCE = new LegacyPojoFactory();
-
-    @Override
-    public int priority() {
-        return 100;
-    }
-
-    @Override
-    public boolean matches(Class<?> __, FieldValueType fvt) {
-        return fvt.isComposite();
-    }
 
     /// Locates the "all-arguments" constructor for the given POJO type, assuming the constructor must be:
     /// - non-synthetic,
@@ -47,7 +36,7 @@ import static java.util.Comparator.comparing;
     /// the `lenientGetAllArgsCtor()`'s requirements, **an arbitrary one will be returned, potentially leading to
     /// incidents!**
     @Override
-    public <R> ReflectType<R> create(Reflector reflector, Class<R> type, FieldValueType __) {
+    protected <R> PojoType<R> createPojoType(Reflector reflector, Class<R> type) {
         DeprecationWarnings.warnOnce("PojoType.lenientGetAllArgsCtor",
                 """
                 You're using a deprecated all-args constructor discovery mode.\
@@ -75,7 +64,6 @@ import static java.util.Comparator.comparing;
                     .<ReflectField>map(f -> new PojoField(reflector, f))
                     .toList();
         }
-        ctor.setAccessible(true);
         return new PojoType<>(type, ctor, fields);
     }
 
