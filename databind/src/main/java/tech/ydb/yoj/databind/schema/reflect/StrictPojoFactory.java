@@ -86,15 +86,17 @@ import static java.util.stream.Collectors.toMap;
         }
 
         Preconditions.checkArgument(!validMatches.isEmpty(),
-                """
-                        No declared constructor matches field count (%s) and is compatible with field types of <%s>.\
-                        The match errors are:
-                        %s""",
-                fieldCount, type, matchErrors.stream().map(Object::toString).collect(joining("\n")));
+                "<%s> has no declared constructors compatible with entity field count, names and types. Tried:\n%s",
+                type.getTypeName(),
+                matchErrors.stream().map(Object::toString).collect(joining("\n- ", "- ", "")));
 
         Preconditions.checkArgument(validMatches.size() == 1,
-                "Multiple all-args constructors match for <%s>:\n%s",
-                type, validMatches.stream().map(c -> c.getConstructor().toGenericString()).collect(joining("\n")));
+                "<%s> has multiple declared constructor compatible with entity field count, names and types:\n%s",
+                type.getTypeName(),
+                validMatches.stream()
+                        .map(c -> ctorToShortString(c.getConstructor()))
+                        .collect(joining("\n- ", "- ", ""))
+        );
 
         PojoType<R> pojoType = validMatches.iterator().next();
         pojoType.getConstructor().setAccessible(true);
@@ -127,16 +129,13 @@ import static java.util.stream.Collectors.toMap;
             String pName = paramNames[i];
 
             Field field = entityFields.get(pName);
-            Preconditions.checkArgument(field != null,
-                    "In <%s>, declared field '%s' is either not present, not an instance field, or transient",
-                    type, pName);
+            Preconditions.checkArgument(field != null, "Field '%s' is not found, or is static, or is transient", pName);
 
             TypeToken<?> pType = TypeToken.of(params[i].getParameterizedType());
             Type fieldType = field.getGenericType();
             Preconditions.checkArgument(pType.isSubtypeOf(fieldType),
-                    "In <%s>, declared field '%s' type <%s> is not a subtype of constructor parameter '%s' type <%s>",
-                    type,
-                    field.getName(), fieldType,
+                    "Field '%s' type <%s> is not a subtype of constructor parameter '%s' type <%s>",
+                    field.getName(), fieldType.getTypeName(),
                     pName, pType
             );
 
@@ -185,13 +184,19 @@ import static java.util.stream.Collectors.toMap;
         return paramNames;
     }
 
+    private static String ctorToShortString(Constructor<?> ctor) {
+        return Stream.of(ctor.getParameters())
+                .map(p -> p.getParameterizedType().getTypeName() + " " + p.getName())
+                .collect(joining(", ", "(", ")"));
+    }
+
     /// An unsuccessful POJO all-args constructor match.
     /// @param ctor non-matching constructor
     /// @param exception validation error describing why the [constructor](#ctor) does not match
     private record MatchError(Constructor<?> ctor, IllegalArgumentException exception) {
         @Override
         public @NonNull String toString() {
-            return ctor.toGenericString() + ": " + exception.toString();
+            return ctorToShortString(ctor) + " => " + exception.getMessage();
         }
     }
 }

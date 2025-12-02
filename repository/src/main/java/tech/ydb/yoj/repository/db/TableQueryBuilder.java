@@ -138,9 +138,9 @@ public final class TableQueryBuilder<T extends Entity<T>> {
         if (indexName != null && orderBy == null) {
             String key = "TableQueryBuilder|" + schema.getType().getTypeName() + "|" + indexName;
             DeprecationWarnings.warnOnce(key, """
-                            TableQueryBuilder.index("%s") was called but orderBy()/unordered() was NOT!\
-                            Query results will be fetched through the index BUT ordered by the Entity's ID ascending.\
-                            This is probably NOT what you've intended!\
+                            TableQueryBuilder.index("%s") was called but orderBy()/unordered() was NOT!
+                            Query results will be fetched through the index BUT ordered by the Entity's ID ascending.
+                            This is probably NOT what you've intended!
                             Please use TableQueryBuilder.index("%s", IndexOrder.<desired ordering>) instead""",
                     indexName, indexName
             );

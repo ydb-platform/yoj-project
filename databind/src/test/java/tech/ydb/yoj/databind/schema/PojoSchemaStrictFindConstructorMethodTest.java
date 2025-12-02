@@ -161,7 +161,7 @@ public class PojoSchemaStrictFindConstructorMethodTest {
                         .newInstance(Map.of("lst", List.of(UUID.randomUUID())))
                 )
                 .isExactlyInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("declared field 'lst' type <java.util.List<java.lang.String>> "
+                .hasMessageContaining("Field 'lst' type <java.util.List<java.lang.String>> "
                         + "is not a subtype of constructor parameter 'lst' type <java.util.List<java.util.UUID>>"
                 );
     }
@@ -180,7 +180,7 @@ public class PojoSchemaStrictFindConstructorMethodTest {
                         .newInstance(Map.of("lst", Arrays.asList(new Void[]{null})))
                 )
                 .isExactlyInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("declared field 'lst' type <java.util.List<? extends java.lang.Comparable<?>>> "
+                .hasMessageContaining("Field 'lst' type <java.util.List<? extends java.lang.Comparable<?>>> "
                         + "is not a subtype of constructor parameter 'lst' type <java.util.List<java.lang.Void>>"
                 );
     }
