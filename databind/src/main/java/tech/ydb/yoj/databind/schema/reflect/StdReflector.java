@@ -27,7 +27,7 @@ public final class StdReflector implements Reflector {
     public static final Reflector instance = new StdReflector(List.of(
             RecordType.FACTORY,
             KotlinDataClassTypeFactory.INSTANCE,
-            PojoType.FACTORY,
+            SelectorPojoFactory.INSTANCE,
             SimpleType.FACTORY
     ));
 

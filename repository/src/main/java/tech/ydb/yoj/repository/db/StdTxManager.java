@@ -106,7 +106,7 @@ public final class StdTxManager implements TxManager, TxManagerState {
     }
 
     @Override
-    public StdTxManager withName(String name) {
+    public StdTxManager withName(@NonNull String name) {
         return withTxNameGenerator(new TxNameGenerator.Constant(name));
     }
 
