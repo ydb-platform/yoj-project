@@ -8,6 +8,7 @@ import tech.ydb.yoj.repository.test.sample.model.Bubble;
 import tech.ydb.yoj.repository.test.sample.model.BytePkEntity;
 import tech.ydb.yoj.repository.test.sample.model.Complex;
 import tech.ydb.yoj.repository.test.sample.model.DetachedEntity;
+import tech.ydb.yoj.repository.test.sample.model.EntityWithNullableField;
 import tech.ydb.yoj.repository.test.sample.model.EntityWithValidation;
 import tech.ydb.yoj.repository.test.sample.model.IndexedEntity;
 import tech.ydb.yoj.repository.test.sample.model.LogEntry;
@@ -75,6 +76,8 @@ public interface TestEntityOperations extends BaseDb {
     Table<MultiWrappedEntity> multiWrappedIdEntities();
 
     Table<MultiWrappedEntity2> multiWrappedEntities2();
+
+    Table<EntityWithNullableField> entitiesWithNullableField();
 
     class ProjectTable extends AbstractDelegatingTable<Project> {
         public ProjectTable(Table<Project> target) {

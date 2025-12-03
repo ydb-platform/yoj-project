@@ -51,6 +51,7 @@ import tech.ydb.yoj.repository.test.sample.model.Complex;
 import tech.ydb.yoj.repository.test.sample.model.Complex.Id;
 import tech.ydb.yoj.repository.test.sample.model.DetachedEntity;
 import tech.ydb.yoj.repository.test.sample.model.DetachedEntityId;
+import tech.ydb.yoj.repository.test.sample.model.EntityWithNullableField;
 import tech.ydb.yoj.repository.test.sample.model.EntityWithValidation;
 import tech.ydb.yoj.repository.test.sample.model.EnumEntity;
 import tech.ydb.yoj.repository.test.sample.model.IndexedEntity;
@@ -3220,6 +3221,42 @@ public abstract class RepositoryTest extends RepositoryTestSupport {
         assertThat(listRequest.getParams().getFilter()).isNotNull().extracting(Object::hashCode).isEqualTo(75992543);
         assertThat(listRequest.getParams().getOrderBy()).isNotNull().extracting(Object::hashCode).isEqualTo(-129411994);
         assertThat(listRequest.getParams().hash()).isEqualTo(8087092510576300258L);
+    }
+
+    @Test
+    public void nullOrderingAsc() {
+        EntityWithNullableField e1 = new EntityWithNullableField(new EntityWithNullableField.Id("id1"), "apple");
+        EntityWithNullableField e2 = new EntityWithNullableField(new EntityWithNullableField.Id("id2"), null);
+        EntityWithNullableField e3 = new EntityWithNullableField(new EntityWithNullableField.Id("id3"), "banana");
+        EntityWithNullableField e4 = new EntityWithNullableField(new EntityWithNullableField.Id("id4"), null);
+        db.tx(() -> db.entitiesWithNullableField().insert(e1, e2, e3, e4));
+
+        var results = db.tx(() -> db.entitiesWithNullableField().query()
+                .orderBy(ob -> ob.orderBy("nullableField").ascending())
+                .find());
+
+        // NULLs come first in ASC order; order among NULLs is not defined
+        assertThat(results).hasSize(4);
+        assertThat(results.subList(0, 2)).containsExactlyInAnyOrder(e2, e4);
+        assertThat(results.subList(2, 4)).containsExactly(e1, e3);
+    }
+
+    @Test
+    public void nullOrderingDesc() {
+        EntityWithNullableField e1 = new EntityWithNullableField(new EntityWithNullableField.Id("id1"), "apple");
+        EntityWithNullableField e2 = new EntityWithNullableField(new EntityWithNullableField.Id("id2"), null);
+        EntityWithNullableField e3 = new EntityWithNullableField(new EntityWithNullableField.Id("id3"), "banana");
+        EntityWithNullableField e4 = new EntityWithNullableField(new EntityWithNullableField.Id("id4"), null);
+        db.tx(() -> db.entitiesWithNullableField().insert(e1, e2, e3, e4));
+
+        var results = db.tx(() -> db.entitiesWithNullableField().query()
+                .orderBy(ob -> ob.orderBy("nullableField").descending())
+                .find());
+
+        // NULLs come last in DESC order; order among NULLs is not defined
+        assertThat(results).hasSize(4);
+        assertThat(results.subList(0, 2)).containsExactly(e3, e1);
+        assertThat(results.subList(2, 4)).containsExactlyInAnyOrder(e2, e4);
     }
 
     protected void runInTx(Consumer<RepositoryTransaction> action) {

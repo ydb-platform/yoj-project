@@ -146,6 +146,15 @@ public final class YqlOrderBy implements YqlStatementPart<YqlOrderBy> {
         return keys.isEmpty() ? "unordered" : format("order by %s", keys.stream().map(Object::toString).collect(joining(", ")));
     }
 
+    /**
+     * Sort order for {@code ORDER BY} clause.
+     * <p><strong>NULL Ordering:</strong> YDB/YQL follows standard SQL NULL ordering behavior:
+     * <ul>
+     * <li>{@code ASC}: NULL values appear <strong>first</strong> (before all non-NULL values)</li>
+     * <li>{@code DESC}: NULL values appear <strong>last</strong> (after all non-NULL values)</li>
+     * </ul>
+     * YDB does not support explicit {@code NULLS FIRST} or {@code NULLS LAST} modifiers.
+     */
     public enum SortOrder {
         ASC("ASC"),
         DESC("DESC");

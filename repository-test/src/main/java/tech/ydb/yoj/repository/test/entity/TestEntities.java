@@ -10,6 +10,7 @@ import tech.ydb.yoj.repository.test.sample.model.Bubble;
 import tech.ydb.yoj.repository.test.sample.model.BytePkEntity;
 import tech.ydb.yoj.repository.test.sample.model.Complex;
 import tech.ydb.yoj.repository.test.sample.model.DetachedEntity;
+import tech.ydb.yoj.repository.test.sample.model.EntityWithNullableField;
 import tech.ydb.yoj.repository.test.sample.model.EntityWithValidation;
 import tech.ydb.yoj.repository.test.sample.model.EnumEntity;
 import tech.ydb.yoj.repository.test.sample.model.IndexedEntity;
@@ -50,6 +51,7 @@ public final class TestEntities {
             Book.class, Book.ByAuthor.class, Book.ByTitle.class,
             LogEntry.class, Team.class,
             BytePkEntity.class,
+            EntityWithNullableField.class,
             EntityWithValidation.class,
             Bubble.class,
             IndexedEntity.class,

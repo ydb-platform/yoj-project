@@ -72,6 +72,7 @@ import tech.ydb.yoj.repository.test.sample.TestDb;
 import tech.ydb.yoj.repository.test.sample.TestDbImpl;
 import tech.ydb.yoj.repository.test.sample.model.Bubble;
 import tech.ydb.yoj.repository.test.sample.model.ChangefeedEntity;
+import tech.ydb.yoj.repository.test.sample.model.EntityWithNullableField;
 import tech.ydb.yoj.repository.test.sample.model.IndexedEntity;
 import tech.ydb.yoj.repository.test.sample.model.MultiWrappedEntity;
 import tech.ydb.yoj.repository.test.sample.model.Project;
@@ -142,6 +143,7 @@ public class YdbRepositoryIntegrationTest extends RepositoryTest {
         repository.schema(SubdirEntity.class).create();
         repository.schema(TtlEntity.class).create();
         repository.schema(ChangefeedEntity.class).create();
+        repository.schema(EntityWithNullableField.class).create();
         return repository;
     }
 
