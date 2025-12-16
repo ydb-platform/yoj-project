@@ -1,5 +1,6 @@
 package tech.ydb.yoj.repository.test.sample.model;
 
+import lombok.NonNull;
 import lombok.Value;
 import lombok.With;
 import tech.ydb.yoj.databind.schema.GlobalIndex;
@@ -11,6 +12,7 @@ import tech.ydb.yoj.repository.db.Table;
 public class UniqueProject implements Entity<UniqueProject> {
     Id id;
     @With
+    @NonNull
     String name;
     @With
     int version;

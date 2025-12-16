@@ -12,19 +12,18 @@ import lombok.RequiredArgsConstructor;
 import lombok.With;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.slf4j.MDC;
 import tech.ydb.yoj.ExperimentalApi;
 import tech.ydb.yoj.repository.db.cache.TransactionLog;
 import tech.ydb.yoj.repository.db.exception.QueryInterruptedException;
 import tech.ydb.yoj.repository.db.exception.RetryableException;
 import tech.ydb.yoj.util.lang.Strings;
+import tech.ydb.yoj.util.log.MdcSetup;
 
 import javax.annotation.Nullable;
 import java.time.Duration;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Supplier;
 
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static tech.ydb.yoj.repository.db.IsolationLevel.ONLINE_CONSISTENT_READ_ONLY;
@@ -91,8 +90,6 @@ public final class StdTxManager implements TxManager, TxManagerState {
     private final SeparatePolicy separatePolicy;
     @With
     private final TxNameGenerator txNameGenerator;
-
-    private final long txLogId = txLogIdSeq.incrementAndGet();
 
     public StdTxManager(@NonNull Repository repository) {
         this(
@@ -196,19 +193,19 @@ public final class StdTxManager implements TxManager, TxManagerState {
 
         checkSeparatePolicy(separatePolicy, txName.logName());
 
+        long txLogId = txLogIdSeq.incrementAndGet();
+
         RetryableException lastRetryableException = null;
         TxImpl lastTx = null;
-        try (Timer ignored = totalDuration.labels(name).startTimer()) {
+        Timer totalTimer = totalDuration.labels(name).startTimer();
+        MdcSetup mdcs = txMdcs(txName, txLogId);
+        try {
             for (int attempt = 1; attempt <= maxAttemptCount; attempt++) {
+                attempts.labels(name).observe(attempt);
+                mdcs.put("tx-attempt", attempt);
                 try {
-                    attempts.labels(name).observe(attempt);
                     T result;
-                    try (
-                            var ignored1 = attemptDuration.labels(name).startTimer();
-                            var ignored2 = MDC.putCloseable("tx", formatTx(txName));
-                            var ignored3 = MDC.putCloseable("tx-id", formatTxId());
-                            var ignored4 = MDC.putCloseable("tx-name", txName.logName())
-                    ) {
+                    try (Timer ignored = attemptDuration.labels(name).startTimer()) {
                         RepositoryTransaction transaction = repository.startTransaction(options);
                         lastTx = new TxImpl(name, transaction, options);
                         result = lastTx.run(supplier);
@@ -225,12 +222,7 @@ public final class StdTxManager implements TxManager, TxManagerState {
                     retries.labels(name, getExceptionNameForMetric(e)).inc();
                     lastRetryableException = e;
                     if (attempt + 1 <= maxAttemptCount) {
-                        try {
-                            MILLISECONDS.sleep(e.getRetryPolicy().calcDuration(attempt).toMillis());
-                        } catch (InterruptedException ex) {
-                            Thread.currentThread().interrupt();
-                            throw new QueryInterruptedException("DB query interrupted", ex);
-                        }
+                        sleepBeforeNextAttempt(e, attempt);
                     }
                 } catch (Exception e) {
                     results.labels(name, "rollback").inc();
@@ -241,9 +233,16 @@ public final class StdTxManager implements TxManager, TxManagerState {
 
             throw requireNonNull(lastRetryableException).rethrow();
         } finally {
-            if (!options.isDryRun() && lastTx != null) {
-                lastTx.runDeferredFinally();
+            // If we use try-with-resources with `totalTimer`, the total tx duration won't include the duration
+            // of lastTx.runDeferredFinally()! So we manually stop the timer *after* we attempt to run deferred logic:
+            try {
+                if (!options.isDryRun() && lastTx != null) {
+                    lastTx.runDeferredFinally();
+                }
+            } finally {
+                totalTimer.close();
             }
+            mdcs.restore();
         }
     }
 
@@ -254,12 +253,14 @@ public final class StdTxManager implements TxManager, TxManagerState {
 
         switch (separatePolicy) {
             case ALLOW -> {
+                // Do nothing
             }
-            case STRICT ->
-                    throw new IllegalStateException(format("Transaction %s was run when another transaction is active", txName));
-            case LOG ->
-                    log.warn("Transaction '{}' was run when another transaction is active. Perhaps unexpected behavior. " +
-                            "Use TxManager.separate() to avoid this message", txName);
+            case STRICT -> throw new IllegalStateException(
+                    "Transaction '" + txName + "' was run when another transaction is active"
+            );
+            case LOG -> log.warn("""
+                    Transaction '{}' was run when another transaction is active. Perhaps unexpected behavior. \
+                    Use TxManager.separate() to avoid this message""", txName);
         }
     }
 
@@ -267,12 +268,32 @@ public final class StdTxManager implements TxManager, TxManagerState {
         return Strings.removeSuffix(e.getClass().getSimpleName(), "Exception");
     }
 
-    private String formatTx(TxName txName) {
-        return formatTxId() + " {" + txName.logName() + (logContext != null ? "/" + logContext : "") + "}";
+    private MdcSetup txMdcs(TxName txName, long txLogId) {
+        MdcSetup mdcStack = new MdcSetup();
+        mdcStack.put("tx", formatTx(txName, txLogId))
+                .put("tx-id", formatTxId(txLogId))
+                .put("tx-name", txName.logName());
+        if (logContext != null) {
+            mdcStack.put("tx-context", logContext);
+        }
+        return mdcStack;
     }
 
-    private String formatTxId() {
+    private String formatTx(TxName txName, long txLogId) {
+        return formatTxId(txLogId) + " {" + txName.logName() + (logContext != null ? "/" + logContext : "") + "}";
+    }
+
+    private String formatTxId(long txLogId) {
         return Strings.leftPad(Long.toUnsignedString(txLogId, 36), 6, '0') + options.getIsolationLevel().getTxIdSuffix();
+    }
+
+    private static void sleepBeforeNextAttempt(RetryableException e, int attempt) {
+        try {
+            MILLISECONDS.sleep(e.getRetryPolicy().calcDuration(attempt).toMillis());
+        } catch (InterruptedException ex) {
+            Thread.currentThread().interrupt();
+            throw new QueryInterruptedException("DB query interrupted", ex);
+        }
     }
 
     @Override

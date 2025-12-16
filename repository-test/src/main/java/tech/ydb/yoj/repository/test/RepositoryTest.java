@@ -4,8 +4,18 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Iterators;
 import lombok.NonNull;
 import lombok.SneakyThrows;
+import org.apache.logging.log4j.Level;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.core.LogEvent;
+import org.apache.logging.log4j.core.LoggerContext;
+import org.apache.logging.log4j.core.appender.AbstractAppender;
+import org.apache.logging.log4j.core.config.Configuration;
+import org.apache.logging.log4j.core.config.LoggerConfig;
+import org.apache.logging.log4j.core.layout.PatternLayout;
 import org.assertj.core.api.Assertions;
 import org.junit.Test;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import tech.ydb.yoj.databind.ByteArray;
 import tech.ydb.yoj.databind.expression.FieldValue;
 import tech.ydb.yoj.databind.expression.FilterExpression;
@@ -107,6 +117,7 @@ import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
+import static org.assertj.core.api.Assertions.assertThatNullPointerException;
 import static org.assertj.core.api.Assertions.fail;
 import static tech.ydb.yoj.repository.db.EntityExpressions.newFilterBuilder;
 
@@ -3257,6 +3268,137 @@ public abstract class RepositoryTest extends RepositoryTestSupport {
         assertThat(results).hasSize(4);
         assertThat(results.subList(0, 2)).containsExactly(e3, e1);
         assertThat(results.subList(2, 4)).containsExactlyInAnyOrder(e2, e4);
+    }
+
+    @Test
+    public void loggingMdcContextEvenOnException() {
+        Logger log = LoggerFactory.getLogger("RepositoryTest");
+
+        LoggerContext loggerContext = (LoggerContext) LogManager.getContext(false);
+        Configuration configuration = loggerContext.getConfiguration();
+        LoggerConfig loggerConfig = configuration.getLoggerConfig(log.getName());
+
+        TestAppender testAppender = new TestAppender("RepositoryTest.TestAppender");
+        loggerConfig.addAppender(testAppender, Level.ERROR, null);
+        testAppender.start();
+
+        StdTxManager txManager = new StdTxManager(this.repository);
+        try {
+            txManager.withName("Hello").tx(() ->
+                    db.table(UniqueProject.class).save(new UniqueProject(new UniqueProject.Id("xxx"), "UNIQUE", 1))
+            );
+
+            AtomicInteger attemptCount = new AtomicInteger();
+            assertThatNullPointerException().isThrownBy(() ->
+                    txManager.withName("Hello", "world-100500").immediateWrites().tx(() -> {
+                        Tx.Current.get().deferFinally(() -> log.error("Finally - 100500"));
+                        log.error("Hey, I got context - 100500!");
+
+                        boolean shouldRetry = attemptCount.incrementAndGet() <= 10;
+                        try {
+                            db.table(UniqueProject.class).save(
+                                    new UniqueProject(new UniqueProject.Id("zzz"), shouldRetry ? "UNIQUE" : null, 2)
+                            );
+                        } catch (EntityAlreadyExistsException e) {
+                            log.error("Entity already exists - 100500!", e);
+                            throw e;
+                        } catch (Exception e) {
+                            log.error("Hey, don't pass null to me - 100500!", e);
+                            throw e;
+                        }
+                    }));
+            txManager.withName("Hello", "world-2001000").tx(() -> {
+                Tx.Current.get().deferBeforeCommit(() -> log.error("Before commit - 2001000"));
+                Tx.Current.get().defer(() -> log.error("Success - 2001000"));
+                Tx.Current.get().deferFinally(() -> log.error("Finally - 2001000"));
+                log.error("Hey, I got context! - 2001000");
+                try {
+                    db.table(UniqueProject.class).save(new UniqueProject(new UniqueProject.Id("yyy"), null, 3));
+                } catch (Exception e) {
+                    log.error("Ignore error - 2001000", e);
+                }
+
+                try {
+                    db.separate().withName("Hello", "world-4002000").tx(() -> {
+                        Tx.Current.get().deferFinally(() -> log.error("Separate tx Finally - 4002000"));
+                        log.error("Hey, separate tx got context! - 4002000");
+                        try {
+                            db.table(UniqueProject.class).save(new UniqueProject(new UniqueProject.Id("zzz"), null, 4));
+                        } catch (Exception e) {
+                            log.error("Ignore separate tx error - inner - 4002000", e);
+                            throw e;
+                        }
+                    });
+                } catch (Exception e) {
+                    log.error("Ignore separate tx error - outer - 2001000", e);
+                }
+            });
+
+            assertThat(testAppender.getMessages()).containsExactly(
+                    "(001) {Hello/world-100500} [main] RepositoryTest: Hey, I got context - 100500!",
+                    "(001) {Hello/world-100500} [main] RepositoryTest: Entity already exists - 100500!",
+                    "(002) {Hello/world-100500} [main] RepositoryTest: Hey, I got context - 100500!",
+                    "(002) {Hello/world-100500} [main] RepositoryTest: Entity already exists - 100500!",
+                    "(003) {Hello/world-100500} [main] RepositoryTest: Hey, I got context - 100500!",
+                    "(003) {Hello/world-100500} [main] RepositoryTest: Entity already exists - 100500!",
+                    "(004) {Hello/world-100500} [main] RepositoryTest: Hey, I got context - 100500!",
+                    "(004) {Hello/world-100500} [main] RepositoryTest: Entity already exists - 100500!",
+                    "(005) {Hello/world-100500} [main] RepositoryTest: Hey, I got context - 100500!",
+                    "(005) {Hello/world-100500} [main] RepositoryTest: Entity already exists - 100500!",
+                    "(006) {Hello/world-100500} [main] RepositoryTest: Hey, I got context - 100500!",
+                    "(006) {Hello/world-100500} [main] RepositoryTest: Entity already exists - 100500!",
+                    "(007) {Hello/world-100500} [main] RepositoryTest: Hey, I got context - 100500!",
+                    "(007) {Hello/world-100500} [main] RepositoryTest: Entity already exists - 100500!",
+                    "(008) {Hello/world-100500} [main] RepositoryTest: Hey, I got context - 100500!",
+                    "(008) {Hello/world-100500} [main] RepositoryTest: Entity already exists - 100500!",
+                    "(009) {Hello/world-100500} [main] RepositoryTest: Hey, I got context - 100500!",
+                    "(009) {Hello/world-100500} [main] RepositoryTest: Entity already exists - 100500!",
+                    "(010) {Hello/world-100500} [main] RepositoryTest: Hey, I got context - 100500!",
+                    "(010) {Hello/world-100500} [main] RepositoryTest: Entity already exists - 100500!",
+                    "(011) {Hello/world-100500} [main] RepositoryTest: Hey, I got context - 100500!",
+                    "(011) {Hello/world-100500} [main] RepositoryTest: Hey, don't pass null to me - 100500!",
+                    "(011) {Hello/world-100500} [main] RepositoryTest: Finally - 100500",
+                    "(001) {Hello/world-2001000} [main] RepositoryTest: Hey, I got context! - 2001000",
+                    "(001) {Hello/world-2001000} [main] RepositoryTest: Ignore error - 2001000",
+                    "(001) {Hello/world-4002000} [main] RepositoryTest: Hey, separate tx got context! - 4002000",
+                    "(001) {Hello/world-4002000} [main] RepositoryTest: Ignore separate tx error - inner - 4002000",
+                    "(001) {Hello/world-4002000} [main] RepositoryTest: Separate tx Finally - 4002000",
+                    "(001) {Hello/world-2001000} [main] RepositoryTest: Ignore separate tx error - outer - 2001000",
+                    "(001) {Hello/world-2001000} [main] RepositoryTest: Before commit - 2001000",
+                    "(001) {Hello/world-2001000} [main] RepositoryTest: Success - 2001000",
+                    "(001) {Hello/world-2001000} [main] RepositoryTest: Finally - 2001000"
+            );
+        } finally {
+            testAppender.clear();
+            testAppender.stop();
+            loggerConfig.removeAppender(testAppender.getName());
+        }
+    }
+
+    private static final class TestAppender extends AbstractAppender {
+        private final List<String> messages = new ArrayList<>();
+        private final PatternLayout layout = PatternLayout.newBuilder()
+                .withCharset(UTF_8)
+                .withPattern("(%03X{tx-attempt}) {%X{tx-name}/%X{tx-context}} [%t] %c{1.}: %msg%ex{none}")
+                .build();
+
+        private TestAppender(String name) {
+            super(name, null, null, true, null);
+        }
+
+        public void clear() {
+            messages.clear();
+        }
+
+        public List<String> getMessages() {
+            return List.copyOf(messages);
+        }
+
+        @Override
+        public void append(LogEvent logEvent) {
+            String formattedMessage = new String(layout.toByteArray(logEvent), UTF_8);
+            messages.add(formattedMessage);
+        }
     }
 
     protected void runInTx(Consumer<RepositoryTransaction> action) {
