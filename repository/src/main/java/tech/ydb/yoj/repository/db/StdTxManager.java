@@ -15,8 +15,10 @@ import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
 import tech.ydb.yoj.ExperimentalApi;
 import tech.ydb.yoj.repository.db.cache.TransactionLog;
+import tech.ydb.yoj.repository.db.exception.ConditionallyRetryableException;
 import tech.ydb.yoj.repository.db.exception.QueryInterruptedException;
 import tech.ydb.yoj.repository.db.exception.RetryableException;
+import tech.ydb.yoj.repository.db.exception.RetryableExceptionBase;
 import tech.ydb.yoj.util.lang.Strings;
 
 import javax.annotation.Nullable;
@@ -74,6 +76,9 @@ public final class StdTxManager implements TxManager, TxManagerState {
             .labelNames("tx_name", "result")
             .register();
     private static final Counter retries = Counter.build("tx_retries", "Tx retry reasons")
+            .labelNames("tx_name", "reason")
+            .register();
+    private static final Counter conditionalRetries = Counter.build("tx_conditional_retries", "Tx conditional retry reasons")
             .labelNames("tx_name", "reason")
             .register();
     private static final AtomicLong txLogIdSeq = new AtomicLong();
@@ -172,6 +177,12 @@ public final class StdTxManager implements TxManager, TxManagerState {
     }
 
     @Override
+    @ExperimentalApi(issue = "https://github.com/ydb-platform/yoj-project/issues/165")
+    public TxManager withRetryOptions(@NonNull TxOptions.RetryOptions retryOptions) {
+        return withOptions(this.options.withRetryOptions(retryOptions));
+    }
+
+    @Override
     public ReadonlyBuilder readOnly() {
         return new ReadonlyBuilderImpl(this.options.withIsolationLevel(ONLINE_CONSISTENT_READ_ONLY));
     }
@@ -196,7 +207,7 @@ public final class StdTxManager implements TxManager, TxManagerState {
 
         checkSeparatePolicy(separatePolicy, txName.logName());
 
-        RetryableException lastRetryableException = null;
+        RetryableExceptionBase lastRetryableException = null;
         TxImpl lastTx = null;
         try (Timer ignored = totalDuration.labels(name).startTimer()) {
             for (int attempt = 1; attempt <= maxAttemptCount; attempt++) {
@@ -224,26 +235,42 @@ public final class StdTxManager implements TxManager, TxManagerState {
                 } catch (RetryableException e) {
                     retries.labels(name, getExceptionNameForMetric(e)).inc();
                     lastRetryableException = e;
-                    if (attempt + 1 <= maxAttemptCount) {
-                        try {
-                            MILLISECONDS.sleep(e.getRetryPolicy().calcDuration(attempt).toMillis());
-                        } catch (InterruptedException ex) {
-                            Thread.currentThread().interrupt();
-                            throw new QueryInterruptedException("DB query interrupted", ex);
-                        }
+                    delayBeforeNextAttempt(e, attempt);
+                } catch (ConditionallyRetryableException e) {
+                    boolean commitAttempted = lastTx != null && lastTx.getRepositoryTransaction().wasCommitAttempted();
+                    if (options.canConditionallyRetry(commitAttempted)) {
+                        conditionalRetries.labels(name, getExceptionNameForMetric(e)).inc();
+                        lastRetryableException = e;
+                        delayBeforeNextAttempt(e, attempt);
+                    } else {
+                        results.labels(name, "rollback").inc();
+                        throw e.failImmediately();
                     }
                 } catch (Exception e) {
                     results.labels(name, "rollback").inc();
                     throw e;
                 }
             }
-            results.labels(name, "fail").inc();
 
+            results.labels(name, "fail").inc();
             throw requireNonNull(lastRetryableException).rethrow();
         } finally {
             if (!options.isDryRun() && lastTx != null) {
                 lastTx.runDeferredFinally();
             }
+        }
+    }
+
+    private void delayBeforeNextAttempt(RetryableExceptionBase e, int attempt) {
+        if (attempt + 1 > maxAttemptCount) {
+            return;
+        }
+
+        try {
+            MILLISECONDS.sleep(e.getRetryPolicy().calcDuration(attempt).toMillis());
+        } catch (InterruptedException ex) {
+            Thread.currentThread().interrupt();
+            throw new QueryInterruptedException("DB query interrupted", ex);
         }
     }
 
@@ -263,7 +290,7 @@ public final class StdTxManager implements TxManager, TxManagerState {
         }
     }
 
-    private String getExceptionNameForMetric(RetryableException e) {
+    private static String getExceptionNameForMetric(Exception e) {
         return Strings.removeSuffix(e.getClass().getSimpleName(), "Exception");
     }
 
