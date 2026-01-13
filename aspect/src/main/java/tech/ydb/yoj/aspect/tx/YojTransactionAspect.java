@@ -118,7 +118,7 @@ public class YojTransactionAspect {
      */
     static class CallRetryableException extends RetryableException {
         CallRetryableException(RetryableException e) {
-            super(e.getMessage(), e.getCause());
+            super(e.getMessage(), e);
         }
     }
 
