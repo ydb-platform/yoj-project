@@ -214,6 +214,20 @@
             </properties>
         </profile>
         <profile>
+            <id>coverage</id>
+            <activation>
+                <activeByDefault>false</activeByDefault>
+            </activation>
+            <properties>
+                <test-classes>
+                    **/*Test.class,
+                    **/*Suite.class,
+                    **/*IntegrationTest.class,
+                    **/*IntegrationSuite.class,
+                </test-classes>
+            </properties>
+        </profile>
+        <profile>
             <id>javadoc-and-source</id>
             <activation>
                 <activeByDefault>false</activeByDefault>
@@ -524,16 +538,24 @@
                 <version>${jacoco.version}</version>
                 <executions>
                     <execution>
+                        <id>jacoco-prepare-agent</id>
                         <goals>
                             <goal>prepare-agent</goal>
                         </goals>
+                        <configuration>
+                            <destFile>${project.build.directory}/jacoco.exec</destFile>
+                        </configuration>
                     </execution>
                     <execution>
-                        <id>report</id>
-                        <phase>test</phase>
+                        <id>jacoco-site</id>
+                        <phase>verify</phase>
                         <goals>
                             <goal>report</goal>
                         </goals>
+                        <configuration>
+                            <dataFile>${project.build.directory}/jacoco.exec</dataFile>
+                            <outputDirectory>${project.reporting.outputDirectory}/jacoco</outputDirectory>
+                        </configuration>
                     </execution>
                 </executions>
             </plugin>
