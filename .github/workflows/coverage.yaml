@@ -27,7 +27,7 @@ jobs:
           cache: 'maven'
 
       - name: Build with Maven
-        run: mvn $MAVEN_ARGS clean test
+        run: mvn $MAVEN_ARGS -Plombok,integration-test clean verify
 
       - name: Add coverage to PR
         id: jacoco
