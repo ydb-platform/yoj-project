@@ -201,7 +201,6 @@ public final class StdTxManager implements TxManager, TxManagerState {
         MdcSetup mdcs = txMdcs(txName, txLogId);
         try {
             for (int attempt = 1; attempt <= maxAttemptCount; attempt++) {
-                attempts.labels(name).observe(attempt);
                 mdcs.put("tx-attempt", attempt);
                 try {
                     T result;
@@ -217,6 +216,7 @@ public final class StdTxManager implements TxManager, TxManagerState {
                     } else {
                         results.labels(name, "commit").inc();
                     }
+                    attempts.labels(name).observe(attempt);
                     return result;
                 } catch (RetryableException e) {
                     retries.labels(name, getExceptionNameForMetric(e)).inc();
