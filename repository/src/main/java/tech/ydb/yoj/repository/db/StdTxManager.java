@@ -198,10 +198,11 @@ public final class StdTxManager implements TxManager, TxManagerState {
         RetryableException lastRetryableException = null;
         TxImpl lastTx = null;
         Timer totalTimer = totalDuration.labels(name).startTimer();
+        int totalAttempts = 0;
         MdcSetup mdcs = txMdcs(txName, txLogId);
         try {
             for (int attempt = 1; attempt <= maxAttemptCount; attempt++) {
-                attempts.labels(name).observe(attempt);
+                totalAttempts++;
                 mdcs.put("tx-attempt", attempt);
                 try {
                     T result;
@@ -230,9 +231,10 @@ public final class StdTxManager implements TxManager, TxManagerState {
                 }
             }
             results.labels(name, "fail").inc();
-
             throw requireNonNull(lastRetryableException).rethrow();
         } finally {
+            attempts.labels(name).observe(totalAttempts);
+
             // If we use try-with-resources with `totalTimer`, the total tx duration won't include the duration
             // of lastTx.runDeferredFinally()! So we manually stop the timer *after* we attempt to run deferred logic:
             try {
