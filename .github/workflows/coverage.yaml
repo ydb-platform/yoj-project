@@ -1,8 +1,6 @@
 name: Measure coverage
 
 on:
-  push:
-    branches: [main]
   pull_request:
     branches: [main]
     types: [opened, synchronize, reopened, edited, ready_for_review]
