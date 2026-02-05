@@ -34,7 +34,7 @@ public final class StdReflector implements Reflector {
     /// Enables or disables *strict* reflection mode (which currently only affects POJO constructor lookup).
     /// Backwards Compatibility:
     /// - YOJ 2.7.x: *strict* reflection mode is off by default.
-    /// - YOJ 2.8.x: the hope is that the strict mode is on by default and cannot be disabled.
+    /// - YOJ 3.0.x: the hope is that the strict mode is on by default and cannot be disabled.
     @Deprecated(forRemoval = true)
     /*package*/ static volatile boolean strictMode = false;
 

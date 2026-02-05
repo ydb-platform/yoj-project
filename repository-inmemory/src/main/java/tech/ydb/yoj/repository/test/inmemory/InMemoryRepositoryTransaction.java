@@ -66,7 +66,7 @@ public class InMemoryRepositoryTransaction implements BaseDb, RepositoryTransact
     }
 
     /**
-     * @deprecated {@code DbMemory} and this method will be removed in YOJ 2.8.0.
+     * @deprecated {@code DbMemory} and this method will be removed in YOJ 2.9.0.
      */
     @Deprecated(forRemoval = true)
     public final <T extends Entity<T>> InMemoryTable.DbMemory<T> getMemory(Class<T> c) {
