@@ -73,7 +73,9 @@ public final class MdcSetup {
     /// - If there was a previous value for an MDC entry, it will be [restored][org.slf4j.MDC#put(String, String)]
     /// - If there was no previous value for an MDC entry, the entry will be [removed][org.slf4j.MDC#remove(String)]
     public void restore() {
-        for (var entry : prevState.entrySet()) {
+        var iter = prevState.entrySet().iterator();
+        while (iter.hasNext()) {
+            var entry = iter.next();
             String key = entry.getKey();
             String prevValue = entry.getValue();
             if (prevValue == null) {
@@ -81,6 +83,7 @@ public final class MdcSetup {
             } else {
                 MDC.put(key, prevValue);
             }
+            iter.remove();
         }
     }
 }
