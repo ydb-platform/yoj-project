@@ -170,6 +170,9 @@
         <snakeyaml.version>2.4</snakeyaml.version>
         <aspectjweaver.version>1.9.24</aspectjweaver.version>
         <system-stubs.version>2.1.7</system-stubs.version>
+
+        <!-- Empty default for the `argLine` property used by JaCoCo -->
+        <argLine/>
     </properties>
 
     <profiles>
