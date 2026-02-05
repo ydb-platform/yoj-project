@@ -75,7 +75,7 @@ import static org.eclipse.collections.impl.tuple.Tuples.pair;
         } catch (ConversionException e) {
             throw e;
         } catch (Exception e) {
-            String message = format("Could not convert %s: %s", schema.getTypeName(), e.getMessage());
+            String message = format("Could not convert <%s>: %s", schema.getTypeName(), e.getMessage());
             throw new ConversionException(message, e);
         }
     }

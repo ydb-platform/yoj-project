@@ -317,7 +317,7 @@ public final class FindInStatement<IN, T extends Entity<T>, RESULT> extends Mult
 
         Preconditions.checkArgument(
                 missingColumns.isEmpty(),
-                "Result schema of '%s' does not contain field(s): [%s] by which the result is ordered: %s".formatted(
+                "Result schema of <%s> does not contain field(s): [%s] by which the result is ordered: %s".formatted(
                         resultSchema.getTypeName(), String.join(", ", missingColumns), orderBy
                 )
         );

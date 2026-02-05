@@ -38,7 +38,7 @@ public class ResultSetReader<RESULT> {
             return resultSchema.newInstance(cells);
         } catch (Exception e) {
             throw new ConversionException(
-                    format("Could not convert %s%s: %s", resultSchema.getTypeName(), id(cells), e.getMessage()),
+                    format("Could not convert <%s> value %s: %s", resultSchema.getTypeName(), id(cells), e.getMessage()),
                     e
             );
         }
