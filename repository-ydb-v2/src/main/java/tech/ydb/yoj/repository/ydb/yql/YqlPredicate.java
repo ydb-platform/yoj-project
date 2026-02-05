@@ -419,7 +419,7 @@ public abstract class YqlPredicate implements YqlStatementPart<YqlPredicate> {
                     .map(this::fieldToYql)
                     .reduce(rel::combine)
                     .orElseThrow(() -> new IllegalStateException(
-                            "No DB fields found for " + fieldPath + " in " + schema.getTypeName()
+                            "No DB fields found for " + fieldPath + " in <" + schema.getTypeName() + ">"
                     ));
         }
 
@@ -785,7 +785,7 @@ public abstract class YqlPredicate implements YqlStatementPart<YqlPredicate> {
                     .map(dbField -> format("`%s` %s", dbField.getName(), type.yql))
                     .reduce(type::combine)
                     .orElseThrow(() -> new IllegalStateException(
-                            "No DB fields found for " + fieldPath + " in " + schema.getTypeName()
+                            "No DB fields found for " + fieldPath + " in <" + schema.getTypeName() + ">"
                     ));
         }
 

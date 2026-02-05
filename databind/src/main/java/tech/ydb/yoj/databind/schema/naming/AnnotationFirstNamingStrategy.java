@@ -1,5 +1,6 @@
 package tech.ydb.yoj.databind.schema.naming;
 
+import com.google.common.base.Preconditions;
 import lombok.NonNull;
 import tech.ydb.yoj.databind.schema.Column;
 import tech.ydb.yoj.databind.schema.Schema;
@@ -12,6 +13,10 @@ public class AnnotationFirstNamingStrategy implements NamingStrategy {
     public String getNameForClass(@NonNull Class<?> entityClass) {
         var annotation = entityClass.getAnnotation(Table.class);
         if (annotation != null && !annotation.name().isEmpty()) {
+            Preconditions.checkState(!annotation.explicitDescriptor(),
+                    "Either use @Table(name=\"...\") or @Table(explicitDescriptor=true), but not both: <%s>",
+                    entityClass.getSimpleName()
+            );
             return annotation.name();
         }
 

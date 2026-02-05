@@ -22,10 +22,18 @@ import static java.lang.annotation.RetentionPolicy.RUNTIME;
 @Target(TYPE)
 @Retention(RUNTIME)
 public @interface Table {
+    /**
+     * Table name to use for the entity.
+     * <p>Defaults to the entity's canonical class name, with Java package name stripped, and {@code .} for static inner
+     * classes replaced by {@code _}.
+     */
+    String name() default "";
 
     /**
-     * The name of the table. Defaults to the type name.
+     * Require users to explicitly specify a {@code TableDescriptor} with a table name,
+     * by using {@code BaseDb.table(TableDescriptor)} method on a {@code new TableDesciptor(<class>, "<table name>")}
+     * instead of the {@code BaseDb.table(Class)} and {@code TableDescriptor.from(EntitySchema)}.
+     * <p>The default is {@code false}.
      */
-    String name();
-
+    boolean explicitDescriptor() default false;
 }

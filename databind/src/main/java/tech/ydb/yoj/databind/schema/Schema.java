@@ -71,9 +71,6 @@ public abstract class Schema<T> {
     private final Class<T> type;
     private final NamingStrategy namingStrategy;
 
-    @Deprecated
-    private final String staticName;
-
     protected Schema(@NonNull Class<T> type) {
         this(type, StdReflector.instance);
     }
@@ -95,8 +92,6 @@ public abstract class Schema<T> {
         this.namingStrategy = key.namingStrategy();
 
         this.reflectType = reflector.reflectRootType(type);
-
-        this.staticName = namingStrategy.getNameForClass(type);
 
         this.fields = reflectType.getFields().stream().map(this::newRootJavaField).toList();
         recurseFields(this.fields)
@@ -124,7 +119,6 @@ public abstract class Schema<T> {
 
         // This is a subfield, *NOT* an Entity, so it has no table name, no TTL, no indexes and no changefeeds
         // (And also, no useful naming strategy, because all field names have already been assigned by the moment you construct a subfield Schema!)
-        this.staticName = "";
         this.ttlModifier = null;
         this.globalIndexes = List.of();
         this.globalIndexesByName = Map.of();
@@ -143,8 +137,17 @@ public abstract class Schema<T> {
         }
     }
 
+    /**
+     * Returns a human-readable name for the {@link #getType() type} that this schema describes.
+     * <p><strong>Warning:</strong> This method is for human use, to aid in debugging. It <strong>must not</strong>
+     * be used programmatically, because the output <em>may</em> differ between YOJ versions, and it does not completely
+     * describe the schema type, <em>e.g.</em>, it gives the same output for types from different packages.
+     *
+     * @return a short human-readable name of the {@link #getType() type} that this schema describes.
+     * Java package name is omitted
+     */
     public final String getTypeName() {
-        return type.getSimpleName();
+        return Types.getShortTypeName(type);
     }
 
     private void validateFieldNames() {
@@ -303,26 +306,6 @@ public abstract class Schema<T> {
         return namingStrategy;
     }
 
-    /**
-     * @deprecated This method will be pulled down to {@code EntitySchema} in YOJ 3.0.0 or even earlier; and it might be removed in YOJ 3.x.
-     * <br>YOJ end-users <strong>should never</strong> use this method themselves. To customize table name, just add the {@link Table} annotation to
-     * an {@code Entity} and specify the desired name in the annotation's {@code name} field. To dynamically choose table name, use
-     * the {@code BaseDb.table(TableDescriptor)} method inside your transaction.
-     * <br>
-     * This method always had somewhat unclear semantics (it was never specified what it returns for anything that's not an {@code EntitySchema})
-     * and unnecessarily coupled the data-binding model ({@code Schema}s) to database concepts (tables, which have names, and implementation-defined
-     * syntax for names and paths).
-     *
-     * @return this {@code Schema}'s "name", as determined by {@code NamingStrategy}. For {@code EntitySchema}, this will be the <em>table name</em>
-     *         that's used if you don't obtain the table with an explicit {@code TableDescriptor}. Other instances of {@code Schema} are not
-     *         guaranteed to return anything meaningful and/or useful from this method, and might return an empty {@code String}
-     *         (but <em>not</em> {@code null}.)
-     */
-    @Deprecated(forRemoval = true)
-    public final String getName() {
-        return staticName;
-    }
-
     public final List<JavaField> flattenFields() {
         return flattenedFieldStream().collect(toList());
     }
@@ -442,10 +425,7 @@ public abstract class Schema<T> {
 
     @Override
     public final String toString() {
-        String schemaClassName = Types.getShortTypeName(getClass());
-        String staticTableName = staticName.isEmpty() ? "" : " \"" + staticName + "\"";
-
-        return schemaClassName + staticTableName + " [type=" + getTypeName() + "]";
+        return Types.getShortTypeName(getClass()) + "<" + getTypeName() + ">";
     }
 
     private static final class DummyCustomValueSubField implements ReflectField {
