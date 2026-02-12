@@ -189,60 +189,59 @@ public final class StdTxManager implements TxManager, TxManagerState {
     @Override
     public <T> T tx(Supplier<T> supplier) {
         TxName txName = txNameGenerator.generate();
-        String name = txName.name();
 
         checkSeparatePolicy(separatePolicy, txName.logName());
 
         long txLogId = txLogIdSeq.incrementAndGet();
 
+        MdcSetup mdcs = txMdcs(txName, txLogId);
+        try (Timer totalTimer = totalDuration.labels(txName.name()).startTimer()) {
+            return runTxWithRetry(txName.name(), mdcs, supplier);
+        } finally {
+            mdcs.restore();
+        }
+    }
+
+    private <T> T runTxWithRetry(String txName, MdcSetup mdcs, Supplier<T> supplier) {
         RetryableException lastRetryableException = null;
         TxImpl lastTx = null;
-        Timer totalTimer = totalDuration.labels(name).startTimer();
-        MdcSetup mdcs = txMdcs(txName, txLogId);
         try {
             for (int attempt = 1; attempt <= maxAttemptCount; attempt++) {
-                attempts.labels(name).observe(attempt);
+                attempts.labels(txName).observe(attempt);
                 mdcs.put("tx-attempt", attempt);
                 try {
                     T result;
-                    try (Timer ignored = attemptDuration.labels(name).startTimer()) {
+                    try (Timer ignored = attemptDuration.labels(txName).startTimer()) {
                         RepositoryTransaction transaction = repository.startTransaction(options);
-                        lastTx = new TxImpl(name, transaction, options);
+                        lastTx = new TxImpl(txName, transaction, options);
                         result = lastTx.run(supplier);
                     }
 
                     if (options.isDryRun()) {
-                        results.labels(name, "rollback").inc();
-                        results.labels(name, "dry_run").inc();
+                        results.labels(txName, "rollback").inc();
+                        results.labels(txName, "dry_run").inc();
                     } else {
-                        results.labels(name, "commit").inc();
+                        results.labels(txName, "commit").inc();
                     }
                     return result;
                 } catch (RetryableException e) {
-                    retries.labels(name, getExceptionNameForMetric(e)).inc();
+                    retries.labels(txName, getExceptionNameForMetric(e)).inc();
                     lastRetryableException = e;
                     if (attempt + 1 <= maxAttemptCount) {
                         sleepBeforeNextAttempt(e, attempt);
                     }
                 } catch (Exception e) {
-                    results.labels(name, "rollback").inc();
+                    results.labels(txName, "rollback").inc();
                     throw e;
                 }
             }
-            results.labels(name, "fail").inc();
+            results.labels(txName, "fail").inc();
 
             throw requireNonNull(lastRetryableException).rethrow();
         } finally {
-            // If we use try-with-resources with `totalTimer`, the total tx duration won't include the duration
-            // of lastTx.runDeferredFinally()! So we manually stop the timer *after* we attempt to run deferred logic:
-            try {
-                if (!options.isDryRun() && lastTx != null) {
-                    lastTx.runDeferredFinally();
-                }
-            } finally {
-                totalTimer.close();
+            if (!options.isDryRun() && lastTx != null) {
+                lastTx.runDeferredFinally();
             }
-            mdcs.restore();
         }
     }
 
