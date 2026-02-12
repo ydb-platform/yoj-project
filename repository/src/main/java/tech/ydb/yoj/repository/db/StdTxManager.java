@@ -212,10 +212,9 @@ public final class StdTxManager implements TxManager, TxManagerState {
     }
 
     private <T> T runTxWithRetry(String txName, MdcSetup mdcs, Supplier<T> supplier) {
-        RetryableException lastRetryableException = null;
         TxImpl lastTx = null;
         try {
-            for (int attempt = 1; attempt <= maxAttemptCount; attempt++) {
+            for (int attempt = 1; ; attempt++) {
                 attempts.labels(txName).observe(attempt);
                 mdcs.put("tx-attempt", attempt);
                 try (Timer ignored = attemptDuration.labels(txName).startTimer()) {
@@ -224,18 +223,17 @@ public final class StdTxManager implements TxManager, TxManagerState {
                     return lastTx.run(supplier);
                 } catch (RetryableException e) {
                     retries.labels(txName, getExceptionNameForMetric(e)).inc();
-                    lastRetryableException = e;
-                    if (attempt + 1 <= maxAttemptCount) {
+                    if (attempt < maxAttemptCount) {
                         sleepBeforeNextAttempt(e, attempt);
+                        continue;
                     }
+                    results.labels(txName, "fail").inc();
+                    throw e;
                 } catch (Exception e) {
                     results.labels(txName, "rollback").inc();
                     throw e;
                 }
             }
-            results.labels(txName, "fail").inc();
-
-            throw requireNonNull(lastRetryableException).rethrow();
         } finally {
             if (!options.isDryRun() && lastTx != null) {
                 lastTx.runDeferredFinally();
