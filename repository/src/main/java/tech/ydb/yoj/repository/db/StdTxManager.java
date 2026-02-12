@@ -196,7 +196,16 @@ public final class StdTxManager implements TxManager, TxManagerState {
 
         MdcSetup mdcs = txMdcs(txName, txLogId);
         try (Timer totalTimer = totalDuration.labels(txName.name()).startTimer()) {
-            return runTxWithRetry(txName.name(), mdcs, supplier);
+            T result = runTxWithRetry(txName.name(), mdcs, supplier);
+
+            if (options.isDryRun()) {
+                results.labels(txName.name(), "rollback").inc();
+                results.labels(txName.name(), "dry_run").inc();
+            } else {
+                results.labels(txName.name(), "commit").inc();
+            }
+            
+            return result;
         } finally {
             mdcs.restore();
         }
@@ -209,21 +218,10 @@ public final class StdTxManager implements TxManager, TxManagerState {
             for (int attempt = 1; attempt <= maxAttemptCount; attempt++) {
                 attempts.labels(txName).observe(attempt);
                 mdcs.put("tx-attempt", attempt);
-                try {
-                    T result;
-                    try (Timer ignored = attemptDuration.labels(txName).startTimer()) {
-                        RepositoryTransaction transaction = repository.startTransaction(options);
-                        lastTx = new TxImpl(txName, transaction, options);
-                        result = lastTx.run(supplier);
-                    }
-
-                    if (options.isDryRun()) {
-                        results.labels(txName, "rollback").inc();
-                        results.labels(txName, "dry_run").inc();
-                    } else {
-                        results.labels(txName, "commit").inc();
-                    }
-                    return result;
+                try (Timer ignored = attemptDuration.labels(txName).startTimer()) {
+                    RepositoryTransaction transaction = repository.startTransaction(options);
+                    lastTx = new TxImpl(txName, transaction, options);
+                    return lastTx.run(supplier);
                 } catch (RetryableException e) {
                     retries.labels(txName, getExceptionNameForMetric(e)).inc();
                     lastRetryableException = e;
