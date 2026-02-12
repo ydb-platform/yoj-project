@@ -24,7 +24,6 @@ import java.time.Duration;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Supplier;
 
-import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static tech.ydb.yoj.repository.db.IsolationLevel.ONLINE_CONSISTENT_READ_ONLY;
 import static tech.ydb.yoj.repository.db.IsolationLevel.SERIALIZABLE_READ_WRITE;
@@ -65,7 +64,7 @@ public final class StdTxManager implements TxManager, TxManagerState {
             .labelNames("tx_name")
             .buckets(DURATION_BUCKETS)
             .register();
-    private static final Histogram attempts = Histogram.build("tx_attempts", "Tx attempts spent to success")
+    private static final Histogram attempts = Histogram.build("tx_attempts", "Tx attempts spent")
             .labelNames("tx_name")
             .buckets(TX_ATTEMPTS_BUCKETS)
             .register();
@@ -195,7 +194,7 @@ public final class StdTxManager implements TxManager, TxManagerState {
         long txLogId = txLogIdSeq.incrementAndGet();
 
         MdcSetup mdcs = txMdcs(txName, txLogId);
-        try (Timer totalTimer = totalDuration.labels(txName.name()).startTimer()) {
+        try (Timer ignored = totalDuration.labels(txName.name()).startTimer()) {
             T result = runTxWithRetry(txName.name(), mdcs, supplier);
 
             if (options.isDryRun()) {
@@ -213,10 +212,12 @@ public final class StdTxManager implements TxManager, TxManagerState {
 
     private <T> T runTxWithRetry(String txName, MdcSetup mdcs, Supplier<T> supplier) {
         TxImpl lastTx = null;
+        int attempt = 1;
         try {
-            for (int attempt = 1; ; attempt++) {
-                attempts.labels(txName).observe(attempt);
+            while (true) {
                 mdcs.put("tx-attempt", attempt);
+
+                lastTx = null;
                 try (Timer ignored = attemptDuration.labels(txName).startTimer()) {
                     RepositoryTransaction transaction = repository.startTransaction(options);
                     lastTx = new TxImpl(txName, transaction, options);
@@ -225,19 +226,22 @@ public final class StdTxManager implements TxManager, TxManagerState {
                     retries.labels(txName, getExceptionNameForMetric(e)).inc();
                     if (attempt < maxAttemptCount) {
                         sleepBeforeNextAttempt(e, attempt);
-                        continue;
+                    } else {
+                        results.labels(txName, "fail").inc();
+                        throw e.rethrow();
                     }
-                    results.labels(txName, "fail").inc();
-                    throw e;
                 } catch (Exception e) {
                     results.labels(txName, "rollback").inc();
                     throw e;
                 }
+
+                attempt++;
             }
         } finally {
             if (!options.isDryRun() && lastTx != null) {
                 lastTx.runDeferredFinally();
             }
+            attempts.labels(txName).observe(attempt);
         }
     }
 
