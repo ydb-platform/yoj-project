@@ -1,6 +1,7 @@
 package tech.ydb.yoj.repository.ydb.table;
 
 import tech.ydb.yoj.databind.schema.Schema;
+import tech.ydb.yoj.databind.schema.Schema.JavaField;
 import tech.ydb.yoj.repository.db.Entity;
 import tech.ydb.yoj.repository.db.EntityIdSchema;
 import tech.ydb.yoj.repository.db.Range;
@@ -43,11 +44,11 @@ abstract class BatchFindSpliterator<R, T extends Entity<T>, ID extends Entity.Id
         this.top = YqlLimit.top(batchSize);
         if (partial != null) {
             Range<ID> range = Range.create(this.idSchema, partial);
-            Map<String, Object> eqMap = range.getEqMap();
+            Map<JavaField, Object> eqMap = range.getEqMap();
             this.initialPartialPredicates = this.idSchema
                     .flattenFields().stream()
-                    .filter(f -> eqMap.containsKey(f.getName()))
-                    .map(f -> YqlPredicate.eq(f.getPath(), eqMap.get(f.getName())))
+                    .filter(eqMap::containsKey)
+                    .map(f -> YqlPredicate.eq(f.getPath(), eqMap.get(f)))
                     .collect(toList());
         }
     }
