@@ -3,19 +3,23 @@ package tech.ydb.yoj.repository.test.inmemory;
 import com.google.common.base.Stopwatch;
 import com.google.common.collect.Iterables;
 import lombok.Getter;
+import lombok.NonNull;
 import tech.ydb.yoj.repository.BaseDb;
 import tech.ydb.yoj.repository.db.Entity;
 import tech.ydb.yoj.repository.db.RepositoryTransaction;
 import tech.ydb.yoj.repository.db.Table;
 import tech.ydb.yoj.repository.db.TableDescriptor;
 import tech.ydb.yoj.repository.db.TxOptions;
+import tech.ydb.yoj.repository.db.TxState;
 import tech.ydb.yoj.repository.db.cache.TransactionLocal;
 import tech.ydb.yoj.repository.db.exception.IllegalTransactionIsolationLevelException;
 import tech.ydb.yoj.repository.db.exception.IllegalTransactionScanException;
 import tech.ydb.yoj.repository.db.exception.OptimisticLockException;
 
+import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -35,6 +39,8 @@ public class InMemoryRepositoryTransaction implements BaseDb, RepositoryTransact
     @Getter
     private final InMemoryTxLockWatcher watcher;
     private final InMemoryStorage storage;
+
+    private final TxState state = new State();
 
     private boolean hasWrites = false;
     private Long version = null;
@@ -200,6 +206,44 @@ public class InMemoryRepositoryTransaction implements BaseDb, RepositoryTransact
                     : "[" + size + "]";
         } else {
             return String.valueOf(result);
+        }
+    }
+
+    @Override
+    public TxState getState() {
+        return state;
+    }
+
+    private final class State implements TxState {
+        private final String sessionId = UUID.randomUUID().toString();
+
+        @Override
+        public boolean isActive() {
+            return !isBadSession;
+        }
+
+        @Nullable
+        @Override
+        public String getId() {
+            return isActive() ? getLogTxId() : null;
+        }
+
+        @Nullable
+        @Override
+        public String getSessionId() {
+            return isActive() ? getLogSessionId() : null;
+        }
+
+        @NonNull
+        @Override
+        public String getLogTxId() {
+            return Long.toString(txId, 16);
+        }
+
+        @NonNull
+        @Override
+        public String getLogSessionId() {
+            return sessionId;
         }
     }
 }

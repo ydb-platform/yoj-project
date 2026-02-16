@@ -1,6 +1,5 @@
 package tech.ydb.yoj.repository.ydb;
 
-import com.google.common.base.Preconditions;
 import com.google.common.base.Stopwatch;
 import com.google.common.collect.Iterables;
 import io.grpc.Context;
@@ -49,6 +48,7 @@ import tech.ydb.yoj.repository.db.Table;
 import tech.ydb.yoj.repository.db.TableDescriptor;
 import tech.ydb.yoj.repository.db.Tx;
 import tech.ydb.yoj.repository.db.TxOptions;
+import tech.ydb.yoj.repository.db.TxState;
 import tech.ydb.yoj.repository.db.bulk.BulkParams;
 import tech.ydb.yoj.repository.db.cache.RepositoryCache;
 import tech.ydb.yoj.repository.db.cache.TransactionLocal;
@@ -110,11 +110,14 @@ public class YdbRepositoryTransaction<REPO extends YdbRepository>
     private final RepositoryCache cache;
     private final String tablespace;
 
+    private final State state;
+
     protected final REPO repo;
 
     private Session session = null;
     private Stopwatch sessionSw;
     protected String txId = null;
+    private String firstNonNullSessionId = null; // used for logs
     private String firstNonNullTxId = null; // used for logs
     private String closeAction = null; // used to detect of usage transaction after commit()/rollback()
     private boolean isBadSession = false;
@@ -125,6 +128,7 @@ public class YdbRepositoryTransaction<REPO extends YdbRepository>
         this.transactionLocal = new TransactionLocal(options);
         this.cache = options.isFirstLevelCache() ? RepositoryCache.create() : RepositoryCache.empty();
         this.tablespace = repo.getSchemaOperations().getTablespace();
+        this.state = new State();
     }
 
     private <V> YdbSpliterator<V> createSpliterator(String request, boolean isOrdered) {
@@ -594,41 +598,26 @@ public class YdbRepositoryTransaction<REPO extends YdbRepository>
     }
 
     /**
+     * @deprecated Use {@link YdbRepositoryTransaction#getState()} instead; {@link YdbRepositoryTransaction.State}
+     * is explicitly documented to implement YDB SDK's {@link YdbTransaction} <strong>and</strong> to be
+     * a <em>live view</em> of the transaction state. The old method will be removed in YOJ 2.9.0.
+     *
      * @return YDB SDK {@link YdbTransaction} wrapping this {@code YdbRepositoryTransaction}
      */
+    @Deprecated(forRemoval = true)
     @ExperimentalApi(issue = "https://github.com/ydb-platform/yoj-project/issues/80")
     public YdbTransaction toSdkTransaction() {
-        return new YdbTransaction() {
-            @Nullable
-            @Override
-            public String getId() {
-                return txId;
-            }
+        return state;
+    }
 
-            @Override
-            public TxMode getTxMode() {
-                return switch (options.getIsolationLevel()) {
-                    case SERIALIZABLE_READ_WRITE -> TxMode.SERIALIZABLE_RW;
-                    case ONLINE_CONSISTENT_READ_ONLY -> TxMode.ONLINE_RO;
-                    case ONLINE_INCONSISTENT_READ_ONLY -> TxMode.ONLINE_INCONSISTENT_RO;
-                    case STALE_CONSISTENT_READ_ONLY -> TxMode.STALE_RO;
-                    case SNAPSHOT -> TxMode.SNAPSHOT_RO;
-                    // TxMode.NONE corresponds to DDL statements, and we have no DDL statements in YOJ transactions
-                };
-            }
-
-            @Override
-            public String getSessionId() {
-                Preconditions.checkState(!isBadSession, "No active YDB session (tx closed by YDB side)");
-                Preconditions.checkState(session != null, "No active YDB session");
-                return session.getId();
-            }
-
-            @Override
-            public CompletableFuture<Status> getStatusFuture() {
-                throw new UnsupportedOperationException();
-            }
-        };
+    /**
+     * @return live state of this YDB repository transaction. In addition to {@link TxState}, also implements YDB SDK's
+     * {@link YdbTransaction}
+     */
+    @Override
+    @ExperimentalApi(issue = "https://github.com/ydb-platform/yoj-project/issues/80")
+    public State getState() {
+        return state;
     }
 
     private void doCall(String actionStr, Runnable call) {
@@ -645,6 +634,7 @@ public class YdbRepositoryTransaction<REPO extends YdbRepository>
         if (session == null) {
             // NB: We use getSessionManager() method to allow mocking YdbRepository
             session = repo.getSessionManager().getSession();
+            firstNonNullSessionId = session.getId();
             sessionSw = Stopwatch.createStarted();
         }
     }
@@ -861,6 +851,62 @@ public class YdbRepositoryTransaction<REPO extends YdbRepository>
             } else {
                 return "";
             }
+        }
+    }
+
+    /**
+     * Live state of a YDB {@link RepositoryTransaction}. Implements YDB SDK's {@link YdbTransaction} interface, to
+     * allow for transactional topic reads and writes.
+     *
+     * @see <a href="https://github.com/ydb-platform/yoj-project/issues/80">Issue #80</a>
+     * @see <a href="https://github.com/ydb-platform/yoj-project/blob/main/repository-ydb-v2/src/test/java/tech/ydb/yoj/repository/ydb/YdbRepositoryIntegrationTest.java#L1214">
+     * Example: YdbRepositoryIntegrationTest.transactionalTopicWrites*</a> Tests
+     */
+    public final class State implements TxState, YdbTransaction {
+        @Nullable
+        @Override
+        public String getId() {
+            return txId;
+        }
+
+        @Override
+        public TxMode getTxMode() {
+            return switch (options.getIsolationLevel()) {
+                case SERIALIZABLE_READ_WRITE -> TxMode.SERIALIZABLE_RW;
+                case ONLINE_CONSISTENT_READ_ONLY -> TxMode.ONLINE_RO;
+                case ONLINE_INCONSISTENT_READ_ONLY -> TxMode.ONLINE_INCONSISTENT_RO;
+                case STALE_CONSISTENT_READ_ONLY -> TxMode.STALE_RO;
+                case SNAPSHOT -> TxMode.SNAPSHOT_RO;
+                // TxMode.NONE corresponds to DDL statements, and we have no DDL statements in YOJ transactions
+            };
+        }
+
+        @Nullable
+        @Override
+        public String getSessionId() {
+            return !isBadSession && session != null ? session.getId() : null;
+        }
+
+        @Override
+        public boolean isActive() {
+            return txId != null && !isBadSession && session != null;
+        }
+
+        @Override
+        public CompletableFuture<Status> getStatusFuture() {
+            throw new UnsupportedOperationException();
+        }
+
+        @Nullable
+        @Override
+        public String getLogTxId() {
+            return firstNonNullTxId;
+        }
+
+        @Nullable
+        @Override
+        public String getLogSessionId() {
+            return firstNonNullSessionId;
         }
     }
 }
