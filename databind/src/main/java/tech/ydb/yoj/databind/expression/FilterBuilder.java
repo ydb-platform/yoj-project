@@ -194,7 +194,7 @@ public final class FilterBuilder<T> {
             if (value == null) {
                 return new NullExpr<>(schema, generated, field, operator == EQ ? IS_NULL : IS_NOT_NULL);
             }
-            return new ScalarExpr<>(schema, generated, field, operator, fieldValue(value));
+            return new ScalarExpr<>(schema, generated, field, operator, FieldValue.ofObj(value, field.getJavaField()));
         }
 
         @NonNull
