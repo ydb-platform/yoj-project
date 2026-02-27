@@ -16,6 +16,8 @@ public interface Tx {
 
     RepositoryTransaction getRepositoryTransaction();
 
+    <T extends Entity<T>> Table<T> table(TableDescriptor<T> tableDescriptor);
+
     class Current {
         private static final ThreadLocal<Tx> current = new ThreadLocal<>();
 
@@ -31,7 +33,7 @@ public interface Tx {
             return ctx;
         }
 
-        static <R> R runInTx(Tx tx, Supplier<R> supplier) {
+        static <R> R runInContext(Tx tx, Supplier<R> supplier) {
             Tx existing = current.get();
             current.set(tx);
             try {

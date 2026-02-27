@@ -9,6 +9,8 @@ import tech.ydb.yoj.repository.db.exception.QueryCancelledException;
 import tech.ydb.yoj.repository.db.exception.RetryableException;
 
 import java.time.Duration;
+import java.util.function.Consumer;
+import java.util.function.Function;
 import java.util.function.Supplier;
 
 public interface TxManager {
@@ -204,6 +206,8 @@ public interface TxManager {
      */
     <T> T tx(Supplier<T> supplier);
 
+    <T> T explicitTx(Function<Tx, T> userCodeFunction);
+
     /**
      * Performs the specified action inside a transaction. The action must be idempotent, because it might be executed
      * multiple times in case of {@link OptimisticLockException transaction lock
@@ -212,6 +216,8 @@ public interface TxManager {
      * @param runnable action to perform
      */
     void tx(Runnable runnable);
+
+    void tx(Consumer<Tx> userCodeConsumer);
 
     /**
      * Start a transaction-like session of read-only statements. Each statement will be executed <em>separately</em>,
