@@ -43,7 +43,7 @@ public interface Entity<E extends Entity<E>> extends Table.ViewId<E> {
                     "Entity.Id.resolve()",
                     "You are using Entity.Id.resolve() which will be removed in YOJ 3.0.0. Please use Table.find(ID)"
             );
-            return Tx.Current.get().getRepositoryTransaction().table(getType()).find(this);
+            return Tx.Current.getRepositoryTransaction().table(getType()).find(this);
         }
 
         /**
@@ -58,7 +58,7 @@ public interface Entity<E extends Entity<E>> extends Table.ViewId<E> {
                     "Entity.Id.resolve()",
                     "You are using Entity.Id.resolve(Supplier) which will be removed in YOJ 3.0.0. Please use Table.find(ID, Supplier)"
             );
-            return Tx.Current.get().getRepositoryTransaction().table(getType()).find(this, throwIfAbsent);
+            return Tx.Current.get().table(getType()).find(this, throwIfAbsent);
         }
 
         @SuppressWarnings("unchecked")

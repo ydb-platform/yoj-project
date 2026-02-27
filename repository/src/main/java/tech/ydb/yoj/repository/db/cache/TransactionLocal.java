@@ -30,7 +30,7 @@ public final class TransactionLocal {
     }
 
     public static TransactionLocal get() {
-        return Tx.Current.get().getRepositoryTransaction().getTransactionLocal();
+        return Tx.Current.getRepositoryTransaction().getTransactionLocal();
     }
 
     /**

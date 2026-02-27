@@ -8,7 +8,7 @@ import tech.ydb.yoj.util.lang.Proxies;
 
 public interface BaseDb {
     static <T> T current(Class<T> type) {
-        return Proxies.proxy(type, () -> Tx.Current.get().getRepositoryTransaction());
+        return Proxies.proxy(type, Tx.Current::getRepositoryTransaction);
     }
 
     <T extends Entity<T>> Table<T> table(Class<T> c);

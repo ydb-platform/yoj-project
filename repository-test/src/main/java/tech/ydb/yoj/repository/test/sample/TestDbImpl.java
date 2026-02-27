@@ -17,6 +17,6 @@ public class TestDbImpl<R extends Repository> implements TestDb {
 
     @Delegate
     protected TestEntityOperations db() {
-        return (TestEntityOperations) Tx.Current.get().getRepositoryTransaction();
+        return (TestEntityOperations) Tx.Current.getRepositoryTransaction();
     }
 }

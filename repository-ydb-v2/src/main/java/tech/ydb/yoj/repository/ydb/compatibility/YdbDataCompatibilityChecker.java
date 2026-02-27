@@ -64,7 +64,7 @@ public final class YdbDataCompatibilityChecker {
         Stopwatch sw = Stopwatch.createStarted();
         try {
             txManager.readOnly().noFirstLevelCache().run(() -> {
-                RepositoryTransaction tx = Tx.Current.get().getRepositoryTransaction();
+                Tx tx = Tx.Current.get();
 
                 long checkedCount = tx.table(descriptor).readTable(params).count();
 

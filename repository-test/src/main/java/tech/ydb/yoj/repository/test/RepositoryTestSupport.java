@@ -35,7 +35,7 @@ public abstract class RepositoryTestSupport {
         Set<TableDescriptor<?>> tableDescriptors = repo.tables();
         new StdTxManager(repo).tx(() -> {
             for (TableDescriptor<?> tableDescriptor : tableDescriptors) {
-                Tx.Current.get().getRepositoryTransaction().table(tableDescriptor).deleteAll();
+                Tx.Current.get().table(tableDescriptor).deleteAll();
             }
         });
     }

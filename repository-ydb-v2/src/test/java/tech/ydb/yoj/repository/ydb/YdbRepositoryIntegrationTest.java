@@ -232,7 +232,7 @@ public class YdbRepositoryIntegrationTest extends RepositoryTest {
         db.tx(() -> {
             EntitySchema<WithUnflattenableField> schema = EntitySchema.of(WithUnflattenableField.class);
             var tableDescriptor = TableDescriptor.from(schema);
-            List<GroupByResult> result = ((YdbRepositoryTransaction<?>) Tx.Current.get().getRepositoryTransaction())
+            List<GroupByResult> result = ((YdbRepositoryTransaction<?>) Tx.Current.getRepositoryTransaction())
                     .execute(new YqlStatement<>(tableDescriptor, schema, ObjectSchema.of(GroupByResult.class)) {
                         @Override
                         public String getQuery(String tablespace) {
@@ -824,7 +824,7 @@ public class YdbRepositoryIntegrationTest extends RepositoryTest {
 
     private void testTransactionTakesTimeoutFromGrpcContext(int timeoutMin) {
         db.withTimeout(Duration.ofMinutes(timeoutMin)).tx(() -> {
-            RepositoryTransaction transaction = Tx.Current.get().getRepositoryTransaction();
+            RepositoryTransaction transaction = Tx.Current.getRepositoryTransaction();
             var testTransaction = (TestYdbRepository.TestYdbRepositoryTransaction) transaction;
             var actualTimeout = testTransaction.getOptions().getTimeoutOptions().getTimeout();
             assertThat(actualTimeout.toMinutes()).isEqualTo(timeoutMin);
@@ -1021,7 +1021,7 @@ public class YdbRepositoryIntegrationTest extends RepositoryTest {
     public void ydbTransactionCompatibility() {
         db.tx(() -> {
             // No db tx or session yet!
-            var sdkTx = ((YdbRepositoryTransaction<?>) Tx.Current.get().getRepositoryTransaction()).toSdkTransaction();
+            var sdkTx = ((YdbRepositoryTransaction<?>) Tx.Current.getRepositoryTransaction()).toSdkTransaction();
             assertThatIllegalStateException().isThrownBy(sdkTx::getSessionId);
             assertThat(sdkTx.getId()).isNull();
             assertThat(sdkTx.getTxMode()).isEqualTo(TxMode.SERIALIZABLE_RW);
@@ -1029,7 +1029,7 @@ public class YdbRepositoryIntegrationTest extends RepositoryTest {
 
             // Perform any read - session and tx ID appear
             db.projects().countAll();
-            sdkTx = ((YdbRepositoryTransaction<?>) Tx.Current.get().getRepositoryTransaction()).toSdkTransaction();
+            sdkTx = ((YdbRepositoryTransaction<?>) Tx.Current.getRepositoryTransaction()).toSdkTransaction();
             assertThat(sdkTx.getSessionId()).isNotNull();
             assertThat(sdkTx.getId()).isNotNull();
             assertThat(sdkTx.getTxMode()).isEqualTo(TxMode.SERIALIZABLE_RW);
@@ -1047,7 +1047,7 @@ public class YdbRepositoryIntegrationTest extends RepositoryTest {
 
             db.readOnly().withStatementIsolationLevel(isolationLevel).run(() -> {
                 // No db tx or session yet!
-                var sdkTx = ((YdbRepositoryTransaction<?>) Tx.Current.get().getRepositoryTransaction()).toSdkTransaction();
+                var sdkTx = ((YdbRepositoryTransaction<?>) Tx.Current.getRepositoryTransaction()).toSdkTransaction();
                 assertThatIllegalStateException().isThrownBy(sdkTx::getSessionId);
                 assertThat(sdkTx.getId()).isNull();
                 assertThat(sdkTx.getTxMode()).isEqualTo(txMode);
@@ -1055,7 +1055,7 @@ public class YdbRepositoryIntegrationTest extends RepositoryTest {
 
                 // Perform any read - session and tx ID appear
                 db.projects().countAll();
-                sdkTx = ((YdbRepositoryTransaction<?>) Tx.Current.get().getRepositoryTransaction()).toSdkTransaction();
+                sdkTx = ((YdbRepositoryTransaction<?>) Tx.Current.getRepositoryTransaction()).toSdkTransaction();
                 assertThat(sdkTx.getSessionId()).isNotNull();
                 // Read transactions might have no ID or might have an ID, depending on your YDB version (that's what YDB returns, folks!)
                 assertThat(sdkTx.getTxMode()).isEqualTo(txMode);
@@ -1239,7 +1239,7 @@ public class YdbRepositoryIntegrationTest extends RepositoryTest {
                 db.immediateWrites().tx(() -> {
                     db.projects().save(project);
 
-                    var transaction = (YdbRepositoryTransaction<?>) Tx.Current.get().getRepositoryTransaction();
+                    var transaction = (YdbRepositoryTransaction<?>) Tx.Current.getRepositoryTransaction();
                     var sdkTransaction = transaction.toSdkTransaction();
                     write(topicClient, topicPath, producer, data, 5, sdkTransaction);
                 });
@@ -1284,7 +1284,7 @@ public class YdbRepositoryIntegrationTest extends RepositoryTest {
                 db.immediateWrites().tx(() -> {
                     db.projects().save(project);
 
-                    var transaction = (YdbRepositoryTransaction<?>) Tx.Current.get().getRepositoryTransaction();
+                    var transaction = (YdbRepositoryTransaction<?>) Tx.Current.getRepositoryTransaction();
                     var sdkTransaction = transaction.toSdkTransaction();
                     write(topicClient, topicPath, producer, data, 1, sdkTransaction);
 
@@ -1332,7 +1332,7 @@ public class YdbRepositoryIntegrationTest extends RepositoryTest {
                 assertThatIllegalStateException().isThrownBy(() -> db.immediateWrites().tx(() -> {
                     db.projects().save(project);
 
-                    var transaction = (YdbRepositoryTransaction<?>) Tx.Current.get().getRepositoryTransaction();
+                    var transaction = (YdbRepositoryTransaction<?>) Tx.Current.getRepositoryTransaction();
                     var sdkTransaction = transaction.toSdkTransaction();
                     write(topicClient, topicPath, producer, data, 1, sdkTransaction);
 

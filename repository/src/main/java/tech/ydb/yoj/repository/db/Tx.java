@@ -14,31 +14,45 @@ public interface Tx {
 
     String getName();
 
-    RepositoryTransaction getRepositoryTransaction();
+    <T extends Entity<T>> Table<T> table(TableDescriptor<T> tableDescriptor);
 
     class Current {
-        private static final ThreadLocal<Tx> current = new ThreadLocal<>();
+        private static final ThreadLocal<Ctx> current = new ThreadLocal<>();
 
         public static boolean exists() {
             return null != current.get();
         }
 
-        public static Tx get() throws IllegalStateException {
-            Tx ctx = current.get();
+        private static Ctx getCtx() throws IllegalStateException {
+            Ctx ctx = current.get();
             if (ctx == null) {
                 throw new IllegalStateException("Operation is not allowed out of transaction context");
             }
             return ctx;
         }
 
-        static <R> R runInTx(Tx tx, Supplier<R> supplier) {
-            Tx existing = current.get();
-            current.set(tx);
+        public static Tx get() throws IllegalStateException {
+            return getCtx().tx;
+        }
+
+        public static RepositoryTransaction getRepositoryTransaction() {
+            return getCtx().repositoryTransaction;
+        }
+
+        static <R> R runInContext(Tx tx, RepositoryTransaction repositoryTransaction, Supplier<R> supplier) {
+            Ctx existing = current.get();
+            current.set(new Ctx(tx, repositoryTransaction));
             try {
                 return supplier.get();
             } finally {
                 current.set(existing);
             }
+        }
+
+        private record Ctx(
+                Tx tx,
+                RepositoryTransaction repositoryTransaction
+        ) {
         }
     }
 
