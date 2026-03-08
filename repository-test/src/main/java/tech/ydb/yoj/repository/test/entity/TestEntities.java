@@ -23,6 +23,7 @@ import tech.ydb.yoj.repository.test.sample.model.NonDeserializableEntity;
 import tech.ydb.yoj.repository.test.sample.model.Primitive;
 import tech.ydb.yoj.repository.test.sample.model.Project;
 import tech.ydb.yoj.repository.test.sample.model.Referring;
+import tech.ydb.yoj.repository.test.sample.model.SVTEntity;
 import tech.ydb.yoj.repository.test.sample.model.Supabubble;
 import tech.ydb.yoj.repository.test.sample.model.Supabubble2;
 import tech.ydb.yoj.repository.test.sample.model.Team;
@@ -67,6 +68,7 @@ public final class TestEntities {
             MultiWrappedEntity.class,
             MultiWrappedEntity2.class,
             BadlyWrappedEntity.class,
+            SVTEntity.class,
             UniqueEntity.class,
             UniqueEntityNative.class,
             EnumEntity.class,

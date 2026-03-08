@@ -50,7 +50,7 @@ import static java.util.Comparator.comparing;
     public <R> ReflectType<R> create(Reflector reflector, Class<R> type, FieldValueType __) {
         DeprecationWarnings.warnOnce("PojoType.lenientGetAllArgsCtor",
                 """
-                You're using a deprecated all-args constructor discovery mode.\
+                You're using a deprecated all-args constructor discovery mode. \
                 Please migrate by calling StdReflector.enableStrictMode()""");
 
         long instanceFieldCount = Stream.of(type.getDeclaredFields())

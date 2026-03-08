@@ -76,6 +76,7 @@ import tech.ydb.yoj.repository.test.sample.model.Project;
 import tech.ydb.yoj.repository.test.sample.model.Referring;
 import tech.ydb.yoj.repository.test.sample.model.Simple;
 import tech.ydb.yoj.repository.test.sample.model.Supabubble;
+import tech.ydb.yoj.repository.test.sample.model.SVTEntity;
 import tech.ydb.yoj.repository.test.sample.model.TypeFreak;
 import tech.ydb.yoj.repository.test.sample.model.TypeFreak.A;
 import tech.ydb.yoj.repository.test.sample.model.TypeFreak.B;
@@ -179,7 +180,7 @@ public abstract class RepositoryTest extends RepositoryTestSupport {
 
         checkNotEmpty(txManager);
 
-        // make ne snapshot and load initial
+        // make new snapshot and load initial
         String snapshotWithDataId = repository.makeSnapshot();
         repository.loadSnapshot(initSnapshotId);
 
@@ -2515,7 +2516,7 @@ public abstract class RepositoryTest extends RepositoryTestSupport {
         TypeFreak tf1 = newTypeFreak(0, "AAA1", "bbb");
         db.tx(() -> db.typeFreaks().insert(tf1));
 
-        // find view by id and than find entity by id
+        // find view by id and then find entity by id
         db.tx(() -> {
             TypeFreak.View foundView = db.typeFreaks().find(TypeFreak.View.class, tf1.getId());
             assertThat(foundView).isEqualTo(new TypeFreak.View(tf1.getId(), tf1.getEmbedded()));
@@ -2524,7 +2525,7 @@ public abstract class RepositoryTest extends RepositoryTestSupport {
             assertThat(foundTF).isEqualTo(tf1);
         });
 
-        // find entity by id and than find view by id
+        // find entity by id and then find view by id
         db.tx(() -> {
             TypeFreak foundTF = db.typeFreaks().find(tf1.getId());
             assertThat(foundTF).isEqualTo(tf1);
@@ -2654,7 +2655,7 @@ public abstract class RepositoryTest extends RepositoryTestSupport {
             Complex first = db.complexes().find(id);
             Complex second = db.complexes().find(id);
 
-            // Check, that there are the same objects, it's mean they was returned from cache
+            // Check that there are the same objects, it'll mean they were returned from cache
             assertThat(second).isSameAs(first);
         });
     }
@@ -2666,7 +2667,7 @@ public abstract class RepositoryTest extends RepositoryTestSupport {
             List<Complex> rangeResults = db.complexes().find(Range.create(new Complex.Id(0, 0L, null, null)));
             assertThat(rangeResults).hasSize(6);
 
-            // Check, that there are the same objects, it's mean they was returned from cache
+            // Check, that there are the same objects, it'll mean they were returned from cache
             for (Complex c : rangeResults) {
                 Complex newFound = db.complexes().find(c.getId());
                 assertThat(newFound).isSameAs(c);
@@ -2681,7 +2682,7 @@ public abstract class RepositoryTest extends RepositoryTestSupport {
             List<Complex> rangeResults = db.complexes().findAll();
             assertThat(rangeResults).hasSize(54);
 
-            // Check, that there are the same objects, it's mean they was returned from cache
+            // Check, that there are the same objects, it'll mean they were returned from cache
             for (Complex c : rangeResults) {
                 Complex newFound = db.complexes().find(c.getId());
                 assertThat(newFound).isSameAs(c);
@@ -2961,7 +2962,7 @@ public abstract class RepositoryTest extends RepositoryTestSupport {
 
         var schema = EntitySchema.of(MultiWrappedEntity2.class);
         var idField = schema.getField("id");
-        var sv = new StringFieldValue("xyzzy-central1:0").getRaw(idField); // Will get flattest original value, which is the IdStringValue("xyzzy-..")
+        var sv = new StringFieldValue("xyzzy-central1:0").getRaw(idField); // Will get the flattest original value, which is the IdStringValue("xyzzy-..")
         assertThat(db.tx(() -> db.multiWrappedEntities2().query()
                 .where("id").gt(sv)
                 .findOne()
@@ -3000,6 +3001,69 @@ public abstract class RepositoryTest extends RepositoryTestSupport {
         db.tx(() -> db.table(BadlyWrappedEntity.class).save(noWrapper));
         assertThat(db.tx(() -> db.table(BadlyWrappedEntity.class).find(new BadlyWrappedEntity.Id("yyy"))).badWrapper()).isNull();
         assertThat(db.tx(() -> db.table(BadlyWrappedEntity.class).find(new BadlyWrappedEntity.Id("yyy")))).isEqualTo(noWrapper);
+    }
+
+    @Test
+    public void stringValueEq() {
+        var entity = new SVTEntity(new SVTEntity.Id("test a", new SVTEntity.SVT("test b")), null);
+        var entity2 = new SVTEntity(new SVTEntity.Id("test c", new SVTEntity.SVT("test d")), null);
+        db.tx(() -> db.table(SVTEntity.class).insert(entity, entity2));
+
+        assertThat(db.tx(() -> db.table(SVTEntity.class).query()
+                .where("id").eq(new SVTEntity.Id("test a", new SVTEntity.SVT("test b")))
+                .find()
+        )).singleElement().isEqualTo(entity);
+    }
+
+    @Test
+    public void stringValueEqLevelTwo() {
+        var entity = new SVTEntity(new SVTEntity.Id("test a", new SVTEntity.SVT("test b")), null);
+        var entity2 = new SVTEntity(new SVTEntity.Id("test c", new SVTEntity.SVT("test d")), null);
+        db.tx(() -> db.table(SVTEntity.class).insert(entity, entity2));
+
+        assertThat(db.tx(() -> db.table(SVTEntity.class).query()
+                .where("id.b").eq(new SVTEntity.SVT("test b"))
+                .find()
+        )).singleElement().isEqualTo(entity);
+    }
+
+    @Test
+    public void stringValueIn() {
+        var entity = new SVTEntity(new SVTEntity.Id("test a", new SVTEntity.SVT("test b")), null);
+        var entity2 = new SVTEntity(new SVTEntity.Id("test c", new SVTEntity.SVT("test d")), null);
+        db.tx(() -> db.table(SVTEntity.class).insert(entity, entity2));
+
+        assertThat(db.tx(() -> db.table(SVTEntity.class).query()
+                .where("id").in(
+                        new SVTEntity.Id("test a", new SVTEntity.SVT("test b")),
+                        new SVTEntity.Id("test c", new SVTEntity.SVT("test d"))
+                )
+                .find()
+        )).containsExactly(entity, entity2);
+    }
+
+    @Test
+    public void stringValueInLevelTwo() {
+        var entity = new SVTEntity(new SVTEntity.Id("test a", new SVTEntity.SVT("test b")), null);
+        var entity2 = new SVTEntity(new SVTEntity.Id("test c", new SVTEntity.SVT("test d")), null);
+        db.tx(() -> db.table(SVTEntity.class).insert(entity, entity2));
+
+        assertThat(db.tx(() -> db.table(SVTEntity.class).query()
+                .where("id.b").in("test b", "test d")
+                .find()
+        )).containsExactly(entity, entity2);
+    }
+
+    @Test
+    public void isNullWithStringValueType() {
+        var entity = new SVTEntity(new SVTEntity.Id("test a", new SVTEntity.SVT("test b")), new SVTEntity.SVT("xxx"));
+        var entity2 = new SVTEntity(new SVTEntity.Id("test c", new SVTEntity.SVT("test d")), null);
+        db.tx(() -> db.table(SVTEntity.class).insert(entity, entity2));
+
+        assertThat(db.tx(() -> db.table(SVTEntity.class).query()
+                .where("c").isNull()
+                .find()
+        )).singleElement().isEqualTo(entity2);
     }
 
     @Test

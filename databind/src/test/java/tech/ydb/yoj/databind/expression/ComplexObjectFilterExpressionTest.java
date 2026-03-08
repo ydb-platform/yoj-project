@@ -3,8 +3,11 @@ package tech.ydb.yoj.databind.expression;
 import lombok.AllArgsConstructor;
 import lombok.Value;
 import org.junit.Test;
+import tech.ydb.yoj.databind.converter.StringValueType;
 import tech.ydb.yoj.databind.schema.ObjectSchema;
 import tech.ydb.yoj.databind.schema.Schema;
+
+import javax.annotation.Nullable;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -52,6 +55,51 @@ public class ComplexObjectFilterExpressionTest {
                 .isEqualTo("(id2.id.id.x != 1) OR (id2.id.id.y != 2) OR (id2.id.x != 3) OR (id2.id.y != 4) OR (id2.x != 5) OR (id2.y != 6)");
     }
 
+    @Test
+    public void eqWithStringValueType() {
+        var schema = ObjectSchema.of(SVTEntity.class);
+        FilterExpression<SVTEntity> filter = FilterBuilder.forSchema(schema)
+                .where("sub").eq(new SVTEntity.Sub("test a", new SVTEntity.SVTClass("test b")))
+                .build();
+        assertThat(filter.toString()).isEqualTo("(sub.a == \"test a\") AND (sub.b == \"test b\")");
+    }
+
+    @Test
+    public void eqWithStringValueTypeLevelTwo() {
+        var schema = ObjectSchema.of(SVTEntity.class);
+        FilterExpression<SVTEntity> filter = FilterBuilder.forSchema(schema)
+                .where("sub.b").eq(new SVTEntity.SVTClass("test b"))
+                .build();
+        assertThat(filter.toString()).isEqualTo("sub.b == \"test b\"");
+    }
+
+    @Test
+    public void inWithStringValueType() {
+        var schema = ObjectSchema.of(SVTEntity.class);
+        FilterExpression<SVTEntity> filter = FilterBuilder.forSchema(schema)
+                .where("sub").in(new SVTEntity.Sub("test a", new SVTEntity.SVTClass("test b")))
+                .build();
+        assertThat(filter.toString()).isEqualTo("sub IN(<\"test a\", \"test b\">)");
+    }
+
+    @Test
+    public void inWithStringValueTypeLevelTwo() {
+        var schema = ObjectSchema.of(SVTEntity.class);
+        FilterExpression<SVTEntity> filter = FilterBuilder.forSchema(schema)
+                .where("sub.b").in(new SVTEntity.SVTClass("test b"))
+                .build();
+        assertThat(filter.toString()).isEqualTo("sub.b IN(\"test b\")");
+    }
+
+    @Test
+    public void isNullWithStringValueType() {
+        var schema = ObjectSchema.of(SVTEntity.class);
+        FilterExpression<SVTEntity> filter = FilterBuilder.forSchema(schema)
+                .where("sub.b").isNull()
+                .build();
+        assertThat(filter.toString()).isEqualTo("sub.b IS NULL");
+    }
+
     @Value
     @AllArgsConstructor
     static class ObjA {
@@ -82,6 +130,26 @@ public class ComplexObjectFilterExpressionTest {
 
             Integer x;
             Integer y;
+        }
+    }
+
+    @Value
+    static class SVTEntity {
+        @Nullable
+        Sub sub;
+
+        @Value
+        static class Sub {
+            String a;
+            SVTClass b;
+        }
+
+        @StringValueType
+        record SVTClass(String value) {
+            @Override
+            public String toString() {
+                return value;
+            }
         }
     }
 }
