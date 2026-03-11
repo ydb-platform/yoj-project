@@ -40,7 +40,6 @@ import tech.ydb.table.values.Value;
 import tech.ydb.yoj.ExperimentalApi;
 import tech.ydb.yoj.repository.BaseDb;
 import tech.ydb.yoj.repository.db.Entity;
-import tech.ydb.yoj.repository.db.IsolationLevel;
 import tech.ydb.yoj.repository.db.QueryStatsMode;
 import tech.ydb.yoj.repository.db.QueryTracingFilter;
 import tech.ydb.yoj.repository.db.QueryType;
@@ -221,7 +220,7 @@ public class YdbRepositoryTransaction<REPO extends YdbRepository>
             transactionLocal.log().info("No-op %s: scan tx", actionName);
             return false;
         }
-        if (options.isReadOnly() && options.getIsolationLevel() != IsolationLevel.SNAPSHOT) {
+        if (options.isReadOnly() && !options.getIsolationLevel().isSnapshot()) {
             transactionLocal.log().info("No-op %s: read-only tx @%s", actionName, options.getIsolationLevel());
             return false;
         }
@@ -263,7 +262,7 @@ public class YdbRepositoryTransaction<REPO extends YdbRepository>
             case ONLINE_CONSISTENT_READ_ONLY -> TxControl.onlineRo().setAllowInconsistentReads(false);
             case ONLINE_INCONSISTENT_READ_ONLY -> TxControl.onlineRo().setAllowInconsistentReads(true);
             case STALE_CONSISTENT_READ_ONLY -> TxControl.staleRo();
-            case SNAPSHOT -> {
+            case SNAPSHOT_READ_ONLY, SNAPSHOT -> {
                 TxControl<?> txControl = (txId != null ? TxControl.id(txId) : TxControl.snapshotRo());
                 yield txControl.setCommitTx(false);
             }
@@ -271,8 +270,6 @@ public class YdbRepositoryTransaction<REPO extends YdbRepository>
     }
 
     private String getYql(Statement<?, ?> statement) {
-        // TODO(nvamelichev): Make the use of syntax_v1 directive configurable in YdbRepository.Settings
-        // @see https://github.com/ydb-platform/yoj-project/issues/148
         return statement.getQuery(tablespace);
     }
 
@@ -612,7 +609,7 @@ public class YdbRepositoryTransaction<REPO extends YdbRepository>
                     case ONLINE_CONSISTENT_READ_ONLY -> TxMode.ONLINE_RO;
                     case ONLINE_INCONSISTENT_READ_ONLY -> TxMode.ONLINE_INCONSISTENT_RO;
                     case STALE_CONSISTENT_READ_ONLY -> TxMode.STALE_RO;
-                    case SNAPSHOT -> TxMode.SNAPSHOT_RO;
+                    case SNAPSHOT_READ_ONLY, SNAPSHOT -> TxMode.SNAPSHOT_RO;
                     // TxMode.NONE corresponds to DDL statements, and we have no DDL statements in YOJ transactions
                 };
             }

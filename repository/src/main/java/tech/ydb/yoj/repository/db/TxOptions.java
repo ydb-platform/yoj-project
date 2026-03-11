@@ -76,6 +76,10 @@ public class TxOptions {
         return scanOptions != null;
     }
 
+    public boolean isSnapshot() {
+        return isolationLevel.isSnapshot();
+    }
+
     public TimeoutOptions minTimeoutOptions(Duration timeoutFromExternalCtx) {
         if (timeoutFromExternalCtx == null && timeoutOptions == null) {
             return TimeoutOptions.DEFAULT;
@@ -109,7 +113,7 @@ public class TxOptions {
         Duration timeout;
 
         /**
-         * Calculates <b>canceAfter</b> parameter for ydb sdk, which must be 50-100ms less than a transport timeout.
+         * Calculates <b>canceAfter</b> parameter for YDB SDK, which must be 50-100ms less than a transport timeout.
          * The bigger the transport timeout, the bigger the difference.
          */
         public Duration getCancelAfter() {

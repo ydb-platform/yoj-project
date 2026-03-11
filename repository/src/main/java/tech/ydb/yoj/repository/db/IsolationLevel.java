@@ -10,9 +10,13 @@ import lombok.Getter;
  */
 public enum IsolationLevel {
     /**
-     * All transactions are serialized one-by-one. If the DB detects a write collision among
-     * several concurrent transactions, only the first one is committed.
-     * This is the strongest level. And the only level at which data changes are possible.
+     * All transactions are serialized <em>as if</em> they are executed one-by-one. If the DB detects a write collision
+     * among several concurrent transactions, only one of them is committed, and all others get a "Transaction locks
+     * invalidated" (TLI) error, represented by YOJ
+     * {@link tech.ydb.yoj.repository.db.exception.OptimisticLockException OptimisticLockException}. This causes
+     * the transaction body to be retried by the {@link TxManager transaction manager},
+     * unless the {@link TxManager#withMaxRetries(int) retry count} is exhausted.
+     * <p>This is the strongest isolation level.
      */
     SERIALIZABLE_READ_WRITE(""),
 
@@ -23,23 +27,33 @@ public enum IsolationLevel {
 
     /**
      * The most recent inconsistent state of the database. Read only.
-     * A phantom read may occurs when, in the course of a transaction, some new rows are added
-     * by another transaction to the records being read. This is the weakest level.
+     * A phantom read may occur when, during the course of a transaction, some new rows are added
+     * by another transaction to the records being read.
+     * <p>This is the weakest isolation level.
      */
     ONLINE_INCONSISTENT_READ_ONLY("OI"),
 
     /**
      * An <em>almost</em> recent consistent state of the database. Read only.
-     * This level is faster then {@code ONLINE_CONSISTENT_READ_ONLY}, but may return stale data.
+     * This level is faster than {@link #ONLINE_CONSISTENT_READ_ONLY}, but may return stale data.
      */
     STALE_CONSISTENT_READ_ONLY("SC"),
 
     /**
-     * All the read operations within a transaction access the database snapshot. Read only.
+     * @deprecated Same as {@link #SNAPSHOT_READ_ONLY}, but unfortunately named. Please use {@link #SNAPSHOT_READ_ONLY}
+     * instead; the {@code IsolationLevel.SNAPSHOT} constant will be removed in YOJ 2.9.0.
+     */
+    @Deprecated(forRemoval = true)
+    SNAPSHOT("SP"),
+
+    /**
+     * All read operations within a transaction access the database snapshot. Read only.
      * All the data reads are consistent. The snapshot is taken when the transaction begins,
      * meaning the transaction sees all changes committed before it began.
      */
-    SNAPSHOT("SP");
+    SNAPSHOT_READ_ONLY("SP");
+
+    // TODO(nvamelichev): Add support for SNAPSHOT_RW
 
     @Getter
     private final String txIdSuffix;
@@ -67,5 +81,17 @@ public enum IsolationLevel {
      */
     public boolean isReadWrite() {
         return this == SERIALIZABLE_READ_WRITE;
+    }
+
+    /**
+     * Indicates whether the transaction offers <em>snapshot isolation</em>; YDB offers both read-only and read-write
+     * snapshot isolation.
+     *
+     * @return {@code true} if the transaction offers snapshot isolation; {@code false} otherwise
+     * @see #isReadOnly()
+     * @see #isReadWrite()
+     */
+    public boolean isSnapshot() {
+        return this == SNAPSHOT_READ_ONLY || this == SNAPSHOT;
     }
 }

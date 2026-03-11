@@ -339,7 +339,7 @@ public class YdbRepositoryIntegrationTest extends RepositoryTest {
         assertThat(actual2).isEqualTo(expected2);
 
         db.readOnly()
-                .withStatementIsolationLevel(IsolationLevel.SNAPSHOT)
+                .withStatementIsolationLevel(IsolationLevel.SNAPSHOT_READ_ONLY)
                 .run(() -> {
                     Project actualSnapshot1 = db.projects().find(expected1.getId());
                     assertThat(actualSnapshot1).isEqualTo(expected1);
@@ -1040,7 +1040,7 @@ public class YdbRepositoryIntegrationTest extends RepositoryTest {
                 IsolationLevel.ONLINE_CONSISTENT_READ_ONLY, TxMode.ONLINE_RO,
                 IsolationLevel.ONLINE_INCONSISTENT_READ_ONLY, TxMode.ONLINE_INCONSISTENT_RO,
                 IsolationLevel.STALE_CONSISTENT_READ_ONLY, TxMode.STALE_RO,
-                IsolationLevel.SNAPSHOT, TxMode.SNAPSHOT_RO
+                IsolationLevel.SNAPSHOT_READ_ONLY, TxMode.SNAPSHOT_RO
         ).entrySet()) {
             var isolationLevel = entry.getKey();
             var txMode = entry.getValue();
@@ -1134,7 +1134,7 @@ public class YdbRepositoryIntegrationTest extends RepositoryTest {
                 .withQueryStats(QueryStatsMode.FULL)
                 .readOnly()
                 .noFirstLevelCache()
-                .withStatementIsolationLevel(IsolationLevel.SNAPSHOT)
+                .withStatementIsolationLevel(IsolationLevel.SNAPSHOT_READ_ONLY)
                 .run(() -> db.table(UniqueProject.class).query()
                         .where("id").in(List.of(
                                 new UniqueProject.Id("id501"),
@@ -1194,7 +1194,7 @@ public class YdbRepositoryIntegrationTest extends RepositoryTest {
                     .noQueryTracing()
                     .readOnly()
                     .noFirstLevelCache()
-                    .withStatementIsolationLevel(IsolationLevel.SNAPSHOT);
+                    .withStatementIsolationLevel(IsolationLevel.SNAPSHOT_READ_ONLY);
             var found = txMgr2.run(() -> db.table(ToStringCountingProject.class).find(new ToStringCountingProject.Id("id3")));
             assertThat(found).isEqualTo(project3);
 

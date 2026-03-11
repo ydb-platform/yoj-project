@@ -39,7 +39,7 @@ public @interface YojTransactional {
      * <li>{@code ONLINE_CONSISTENT_READ_ONLY}</li>
      * <li>{@code ONLINE_INCONSISTENT_READ_ONLY}</li>
      * <li>{@code STALE_CONSISTENT_READ_ONLY}</li>
-     * <li>{@code SNAPSHOT}</li>
+     * <li>{@code SNAPSHOT_READ_ONLY}</li>
      * </ul>
      * If transaction is not marked as {@link #readOnly() read-only}, isolation level is ignored.
      */

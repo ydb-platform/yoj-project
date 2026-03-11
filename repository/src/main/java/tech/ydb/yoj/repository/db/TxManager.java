@@ -196,8 +196,7 @@ public interface TxManager {
 
     /**
      * Performs the specified action inside a transaction. The action must be idempotent, because it might be executed
-     * multiple times in case of {@link OptimisticLockException transaction lock
-     * invalidation}.
+     * multiple times in case of {@link OptimisticLockException transaction lock invalidation}.
      *
      * @param supplier action to perform
      * @return action result
@@ -206,8 +205,7 @@ public interface TxManager {
 
     /**
      * Performs the specified action inside a transaction. The action must be idempotent, because it might be executed
-     * multiple times in case of {@link OptimisticLockException transaction lock
-     * invalidation}.
+     * multiple times in case of {@link OptimisticLockException transaction lock invalidation}.
      *
      * @param runnable action to perform
      */
@@ -216,11 +214,12 @@ public interface TxManager {
     /**
      * Start a transaction-like session of read-only statements. Each statement will be executed <em>separately</em>,
      * with the specified isolation level (online consistent read-only, by default).
-     * <p>YDB doesn't currently support multi-statement read-only transactions. If you perform more than one read, be
-     * ready to handle potential inconsistencies between the reads.
+     * <p>YDB currently supports multi-statement read-only transactions only on {@link IsolationLevel#SNAPSHOT_READ_ONLY
+     * snapshot read-only isolation level}. If you perform more than one read statement on any other read-only isolation
+     * level, you must be ready to handle potential inconsistencies between the reads.
      * <p>You can also use {@code readOnly().run(() -> [table].readTable(...));} to efficiently read data from the table
      * without interfering with OLTP transactions. In this case, data consistency is similar to snapshot isolation. If
-     * perform more than one {@code readTable()}, be ready to handle potential inconsistencies between the reads.
+     * perform more than one {@code readTable()}, you must be ready to handle potential inconsistencies between the reads.
      */
     ReadonlyBuilder readOnly();
 
