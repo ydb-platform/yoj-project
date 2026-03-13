@@ -14,10 +14,12 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import tech.ydb.yoj.ExperimentalApi;
 import tech.ydb.yoj.repository.db.cache.TransactionLog;
+import tech.ydb.yoj.repository.db.exception.OptimisticLockException;
 import tech.ydb.yoj.repository.db.exception.QueryInterruptedException;
 import tech.ydb.yoj.repository.db.exception.RetryableException;
 import tech.ydb.yoj.util.lang.Strings;
 import tech.ydb.yoj.util.log.MdcSetup;
+import tech.ydb.yoj.util.retry.RetryPolicy;
 
 import javax.annotation.Nullable;
 import java.time.Duration;
@@ -89,15 +91,18 @@ public final class StdTxManager implements TxManager, TxManagerState {
     private final SeparatePolicy separatePolicy;
     @With
     private final TxNameGenerator txNameGenerator;
+    @With
+    private final RetryPolicy optimisticLockRetryPolicy;
 
     public StdTxManager(@NonNull Repository repository) {
         this(
-                /*         repository */ repository,
-                /*    maxAttemptCount */ DEFAULT_MAX_ATTEMPT_COUNT,
-                /*         logContext */ null,
-                /*            options */ TxOptions.create(SERIALIZABLE_READ_WRITE),
-                /*     separatePolicy */ SeparatePolicy.LOG,
-                /*    txNameGenerator */ new TxNameGenerator.Default()
+                /*                repository */ repository,
+                /*           maxAttemptCount */ DEFAULT_MAX_ATTEMPT_COUNT,
+                /*                logContext */ null,
+                /*                   options */ TxOptions.create(SERIALIZABLE_READ_WRITE),
+                /*            separatePolicy */ SeparatePolicy.LOG,
+                /*           txNameGenerator */ new TxNameGenerator.Default(),
+                /* optimisticLockRetryPolicy */ RetryPolicy.retryImmediately()
         );
     }
 
@@ -286,9 +291,10 @@ public final class StdTxManager implements TxManager, TxManagerState {
         return Strings.leftPad(Long.toUnsignedString(txLogId, 36), 6, '0') + options.getIsolationLevel().getTxIdSuffix();
     }
 
-    private static void sleepBeforeNextAttempt(RetryableException e, int attempt) {
+    private void sleepBeforeNextAttempt(RetryableException e, int attempt) {
+        var retryPolicy = e instanceof OptimisticLockException ? optimisticLockRetryPolicy : e.getRetryPolicy();
         try {
-            MILLISECONDS.sleep(e.getRetryPolicy().calcDuration(attempt).toMillis());
+            MILLISECONDS.sleep(retryPolicy.calcDuration(attempt).toMillis());
         } catch (InterruptedException ex) {
             Thread.currentThread().interrupt();
             throw new QueryInterruptedException("DB query interrupted", ex);
