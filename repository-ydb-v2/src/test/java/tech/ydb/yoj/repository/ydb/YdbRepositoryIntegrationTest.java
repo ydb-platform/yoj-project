@@ -487,27 +487,30 @@ public class YdbRepositoryIntegrationTest extends RepositoryTest {
     }
 
     @Test
-    public void checkDBIsUnavailable() {
-        checkTxRetryableOnRequestError(StatusCodesProtos.StatusIds.StatusCode.UNAVAILABLE);
-        checkTxRetryableOnFlushingError(StatusCodesProtos.StatusIds.StatusCode.UNAVAILABLE);
+    public void checkDbUnavailable() {
+        checkTxRetryableOnRequest(StatusCodesProtos.StatusIds.StatusCode.UNAVAILABLE);
+        checkTxRetryableOnFlush(StatusCodesProtos.StatusIds.StatusCode.UNAVAILABLE);
         checkTxNonRetryableOnCommit(StatusCodesProtos.StatusIds.StatusCode.UNAVAILABLE);
     }
 
     @Test
-    public void checkDBIsOverloaded() {
-        checkTxRetryableOnRequestError(StatusCodesProtos.StatusIds.StatusCode.OVERLOADED);
-        checkTxRetryableOnFlushingError(StatusCodesProtos.StatusIds.StatusCode.OVERLOADED);
+    public void checkDbOverloaded() {
+        checkTxRetryableOnRequest(StatusCodesProtos.StatusIds.StatusCode.OVERLOADED);
+        checkTxRetryableOnFlush(StatusCodesProtos.StatusIds.StatusCode.OVERLOADED);
         checkTxNonRetryableOnCommit(StatusCodesProtos.StatusIds.StatusCode.OVERLOADED);
     }
 
     @Test
-    public void checkDBSessionBusy() {
-        checkTxRetryableOnRequestError(StatusCodesProtos.StatusIds.StatusCode.PRECONDITION_FAILED);
-        checkTxRetryableOnFlushingError(StatusCodesProtos.StatusIds.StatusCode.PRECONDITION_FAILED);
+    public void checkDbPreconditionFailed() {
+        checkTxNonRetryableOnRequest(StatusCodesProtos.StatusIds.StatusCode.PRECONDITION_FAILED);
+        checkTxNonRetryableOnFlush(StatusCodesProtos.StatusIds.StatusCode.PRECONDITION_FAILED);
         checkTxNonRetryableOnCommit(StatusCodesProtos.StatusIds.StatusCode.PRECONDITION_FAILED);
+    }
 
-        checkTxRetryableOnRequestError(StatusCodesProtos.StatusIds.StatusCode.SESSION_BUSY);
-        checkTxRetryableOnFlushingError(StatusCodesProtos.StatusIds.StatusCode.SESSION_BUSY);
+    @Test
+    public void checkDbSessionBusy() {
+        checkTxRetryableOnRequest(StatusCodesProtos.StatusIds.StatusCode.SESSION_BUSY);
+        checkTxRetryableOnFlush(StatusCodesProtos.StatusIds.StatusCode.SESSION_BUSY);
         checkTxNonRetryableOnCommit(StatusCodesProtos.StatusIds.StatusCode.SESSION_BUSY);
     }
 
@@ -931,7 +934,34 @@ public class YdbRepositoryIntegrationTest extends RepositoryTest {
         assertThat(actual).isEqualTo(expectRows);
     }
 
-    private void checkTxRetryableOnRequestError(StatusCodesProtos.StatusIds.StatusCode statusCode) {
+    private void checkTxRetryableOnRequest(StatusCodesProtos.StatusIds.StatusCode statusCode) {
+        checkTxErrorOnRequest(statusCode, RetryableException.class);
+    }
+
+    private void checkTxRetryableOnFlush(StatusCodesProtos.StatusIds.StatusCode statusCode) {
+        checkTxErrorOnFlush(statusCode, RetryableException.class);
+    }
+
+    private void checkTxRetryableOnCommit(StatusCodesProtos.StatusIds.StatusCode statusCode) {
+        checkTxErrorOnCommit(statusCode, RetryableException.class);
+    }
+
+    private void checkTxNonRetryableOnRequest(StatusCodesProtos.StatusIds.StatusCode statusCode) {
+        checkTxErrorOnRequest(statusCode, YdbRepositoryException.class, UnavailableException.class);
+    }
+
+    private void checkTxNonRetryableOnFlush(StatusCodesProtos.StatusIds.StatusCode statusCode) {
+        checkTxErrorOnFlush(statusCode, YdbRepositoryException.class, UnavailableException.class);
+    }
+
+    private void checkTxNonRetryableOnCommit(StatusCodesProtos.StatusIds.StatusCode statusCode) {
+        checkTxErrorOnCommit(statusCode, YdbRepositoryException.class, UnavailableException.class);
+    }
+
+    private void checkTxErrorOnRequest(
+            StatusCodesProtos.StatusIds.StatusCode statusCode,
+            Class<? extends Throwable>... exceptionTypes
+    ) {
         YdbRepository proxiedRepository = new TestYdbRepository(getProxyServerConfig());
 
         try {
@@ -939,8 +969,7 @@ public class YdbRepositoryIntegrationTest extends RepositoryTest {
             runWithModifiedStatusCode(
                     statusCode,
                     () -> {
-                        assertThatExceptionOfType(RetryableException.class)
-                                .isThrownBy(tx.table(Project.class)::findAll);
+                        assertThatThrownBy(tx.table(Project.class)::findAll).isInstanceOfAny(exceptionTypes);
 
                         // This rollback is only a silent DB rollback, since the last transaction statement was exceptional.
                         // We check that this call does not throw.
@@ -952,8 +981,11 @@ public class YdbRepositoryIntegrationTest extends RepositoryTest {
         }
     }
 
-    private void checkTxRetryableOnFlushingError(StatusCodesProtos.StatusIds.StatusCode statusCode) {
-        YdbRepository proxiedRepository = new TestYdbRepository(getProxyServerConfig());
+    private void checkTxErrorOnFlush(
+            StatusCodesProtos.StatusIds.StatusCode statusCode,
+            Class<? extends Throwable>... exceptionTypes
+    ) {
+        YdbRepository proxiedRepository = new YdbRepository(getProxyServerConfig());
 
         try {
             runWithModifiedStatusCode(
@@ -961,8 +993,7 @@ public class YdbRepositoryIntegrationTest extends RepositoryTest {
                     () -> {
                         RepositoryTransaction tx = proxiedRepository.startTransaction();
                         tx.table(Project.class).save(new Project(new Project.Id("1"), "x"));
-                        assertThatExceptionOfType(RetryableException.class)
-                                .isThrownBy(tx::commit);
+                        assertThatThrownBy(tx::commit).isInstanceOfAny(exceptionTypes);
                     }
             );
         } finally {
@@ -970,8 +1001,11 @@ public class YdbRepositoryIntegrationTest extends RepositoryTest {
         }
     }
 
-    private void checkTxNonRetryableOnCommit(StatusCodesProtos.StatusIds.StatusCode statusCode) {
-        YdbRepository proxiedRepository = new TestYdbRepository(getProxyServerConfig());
+    private void checkTxErrorOnCommit(
+            StatusCodesProtos.StatusIds.StatusCode statusCode,
+            Class<? extends Throwable>... exceptionTypes
+    ) {
+        YdbRepository proxiedRepository = new YdbRepository(getProxyServerConfig());
 
         try {
             RepositoryTransaction tx = proxiedRepository.startTransaction();
@@ -979,8 +1013,7 @@ public class YdbRepositoryIntegrationTest extends RepositoryTest {
 
             runWithModifiedStatusCode(
                     statusCode,
-                    () -> assertThatExceptionOfType(UnavailableException.class)
-                            .isThrownBy(tx::commit)
+                    () -> assertThatThrownBy(tx::commit).isInstanceOfAny(exceptionTypes)
             );
         } finally {
             proxiedRepository.shutdown();
