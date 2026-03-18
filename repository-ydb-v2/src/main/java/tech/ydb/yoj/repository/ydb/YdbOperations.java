@@ -15,7 +15,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
-import static tech.ydb.yoj.repository.ydb.client.YdbValidator.checkGrpcContextStatus;
+import static tech.ydb.yoj.repository.ydb.client.YdbValidator.checkGrpcDeadlineAndCancellation;
 import static tech.ydb.yoj.util.lang.Interrupts.isThreadInterrupted;
 
 @InternalApi
@@ -40,7 +40,7 @@ public final class YdbOperations {
             Thread.currentThread().interrupt();
             return new QueryInterruptedException("DB query interrupted", ex);
         }
-        checkGrpcContextStatus(ex.getMessage(), ex);
+        checkGrpcDeadlineAndCancellation(ex.getMessage(), ex);
 
         return new UnavailableException("DB is unavailable", ex);
     }
