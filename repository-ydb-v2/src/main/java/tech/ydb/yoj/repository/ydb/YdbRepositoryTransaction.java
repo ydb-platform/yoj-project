@@ -14,7 +14,6 @@ import tech.ydb.common.transaction.TxMode;
 import tech.ydb.common.transaction.YdbTransaction;
 import tech.ydb.core.Result;
 import tech.ydb.core.Status;
-import tech.ydb.core.StatusCode;
 import tech.ydb.proto.ValueProtos;
 import tech.ydb.table.Session;
 import tech.ydb.table.query.DataQueryResult;
@@ -89,7 +88,6 @@ import static com.google.common.base.Strings.emptyToNull;
 import static java.lang.Boolean.getBoolean;
 import static java.util.stream.Collectors.toList;
 import static lombok.AccessLevel.PRIVATE;
-import static tech.ydb.yoj.repository.ydb.client.YdbValidator.validatePkConstraint;
 
 public class YdbRepositoryTransaction<REPO extends YdbRepository>
         implements BaseDb, RepositoryTransaction, YdbTable.QueryExecutor {
@@ -98,6 +96,9 @@ public class YdbRepositoryTransaction<REPO extends YdbRepository>
     private static final String PROP_TRACE_DUMP_YDB_PARAMS = "tech.ydb.yoj.repository.ydb.trace.dumpYdbParams";
     private static final String PROP_TRACE_VERBOSE_OBJ_PARAMS = "tech.ydb.yoj.repository.ydb.trace.verboseObjParams";
     private static final String PROP_TRACE_VERBOSE_OBJ_RESULTS = "tech.ydb.yoj.repository.ydb.trace.verboseObjResults";
+
+    private static final String CLOSE_ACTION_ROLLBACK = "rollback";
+    private static final String CLOSE_ACTION_COMMIT = "commit";
 
     private final List<YdbRepository.Query<?>> pendingWrites = new ArrayList<>();
     private final List<YdbSpliterator<?>> spliterators = new ArrayList<>();
@@ -153,16 +154,16 @@ public class YdbRepositoryTransaction<REPO extends YdbRepository>
             rollback();
             throw t;
         }
-        endTransaction("commit", this::doCommit);
+        endTransaction(CLOSE_ACTION_COMMIT, this::doCommit);
     }
 
     @Override
     public void rollback() {
         Interrupts.runInCleanupMode(() -> {
             try {
-                endTransaction("rollback", () -> {
+                endTransaction(CLOSE_ACTION_ROLLBACK, () -> {
                     Status status = YdbOperations.safeJoin(session.rollbackTransaction(txId, new RollbackTxSettings()));
-                    validate("rollback", status.getCode(), status.toString());
+                    validate(CLOSE_ACTION_ROLLBACK, status, status.toString());
                 });
             } catch (Throwable t) {
                 log.info("Failed to rollback the transaction", t);
@@ -173,8 +174,7 @@ public class YdbRepositoryTransaction<REPO extends YdbRepository>
     private void doCommit() {
         try {
             Status status = YdbOperations.safeJoin(session.commitTransaction(txId, new CommitTxSettings()));
-            validatePkConstraint(status.getIssues());
-            validate("commit", status.getCode(), status.toString());
+            validate(CLOSE_ACTION_COMMIT, status, status.toString());
         } catch (YdbComponentUnavailableException | YdbOverloadedException e) {
             throw new UnavailableException("Unknown transaction state: commit was sent, but result is unknown", e);
         }
@@ -199,12 +199,12 @@ public class YdbRepositoryTransaction<REPO extends YdbRepository>
         }
     }
 
-    private void validate(String request, StatusCode statusCode, String response) {
+    private void validate(String request, Status status, String response) {
         if (!isBadSession) {
-            isBadSession = YdbValidator.isTransactionClosedByServer(statusCode);
+            isBadSession = YdbValidator.isTransactionClosedByServer(status);
         }
         try {
-            YdbValidator.validate(request, statusCode, response);
+            YdbValidator.validate(request, status, response);
         } catch (BadSessionException | OptimisticLockException e) {
             transactionLocal.log().info("Request got %s: DB tx was invalidated", e.getClass().getSimpleName());
             throw e;
@@ -352,8 +352,7 @@ public class YdbRepositoryTransaction<REPO extends YdbRepository>
             }
         }
 
-        validatePkConstraint(result.getStatus().getIssues());
-        validate(yql, result.getStatus().getCode(), result.toString());
+        validate(yql, result.getStatus(), result.toString());
 
         DataQueryResult queryResult = result.getValue();
         if (queryResult.getResultSetCount() > 1) {
@@ -411,7 +410,7 @@ public class YdbRepositoryTransaction<REPO extends YdbRepository>
             new ResultSetConverter(rs).stream(statement::readResult).forEach(result::add);
         }));
 
-        validate("SCAN_QUERY: " + yql, status.getCode(), status.toString());
+        validate("SCAN_QUERY: " + yql, status, status.toString());
 
         return result;
     }
@@ -521,11 +520,11 @@ public class YdbRepositoryTransaction<REPO extends YdbRepository>
                                 settings
                         )
                 );
-                validate("bulkInsert", status.getCode(), status.toString());
+                validate("bulkUpsert", status, status.toString());
             } catch (RepositoryException e) {
                 throw e;
             } catch (Exception e) {
-                throw new UnexpectedException("Could not bulk insert into table " + tableName, e);
+                throw new UnexpectedException("Could not bulk upsert into table " + tableName, e);
             }
         });
     }
@@ -579,7 +578,7 @@ public class YdbRepositoryTransaction<REPO extends YdbRepository>
                                 ),
                                 params.getTimeout().plusMinutes(5)
                         );
-                        validate("readTable", status.getCode(), status.toString());
+                        validate("readTable", status, status.toString());
                     })
             );
             return spliterator.makeStream();

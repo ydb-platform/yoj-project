@@ -1,17 +1,18 @@
 package tech.ydb.yoj.repository.ydb.exception;
 
 /**
- * YDB query returned more results than anticipated.
+ * Query has returned more rows than anticipated.
  *
- * <p>To avoid this exception, know the row limit imposed by {@code TableService} (will typically be {@code 10_000} in production environments,
- * but YDB default is a tiny {@code 1_000}), read the data in chunks by specifying explicit {@code LIMIT}, and use multiple queries
- * to read the whole result. YDB {@code Table.streamAll[Ids]()} implementation does exactly that "under the hood".
+ * <p>To avoid this exception, know the row limit imposed by {@code TableService} and read the data in chunks by doing
+ * multiple queries with an explicit {@code LIMIT}. YOJ's {@code Table.streamAll[Ids]()} does exactly that,
+ * if all you need is returning result for a range of IDs.
  *
- * <p>For some scenarios, e.g., reading lots of Views, Entity IDs or even small Entities, it might be OK to buffer all query results in memory.
- * To do so, switch to {@code QueryService} by setting the {@code tech.ydb.yoj.repository.ydb.client.impl} system property to {@code query}; this way,
- * the query results will be streamed to you, and the limits do not apply! Then, set the {@code tech.ydb.yoj.repository.ydb.client.resultRowsLimit}
- * system property to a higher value (exactly what it will be is obviously workload-dependent). You can even set the property to a negative value,
- * meaning <em>unlimited result rows</em>; but this is <strong>highly</strong> likely to result in {@link OutOfMemoryError}s.
+ * <p>YDB's row limit will typically be {@code 10_000} in production environments, but the default is a tiny {@code 1_000}.
+ *
+ * <p>For some scenarios, e.g., reading lots of Views, Entity IDs or even small Entities, it might be faster and easier
+ * to just read all query results into memory. To do so, switch to {@code QueryService} in {@code YdbRepository.Settings}
+ * and perform the same query. The query results will then be GRPC-streamed by YDB and then buffered in memory by YOJ,
+ * and the row limits won't apply. You can run out of memory, though.
  *
  * @see #getMaxResultRows()
  * @see #getRowCount()

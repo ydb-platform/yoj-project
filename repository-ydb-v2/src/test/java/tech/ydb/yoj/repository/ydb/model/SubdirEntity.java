@@ -1,4 +1,4 @@
-package tech.ydb.yoj.repository.ydb;
+package tech.ydb.yoj.repository.ydb.model;
 
 import lombok.Value;
 import tech.ydb.yoj.databind.schema.Table;
@@ -7,7 +7,6 @@ import tech.ydb.yoj.repository.db.Entity;
 @Table(name = "subdir/SubdirEntity")
 @Value
 public class SubdirEntity implements Entity<SubdirEntity> {
-
     Id id;
 
     @Value
