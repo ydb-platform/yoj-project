@@ -4,6 +4,7 @@ import lombok.NonNull;
 import tech.ydb.yoj.repository.db.Entity;
 import tech.ydb.yoj.repository.db.Repository;
 import tech.ydb.yoj.repository.db.TableDescriptor;
+import tech.ydb.yoj.repository.test.sample.model.BadMembership;
 import tech.ydb.yoj.repository.test.sample.model.BadlyWrappedEntity;
 import tech.ydb.yoj.repository.test.sample.model.Book;
 import tech.ydb.yoj.repository.test.sample.model.Bubble;
@@ -15,6 +16,7 @@ import tech.ydb.yoj.repository.test.sample.model.EntityWithValidation;
 import tech.ydb.yoj.repository.test.sample.model.EnumEntity;
 import tech.ydb.yoj.repository.test.sample.model.IndexedEntity;
 import tech.ydb.yoj.repository.test.sample.model.LogEntry;
+import tech.ydb.yoj.repository.test.sample.model.Membership;
 import tech.ydb.yoj.repository.test.sample.model.MigrationEntity;
 import tech.ydb.yoj.repository.test.sample.model.MultiWrappedEntity;
 import tech.ydb.yoj.repository.test.sample.model.MultiWrappedEntity2;
@@ -72,7 +74,9 @@ public final class TestEntities {
             UniqueEntity.class,
             UniqueEntityNative.class,
             EnumEntity.class,
-            MigrationEntity.class
+            MigrationEntity.class,
+            Membership.class,
+            BadMembership.class
     );
 
     public static final List<TableDescriptor<?>> ALL_TABLE_DESCRIPTORS = List.of(

@@ -13,6 +13,7 @@ import tech.ydb.yoj.databind.expression.OrExpr;
 import tech.ydb.yoj.databind.expression.OrderExpression;
 import tech.ydb.yoj.databind.expression.OrderExpression.SortKey;
 import tech.ydb.yoj.databind.expression.ScalarExpr;
+import tech.ydb.yoj.databind.expression.values.StringFieldValue;
 import tech.ydb.yoj.databind.schema.Schema.JavaField;
 import tech.ydb.yoj.repository.db.Entity;
 import tech.ydb.yoj.repository.db.EntityIdSchema;
@@ -56,23 +57,36 @@ public final class YqlListingQuery {
                 String fieldPath = scalarExpr.getFieldPath();
 
                 YqlPredicate.FieldPredicateBuilder pred = YqlPredicate.where(fieldPath);
-                Object expected = scalarExpr.getValue().getRaw(scalarExpr.getField());
                 return switch (scalarExpr.getOperator()) {
-                    case EQ -> pred.eq(expected);
-                    case NEQ -> pred.neq(expected);
-                    case LT -> pred.lt(expected);
-                    case LTE -> pred.lte(expected);
-                    case GT -> pred.gt(expected);
-                    case GTE -> pred.gte(expected);
-                    case CONTAINS -> pred.like(likePatternForContains((String) expected), LIKE_ESCAPE_CHAR);
-                    case NOT_CONTAINS -> pred.notLike(likePatternForContains((String) expected), LIKE_ESCAPE_CHAR);
-                    case ICONTAINS -> pred.likeIgnoreCase(likePatternForContains((String) expected), LIKE_ESCAPE_CHAR);
-                    case NOT_ICONTAINS -> pred.notLikeIgnoreCase(likePatternForContains((String) expected), LIKE_ESCAPE_CHAR);
-                    case STARTS_WITH -> pred.like(likePatternForStartsWith((String) expected), LIKE_ESCAPE_CHAR);
-                    case NOT_STARTS_WITH -> pred.notLike(likePatternForStartsWith((String) expected), LIKE_ESCAPE_CHAR);
-                    case ENDS_WITH -> pred.like(likePatternForEndsWith((String) expected), LIKE_ESCAPE_CHAR);
-                    case NOT_ENDS_WITH -> pred.notLike(likePatternForEndsWith((String) expected), LIKE_ESCAPE_CHAR);
+                    case EQ -> pred.eq(rawValueOf(scalarExpr));
+                    case NEQ -> pred.neq(rawValueOf(scalarExpr));
+                    case LT -> pred.lt(rawValueOf(scalarExpr));
+                    case LTE -> pred.lte(rawValueOf(scalarExpr));
+                    case GT -> pred.gt(rawValueOf(scalarExpr));
+                    case GTE -> pred.gte(rawValueOf(scalarExpr));
+                    case CONTAINS -> pred.like(likePatternForContains(stringValueOf(scalarExpr)), LIKE_ESCAPE_CHAR);
+                    case NOT_CONTAINS -> pred.notLike(likePatternForContains(stringValueOf(scalarExpr)), LIKE_ESCAPE_CHAR);
+                    case ICONTAINS -> pred.likeIgnoreCase(likePatternForContains(stringValueOf(scalarExpr)), LIKE_ESCAPE_CHAR);
+                    case NOT_ICONTAINS -> pred.notLikeIgnoreCase(likePatternForContains(stringValueOf(scalarExpr)), LIKE_ESCAPE_CHAR);
+                    case STARTS_WITH -> pred.like(likePatternForStartsWith(stringValueOf(scalarExpr)), LIKE_ESCAPE_CHAR);
+                    case NOT_STARTS_WITH -> pred.notLike(likePatternForStartsWith(stringValueOf(scalarExpr)), LIKE_ESCAPE_CHAR);
+                    case ENDS_WITH -> pred.like(likePatternForEndsWith(stringValueOf(scalarExpr)), LIKE_ESCAPE_CHAR);
+                    case NOT_ENDS_WITH -> pred.notLike(likePatternForEndsWith(stringValueOf(scalarExpr)), LIKE_ESCAPE_CHAR);
                 };
+            }
+
+            private static Object rawValueOf(@NonNull ScalarExpr<?> scalarExpr) {
+                return scalarExpr.getValue().getRaw(scalarExpr.getField());
+            }
+
+            private static String stringValueOf(@NonNull ScalarExpr<?> scalarExpr) {
+                if (scalarExpr.getValue() instanceof StringFieldValue sfv) {
+                    return sfv.str();
+                }
+                throw new IllegalArgumentException("Expected a '" + scalarExpr.getOperator()
+                        + "' expression to operate on a string field value, but got: "
+                        + scalarExpr.getValue().getClass().getSimpleName()
+                        + "; the whole expression was: " + scalarExpr);
             }
 
             @Override
