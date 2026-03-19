@@ -52,6 +52,7 @@ import tech.ydb.yoj.repository.test.entity.TestEntities;
 import tech.ydb.yoj.repository.test.sample.TestDb;
 import tech.ydb.yoj.repository.test.sample.TestDbImpl;
 import tech.ydb.yoj.repository.test.sample.TestEntityOperations;
+import tech.ydb.yoj.repository.test.sample.model.BadMembership;
 import tech.ydb.yoj.repository.test.sample.model.BadlyWrappedEntity;
 import tech.ydb.yoj.repository.test.sample.model.BadlyWrappedEntity.BadStringValueWrapper;
 import tech.ydb.yoj.repository.test.sample.model.Book;
@@ -65,6 +66,7 @@ import tech.ydb.yoj.repository.test.sample.model.EntityWithNullableField;
 import tech.ydb.yoj.repository.test.sample.model.EntityWithValidation;
 import tech.ydb.yoj.repository.test.sample.model.EnumEntity;
 import tech.ydb.yoj.repository.test.sample.model.IndexedEntity;
+import tech.ydb.yoj.repository.test.sample.model.Membership;
 import tech.ydb.yoj.repository.test.sample.model.MigrationEntity;
 import tech.ydb.yoj.repository.test.sample.model.MultiLevelDirectory;
 import tech.ydb.yoj.repository.test.sample.model.MultiWrappedEntity2;
@@ -118,6 +120,7 @@ import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
+import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException;
 import static org.assertj.core.api.Assertions.assertThatNullPointerException;
 import static org.assertj.core.api.Assertions.fail;
 import static tech.ydb.yoj.repository.db.EntityExpressions.newFilterBuilder;
@@ -3064,6 +3067,29 @@ public abstract class RepositoryTest extends RepositoryTestSupport {
                 .where("c").isNull()
                 .find()
         )).singleElement().isEqualTo(entity2);
+    }
+
+    @Test
+    public void stringValueStartsWith() {
+        var m = new Membership(new Membership.Id(new Membership.StringValue("tasty-peach")));
+        db.tx(() -> db.table(Membership.class).insert(m));
+
+        db.tx(() -> {
+            assertThat(db.table(Membership.class).query()
+                    .where("id").startsWith("tasty-")
+                    .findOne()
+            ).isEqualTo(m);
+        });
+    }
+
+    @Test
+    public void stringValueStartsWithFailOnNonString() {
+        var m = new BadMembership(new BadMembership.Id(42L));
+        db.tx(() -> db.table(BadMembership.class).insert(m));
+
+        assertThatIllegalArgumentException().isThrownBy(() -> db.tx(() -> db.table(BadMembership.class).query()
+                .where("id").startsWith("tasty-")
+                .findOne()));
     }
 
     @Test
