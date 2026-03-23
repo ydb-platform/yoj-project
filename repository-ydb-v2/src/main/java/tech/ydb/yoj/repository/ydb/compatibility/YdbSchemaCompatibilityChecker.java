@@ -441,14 +441,20 @@ public final class YdbSchemaCompatibilityChecker {
 
         if (toTtlModifier == null) {
             String dropOldTtl = "ALTER TABLE `%s` RESET (TTL);".formatted(from.getName());
-            shouldExecuteMessages.add(dropOldTtl);
+            canExecuteMessages.add(dropOldTtl);
+            return;
         }
 
-        if (toTtlModifier != null) {
-            String alterAddTtlTemplate = "ALTER TABLE `%s` SET (TTL = Interval(\"%s\") ON %s);";
-            String ttlColumn = toTtlModifier.getDateTimeColumnName();
-            Duration ttlDuration = Duration.ofSeconds(toTtlModifier.getExpireAfterSeconds());
-            shouldExecuteMessages.add(alterAddTtlTemplate.formatted(to.getName(), ttlDuration, ttlColumn));
+        String alterAddTtlTemplate = "ALTER TABLE `%s` SET (TTL = Interval(\"%s\") ON %s);";
+        String ttlColumn = toTtlModifier.getDateTimeColumnName();
+        Duration ttlDuration = Duration.ofSeconds(toTtlModifier.getExpireAfterSeconds());
+        String template = alterAddTtlTemplate.formatted(to.getName(), ttlDuration, ttlColumn);
+
+        YdbSchemaOperations.TtlModifier fromTtlModifier = from.getTtlModifier();
+        if (fromTtlModifier == null) {
+            shouldExecuteMessages.add(template);
+        } else {
+            canExecuteMessages.add(template);
         }
     }
 

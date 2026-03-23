@@ -75,6 +75,7 @@ import tech.ydb.yoj.repository.test.sample.model.ChangefeedEntity;
 import tech.ydb.yoj.repository.test.sample.model.EntityWithNullableField;
 import tech.ydb.yoj.repository.test.sample.model.IndexedEntity;
 import tech.ydb.yoj.repository.test.sample.model.MultiWrappedEntity;
+import tech.ydb.yoj.repository.test.sample.model.NoTtlEntity;
 import tech.ydb.yoj.repository.test.sample.model.Project;
 import tech.ydb.yoj.repository.test.sample.model.Supabubble2;
 import tech.ydb.yoj.repository.test.sample.model.TtlEntity;
@@ -87,6 +88,7 @@ import tech.ydb.yoj.repository.ydb.exception.ResultTruncatedException;
 import tech.ydb.yoj.repository.ydb.exception.YdbOverloadedException;
 import tech.ydb.yoj.repository.ydb.exception.YdbRepositoryException;
 import tech.ydb.yoj.repository.ydb.model.EntityChangeTtl;
+import tech.ydb.yoj.repository.ydb.model.EntityCreateTtl;
 import tech.ydb.yoj.repository.ydb.model.EntityDropTtl;
 import tech.ydb.yoj.repository.ydb.model.IndexedEntityChangeIndex;
 import tech.ydb.yoj.repository.ydb.model.IndexedEntityCreateIndex;
@@ -142,6 +144,7 @@ public class YdbRepositoryIntegrationTest extends RepositoryTest {
         repository.schema(WithUnflattenableField.class).create();
         repository.schema(SubdirEntity.class).create();
         repository.schema(TtlEntity.class).create();
+        repository.schema(NoTtlEntity.class).create();
         repository.schema(ChangefeedEntity.class).create();
         repository.schema(EntityWithNullableField.class).create();
         return repository;
@@ -856,20 +859,30 @@ public class YdbRepositoryIntegrationTest extends RepositoryTest {
     @Test
     public void testCompatibilityDropTtl() {
         var checker = new YdbSchemaCompatibilityChecker(List.of(EntityDropTtl.class), (YdbRepository) repository);
-        assertThatThrownBy(checker::run);
+        checker.run();
         var ts = getRealYdbConfig().getTablespace();
-        assertThat(checker.getShouldExecuteMessages()).containsExactly(
+        assertThat(checker.getCanExecuteMessages()).containsAnyOf(
                 String.format("ALTER TABLE `%sTtlEntity` RESET (TTL);", ts)
         );
     }
 
     @Test
-    public void testCompatibilityChangeOrCreateTtl() {
+    public void testCompatibilityChangeTtl() {
         var checker = new YdbSchemaCompatibilityChecker(List.of(EntityChangeTtl.class), (YdbRepository) repository);
+        checker.run();
+        var ts = getRealYdbConfig().getTablespace();
+        assertThat(checker.getCanExecuteMessages()).containsAnyOf(
+                String.format("ALTER TABLE `%sTtlEntity` SET (TTL = Interval(\"PT2H\") ON createdAt);", ts)
+        );
+    }
+
+    @Test
+    public void testCompatibilityCreateTtl() {
+        var checker = new YdbSchemaCompatibilityChecker(List.of(EntityCreateTtl.class), (YdbRepository) repository);
         assertThatThrownBy(checker::run);
         var ts = getRealYdbConfig().getTablespace();
         assertThat(checker.getShouldExecuteMessages()).containsExactly(
-                String.format("ALTER TABLE `%sTtlEntity` SET (TTL = Interval(\"PT2H\") ON createdAt);", ts)
+                String.format("ALTER TABLE `%sNoTtlEntity` SET (TTL = Interval(\"PT3H\") ON createdAt);", ts)
         );
     }
 
