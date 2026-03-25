@@ -5,6 +5,7 @@ import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import tech.ydb.core.Issue;
+import tech.ydb.core.Status;
 import tech.ydb.core.StatusCode;
 import tech.ydb.yoj.InternalApi;
 import tech.ydb.yoj.repository.db.exception.DeadlineExceededException;
@@ -16,13 +17,15 @@ import tech.ydb.yoj.repository.ydb.exception.BadSessionException;
 import tech.ydb.yoj.repository.ydb.exception.YdbClientInternalException;
 import tech.ydb.yoj.repository.ydb.exception.YdbComponentUnavailableException;
 import tech.ydb.yoj.repository.ydb.exception.YdbOverloadedException;
+import tech.ydb.yoj.repository.ydb.exception.YdbPreconditionFailedException;
 import tech.ydb.yoj.repository.ydb.exception.YdbRepositoryException;
+import tech.ydb.yoj.repository.ydb.exception.YdbResultSetTooBigException;
 import tech.ydb.yoj.repository.ydb.exception.YdbUnauthenticatedException;
 import tech.ydb.yoj.repository.ydb.exception.YdbUnauthorizedException;
 import tech.ydb.yoj.util.lang.Strings;
 
 import javax.annotation.Nullable;
-import java.util.function.Function;
+import java.util.function.Predicate;
 
 import static lombok.AccessLevel.PRIVATE;
 
@@ -33,21 +36,38 @@ public final class YdbValidator {
     private YdbValidator() {
     }
 
-    public static void validate(String request, StatusCode statusCode, String response) {
+    public static void validate(String request, Status status, String response) {
+        StatusCode statusCode = status.getCode();
+        Issue[] issues = status.getIssues();
+
         switch (statusCode) {
             // Success. Do nothing ;-)
             case SUCCESS -> {
             }
 
             // Current session can no longer be used. Retry immediately by creating a new session
-            case BAD_SESSION,
-                 SESSION_EXPIRED,
-                 // Prepared statement or transaction was not found
-                 NOT_FOUND -> throw new BadSessionException(response);
+            case BAD_SESSION,      // This session is no longer available. Create a new session
+                 SESSION_EXPIRED,  // The session has already expired. Create a new session
+                 NOT_FOUND -> {    // Prepared statement or tx was not found in current session. Create a new session
+                throw new BadSessionException(response);
+            }
 
-            // Transaction locks invalidated: somebody touched the same rows that we've read and/or changed in a SERIALIZABLE-level transaction.
-            // Retry immediately
+            // Transaction locks invalidated. Retry immediately
             case ABORTED -> throw new OptimisticLockException(response);
+
+            // The query cannot be executed in the current state. Non-retryable in general
+            // - Primary key/UNIQUE index violations: Retry immediately (EntityAlreadyExistsException)
+            // - Attempt to return a result set larger than ~50M: Non-retryable (ResultTooHeavyException)
+            // - Other "failed preconditions" unknown to YOJ: Non-retryable (YdbPreconditionFailedException)
+            case PRECONDITION_FAILED -> {
+                if (is(issues, IssueCode.CONSTRAINT_VIOLATION::matches)) {
+                    throw new EntityAlreadyExistsException("Entity already exists" + errorMessageFrom(issues));
+                } else if (is(issues, IssueCode.QUERY_RESULT_SIZE_EXCEEDED::matches)) {
+                    throw new YdbResultSetTooBigException("Query result set size limit exceeded", request, response);
+                } else {
+                    throw new YdbPreconditionFailedException(request, response);
+                }
+            }
 
             // DB overloaded and similar conditions. Slow retry with exponential backoff
             case OVERLOADED,
@@ -61,7 +81,7 @@ public final class YdbValidator {
                  CLIENT_DEADLINE_EXPIRED,
                  // The request was cancelled on the client, at the transport level (because the GRPC deadline expired)
                  CLIENT_DEADLINE_EXCEEDED -> {
-                checkGrpcContextStatus(response, null);
+                checkGrpcDeadlineAndCancellation(response, null);
 
                 // The result of the request is unknown; it might have been cancelled... or it executed successfully!
                 log.warn("""
@@ -75,7 +95,7 @@ public final class YdbValidator {
             case CLIENT_CANCELLED,
                  CLIENT_GRPC_ERROR,
                  CLIENT_INTERNAL_ERROR -> {
-                checkGrpcContextStatus(response, null);
+                checkGrpcDeadlineAndCancellation(response, null);
 
                 log.warn("""
                         YDB SDK internal error or cancellation
@@ -89,9 +109,14 @@ public final class YdbValidator {
                  TRANSPORT_UNAVAILABLE,     // Network connectivity issues
                  CLIENT_DISCOVERY_FAILED,   // Error occurred while retrieving the list of endpoints
                  CLIENT_LIMITS_REACHED,     // Client-side session limit reached
-                 UNDETERMINED,
-                 SESSION_BUSY,              // Another query is being executed in this session, should retry with a new session
-                 PRECONDITION_FAILED -> {
+                 SESSION_BUSY,              // Another query is being executed in this session, retry with a new session
+                 UNDETERMINED -> {
+                // FIXME(nvamelichev): SESSION_BUSY is here only because it needs a retry with some delay, not immediate
+                // We should handle SESSION_BUSY separately, e.g. by adding a RetryPolicy arg to BadSessionException
+                // (see https://ydb.tech/docs/en/reference/ydb-sdk/ydb-status-codes?version=v25.2)
+
+                checkGrpcDeadlineAndCancellation(response, null);
+
                 log.warn("""
                         Some database components are not available, but we still got a reply from the DB
                         Request: {}
@@ -99,8 +124,8 @@ public final class YdbValidator {
                 throw new YdbComponentUnavailableException(request, response);
             }
 
-            // GRPC client reports that the request was not authenticated properly. Retry immediately.
-            // This is an internal error, but there may have been an issue with issuing the token, so retry can be attempted.
+            // GRPC client reports that the request was not authenticated properly. Retry immediately
+            // This is an internal error, but there may have been an issue with issuing the token, so we retry.
             // If that doesn’t work, we will propagate the error quickly enough.
             case CLIENT_UNAUTHENTICATED -> {
                 log.warn("""
@@ -110,7 +135,7 @@ public final class YdbValidator {
                 throw new YdbUnauthenticatedException(request, response);
             }
 
-            // DB reports that the request is unauthorized. Retry immediately.
+            // DB reports that the request is unauthorized. Retry immediately
             // Retries might help in case e.g. access permissions are updated in an eventually-consistent way
             case UNAUTHORIZED -> {
                 log.warn("""
@@ -130,8 +155,7 @@ public final class YdbValidator {
                  INTERNAL_ERROR,
                  GENERIC_ERROR,
                  UNUSED_STATUS,
-                 // This status is used by other YDB services (not the {Table,Query}Service). This is *NOT* a form of PRECONDITION_FAILED!
-                 ALREADY_EXISTS -> {
+                 ALREADY_EXISTS -> { // Not used by {Table,Query}Service. We consider it fatal
                 log.error("""
                         Bad response status
                         Request: {}
@@ -150,8 +174,8 @@ public final class YdbValidator {
         }
     }
 
-    public static boolean isTransactionClosedByServer(StatusCode statusCode) {
-        return switch (statusCode) {
+    public static boolean isTransactionClosedByServer(Status status) {
+        return switch (status.getCode()) {
             case UNUSED_STATUS,
                  ALREADY_EXISTS,
                  BAD_REQUEST,
@@ -187,7 +211,7 @@ public final class YdbValidator {
         };
     }
 
-    public static void checkGrpcContextStatus(String errorMessage, @Nullable Throwable cause) {
+    public static void checkGrpcDeadlineAndCancellation(String errorMessage, @Nullable Throwable cause) {
         if (Context.current().getDeadline() != null && Context.current().getDeadline().isExpired()) {
             // GRPC deadline for the current GRPC context has expired. We need to throw a separate exception to avoid retries
             throw new DeadlineExceededException("DB query deadline exceeded. Response from DB: " + errorMessage, cause);
@@ -197,32 +221,29 @@ public final class YdbValidator {
         }
     }
 
-    private static boolean is(Issue[] issues, Function<Issue, Boolean> function) {
+    private static boolean is(Issue[] issues, Predicate<Issue> predicate) {
         for (Issue issue : issues) {
-            if (function.apply(issue) || (issue.getIssues().length > 0 && is(issue.getIssues(), function))) {
+            if (predicate.test(issue) || (issue.getIssues().length > 0 && is(issue.getIssues(), predicate))) {
                 return true;
             }
         }
         return false;
     }
 
-    public static void validatePkConstraint(Issue[] issues) {
-        if (is(issues, IssueCode.CONSTRAINT_VIOLATION::matches)) {
-            StringBuilder error = new StringBuilder();
-            is(issues, m -> {
-                if (!error.isEmpty()) {
-                    error.append(":");
-                }
-                error.append(m.getMessage());
-                return false;
-            });
-            throw new EntityAlreadyExistsException("Entity already exists: " + error);
+    private static String errorMessageFrom(Issue[] issues) {
+        StringBuilder sb = new StringBuilder();
+        for (Issue issue : issues) {
+            sb.append(": ");
+            sb.append(issue.getMessage());
         }
+        return sb.toString();
     }
 
     @RequiredArgsConstructor(access = PRIVATE)
     private enum IssueCode {
-        CONSTRAINT_VIOLATION(2012);
+        CONSTRAINT_VIOLATION(2012),
+        QUERY_RESULT_SIZE_EXCEEDED(2013)
+        ;
 
         private final int issueCode;
 

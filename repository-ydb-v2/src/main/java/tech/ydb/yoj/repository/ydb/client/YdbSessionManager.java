@@ -18,6 +18,8 @@ import static tech.ydb.yoj.util.lang.Interrupts.isThreadInterrupted;
 
 @InternalApi
 public final class YdbSessionManager implements SessionManager {
+    private static final String REQUEST_GET_SESSION = "getSession";
+
     private final TableClient tableClient;
     private final Duration sessionTimeout;
 
@@ -31,17 +33,17 @@ public final class YdbSessionManager implements SessionManager {
         CompletableFuture<Result<Session>> future = tableClient.createSession(sessionTimeout);
         try {
             Result<Session> result = future.get();
-            YdbValidator.validate("session create", result.getStatus().getCode(), result.toString());
+            YdbValidator.validate(REQUEST_GET_SESSION, result.getStatus(), result.toString());
             return result.getValue();
         } catch (CancellationException | CompletionException | ExecutionException | InterruptedException e) {
-            // We need to cancel future bacause in other case we can get session leak
+            // We need to cancel the future, otherwise we can get a session leak
             future.cancel(false);
 
             if (isThreadInterrupted(e)) {
                 Thread.currentThread().interrupt();
                 throw new QueryInterruptedException("get session interrupted", e);
             }
-            YdbValidator.checkGrpcContextStatus(e.getMessage(), e);
+            YdbValidator.checkGrpcDeadlineAndCancellation(e.getMessage(), e);
 
             throw new UnavailableException("DB is unavailable", e);
         }
