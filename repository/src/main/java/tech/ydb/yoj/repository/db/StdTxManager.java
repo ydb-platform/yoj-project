@@ -18,6 +18,7 @@ import tech.ydb.yoj.repository.db.exception.QueryInterruptedException;
 import tech.ydb.yoj.repository.db.exception.RetryableException;
 import tech.ydb.yoj.util.lang.Strings;
 import tech.ydb.yoj.util.log.MdcSetup;
+import tech.ydb.yoj.util.retry.RetryPolicy;
 
 import javax.annotation.Nullable;
 import java.time.Duration;
@@ -89,6 +90,8 @@ public final class StdTxManager implements TxManager, TxManagerState {
     private final SeparatePolicy separatePolicy;
     @With
     private final TxNameGenerator txNameGenerator;
+    @With(AccessLevel.PRIVATE)
+    private final RetryPolicyProvider customRetryPolicyProvider;
 
     public StdTxManager(@NonNull Repository repository) {
         this(
@@ -97,8 +100,25 @@ public final class StdTxManager implements TxManager, TxManagerState {
                 /*         logContext */ null,
                 /*            options */ TxOptions.create(SERIALIZABLE_READ_WRITE),
                 /*     separatePolicy */ SeparatePolicy.LOG,
-                /*    txNameGenerator */ new TxNameGenerator.Default()
+                /*    txNameGenerator */ new TxNameGenerator.Default(),
+                /*      customRetries */ null
         );
+    }
+
+    /**
+     * Set a {@link RetryPolicyProvider custom retry policy provider} for this {@code StdTxManager}, to override some
+     * (or all) retry policies {@link RetryableException#getRetryPolicy() suggested} by {@link RetryableException}s.
+     * <p><strong>This is a sharp-edged experimental API, subject to change (and removal!) without notification.
+     * </strong>
+     * Please refer to the <a href="https://ydb.tech/docs/en/reference/ydb-sdk/error_handling">YDB documentation</a>
+     * on error handling to come up with a sound retry policy.
+     *
+     * @param customRetries custom retry policy provider
+     * @return {@code this}
+     */
+    @ExperimentalApi(issue = "https://github.com/ydb-platform/yoj-project/issues/221")
+    public StdTxManager withCustomRetries(RetryPolicyProvider customRetries) {
+        return withCustomRetryPolicyProvider(customRetries);
     }
 
     @Override
@@ -107,63 +127,63 @@ public final class StdTxManager implements TxManager, TxManagerState {
     }
 
     @Override
-    public TxManager separate() {
+    public StdTxManager separate() {
         return withSeparatePolicy(SeparatePolicy.ALLOW);
     }
 
     @Override
-    public TxManager delayedWrites() {
+    public StdTxManager delayedWrites() {
         return withOptions(this.options.withImmediateWrites(false));
     }
 
     @Override
-    public TxManager immediateWrites() {
+    public StdTxManager immediateWrites() {
         return withOptions(this.options.withImmediateWrites(true));
     }
 
     @Override
-    public TxManager noFirstLevelCache() {
+    public StdTxManager noFirstLevelCache() {
         return withOptions(this.options.withFirstLevelCache(false));
     }
 
     @Override
-    public TxManager failOnUnknownSeparateTx() {
+    public StdTxManager failOnUnknownSeparateTx() {
         return withSeparatePolicy(SeparatePolicy.STRICT);
     }
 
     @Override
-    public TxManager withMaxRetries(int maxRetries) {
+    public StdTxManager withMaxRetries(int maxRetries) {
         Preconditions.checkArgument(maxRetries >= 0, "retry count must be >= 0");
         return withMaxAttemptCount(1 + maxRetries);
     }
 
     @Override
-    public TxManager withDryRun(boolean dryRun) {
+    public StdTxManager withDryRun(boolean dryRun) {
         return withOptions(this.options.withDryRun(dryRun));
     }
 
     @Override
-    public TxManager withTimeout(@NonNull Duration timeout) {
+    public StdTxManager withTimeout(@NonNull Duration timeout) {
         return withOptions(this.options.withTimeoutOptions(new TxOptions.TimeoutOptions(timeout)));
     }
 
     @Override
-    public TxManager withQueryStats(@NonNull QueryStatsMode queryStats) {
+    public StdTxManager withQueryStats(@NonNull QueryStatsMode queryStats) {
         return withOptions(this.options.withQueryStats(queryStats));
     }
 
     @Override
-    public TxManager withTracingFilter(@NonNull QueryTracingFilter tracingFilter) {
+    public StdTxManager withTracingFilter(@NonNull QueryTracingFilter tracingFilter) {
         return withOptions(this.options.withTracingFilter(tracingFilter));
     }
 
     @Override
-    public TxManager withLogLevel(@NonNull TransactionLog.Level level) {
+    public StdTxManager withLogLevel(@NonNull TransactionLog.Level level) {
         return withOptions(this.options.withLogLevel(level));
     }
 
     @Override
-    public TxManager withLogStatementOnSuccess(boolean logStatementOnSuccess) {
+    public StdTxManager withLogStatementOnSuccess(boolean logStatementOnSuccess) {
         return withOptions(this.options.withLogStatementOnSuccess(logStatementOnSuccess));
     }
 
@@ -286,9 +306,12 @@ public final class StdTxManager implements TxManager, TxManagerState {
         return Strings.leftPad(Long.toUnsignedString(txLogId, 36), 6, '0') + options.getIsolationLevel().getTxIdSuffix();
     }
 
-    private static void sleepBeforeNextAttempt(RetryableException e, int attempt) {
+    private void sleepBeforeNextAttempt(RetryableException e, int attempt) {
+        var customRetryPolicy = customRetryPolicyProvider != null ? customRetryPolicyProvider.getRetryPolicy(e) : null;
+        var retryPolicy = customRetryPolicy != null ? customRetryPolicy : e.getRetryPolicy();
+
         try {
-            MILLISECONDS.sleep(e.getRetryPolicy().calcDuration(attempt).toMillis());
+            MILLISECONDS.sleep(retryPolicy.calcDuration(attempt).toMillis());
         } catch (InterruptedException ex) {
             Thread.currentThread().interrupt();
             throw new QueryInterruptedException("DB query interrupted", ex);
@@ -338,6 +361,23 @@ public final class StdTxManager implements TxManager, TxManagerState {
     @Deprecated(forRemoval = true)
     public StdTxManager withIsolationLevel(IsolationLevel isolationLevel) {
         return withOptions(options.withIsolationLevel(isolationLevel));
+    }
+
+    /**
+     * Provides custom {@link RetryPolicy retry policies} for some, or all, of {@link RetryableException}s
+     * encountered by {@code StdTxManager} while trying to perform the transaction.
+     *
+     * <p><strong>This is an experimental API, subject to change (and removal!) without notification.</strong>
+     */
+    @FunctionalInterface
+    @ExperimentalApi(issue = "https://github.com/ydb-platform/yoj-project/issues/221")
+    public interface RetryPolicyProvider {
+        /**
+         * @param e retryable exception
+         * @return custom retry policy, or {@code null} to use the {@link RetryableException#getRetryPolicy() default}
+         */
+        @Nullable
+        RetryPolicy getRetryPolicy(RetryableException e);
     }
 
     @AllArgsConstructor
