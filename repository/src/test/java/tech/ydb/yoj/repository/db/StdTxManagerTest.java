@@ -1,5 +1,6 @@
 package tech.ydb.yoj.repository.db;
 
+import lombok.NonNull;
 import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.core.LogEvent;
@@ -12,14 +13,18 @@ import org.mockito.Mockito;
 import tech.ydb.yoj.repository.db.cache.TransactionLocal;
 import tech.ydb.yoj.repository.db.cache.TransactionLog;
 import tech.ydb.yoj.repository.db.exception.OptimisticLockException;
+import tech.ydb.yoj.repository.db.exception.UnavailableException;
 import tech.ydb.yoj.repository.db.testcaller.TestDbTxCaller;
 import tech.ydb.yoj.repository.testcaller.TestTxCaller;
+import tech.ydb.yoj.util.retry.RetryPolicy;
 
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
@@ -225,6 +230,43 @@ public class StdTxManagerTest {
 
         verify(repositoryTransaction, times(1)).rollback();
         verify(repositoryTransaction, times(0)).commit();
+    }
+
+    @Test
+    public void customRetryPolicy() {
+        when(repository.startTransaction(any(TxOptions.class))).thenReturn(repositoryTransaction);
+        when(repositoryTransaction.getTransactionLocal()).thenReturn(transactionLocal);
+        when(transactionLocal.log()).thenReturn(transactionLog);
+
+        var spyRetryPolicy = new RetryPolicy() {
+            int lastRetryAttempt = 0;
+
+            @Override
+            public Duration calcDuration(int attempt) {
+                lastRetryAttempt = attempt;
+                return Duration.ZERO;
+            }
+
+            @Override
+            public boolean isSameAs(@NonNull RetryPolicy other) {
+                return other == this;
+            }
+        };
+
+        var txManager = new StdTxManager(repository)
+                .withMaxRetries(1)
+                .withCustomRetries(e -> e instanceof OptimisticLockException ? spyRetryPolicy : null);
+        var i = new AtomicInteger();
+
+        assertThatExceptionOfType(UnavailableException.class).isThrownBy(() -> txManager.tx(() -> {
+            i.incrementAndGet();
+            throw new OptimisticLockException("lock exception");
+        }));
+
+        verify(repositoryTransaction, times(2)).rollback();
+        verify(repositoryTransaction, times(0)).commit();
+        assertThat(i).hasValue(2);
+        assertThat(spyRetryPolicy.lastRetryAttempt).isEqualTo(1);
     }
 
     private static final class TestAppender extends AbstractAppender {
