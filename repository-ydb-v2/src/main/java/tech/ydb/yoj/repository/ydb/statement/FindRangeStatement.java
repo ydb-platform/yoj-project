@@ -1,9 +1,10 @@
 package tech.ydb.yoj.repository.ydb.statement;
 
-import lombok.AllArgsConstructor;
 import lombok.Getter;
+import lombok.RequiredArgsConstructor;
 import tech.ydb.proto.ValueProtos;
 import tech.ydb.yoj.databind.schema.Schema;
+import tech.ydb.yoj.databind.schema.Schema.JavaField;
 import tech.ydb.yoj.repository.db.Entity;
 import tech.ydb.yoj.repository.db.EntitySchema;
 import tech.ydb.yoj.repository.db.Range;
@@ -36,10 +37,10 @@ public class FindRangeStatement<ENTITY extends Entity<ENTITY>, ID extends Entity
                 .collect(toList());
     }
 
-    private Stream<YqlStatementRangeParam> toParams(Set<String> names, FindRangeStatement.RangeBound rangeBound) {
+    private Stream<YqlStatementRangeParam> toParams(Set<JavaField> fields, FindRangeStatement.RangeBound rangeBound) {
         return schema.flattenId().stream()
-                .filter(f -> names.contains(f.getName()))
-                .map(c -> new FindRangeStatement.YqlStatementRangeParam(YqlType.of(c), c.getName(), rangeBound));
+                .filter(fields::contains)
+                .map(c -> new FindRangeStatement.YqlStatementRangeParam(YqlType.of(c), c, rangeBound));
     }
 
     @Override
@@ -48,7 +49,7 @@ public class FindRangeStatement<ENTITY extends Entity<ENTITY>, ID extends Entity
                 .map(YqlStatementRangeParam.class::cast)
                 .collect(toMap(
                         YqlStatementParam::getVar,
-                        p -> createTQueryParameter(p.getType(), p.rangeBound.map(parameters).get(p.rangeName), p.isOptional()))
+                        p -> createTQueryParameter(p.getType(), p.rangeBound.map(parameters).get(p.field), p.isOptional()))
                 );
     }
 
@@ -74,31 +75,32 @@ public class FindRangeStatement<ENTITY extends Entity<ENTITY>, ID extends Entity
     private String predicationVars() {
         return getParams().stream()
                 .map(YqlStatementRangeParam.class::cast)
-                .map(p -> "(" + escape(p.rangeName) + p.rangeBound.op + p.getVar() + ")")
+                .map(p -> "(" + escape(p.field.getName()) + p.rangeBound.op + p.getVar() + ")")
                 .collect(joining(" AND "));
     }
 
-    @AllArgsConstructor
-    enum RangeBound {
+    @RequiredArgsConstructor
+    private enum RangeBound {
         EQ("=", Range::getEqMap),
         MAX("<=", Range::getMaxMap),
         MIN(">=", Range::getMinMap);
-        String op;
-        Function<Range, Map<String, Object>> mapper;
 
-        public Map<String, Object> map(Range range) {
+        private final String op;
+        private final Function<Range<?>, Map<JavaField, Object>> mapper;
+
+        public Map<JavaField, Object> map(Range<?> range) {
             return mapper.apply(range);
         }
     }
 
-    static class YqlStatementRangeParam extends YqlStatementParam {
+    private static final class YqlStatementRangeParam extends YqlStatementParam {
         private final RangeBound rangeBound;
-        private final String rangeName;
+        private final JavaField field;
 
-        YqlStatementRangeParam(YqlType type, String name, RangeBound rangeBound) {
-            super(type, rangeBound.name() + "_" + name, true);
+        private YqlStatementRangeParam(YqlType type, JavaField field, RangeBound rangeBound) {
+            super(type, rangeBound.name() + "_" + field.getName(), true);
             this.rangeBound = rangeBound;
-            this.rangeName = name;
+            this.field = field;
         }
     }
 }
