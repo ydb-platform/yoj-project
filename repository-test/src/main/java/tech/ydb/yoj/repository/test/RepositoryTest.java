@@ -273,45 +273,37 @@ public abstract class RepositoryTest extends RepositoryTestSupport {
 
     @Test
     public void deferAfterCommitDontRunInDryRun() {
-        db.withDryRun(true).tx(
-                () -> Tx.Current.get().defer(
-                        () -> fail("defer after commit musn't call in dry run")
-                )
-        );
+        db.withDryRun(true).tx(tx -> tx.defer(() -> fail("defer after commit musn't call in dry run")));
     }
 
     @Test
     public void deferNotInTxContext() {
-        db.tx(
-                () -> Tx.Current.get().defer(
-                        () -> assertThat(Tx.Current.exists())
-                                .withFailMessage("defer must not run in tx context")
-                                .isFalse()
-                )
-        );
+        db.tx(tx -> tx.defer(
+                () -> assertThat(Tx.Current.exists())
+                        .withFailMessage("defer must not run in tx context")
+                        .isFalse()
+        ));
     }
 
     @Test
     public void deferFinallyDontRunInDryRun() {
-        db.withDryRun(true).tx(
-                () -> Tx.Current.get().deferFinally(
-                        () -> fail("defer after commit musn't be called in dry-run mode")
-                )
-        );
+        db.withDryRun(true).tx(tx -> tx.deferFinally(
+                () -> fail("defer after commit musn't be called in dry-run mode")
+        ));
     }
 
     @Test
     public void deferFinallyCommit() {
         AtomicInteger executions = new AtomicInteger();
-        db.tx(() -> Tx.Current.get().deferFinally(executions::incrementAndGet));
+        db.tx(tx -> tx.deferFinally(executions::incrementAndGet));
         assertThat(executions).hasValue(1);
     }
 
     @Test
     public void deferFinallyRollback() {
         AtomicInteger executions = new AtomicInteger();
-        assertThatExceptionOfType(RuntimeException.class).isThrownBy(() -> db.tx(() -> {
-            Tx.Current.get().deferFinally(executions::incrementAndGet);
+        assertThatExceptionOfType(RuntimeException.class).isThrownBy(() -> db.tx(tx -> {
+            tx.deferFinally(executions::incrementAndGet);
             throw new RuntimeException();
         }));
         assertThat(executions).hasValue(1);
@@ -320,8 +312,8 @@ public abstract class RepositoryTest extends RepositoryTestSupport {
     @Test
     public void deferFinallyRollbackRetryable() {
         AtomicInteger executions = new AtomicInteger();
-        assertThatExceptionOfType(UnavailableException.class).isThrownBy(() -> db.tx(() -> {
-            Tx.Current.get().deferFinally(executions::incrementAndGet);
+        assertThatExceptionOfType(UnavailableException.class).isThrownBy(() -> db.tx(tx -> {
+            tx.deferFinally(executions::incrementAndGet);
             throw new OptimisticLockException("");
         }));
         assertThat(executions).hasValue(1);
@@ -329,7 +321,7 @@ public abstract class RepositoryTest extends RepositoryTestSupport {
 
     @Test
     public void deferFinallyNotInTxContext() {
-        db.tx(() -> Tx.Current.get().deferFinally(() ->
+        db.tx(tx -> tx.deferFinally(() ->
                 assertThat(Tx.Current.exists())
                         .withFailMessage("deferFinally must not be in a tx context")
                         .isFalse()
@@ -338,8 +330,8 @@ public abstract class RepositoryTest extends RepositoryTestSupport {
 
     @Test
     public void deferFinallyRollbackNotInTxContext() {
-        assertThatExceptionOfType(RuntimeException.class).isThrownBy(() -> db.tx(() -> {
-            Tx.Current.get().deferFinally(() ->
+        assertThatExceptionOfType(RuntimeException.class).isThrownBy(() -> db.tx(tx -> {
+            tx.deferFinally(() ->
                     assertThat(Tx.Current.exists())
                             .withFailMessage("deferFinally must not be in a tx context")
                             .isFalse()
@@ -3380,8 +3372,8 @@ public abstract class RepositoryTest extends RepositoryTestSupport {
 
             AtomicInteger attemptCount = new AtomicInteger();
             assertThatNullPointerException().isThrownBy(() ->
-                    txManager.withName("Hello", "world-100500").immediateWrites().tx(() -> {
-                        Tx.Current.get().deferFinally(() -> log.error("Finally - 100500"));
+                    txManager.withName("Hello", "world-100500").immediateWrites().tx(tx -> {
+                        tx.deferFinally(() -> log.error("Finally - 100500"));
                         log.error("Hey, I got context - 100500!");
 
                         boolean shouldRetry = attemptCount.incrementAndGet() <= 10;
@@ -3397,10 +3389,10 @@ public abstract class RepositoryTest extends RepositoryTestSupport {
                             throw e;
                         }
                     }));
-            txManager.withName("Hello", "world-2001000").tx(() -> {
-                Tx.Current.get().deferBeforeCommit(() -> log.error("Before commit - 2001000"));
-                Tx.Current.get().defer(() -> log.error("Success - 2001000"));
-                Tx.Current.get().deferFinally(() -> log.error("Finally - 2001000"));
+            txManager.withName("Hello", "world-2001000").tx(tx -> {
+                tx.deferBeforeCommit(() -> log.error("Before commit - 2001000"));
+                tx.defer(() -> log.error("Success - 2001000"));
+                tx.deferFinally(() -> log.error("Finally - 2001000"));
                 log.error("Hey, I got context! - 2001000");
                 try {
                     db.table(UniqueProject.class).save(new UniqueProject(new UniqueProject.Id("yyy"), null, 3));
@@ -3409,8 +3401,8 @@ public abstract class RepositoryTest extends RepositoryTestSupport {
                 }
 
                 try {
-                    db.separate().withName("Hello", "world-4002000").tx(() -> {
-                        Tx.Current.get().deferFinally(() -> log.error("Separate tx Finally - 4002000"));
+                    db.separate().withName("Hello", "world-4002000").tx(tx2 -> {
+                        tx2.deferFinally(() -> log.error("Separate tx Finally - 4002000"));
                         log.error("Hey, separate tx got context! - 4002000");
                         try {
                             db.table(UniqueProject.class).save(new UniqueProject(new UniqueProject.Id("zzz"), null, 4));
