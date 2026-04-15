@@ -259,6 +259,11 @@ public final class StdTxManager implements TxManager, TxManagerState {
             }
         } finally {
             if (!options.isDryRun() && lastTx != null) {
+                // FIXME(nvamelichev): Handle exceptions from runDeferredFinally() and instrument them!
+                // ...maybe by making runDeferredFinally() run each listener in an implicit try-catch block?
+                // (There is strictly **one** user of this API, and this user doesn't register multiple listeners
+                // and handles exceptions in the listener, so behavior won't change for them.)
+                // @see https://github.com/ydb-platform/yoj-project/issues/209
                 lastTx.runDeferredFinally();
             }
             attempts.labels(txName).observe(attempt);
