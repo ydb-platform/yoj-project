@@ -98,6 +98,11 @@ public class InMemoryTable<T extends Entity<T>> implements Table<T> {
     }
 
     @Override
+    public void bulkUpsert(List<T> input, BulkParams params) {
+        input.forEach(this::save);
+    }
+    
+    @Override
     public List<T> find(
             @Nullable String indexName,
             @Nullable FilterExpression<T> filter,
