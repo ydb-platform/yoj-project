@@ -18,6 +18,7 @@ import tech.ydb.yoj.repository.db.TableDescriptor;
 import tech.ydb.yoj.repository.db.TableQueryBuilder;
 import tech.ydb.yoj.repository.db.TableQueryImpl;
 import tech.ydb.yoj.repository.db.ViewSchema;
+import tech.ydb.yoj.repository.db.bulk.BulkParams;
 import tech.ydb.yoj.repository.db.cache.FirstLevelCache;
 import tech.ydb.yoj.repository.db.exception.IllegalTransactionIsolationLevelException;
 import tech.ydb.yoj.repository.db.list.InMemoryQueries;
@@ -97,6 +98,11 @@ public class InMemoryTable<T extends Entity<T>> implements Table<T> {
         transaction.getTransactionLocal().firstLevelCache(tableDescriptor).remove(id);
     }
 
+    @Override
+    public void bulkUpsert(List<T> input, BulkParams params) {
+        input.forEach(this::save);
+    }
+    
     @Override
     public List<T> find(
             @Nullable String indexName,
