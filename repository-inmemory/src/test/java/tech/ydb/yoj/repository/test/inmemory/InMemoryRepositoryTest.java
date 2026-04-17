@@ -10,10 +10,9 @@ import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-public class InMemoryRepositoryTest extends RepositoryTest<TestInMemoryRepository> {
-
+public class InMemoryRepositoryTest extends RepositoryTest {
     @Override
-    protected Repository createDb() {
+    protected Repository createTestRepository() {
         return new TestInMemoryRepository();
     }
 
