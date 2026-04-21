@@ -152,6 +152,11 @@ public interface TestEntityOperations extends BaseDb {
         public void updateEmbedded(TypeFreak.Id id, TypeFreak.Embedded newEmbedded) {
             modifyIfPresent(id, t -> t.withEmbedded(newEmbedded));
         }
+
+        @Override
+        public void bulkUpsert(List<T> input, BulkParams params) {
+            throw new UnsupportedOperationException();
+        }
     }
 
     interface BubbleTable extends Table<Bubble> {
