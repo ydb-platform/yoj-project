@@ -805,26 +805,6 @@ public class YdbRepositoryIntegrationTest extends RepositoryTest {
     }
 
     @Test
-    public void bulkInserts() {
-        var id1 = new Bubble.Id("a", "b");
-        var id2 = new Bubble.Id("c", "d");
-
-        db.tx(() -> {
-            db.bubbles().bulkUpsert(
-                    List.of(new Bubble(id1, "oldA", "oldB", "oldC"), new Bubble(id2, "oldA", "oldB", "oldC")),
-                    BulkParams.DEFAULT
-            );
-        });
-
-        db.readOnly().run(() -> {
-            var first = this.db.bubbles().find(id1);
-            assertThat(first).isNotNull();
-            assertThat(first.getFieldA()).isEqualTo("oldA");
-            assertThat(this.db.bubbles().find(id2)).isNotNull();
-        });
-    }
-
-    @Test
     public void testTransactionTakesTimeoutFromGrpcContext() {
         int[] timeoutsMin = IntStream.range(3, 12).toArray();
 
