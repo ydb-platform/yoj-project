@@ -154,7 +154,7 @@ public interface TestEntityOperations extends BaseDb {
         }
 
         @Override
-        public void bulkUpsert(List<T> input, BulkParams params) {
+        public void bulkUpsert(List<TypeFreak> input, BulkParams params) {
             throw new UnsupportedOperationException();
         }
     }
