@@ -3,7 +3,6 @@ package tech.ydb.yoj.repository.test.sample;
 import tech.ydb.yoj.repository.BaseDb;
 import tech.ydb.yoj.repository.db.AbstractDelegatingTable;
 import tech.ydb.yoj.repository.db.Table;
-import tech.ydb.yoj.repository.db.bulk.BulkParams;
 import tech.ydb.yoj.repository.test.sample.model.Bubble;
 import tech.ydb.yoj.repository.test.sample.model.BytePkEntity;
 import tech.ydb.yoj.repository.test.sample.model.Complex;
@@ -107,11 +106,6 @@ public interface TestEntityOperations extends BaseDb {
 
         public List<Project> findByPredicateWithManyIdValues(Collection<String> ids) {
             return query().where("id").in(ids).find();
-        }
-
-        @Override
-        public void bulkUpsert(List<Project> input, BulkParams params) {
-            getTarget().bulkUpsert(input, params);
         }
     }
 
