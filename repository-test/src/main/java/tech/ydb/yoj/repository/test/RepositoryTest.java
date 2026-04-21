@@ -3362,7 +3362,7 @@ public abstract class RepositoryTest extends RepositoryTestSupport {
     }
 
     @Test
-    public void bulkInserts() {
+    public void bulkUpsert() {
         var id1 = new Bubble.Id("a", "b");
         var id2 = new Bubble.Id("c", "d");
 
