@@ -6,11 +6,11 @@ package tech.ydb.yoj.repository.ydb.exception;
 public sealed class YdbPreconditionFailedException
         extends YdbRepositoryException
         permits YdbResultSetTooBigException {
-    public YdbPreconditionFailedException(Object request, Object response) {
-        this("Query precondition failed", request, response);
+    public YdbPreconditionFailedException(Enum<?> statusCode, Object request, Object response) {
+        this("Query precondition failed", statusCode, request, response);
     }
 
-    protected YdbPreconditionFailedException(String message, Object request, Object response) {
-        super(message, request, response);
+    public YdbPreconditionFailedException(String message, Enum<?> statusCode, Object request, Object response) {
+        super(message, statusCode, request, response);
     }
 }

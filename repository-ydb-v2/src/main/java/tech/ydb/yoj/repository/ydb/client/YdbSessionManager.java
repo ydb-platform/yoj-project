@@ -5,7 +5,7 @@ import tech.ydb.table.Session;
 import tech.ydb.table.TableClient;
 import tech.ydb.yoj.InternalApi;
 import tech.ydb.yoj.repository.db.exception.QueryInterruptedException;
-import tech.ydb.yoj.repository.db.exception.RetryableException;
+import tech.ydb.yoj.repository.db.exception.RetryableExceptionBase;
 import tech.ydb.yoj.repository.db.exception.UnavailableException;
 
 import java.time.Duration;
@@ -18,7 +18,7 @@ import static tech.ydb.yoj.util.lang.Interrupts.isThreadInterrupted;
 
 @InternalApi
 public final class YdbSessionManager implements SessionManager {
-    private static final String REQUEST_GET_SESSION = "getSession";
+    public static final String REQUEST_GET_SESSION = "getSession";
 
     private final TableClient tableClient;
     private final Duration sessionTimeout;
@@ -66,7 +66,7 @@ public final class YdbSessionManager implements SessionManager {
             try {
                 session = getSession();
                 break;
-            } catch (RetryableException ex) {
+            } catch (RetryableExceptionBase ex) {
                 if (i == maxRetrySessionCreateCount - 1) {
                     throw ex;
                 }

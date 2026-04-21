@@ -50,11 +50,11 @@ import tech.ydb.yoj.repository.db.TxOptions;
 import tech.ydb.yoj.repository.db.bulk.BulkParams;
 import tech.ydb.yoj.repository.db.cache.RepositoryCache;
 import tech.ydb.yoj.repository.db.cache.TransactionLocal;
+import tech.ydb.yoj.repository.db.exception.ConditionallyRetryableException;
 import tech.ydb.yoj.repository.db.exception.IllegalTransactionIsolationLevelException;
 import tech.ydb.yoj.repository.db.exception.IllegalTransactionScanException;
 import tech.ydb.yoj.repository.db.exception.OptimisticLockException;
 import tech.ydb.yoj.repository.db.exception.RepositoryException;
-import tech.ydb.yoj.repository.db.exception.UnavailableException;
 import tech.ydb.yoj.repository.db.readtable.ReadTableParams;
 import tech.ydb.yoj.repository.ydb.bulk.BulkMapper;
 import tech.ydb.yoj.repository.ydb.client.ResultSetConverter;
@@ -63,9 +63,6 @@ import tech.ydb.yoj.repository.ydb.client.YdbValidator;
 import tech.ydb.yoj.repository.ydb.exception.BadSessionException;
 import tech.ydb.yoj.repository.ydb.exception.ResultTruncatedException;
 import tech.ydb.yoj.repository.ydb.exception.UnexpectedException;
-import tech.ydb.yoj.repository.ydb.exception.YdbComponentUnavailableException;
-import tech.ydb.yoj.repository.ydb.exception.YdbOverloadedException;
-import tech.ydb.yoj.repository.ydb.exception.YdbRepositoryException;
 import tech.ydb.yoj.repository.ydb.merge.QueriesMerger;
 import tech.ydb.yoj.repository.ydb.readtable.ReadTableMapper;
 import tech.ydb.yoj.repository.ydb.statement.Statement;
@@ -158,6 +155,11 @@ public class YdbRepositoryTransaction<REPO extends YdbRepository>
     }
 
     @Override
+    public boolean wasCommitAttempted() {
+        return CLOSE_ACTION_COMMIT.equals(closeAction);
+    }
+
+    @Override
     public void rollback() {
         Interrupts.runInCleanupMode(() -> {
             try {
@@ -172,12 +174,8 @@ public class YdbRepositoryTransaction<REPO extends YdbRepository>
     }
 
     private void doCommit() {
-        try {
-            Status status = YdbOperations.safeJoin(session.commitTransaction(txId, new CommitTxSettings()));
-            validate(CLOSE_ACTION_COMMIT, status, status.toString());
-        } catch (YdbComponentUnavailableException | YdbOverloadedException e) {
-            throw new UnavailableException("Unknown transaction state: commit was sent, but result is unknown", e);
-        }
+        Status status = YdbOperations.safeJoin(session.commitTransaction(txId, new CommitTxSettings()));
+        validate(CLOSE_ACTION_COMMIT, status, status.toString());
     }
 
     private void closeStreams() {
@@ -208,6 +206,8 @@ public class YdbRepositoryTransaction<REPO extends YdbRepository>
         } catch (BadSessionException | OptimisticLockException e) {
             transactionLocal.log().info("Request got %s: DB tx was invalidated", e.getClass().getSimpleName());
             throw e;
+        } catch (ConditionallyRetryableException e) {
+            throw options.canConditionallyRetry(CLOSE_ACTION_COMMIT.equals(request)) ? e : e.failImmediately();
         }
     }
 
@@ -221,7 +221,7 @@ public class YdbRepositoryTransaction<REPO extends YdbRepository>
             return false;
         }
         if (options.isReadOnly() && !options.getIsolationLevel().isSnapshot()) {
-            transactionLocal.log().info("No-op %s: read-only tx @%s", actionName, options.getIsolationLevel());
+            transactionLocal.log().info("No-op %s: read-only non-SNAPSHOT tx @%s", actionName, options.getIsolationLevel());
             return false;
         }
         if (txId == null) {
@@ -356,7 +356,8 @@ public class YdbRepositoryTransaction<REPO extends YdbRepository>
 
         DataQueryResult queryResult = result.getValue();
         if (queryResult.getResultSetCount() > 1) {
-            throw new YdbRepositoryException("Multi-table queries are not supported", yql, queryResult);
+            throw new UnsupportedOperationException("Multi-table queries are not supported! Got "
+                    + queryResult.getResultSetCount() + " result sets for source query:\n" + yql);
         }
         if (queryResult.getResultSetCount() == 0) {
             return null;
