@@ -32,6 +32,7 @@ import tech.ydb.yoj.repository.test.sample.model.UpdateFeedEntry;
 import tech.ydb.yoj.repository.test.sample.model.VersionedAliasedEntity;
 import tech.ydb.yoj.repository.test.sample.model.VersionedEntity;
 
+import java.util.List;
 import java.util.Set;
 
 public class TestInMemoryRepository extends InMemoryRepository {
