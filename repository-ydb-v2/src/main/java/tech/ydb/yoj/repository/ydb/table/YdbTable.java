@@ -593,7 +593,7 @@ public class YdbTable<T extends Entity<T>> implements Table<T> {
 
     @Override
     @NonNull
-    public T postLoad(T e) {
+    public T postLoad(@NonNull T e) {
         T e1 = e.postLoad();
         executor.getTransactionLocal().firstLevelCache(tableDescriptor).put(e1);
         executor.getTransactionLocal().projectionCache().load(e1);

@@ -3,6 +3,7 @@ package tech.ydb.yoj.repository.test.inmemory;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
+import lombok.NonNull;
 import tech.ydb.yoj.DeprecationWarnings;
 import tech.ydb.yoj.databind.expression.FilterExpression;
 import tech.ydb.yoj.databind.expression.OrderExpression;
@@ -188,7 +189,7 @@ public class InMemoryTable<T extends Entity<T>> implements Table<T> {
         return transaction.getTransactionLocal().firstLevelCache(tableDescriptor).get(id, __ -> {
             markKeyRead(id);
             T entity = transaction.doInTransaction("find(" + id + ")", tableDescriptor, shard -> shard.find(id));
-            return postLoad(entity);
+            return entity == null ? null : postLoad(entity);
         });
     }
 
@@ -580,12 +581,9 @@ public class InMemoryTable<T extends Entity<T>> implements Table<T> {
         return transaction.getTransactionLocal().firstLevelCache(tableDescriptor);
     }
 
-    @Nullable
+    @NonNull
     @Override
-    public T postLoad(T entity) {
-        if (entity == null) {
-            return null;
-        }
+    public T postLoad(@NonNull T entity) {
         T t = entity.postLoad();
         transaction.getTransactionLocal().firstLevelCache(tableDescriptor).put(t);
         transaction.getTransactionLocal().projectionCache().load(t);

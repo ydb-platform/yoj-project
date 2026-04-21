@@ -157,7 +157,7 @@ public interface Table<T extends Entity<T>> {
     default <ID extends Entity.Id<T>> Stream<ID> readTableIds() {
         return readTableIds(ReadTableParams.getDefault());
     }
-  
+
     @NonNull
     default <X extends Exception> T find(Entity.Id<T> id, Supplier<? extends X> throwIfAbsent) throws X {
         T found = find(id);
@@ -269,16 +269,15 @@ public interface Table<T extends Entity<T>> {
     default void bulkUpsert(List<T> input, BulkParams params) {
         throw new UnsupportedOperationException();
     }
-  
+
     @InternalApi
     default List<T> postLoad(List<T> list) {
         return list.stream().map(this::postLoad).collect(Collectors.toList());
     }
 
+    @NonNull
     @InternalApi
-    default T postLoad(T e) {
-        return e.postLoad();
-    }
+    T postLoad(@NonNull T e);
 
     default long count(FilterExpression<T> filter) {
         return count(null, filter);
