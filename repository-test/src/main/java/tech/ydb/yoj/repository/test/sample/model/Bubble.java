@@ -21,7 +21,7 @@ public class Bubble implements Entity<Bubble> {
     @With(PRIVATE)
     Instant updatedAt;
 
-    public Bubble(Id id,  String fieldA, String fieldB, String fieldC) {
+    public Bubble(Id id, String fieldA, String fieldB, String fieldC) {
         this(id, fieldA, fieldB, fieldC, null);
     }
 
