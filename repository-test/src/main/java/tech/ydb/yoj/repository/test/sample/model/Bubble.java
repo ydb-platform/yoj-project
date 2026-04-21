@@ -3,9 +3,12 @@ package tech.ydb.yoj.repository.test.sample.model;
 import lombok.RequiredArgsConstructor;
 import lombok.Value;
 import lombok.With;
+import tech.ydb.yoj.databind.DbType;
+import tech.ydb.yoj.databind.schema.Column;
 import tech.ydb.yoj.repository.db.Entity;
 
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 
 import static lombok.AccessLevel.PRIVATE;
 
@@ -19,6 +22,7 @@ public class Bubble implements Entity<Bubble> {
     String fieldC;
 
     @With(PRIVATE)
+    @Column(dbType = DbType.TIMESTAMP)
     Instant updatedAt;
 
     public Bubble(Id id, String fieldA, String fieldB, String fieldC) {
@@ -27,7 +31,7 @@ public class Bubble implements Entity<Bubble> {
 
     @Override
     public Bubble preSave() {
-        return withUpdatedAt(Instant.now());
+        return withUpdatedAt(Instant.now().truncatedTo(ChronoUnit.MICROS));
     }
 
     @Value

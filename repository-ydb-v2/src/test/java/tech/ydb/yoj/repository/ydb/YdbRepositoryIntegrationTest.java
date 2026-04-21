@@ -788,8 +788,8 @@ public class YdbRepositoryIntegrationTest extends RepositoryTest {
                     "v1_" + i, "v2_" + i, "v3_" + i
             ));
         }
-        var searchingBubbles = bubbles.subList(0, bubbles.size() / 2);
-        db.tx(() -> db.bubbles().insertAll(bubbles));
+        var insertedBubbles = db.tx(() -> bubbles.stream().map(b -> db.bubbles().insert(b)).toList());
+        var searchingBubbles = insertedBubbles.subList(0, bubbles.size() / 2);
 
         var searchingIds = searchingBubbles.stream()
                 .map(Bubble::getId)
