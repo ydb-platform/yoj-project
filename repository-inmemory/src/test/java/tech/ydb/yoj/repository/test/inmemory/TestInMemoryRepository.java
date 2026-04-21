@@ -4,6 +4,7 @@ import tech.ydb.yoj.repository.db.AbstractDelegatingTable;
 import tech.ydb.yoj.repository.db.RepositoryTransaction;
 import tech.ydb.yoj.repository.db.Table;
 import tech.ydb.yoj.repository.db.TxOptions;
+import tech.ydb.yoj.repository.db.bulk.BulkParams;
 import tech.ydb.yoj.repository.db.common.CommonConverters;
 import tech.ydb.yoj.repository.db.json.JacksonJsonConverter;
 import tech.ydb.yoj.repository.test.sample.TestEntityOperations;
@@ -155,7 +156,7 @@ public class TestInMemoryRepository extends InMemoryRepository {
         }
 
         @Override
-        public void bulkUpsert(List<T> input, BulkParams params) {
+        public void bulkUpsert(List<Supabubble2> input, BulkParams params) {
             input.forEach(this::save);
         }
     }
@@ -171,7 +172,7 @@ public class TestInMemoryRepository extends InMemoryRepository {
         }
 
         @Override
-        public void bulkUpsert(List<T> input, BulkParams params) {
+        public void bulkUpsert(List<Bubble> input, BulkParams params) {
             input.forEach(this::save);
         }
     }
@@ -187,7 +188,7 @@ public class TestInMemoryRepository extends InMemoryRepository {
         }
 
         @Override
-        public void bulkUpsert(List<T> input, BulkParams params) {
+        public void bulkUpsert(List<IndexedEntity> input, BulkParams params) {
             input.forEach(this::save);
         }
     }
