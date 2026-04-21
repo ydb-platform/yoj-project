@@ -266,10 +266,8 @@ public interface Table<T extends Entity<T>> {
         return ViewListResult.forPage(request, viewType, nextPage);
     }
 
-    default void bulkUpsert(List<T> input, BulkParams params) {
-        throw new UnsupportedOperationException();
-    }
-  
+    void bulkUpsert(List<T> input, BulkParams params);
+    
     @InternalApi
     default List<T> postLoad(List<T> list) {
         return list.stream().map(this::postLoad).collect(Collectors.toList());
