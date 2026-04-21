@@ -29,18 +29,18 @@ public final class BulkMapperImpl<E extends Entity<E>> implements BulkMapper<E> 
 
     @Override
     public Map<String, ValueProtos.TypedValue> map(E entity) {
-        var idComponents = srcSchema.flatten(entity);
+        var flattened = srcSchema.flatten(entity.preSave());
 
         var result = new HashMap<String, ValueProtos.TypedValue>();
         for (var idField : srcSchema.flattenFields()) {
-            var idFieldValue = idComponents.get(idField.getName());
+            var idFieldValue = flattened.get(idField.getName());
             result.put(idField.getName(), toTypedValue(new Schema.JavaFieldValue(idField, idFieldValue), true));
         }
 
         return result;
     }
 
-    protected ValueProtos.TypedValue toTypedValue(Schema.JavaFieldValue value, boolean optional) {
+    private ValueProtos.TypedValue toTypedValue(Schema.JavaFieldValue value, boolean optional) {
         YqlType type = YqlType.of(value.getField());
         return ValueProtos.TypedValue.newBuilder()
                 .setType(getYqlType(type, optional))
@@ -48,7 +48,7 @@ public final class BulkMapperImpl<E extends Entity<E>> implements BulkMapper<E> 
                 .build();
     }
 
-    protected ValueProtos.Type.Builder getYqlType(YqlType yqlType, boolean optional) {
+    private ValueProtos.Type.Builder getYqlType(YqlType yqlType, boolean optional) {
         ValueProtos.Type.Builder ttype = yqlType.getYqlTypeBuilder();
         return !optional
                 ? ttype
@@ -56,7 +56,7 @@ public final class BulkMapperImpl<E extends Entity<E>> implements BulkMapper<E> 
 
     }
 
-    protected ValueProtos.Value.Builder getYqlValue(YqlType type, Object value) {
+    private ValueProtos.Value.Builder getYqlValue(YqlType type, Object value) {
         return value == null
                 ? ValueProtos.Value.newBuilder().setNullFlagValue(NullValue.NULL_VALUE)
                 : type.toYql(value);

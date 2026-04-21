@@ -3367,17 +3367,35 @@ public abstract class RepositoryTest extends RepositoryTestSupport {
         var id2 = new Bubble.Id("c", "d");
 
         db.tx(() -> {
+            var b1 = new Bubble(id1, "oldA", "oldB", "oldC");
+            var b2 = new Bubble(id2, "oldA", "oldB", "oldC");
+            assertThat(b1.getUpdatedAt()).isNull();
+            assertThat(b2.getUpdatedAt()).isNull();
+
             db.bubbles().bulkUpsert(
-                    List.of(new Bubble(id1, "oldA", "oldB", "oldC"), new Bubble(id2, "oldA", "oldB", "oldC")),
+                    List.of(b1, b2),
                     BulkParams.DEFAULT
             );
         });
 
         db.readOnly().run(() -> {
-            var first = this.db.bubbles().find(id1);
-            assertThat(first).isNotNull();
-            assertThat(first.getFieldA()).isEqualTo("oldA");
-            assertThat(this.db.bubbles().find(id2)).isNotNull();
+            assertThat(this.db.bubbles().find(id1))
+                    .isNotNull()
+                    .satisfies(b -> {
+                        assertThat(b.getFieldA()).isEqualTo("oldA");
+                        assertThat(b.getFieldB()).isEqualTo("oldB");
+                        assertThat(b.getFieldC()).isEqualTo("oldC");
+                        assertThat(b.getUpdatedAt()).isNotNull();
+                    });
+
+            assertThat(this.db.bubbles().find(id2))
+                    .isNotNull()
+                    .satisfies(b -> {
+                        assertThat(b.getFieldA()).isEqualTo("oldA");
+                        assertThat(b.getFieldB()).isEqualTo("oldB");
+                        assertThat(b.getFieldC()).isEqualTo("oldC");
+                        assertThat(b.getUpdatedAt()).isNotNull();
+                    });
         });
     }
 
