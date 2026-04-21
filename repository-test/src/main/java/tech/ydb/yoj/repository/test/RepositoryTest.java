@@ -35,6 +35,7 @@ import tech.ydb.yoj.repository.db.Table;
 import tech.ydb.yoj.repository.db.Tx;
 import tech.ydb.yoj.repository.db.TxManager;
 import tech.ydb.yoj.repository.db.TxOptions;
+import tech.ydb.yoj.repository.db.bulk.BulkParams;
 import tech.ydb.yoj.repository.db.common.CommonConverters;
 import tech.ydb.yoj.repository.db.common.CommonConverters.EnumDeserializer;
 import tech.ydb.yoj.repository.db.exception.ConversionException;
@@ -3358,6 +3359,26 @@ public abstract class RepositoryTest extends RepositoryTestSupport {
         assertThat(results).hasSize(4);
         assertThat(results.subList(0, 2)).containsExactly(e3, e1);
         assertThat(results.subList(2, 4)).containsExactlyInAnyOrder(e2, e4);
+    }
+
+    @Test
+    public void bulkInserts() {
+        var id1 = new Bubble.Id("a", "b");
+        var id2 = new Bubble.Id("c", "d");
+
+        db.tx(() -> {
+            db.bubbles().bulkUpsert(
+                    List.of(new Bubble(id1, "oldA", "oldB", "oldC"), new Bubble(id2, "oldA", "oldB", "oldC")),
+                    BulkParams.DEFAULT
+            );
+        });
+
+        db.readOnly().run(() -> {
+            var first = this.db.bubbles().find(id1);
+            assertThat(first).isNotNull();
+            assertThat(first.getFieldA()).isEqualTo("oldA");
+            assertThat(this.db.bubbles().find(id2)).isNotNull();
+        });
     }
 
     @Test

@@ -4,6 +4,7 @@ import tech.ydb.yoj.repository.db.AbstractDelegatingTable;
 import tech.ydb.yoj.repository.db.RepositoryTransaction;
 import tech.ydb.yoj.repository.db.Table;
 import tech.ydb.yoj.repository.db.TxOptions;
+import tech.ydb.yoj.repository.db.bulk.BulkParams;
 import tech.ydb.yoj.repository.db.common.CommonConverters;
 import tech.ydb.yoj.repository.db.json.JacksonJsonConverter;
 import tech.ydb.yoj.repository.test.sample.TestEntityOperations;
@@ -31,6 +32,7 @@ import tech.ydb.yoj.repository.test.sample.model.UpdateFeedEntry;
 import tech.ydb.yoj.repository.test.sample.model.VersionedAliasedEntity;
 import tech.ydb.yoj.repository.test.sample.model.VersionedEntity;
 
+import java.util.List;
 import java.util.Set;
 
 public class TestInMemoryRepository extends InMemoryRepository {
@@ -153,6 +155,11 @@ public class TestInMemoryRepository extends InMemoryRepository {
         public Supabubble2InMemoryTable(Table<Supabubble2> target) {
             super(target);
         }
+
+        @Override
+        public void bulkUpsert(List<Supabubble2> input, BulkParams params) {
+            input.forEach(this::save);
+        }
     }
 
     private static class BubbleTableImpl extends AbstractDelegatingTable<Bubble> implements BubbleTable {
@@ -164,6 +171,11 @@ public class TestInMemoryRepository extends InMemoryRepository {
         public void updateSomeFields(Set<Bubble.Id> ids, String fieldA, String fieldB) {
             throw new UnsupportedOperationException("not for in-memory");
         }
+
+        @Override
+        public void bulkUpsert(List<Bubble> input, BulkParams params) {
+            input.forEach(this::save);
+        }
     }
 
     private static class IndexedTableImpl extends AbstractDelegatingTable<IndexedEntity> implements IndexedTable {
@@ -174,6 +186,11 @@ public class TestInMemoryRepository extends InMemoryRepository {
         @Override
         public void updateSomeFields(Set<IndexedEntity.Id> ids, String value, String value2) {
             throw new UnsupportedOperationException("not for in-memory");
+        }
+
+        @Override
+        public void bulkUpsert(List<IndexedEntity> input, BulkParams params) {
+            input.forEach(this::save);
         }
     }
 }

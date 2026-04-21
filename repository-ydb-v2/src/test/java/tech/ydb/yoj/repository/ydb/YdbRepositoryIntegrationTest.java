@@ -59,7 +59,6 @@ import tech.ydb.yoj.repository.db.RepositoryTransaction;
 import tech.ydb.yoj.repository.db.StdTxManager;
 import tech.ydb.yoj.repository.db.TableDescriptor;
 import tech.ydb.yoj.repository.db.Tx;
-import tech.ydb.yoj.repository.db.bulk.BulkParams;
 import tech.ydb.yoj.repository.db.common.CommonConverters;
 import tech.ydb.yoj.repository.db.exception.ConversionException;
 import tech.ydb.yoj.repository.db.exception.RetryableException;
@@ -801,26 +800,6 @@ public class YdbRepositoryIntegrationTest extends RepositoryTest {
                     YqlPredicate.where("id").in(searchingIds)
             );
             assertThat(foundBubbles).isEqualTo(searchingBubbles);
-        });
-    }
-
-    @Test
-    public void bulkInserts() {
-        var id1 = new Bubble.Id("a", "b");
-        var id2 = new Bubble.Id("c", "d");
-
-        db.tx(() -> {
-            db.bubbles().bulkUpsert(
-                    List.of(new Bubble(id1, "oldA", "oldB", "oldC"), new Bubble(id2, "oldA", "oldB", "oldC")),
-                    BulkParams.DEFAULT
-            );
-        });
-
-        db.readOnly().run(() -> {
-            var first = this.db.bubbles().find(id1);
-            assertThat(first).isNotNull();
-            assertThat(first.getFieldA()).isEqualTo("oldA");
-            assertThat(this.db.bubbles().find(id2)).isNotNull();
         });
     }
 
