@@ -41,7 +41,7 @@ public enum IsolationLevel {
 
     /**
      * @deprecated Same as {@link #SNAPSHOT_READ_ONLY}, but unfortunately named. Please use {@link #SNAPSHOT_READ_ONLY}
-     * instead; the {@code IsolationLevel.SNAPSHOT} constant will be removed in YOJ 2.9.0.
+     * instead; the {@code IsolationLevel.SNAPSHOT} constant will be removed in YOJ 2.10.0.
      */
     @Deprecated(forRemoval = true)
     SNAPSHOT("SP"),
