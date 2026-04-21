@@ -35,6 +35,7 @@ import tech.ydb.yoj.repository.db.Table;
 import tech.ydb.yoj.repository.db.Tx;
 import tech.ydb.yoj.repository.db.TxManager;
 import tech.ydb.yoj.repository.db.TxOptions;
+import tech.ydb.yoj.repository.db.bulk.BulkParams;
 import tech.ydb.yoj.repository.db.common.CommonConverters;
 import tech.ydb.yoj.repository.db.common.CommonConverters.EnumDeserializer;
 import tech.ydb.yoj.repository.db.exception.ConversionException;
