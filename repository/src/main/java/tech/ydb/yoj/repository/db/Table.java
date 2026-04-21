@@ -269,7 +269,7 @@ public interface Table<T extends Entity<T>> {
     default void bulkUpsert(List<T> input, BulkParams params) {
         throw new UnsupportedOperationException();
     }
-
+  
     @InternalApi
     default List<T> postLoad(List<T> list) {
         return list.stream().map(this::postLoad).collect(Collectors.toList());
