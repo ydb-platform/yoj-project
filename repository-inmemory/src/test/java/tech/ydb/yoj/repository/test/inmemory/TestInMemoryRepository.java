@@ -153,6 +153,11 @@ public class TestInMemoryRepository extends InMemoryRepository {
         public Supabubble2InMemoryTable(Table<Supabubble2> target) {
             super(target);
         }
+
+        @Override
+        public void bulkUpsert(List<T> input, BulkParams params) {
+            input.forEach(this::save);
+        }
     }
 
     private static class BubbleTableImpl extends AbstractDelegatingTable<Bubble> implements BubbleTable {
@@ -164,6 +169,11 @@ public class TestInMemoryRepository extends InMemoryRepository {
         public void updateSomeFields(Set<Bubble.Id> ids, String fieldA, String fieldB) {
             throw new UnsupportedOperationException("not for in-memory");
         }
+
+        @Override
+        public void bulkUpsert(List<T> input, BulkParams params) {
+            input.forEach(this::save);
+        }
     }
 
     private static class IndexedTableImpl extends AbstractDelegatingTable<IndexedEntity> implements IndexedTable {
@@ -174,6 +184,11 @@ public class TestInMemoryRepository extends InMemoryRepository {
         @Override
         public void updateSomeFields(Set<IndexedEntity.Id> ids, String value, String value2) {
             throw new UnsupportedOperationException("not for in-memory");
+        }
+
+        @Override
+        public void bulkUpsert(List<T> input, BulkParams params) {
+            input.forEach(this::save);
         }
     }
 }
