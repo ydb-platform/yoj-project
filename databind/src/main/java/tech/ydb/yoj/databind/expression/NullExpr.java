@@ -34,7 +34,7 @@ public class NullExpr<T> extends LeafExpression<T> {
 
     public boolean isActualValueNull(@NonNull T obj) {
         Map<String, Object> flattened = schema.flatten(obj);
-        return field.flatten().allMatch(f -> flattened.get(field.getName()) == null);
+        return field.flatten().allMatch(f -> flattened.get(f.getName()) == null);
     }
 
     @Override
