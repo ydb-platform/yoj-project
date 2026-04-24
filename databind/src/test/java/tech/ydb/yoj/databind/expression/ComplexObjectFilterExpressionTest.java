@@ -100,6 +100,20 @@ public class ComplexObjectFilterExpressionTest {
         assertThat(filter.toString()).isEqualTo("sub.b IS NULL");
     }
 
+    @Test
+    public void flattenedNullExprActualValueIsNull() {
+        ObjA nullTestObj = new ObjA(null, new ObjA.ObjD(null, 1, 2));
+        NullExpr<ObjA> nullExpr = (NullExpr<ObjA>) FilterBuilder.forSchema(schema).where("id").isNull().build();
+        assertThat(nullExpr.isActualValueNull(nullTestObj)).isTrue();
+    }
+
+    @Test
+    public void flattenedNullExprActualValueIsNotNull() {
+        ObjA nullTestObj = new ObjA(new ObjA.ObjB(new ObjA.ObjC(1, null), 2, null), new ObjA.ObjD(null, 3, 4));
+        NullExpr<ObjA> nullExpr = (NullExpr<ObjA>) FilterBuilder.forSchema(schema).where("id").isNull().build();
+        assertThat(nullExpr.isActualValueNull(nullTestObj)).isFalse();
+    }
+
     @Value
     @AllArgsConstructor
     static class ObjA {
