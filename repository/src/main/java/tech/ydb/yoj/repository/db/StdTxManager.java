@@ -16,6 +16,7 @@ import tech.ydb.yoj.ExperimentalApi;
 import tech.ydb.yoj.repository.db.cache.TransactionLog;
 import tech.ydb.yoj.repository.db.exception.QueryInterruptedException;
 import tech.ydb.yoj.repository.db.exception.RetryableException;
+import tech.ydb.yoj.util.lang.Interrupts;
 import tech.ydb.yoj.util.lang.Strings;
 import tech.ydb.yoj.util.log.MdcSetup;
 import tech.ydb.yoj.util.retry.RetryPolicy;
@@ -23,6 +24,8 @@ import tech.ydb.yoj.util.retry.RetryPolicy;
 import javax.annotation.Nullable;
 import java.time.Duration;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.Consumer;
+import java.util.function.Function;
 import java.util.function.Supplier;
 
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -206,7 +209,24 @@ public final class StdTxManager implements TxManager, TxManagerState {
     }
 
     @Override
+    public void tx(Consumer<Tx> userCodeConsumer) {
+        explicitTx(tx -> {
+            userCodeConsumer.accept(tx);
+            return null;
+        });
+    }
+
+    @Override
     public <T> T tx(Supplier<T> supplier) {
+        return txImpl(__ -> supplier.get());
+    }
+
+    @Override
+    public <T> T explicitTx(Function<Tx, T> userCodeFunction) {
+        return txImpl(userCodeFunction);
+    }
+
+    private <T> T txImpl(Function<Tx, T> userCodeFunction) {
         TxName txName = txNameGenerator.generate();
 
         checkSeparatePolicy(separatePolicy, txName.logName());
@@ -215,7 +235,7 @@ public final class StdTxManager implements TxManager, TxManagerState {
 
         MdcSetup mdcs = txMdcs(txName, txLogId);
         try (Timer ignored = totalDuration.labels(txName.name()).startTimer()) {
-            T result = runTxWithRetry(txName.name(), mdcs, supplier);
+            T result = runTxWithRetry(txName.name(), mdcs, userCodeFunction);
 
             if (options.isDryRun()) {
                 results.labels(txName.name(), "rollback").inc();
@@ -223,14 +243,14 @@ public final class StdTxManager implements TxManager, TxManagerState {
             } else {
                 results.labels(txName.name(), "commit").inc();
             }
-            
+
             return result;
         } finally {
             mdcs.restore();
         }
     }
 
-    private <T> T runTxWithRetry(String txName, MdcSetup mdcs, Supplier<T> supplier) {
+    private <T> T runTxWithRetry(String txName, MdcSetup mdcs, Function<Tx, T> userCodeFunction) {
         TxImpl lastTx = null;
         int attempt = 1;
         try {
@@ -241,7 +261,7 @@ public final class StdTxManager implements TxManager, TxManagerState {
                 try (Timer ignored = attemptDuration.labels(txName).startTimer()) {
                     RepositoryTransaction transaction = repository.startTransaction(options);
                     lastTx = new TxImpl(txName, transaction, options);
-                    return lastTx.run(supplier);
+                    return lastTx.run(userCodeFunction);
                 } catch (RetryableException e) {
                     retries.labels(txName, getExceptionNameForMetric(e)).inc();
                     if (attempt < maxAttemptCount) {

@@ -31,6 +31,6 @@ public class TestDbTxCaller {
         when(repo.startTransaction(any(TxOptions.class))).thenReturn(rt);
 
         var txManager = new StdTxManager(repo).withTxNameGenerator(txNameGenerator);
-        return txManager.tx(() -> Tx.Current.get().getName());
+        return txManager.explicitTx(Tx::getName);
     }
 }
