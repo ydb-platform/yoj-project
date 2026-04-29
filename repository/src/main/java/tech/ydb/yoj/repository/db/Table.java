@@ -5,6 +5,7 @@ import tech.ydb.yoj.InternalApi;
 import tech.ydb.yoj.databind.expression.FilterExpression;
 import tech.ydb.yoj.databind.expression.OrderExpression;
 import tech.ydb.yoj.repository.db.bulk.BulkParams;
+import tech.ydb.yoj.repository.db.internal.TableQueryImpl;
 import tech.ydb.yoj.repository.db.list.ListRequest;
 import tech.ydb.yoj.repository.db.list.ListResult;
 import tech.ydb.yoj.repository.db.list.ViewListResult;
@@ -19,7 +20,6 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.function.Supplier;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static java.util.stream.Collectors.toList;
@@ -258,7 +258,7 @@ public interface Table<T extends Entity<T>> {
 
     default ListResult<T> list(ListRequest<T> request) {
         List<T> nextPage = TableQueryImpl.toQueryBuilder(this, request).find();
-        return ListResult.forPage(request, postLoad(nextPage));
+        return ListResult.forPage(request, TableQueryImpl.postLoad(this, nextPage));
     }
 
     default <V extends Table.View> ViewListResult<T, V> list(Class<V> viewType, ListRequest<T> request) {
@@ -266,14 +266,7 @@ public interface Table<T extends Entity<T>> {
         return ViewListResult.forPage(request, viewType, nextPage);
     }
 
-    default void bulkUpsert(List<T> input, BulkParams params) {
-        throw new UnsupportedOperationException();
-    }
-
-    @InternalApi
-    default List<T> postLoad(List<T> list) {
-        return list.stream().map(this::postLoad).collect(Collectors.toList());
-    }
+    void bulkUpsert(List<T> input, BulkParams params);
 
     @NonNull
     @InternalApi

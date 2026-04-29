@@ -17,11 +17,11 @@ import tech.ydb.yoj.repository.db.Range;
 import tech.ydb.yoj.repository.db.Table;
 import tech.ydb.yoj.repository.db.TableDescriptor;
 import tech.ydb.yoj.repository.db.TableQueryBuilder;
-import tech.ydb.yoj.repository.db.TableQueryImpl;
 import tech.ydb.yoj.repository.db.ViewSchema;
 import tech.ydb.yoj.repository.db.bulk.BulkParams;
 import tech.ydb.yoj.repository.db.cache.FirstLevelCache;
 import tech.ydb.yoj.repository.db.exception.IllegalTransactionIsolationLevelException;
+import tech.ydb.yoj.repository.db.internal.TableQueryImpl;
 import tech.ydb.yoj.repository.db.list.InMemoryQueries;
 import tech.ydb.yoj.repository.db.readtable.ReadTableParams;
 import tech.ydb.yoj.repository.db.statement.Changeset;
@@ -270,7 +270,7 @@ public class InMemoryTable<T extends Entity<T>> implements Table<T> {
             @Nullable Integer limit
     ) {
         var found = findUncached(ids, filter, orderBy, limit);
-        return postLoad(found);
+        return TableQueryImpl.postLoad(this, found);
     }
 
     @Override
@@ -399,7 +399,7 @@ public class InMemoryTable<T extends Entity<T>> implements Table<T> {
             result = result.limit(limit);
         }
 
-        return postLoad(result.toList());
+        return TableQueryImpl.postLoad(this, result.toList());
     }
 
     private boolean isPrefixedFields(List<String> keyFields, Set<String> fields) {
@@ -472,7 +472,7 @@ public class InMemoryTable<T extends Entity<T>> implements Table<T> {
 
     private List<T> findAll0() {
         List<T> all = getAllEntries();
-        return postLoad(all);
+        return TableQueryImpl.postLoad(this, all);
     }
 
     @Override

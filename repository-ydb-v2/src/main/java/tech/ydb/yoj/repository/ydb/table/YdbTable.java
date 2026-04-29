@@ -15,12 +15,12 @@ import tech.ydb.yoj.repository.db.Range;
 import tech.ydb.yoj.repository.db.Table;
 import tech.ydb.yoj.repository.db.TableDescriptor;
 import tech.ydb.yoj.repository.db.TableQueryBuilder;
-import tech.ydb.yoj.repository.db.TableQueryImpl;
 import tech.ydb.yoj.repository.db.Tx;
 import tech.ydb.yoj.repository.db.ViewSchema;
 import tech.ydb.yoj.repository.db.bulk.BulkParams;
 import tech.ydb.yoj.repository.db.cache.FirstLevelCache;
 import tech.ydb.yoj.repository.db.cache.TransactionLocal;
+import tech.ydb.yoj.repository.db.internal.TableQueryImpl;
 import tech.ydb.yoj.repository.db.readtable.ReadTableParams;
 import tech.ydb.yoj.repository.db.statement.Changeset;
 import tech.ydb.yoj.repository.ydb.bulk.BulkMapper;
@@ -125,7 +125,7 @@ public class YdbTable<T extends Entity<T>> implements Table<T> {
     @Override
     public List<T> findAll() {
         var statement = new FindAllYqlStatement<>(tableDescriptor, schema, schema);
-        return postLoad(executor.execute(statement, null));
+        return TableQueryImpl.postLoad(this, executor.execute(statement, null));
     }
 
     /**
@@ -267,7 +267,7 @@ public class YdbTable<T extends Entity<T>> implements Table<T> {
         }
         return executor.getTransactionLocal().firstLevelCache(tableDescriptor).get(id, __ -> {
             var statement = new FindYqlStatement<>(tableDescriptor, schema, schema);
-            List<T> res = postLoad(executor.execute(statement, id));
+            List<T> res = TableQueryImpl.postLoad(this, executor.execute(statement, id));
             return res.isEmpty() ? null : res.get(0);
         });
     }
@@ -288,7 +288,7 @@ public class YdbTable<T extends Entity<T>> implements Table<T> {
     @Override
     public <ID extends Entity.Id<T>> List<T> find(Range<ID> range) {
         var statement = new FindRangeStatement<>(tableDescriptor, schema, schema, range);
-        return postLoad(executor.execute(statement, range));
+        return TableQueryImpl.postLoad(this, executor.execute(statement, range));
     }
 
     @Override
@@ -309,7 +309,7 @@ public class YdbTable<T extends Entity<T>> implements Table<T> {
 
     public List<T> find(Collection<? extends YqlStatementPart<?>> parts) {
         var statement = FindStatement.from(tableDescriptor, schema, schema, parts, false);
-        return postLoad(executor.execute(statement, parts));
+        return TableQueryImpl.postLoad(this, executor.execute(statement, parts));
     }
 
     @Override
@@ -374,7 +374,7 @@ public class YdbTable<T extends Entity<T>> implements Table<T> {
             return List.of();
         }
         var isPartialIdMode = ids.iterator().next().isPartial();
-        List<T> found = postLoad(findUncached(ids, filter, orderBy, limit));
+        List<T> found = TableQueryImpl.postLoad(this, findUncached(ids, filter, orderBy, limit));
         if (!isPartialIdMode && ids.size() > found.size()) {
             Set<Id<T>> foundIds = found.stream().map(Entity::getId).collect(toSet());
             FirstLevelCache<T> cache = executor.getTransactionLocal().firstLevelCache(tableDescriptor);
@@ -425,7 +425,7 @@ public class YdbTable<T extends Entity<T>> implements Table<T> {
         var statement = FindInStatement.from(
                 tableDescriptor, schema, schema, indexName, keys, filter, orderBy, limit
         );
-        return postLoad(executor.execute(statement, keys));
+        return TableQueryImpl.postLoad(this, executor.execute(statement, keys));
     }
 
     @Override
@@ -591,8 +591,8 @@ public class YdbTable<T extends Entity<T>> implements Table<T> {
         return executor.getTransactionLocal().firstLevelCache(tableDescriptor);
     }
 
-    @Override
     @NonNull
+    @Override
     public T postLoad(@NonNull T e) {
         T e1 = e.postLoad();
         executor.getTransactionLocal().firstLevelCache(tableDescriptor).put(e1);

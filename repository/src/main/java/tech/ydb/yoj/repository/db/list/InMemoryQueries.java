@@ -13,7 +13,7 @@ import tech.ydb.yoj.databind.expression.values.FieldValue;
 import tech.ydb.yoj.databind.schema.Schema;
 import tech.ydb.yoj.databind.schema.Schema.JavaField;
 import tech.ydb.yoj.repository.db.Entity;
-import tech.ydb.yoj.repository.db.TableQueryImpl;
+import tech.ydb.yoj.repository.db.internal.TableQueryImpl;
 import tech.ydb.yoj.util.function.StreamSupplier;
 
 import javax.annotation.Nullable;

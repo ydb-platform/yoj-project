@@ -1,10 +1,15 @@
-package tech.ydb.yoj.repository.db;
+package tech.ydb.yoj.repository.db.internal;
 
 import com.google.common.collect.Sets;
 import lombok.NonNull;
 import tech.ydb.yoj.InternalApi;
 import tech.ydb.yoj.databind.expression.FilterExpression;
 import tech.ydb.yoj.databind.expression.OrderExpression;
+import tech.ydb.yoj.repository.db.Entity;
+import tech.ydb.yoj.repository.db.EntityExpressions;
+import tech.ydb.yoj.repository.db.EntitySchema;
+import tech.ydb.yoj.repository.db.Table;
+import tech.ydb.yoj.repository.db.TableQueryBuilder;
 import tech.ydb.yoj.repository.db.cache.FirstLevelCache;
 import tech.ydb.yoj.repository.db.list.InMemoryQueries;
 import tech.ydb.yoj.repository.db.list.ListRequest;
@@ -24,9 +29,9 @@ import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
 
 /**
- * Utility class for {@link Table} implementation; <strong>for internal use only</strong>.
- * This class is <strong>not</strong> part of the public API and <strong>should not</strong>
- * be used directly by client code.
+ * Utility class for {@link Table} implementations.
+ * <p><strong>FOR INTERNAL USE ONLY!</strong>
+ * This class is <strong>NOT</strong> part of the public API and <strong>MUST NOT</strong> be used directly by clients.
  */
 @InternalApi
 public final class TableQueryImpl {
@@ -125,5 +130,10 @@ public final class TableQueryImpl {
 
             return foundStream.collect(toList());
         }
+    }
+
+    @NonNull
+    public static <T extends Entity<T>> List<T> postLoad(@NonNull Table<T> table, @NonNull List<T> list) {
+        return list.stream().map(table::postLoad).collect(toList());
     }
 }
