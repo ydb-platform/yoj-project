@@ -14,11 +14,13 @@ import tech.ydb.yoj.repository.db.TableDescriptor;
 import tech.ydb.yoj.repository.ydb.yql.YqlCompositeType;
 import tech.ydb.yoj.repository.ydb.yql.YqlPredicate;
 import tech.ydb.yoj.repository.ydb.yql.YqlPredicateParam;
+import tech.ydb.yoj.repository.ydb.yql.YqlTupleValue;
 import tech.ydb.yoj.repository.ydb.yql.YqlType;
 
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.function.Function;
@@ -32,7 +34,7 @@ public abstract class PredicateStatement<PARAMS, ENTITY extends Entity<ENTITY>, 
         extends YqlStatement<PARAMS, ENTITY, RESULT> {
     private final Function<PARAMS, YqlPredicate> getPredicate;
 
-    private final Map<String, PredParam> predParams;
+    private final Map<String, ? extends PredParam> predParams;
 
     /**
      * @deprecated Use constructor with {@link TableDescriptor} for selecting correct entity table
@@ -62,10 +64,23 @@ public abstract class PredicateStatement<PARAMS, ENTITY extends Entity<ENTITY>, 
         ImmutableMap.Builder<String, PredParam> bldr = ImmutableMap.builder();
         int index = 0;
         for (YqlPredicateParam<?> p : pred.paramList()) {
-            EntitySchema.JavaField rootField = schema.getField(p.getFieldPath());
-
             int fIndex = index++;
 
+            if (p.getComplexField() == ComplexField.EXPLICIT_TUPLE) {
+                YqlTupleValue yqlTupleValue = (YqlTupleValue) p.getValue();
+                List<JavaField> tupleFields = yqlTupleValue.toFieldList(schema);
+
+                var param = new TuplePredParam(
+                        wrapCollectionType(YqlCompositeType.tuple(tupleFields), p.getCollectionKind()),
+                        fIndex,
+                        p.isOptional()
+                );
+                bldr.put(param.getName(), param);
+
+                continue;
+            }
+
+            EntitySchema.JavaField rootField = schema.getField(p.getFieldPath());
             if (p.getComplexField() == ComplexField.FLATTEN
                     || (p.getComplexField() == ComplexField.TUPLE && rootField.isFlat())) {
                 rootField.flatten()
@@ -219,7 +234,7 @@ public abstract class PredicateStatement<PARAMS, ENTITY extends Entity<ENTITY>, 
         }
     }
 
-    private static final class PredParam extends Param {
+    private static class PredParam extends Param {
         private static final String NAME_FORMAT = "pred_%d_%s";
 
         private final int index;
@@ -244,9 +259,25 @@ public abstract class PredicateStatement<PARAMS, ENTITY extends Entity<ENTITY>, 
         }
     }
 
+    private static final class TuplePredParam extends PredParam {
+        private final int index;
+
+        private TuplePredParam(YqlType fieldType, int index, boolean optional) {
+            super(fieldType, "**TUPLE**", index, optional, true, null);
+            Preconditions.checkArgument(index >= 0, "index must be >= 0");
+            this.index = index;
+        }
+
+        @Override
+        public Object getValue(YqlPredicate predicate) {
+            return predicate.paramAt(index).getValue();
+        }
+    }
+
     public enum ComplexField {
         FLATTEN,
         TUPLE,
+        EXPLICIT_TUPLE
     }
 
     public enum CollectionKind {

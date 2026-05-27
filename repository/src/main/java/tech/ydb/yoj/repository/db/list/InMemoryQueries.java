@@ -9,6 +9,7 @@ import tech.ydb.yoj.databind.expression.NullExpr;
 import tech.ydb.yoj.databind.expression.OrExpr;
 import tech.ydb.yoj.databind.expression.OrderExpression;
 import tech.ydb.yoj.databind.expression.ScalarExpr;
+import tech.ydb.yoj.databind.expression.TupleExpr;
 import tech.ydb.yoj.databind.expression.values.FieldValue;
 import tech.ydb.yoj.databind.schema.Schema;
 import tech.ydb.yoj.databind.schema.Schema.JavaField;
@@ -69,6 +70,20 @@ public final class InMemoryQueries {
                     case NOT_STARTS_WITH -> obj -> !startsWith((String) getActual.apply(obj), (String) expected);
                     case ENDS_WITH -> obj -> endsWith((String) getActual.apply(obj), (String) expected);
                     case NOT_ENDS_WITH -> obj -> !endsWith((String) getActual.apply(obj), (String) expected);
+                };
+            }
+
+            @Override
+            public Predicate<T> visitTupleExpr(@NonNull TupleExpr<T> tupleExpr) {
+                Function<T, Comparable<?>> getActual = tupleExpr::getActualTuple;
+                Comparable<?> expected = tupleExpr.getExpectedTuple();
+                return switch (tupleExpr.getOperator()) {
+                    case EQ -> obj -> eq(getActual.apply(obj), expected);
+                    case NEQ -> obj -> neq(getActual.apply(obj), expected);
+                    case GT -> obj -> compare(getActual.apply(obj), expected) > 0;
+                    case GTE -> obj -> compare(getActual.apply(obj), expected) >= 0;
+                    case LT -> obj -> compare(getActual.apply(obj), expected) < 0;
+                    case LTE -> obj -> compare(getActual.apply(obj), expected) <= 0;
                 };
             }
 

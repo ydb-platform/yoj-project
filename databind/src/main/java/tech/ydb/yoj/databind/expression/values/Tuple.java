@@ -28,7 +28,7 @@ public class Tuple implements Comparable<Tuple> {
     @NonNull
     List<FieldAndValue> components;
 
-    @NonNull
+    @Nullable
     @Getter(NONE)
     Schema.JavaField rootField;
 
@@ -40,14 +40,13 @@ public class Tuple implements Comparable<Tuple> {
      *
      * @param composite raw composite field the components of which will make the tuple; {@code null} if not available
      * @param components tuple components (schema fields and their values in the tuple; values may be {@code null})
-     * @param rootField schema field representing the tuple itself
-     *
+     * @param rootField schema field representing the tuple itself; {@code null} if there is no such field
      * @see FieldAndValue
      * @see tech.ydb.yoj.databind.schema.Schema.JavaField
      */
     @InternalApi
     @java.beans.ConstructorProperties({"composite", "components", "rootField"})
-    public Tuple(@Nullable Object composite, @NonNull List<FieldAndValue> components, @NonNull Schema.JavaField rootField) {
+    public Tuple(@Nullable Object composite, @NonNull List<FieldAndValue> components, @Nullable Schema.JavaField rootField) {
         this.composite = composite;
         this.components = components;
         this.rootField = rootField;
@@ -103,8 +102,12 @@ public class Tuple implements Comparable<Tuple> {
     }
 
     private int compatFieldHashCode(Schema.JavaField field) {
-        String selfName = field.getName().substring(rootField.getName().length() + NAME_DELIMITER.length());
-        String selfPath = field.getPath().substring(rootField.getPath().length() + PATH_DELIMITER.length());
+        String selfName = rootField == null
+                ? field.getName()
+                : field.getName().substring(rootField.getName().length() + NAME_DELIMITER.length());
+        String selfPath = rootField == null
+                ? field.getPath()
+                : field.getPath().substring(rootField.getPath().length() + PATH_DELIMITER.length());
 
         int result = 1;
         result = 31 * result + field.getType().getTypeName().hashCode();
@@ -170,10 +173,11 @@ public class Tuple implements Comparable<Tuple> {
 
     public record FieldAndValue(
             @NonNull Schema.JavaField field,
-            @Nullable FieldValue value
+            @Nullable FieldValue value,
+            @Nullable Object rawValue
     ) {
         public FieldAndValue(@NonNull Schema.JavaField jf, @NonNull Map<String, Object> flattenedObj) {
-            this(jf, getValue(jf, flattenedObj));
+            this(jf, getValue(jf, flattenedObj), flattenedObj.get(jf.getName()));
         }
 
         public FieldAndValue {

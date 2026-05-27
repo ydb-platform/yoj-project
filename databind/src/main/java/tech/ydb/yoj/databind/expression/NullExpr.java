@@ -13,7 +13,7 @@ import static lombok.AccessLevel.PRIVATE;
 
 @Value
 @AllArgsConstructor(access = PRIVATE)
-public class NullExpr<T> extends LeafExpression<T> {
+public class NullExpr<T> extends OneFieldLeafExpression<T> {
     Schema<T> schema;
 
     boolean generated;

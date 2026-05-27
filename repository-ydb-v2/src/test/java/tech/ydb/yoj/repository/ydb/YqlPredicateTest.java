@@ -508,6 +508,78 @@ public class YqlPredicateTest {
         assertThat(pred.toYql(complexSchema)).isEqualToIgnoringCase("`id_zone` IS NULL AND `id_localId` IS NULL");
     }
 
+    @Test
+    public void multirel_eq_fluent() {
+        assertThat(where("workers", "status").eq(42L, "RUNNING").toYql(schema))
+                .isEqualToIgnoringCase("(`workers`, `status`) = ?");
+    }
+
+    @Test
+    public void multirel_eq_chained() {
+        assertThat(eq(List.of("workers", "status"), List.of(42L, "RUNNING")).toYql(schema))
+                .isEqualToIgnoringCase("(`workers`, `status`) = ?");
+    }
+
+    @Test
+    public void multirel_neq_fluent() {
+        assertThat(where("workers", "status").neq(42L, "RUNNING").toYql(schema))
+                .isEqualToIgnoringCase("(`workers`, `status`) = ?");
+    }
+
+    @Test
+    public void multirel_neq_chained() {
+        assertThat(neq(List.of("workers", "status"), List.of(42L, "RUNNING")).toYql(schema))
+                .isEqualToIgnoringCase("(`workers`, `status`) <> ?");
+    }
+
+    @Test
+    public void multirel_lt_fluent() {
+        assertThat(where("workers", "status").lt(42L, "RUNNING").toYql(schema))
+                .isEqualToIgnoringCase("(`workers`, `status`) < ?");
+    }
+
+    @Test
+    public void multirel_lt_chained() {
+        assertThat(lt(List.of("workers", "status"), List.of(42L, "RUNNING")).toYql(schema))
+                .isEqualToIgnoringCase("(`workers`, `status`) < ?");
+    }
+
+    @Test
+    public void multirel_lte_fluent() {
+        assertThat(where("workers", "status").lte(42L, "RUNNING").toYql(schema))
+                .isEqualToIgnoringCase("(`workers`, `status`) <= ?");
+    }
+
+    @Test
+    public void multirel_lte_chained() {
+        assertThat(lte(List.of("workers", "status"), List.of(42L, "RUNNING")).toYql(schema))
+                .isEqualToIgnoringCase("(`workers`, `status`) <= ?");
+    }
+
+    @Test
+    public void multirel_gt_fluent() {
+        assertThat(where("workers", "status").gt(42L, "RUNNING").toYql(schema))
+                .isEqualToIgnoringCase("(`workers`, `status`) > ?");
+    }
+
+    @Test
+    public void multirel_gt_chained() {
+        assertThat(gt(List.of("workers", "status"), List.of(42L, "RUNNING")).toYql(schema))
+                .isEqualToIgnoringCase("(`workers`, `status`) > ?");
+    }
+
+    @Test
+    public void multirel_gte_fluent() {
+        assertThat(where("workers", "status").gte(42L, "RUNNING").toYql(schema))
+                .isEqualToIgnoringCase("(`workers`, `status`) >= ?");
+    }
+
+    @Test
+    public void multirel_gte_chained() {
+        assertThat(gte(List.of("workers", "status"), List.of(42L, "RUNNING")).toYql(schema))
+                .isEqualToIgnoringCase("(`workers`, `status`) >= ?");
+    }
+
     @Value
     static class FakeEntity implements Entity<FakeEntity> {
         Id id;

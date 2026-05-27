@@ -7,6 +7,7 @@ import lombok.AllArgsConstructor;
 import lombok.NoArgsConstructor;
 import lombok.Value;
 import tech.ydb.proto.ValueProtos;
+import tech.ydb.yoj.ExperimentalApi;
 import tech.ydb.yoj.databind.schema.Schema;
 import tech.ydb.yoj.repository.db.exception.ConversionException;
 
@@ -222,6 +223,16 @@ public final class YqlCompositeType {
                     Map<String, Object> cfValues = new LinkedHashMap<>();
                     complexField.collectValueTo(rootFieldValue, cfValues);
                     return cfValues.get(jf.getName());
+                }))
+                .collect(Collectors.toList()));
+    }
+
+    @ExperimentalApi(issue = "https://github.com/ydb-platform/yoj-project/issues/234")
+    public static YqlTuple tuple(List<Schema.JavaField> components) {
+        return new YqlTuple(components.stream()
+                .map(jf -> new Field(YqlType.of(jf), value -> {
+                    YqlTupleValue tupleValue = (YqlTupleValue) value;
+                    return tupleValue.getValueOf(jf);
                 }))
                 .collect(Collectors.toList()));
     }

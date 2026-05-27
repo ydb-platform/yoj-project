@@ -2,6 +2,7 @@ package tech.ydb.yoj.repository.ydb.yql;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.CharMatcher;
+import com.google.common.base.Preconditions;
 import lombok.NonNull;
 import tech.ydb.yoj.databind.expression.AndExpr;
 import tech.ydb.yoj.databind.expression.FilterExpression;
@@ -9,19 +10,23 @@ import tech.ydb.yoj.databind.expression.LeafExpression;
 import tech.ydb.yoj.databind.expression.ListExpr;
 import tech.ydb.yoj.databind.expression.NotExpr;
 import tech.ydb.yoj.databind.expression.NullExpr;
+import tech.ydb.yoj.databind.expression.OneFieldLeafExpression;
 import tech.ydb.yoj.databind.expression.OrExpr;
 import tech.ydb.yoj.databind.expression.OrderExpression;
 import tech.ydb.yoj.databind.expression.OrderExpression.SortKey;
 import tech.ydb.yoj.databind.expression.ScalarExpr;
+import tech.ydb.yoj.databind.expression.TupleExpr;
 import tech.ydb.yoj.databind.expression.values.StringFieldValue;
 import tech.ydb.yoj.databind.schema.Schema.JavaField;
 import tech.ydb.yoj.repository.db.Entity;
 import tech.ydb.yoj.repository.db.EntityIdSchema;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.stream.Stream;
 
+import static java.util.stream.Collectors.toCollection;
 import static java.util.stream.Collectors.toList;
 import static tech.ydb.yoj.databind.expression.OrderExpression.SortOrder.ASCENDING;
 
@@ -29,7 +34,7 @@ public final class YqlListingQuery {
     private static final FilterExpression.Visitor<?, String> FIELD_NAME_VISITOR = new FilterExpression.Visitor.Simple<>() {
         @Override
         protected String visitLeaf(@NonNull LeafExpression<Object> leaf) {
-            return leaf.getFieldName();
+            return leaf instanceof OneFieldLeafExpression<?> ofle ? ofle.getFieldName() : null;
         }
 
         @Override
@@ -75,8 +80,34 @@ public final class YqlListingQuery {
                 };
             }
 
+            @Override
+            public YqlPredicate visitTupleExpr(@NonNull TupleExpr<T> tupleExpr) {
+                List<String> fieldPaths = tupleExpr.getFieldPaths();
+
+                YqlPredicate.MultifieldPredicateBuilder pred = YqlPredicate.where(fieldPaths);
+                return switch (tupleExpr.getOperator()) {
+                    case EQ -> pred.eq(rawValuesOf(tupleExpr));
+                    case NEQ -> pred.neq(rawValuesOf(tupleExpr));
+                    case LT -> pred.lt(rawValuesOf(tupleExpr));
+                    case LTE -> pred.lte(rawValuesOf(tupleExpr));
+                    case GT -> pred.gt(rawValuesOf(tupleExpr));
+                    case GTE -> pred.gte(rawValuesOf(tupleExpr));
+                };
+            }
+
             private static Object rawValueOf(@NonNull ScalarExpr<?> scalarExpr) {
                 return scalarExpr.getValue().getRaw(scalarExpr.getField());
+            }
+
+            private static List<?> rawValuesOf(@NonNull TupleExpr<?> tupleExpr) {
+                return tupleExpr.getValues().stream()
+                        .map(fv -> {
+                            var rawValue = fv.rawValue();
+                            Preconditions.checkArgument(rawValue != null,
+                                    "Expected a non-null value for '%s' in tuple expression", fv.field());
+                            return rawValue;
+                        })
+                        .collect(toCollection(ArrayList::new));
             }
 
             private static String stringValueOf(@NonNull ScalarExpr<?> scalarExpr) {

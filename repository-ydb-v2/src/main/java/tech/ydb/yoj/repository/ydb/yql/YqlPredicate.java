@@ -6,6 +6,7 @@ import lombok.AllArgsConstructor;
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
 import tech.ydb.yoj.DeprecationWarnings;
+import tech.ydb.yoj.ExperimentalApi;
 import tech.ydb.yoj.repository.db.Entity;
 import tech.ydb.yoj.repository.db.EntitySchema;
 import tech.ydb.yoj.repository.ydb.statement.PredicateStatement;
@@ -90,6 +91,16 @@ public abstract class YqlPredicate implements YqlStatementPart<YqlPredicate> {
         return new FieldPredicateBuilder(fieldPath, UnaryOperator.identity());
     }
 
+    @ExperimentalApi(issue = "https://github.com/ydb-platform/yoj-project/issues/234")
+    public static MultifieldPredicateBuilder where(@NonNull String fieldPath1, @NonNull String fieldPath2, @NonNull String... remainingFieldPaths) {
+        return where(ImmutableList.<String>builder().add(fieldPath1).add(fieldPath2).add(remainingFieldPaths).build());
+    }
+
+    @ExperimentalApi(issue = "https://github.com/ydb-platform/yoj-project/issues/234")
+    public static MultifieldPredicateBuilder where(@NonNull List<String> fieldPaths) {
+        return new MultifieldPredicateBuilder(fieldPaths, UnaryOperator.identity());
+    }
+
     public static YqlPredicate not(@NonNull YqlPredicate pred) {
         return pred.negate();
     }
@@ -107,7 +118,7 @@ public abstract class YqlPredicate implements YqlStatementPart<YqlPredicate> {
     }
 
     public static YqlPredicate or(@NonNull Collection<YqlPredicate> predicates) {
-        return new OrPredicate(predicates);
+        return predicates.isEmpty() ? alwaysFalse() : new OrPredicate(predicates);
     }
 
     private static YqlPredicate isNull(String fieldPath) {
@@ -198,11 +209,46 @@ public abstract class YqlPredicate implements YqlStatementPart<YqlPredicate> {
         return relPredicate(GTE, fieldPath, value);
     }
 
+    @ExperimentalApi(issue = "https://github.com/ydb-platform/yoj-project/issues/234")
+    public static YqlPredicate eq(@NonNull List<String> fieldPaths, @NonNull List<?> fieldValues) {
+        return multirelPredicate(EQ, fieldPaths, fieldValues);
+    }
+
+    @ExperimentalApi(issue = "https://github.com/ydb-platform/yoj-project/issues/234")
+    public static YqlPredicate neq(@NonNull List<String> fieldPaths, @NonNull List<?> fieldValues) {
+        return multirelPredicate(NEQ, fieldPaths, fieldValues);
+    }
+
+    @ExperimentalApi(issue = "https://github.com/ydb-platform/yoj-project/issues/234")
+    public static YqlPredicate lt(@NonNull List<String> fieldPaths, @NonNull List<?> fieldValues) {
+        return multirelPredicate(LT, fieldPaths, fieldValues);
+    }
+
+    @ExperimentalApi(issue = "https://github.com/ydb-platform/yoj-project/issues/234")
+    public static YqlPredicate lte(@NonNull List<String> fieldPaths, @NonNull List<?> fieldValues) {
+        return multirelPredicate(LTE, fieldPaths, fieldValues);
+    }
+
+    @ExperimentalApi(issue = "https://github.com/ydb-platform/yoj-project/issues/234")
+    public static YqlPredicate gt(@NonNull List<String> fieldPaths, @NonNull List<?> fieldValues) {
+        return multirelPredicate(GT, fieldPaths, fieldValues);
+    }
+
+    @ExperimentalApi(issue = "https://github.com/ydb-platform/yoj-project/issues/234")
+    public static YqlPredicate gte(@NonNull List<String> fieldPaths, @NonNull List<?> fieldValues) {
+        return multirelPredicate(GTE, fieldPaths, fieldValues);
+    }
+
     @NonNull
     private static <T> YqlPredicate relPredicate(Rel rel, @NonNull String fieldPath, @NonNull T value) {
         return useLegacyRel.get()
                 ? new LegacyRelPredicate<>(rel, fieldPath, value)
                 : new RelPredicate<>(rel, fieldPath, value);
+    }
+
+    @NonNull
+    private static YqlPredicate multirelPredicate(Rel rel, @NonNull List<String> fieldPaths, @NonNull List<?> fieldValues) {
+        return new MultifieldRelPredicate(rel, fieldPaths, fieldValues);
     }
 
     public static YqlPredicate like(@NonNull String fieldPath, @NonNull String value) {
@@ -320,9 +366,45 @@ public abstract class YqlPredicate implements YqlStatementPart<YqlPredicate> {
         return new FieldPredicateBuilder(fieldPath, this::or);
     }
 
+    @ExperimentalApi(issue = "https://github.com/ydb-platform/yoj-project/issues/234")
+    public MultifieldPredicateBuilder and(@NonNull String fieldPath1, @NonNull String fieldPath2, @NonNull String... remainingFieldPaths) {
+        return and(listOf(fieldPath1, fieldPath2, remainingFieldPaths));
+    }
+
+    @ExperimentalApi(issue = "https://github.com/ydb-platform/yoj-project/issues/234")
+    public MultifieldPredicateBuilder and(@NonNull List<String> fieldPaths) {
+        return new MultifieldPredicateBuilder(fieldPaths, this::and);
+    }
+
+    @ExperimentalApi(issue = "https://github.com/ydb-platform/yoj-project/issues/234")
+    public MultifieldPredicateBuilder or(@NonNull String fieldPath1, @NonNull String fieldPath2, @NonNull String... remainingFieldPaths) {
+        return or(listOf(fieldPath1, fieldPath2, remainingFieldPaths));
+    }
+
+    @ExperimentalApi(issue = "https://github.com/ydb-platform/yoj-project/issues/234")
+    public MultifieldPredicateBuilder or(@NonNull List<String> fieldPaths) {
+        return new MultifieldPredicateBuilder(fieldPaths, this::or);
+    }
+
+    @NonNull
+    @SafeVarargs
+    private static <T> List<T> listOf(@NonNull T value1, @NonNull T value2, @NonNull T... remainingValues) {
+        return ImmutableList.<T>builder().add(value1).add(value2).add(remainingValues).build();
+    }
+
     /*package*/ enum InType {
-        IN("DictContains", "IN"),
-        NOT_IN("NOT DictContains", "NOT IN");
+        IN("DictContains", "IN") {
+            @Override
+            public InType negate() {
+                return NOT_IN;
+            }
+        },
+        NOT_IN("NOT DictContains", "NOT IN") {
+            @Override
+            public InType negate() {
+                return IN;
+            }
+        };
 
         private final String legacyYql;
         private final String yql;
@@ -331,6 +413,8 @@ public abstract class YqlPredicate implements YqlStatementPart<YqlPredicate> {
             this.legacyYql = legacyYql;
             this.yql = yql;
         }
+
+        public abstract InType negate();
     }
 
     private static final class TruePredicate extends YqlPredicate {
@@ -489,6 +573,63 @@ public abstract class YqlPredicate implements YqlStatementPart<YqlPredicate> {
         @Override
         public String toString() {
             return format("%s %s %s", fieldPath, rel, param.getValue());
+        }
+    }
+
+    private static final class MultifieldRelPredicate extends YqlPredicate {
+        private final Rel rel;
+        private final List<String> fieldPaths;
+        private final YqlPredicateParam<YqlTupleValue> param;
+
+        private MultifieldRelPredicate(@NonNull Rel rel, @NonNull List<String> fieldPaths, @NonNull List<?> fieldValues) {
+            this(
+                    rel,
+                    fieldPaths,
+                    YqlPredicateParam.of(
+                            "**TUPLE**",
+                            new YqlTupleValue(fieldPaths, fieldValues),
+                            false,
+                            PredicateStatement.ComplexField.EXPLICIT_TUPLE,
+                            PredicateStatement.CollectionKind.SINGLE
+                    )
+            );
+        }
+
+        private MultifieldRelPredicate(Rel rel, List<String> fieldPaths, YqlPredicateParam<YqlTupleValue> param) {
+            this.rel = rel;
+            this.fieldPaths = List.copyOf(fieldPaths);
+            this.param = param;
+        }
+
+        @Override
+        public Stream<YqlPredicateParam<?>> paramStream() {
+            return Stream.of(param);
+        }
+
+        @Override
+        public List<YqlPredicateParam<?>> paramList() {
+            return singletonList(param);
+        }
+
+        @Override
+        public YqlPredicate negate() {
+            return new MultifieldRelPredicate(this.rel.negate(), this.fieldPaths, this.param);
+        }
+
+        @Override
+        public <T extends Entity<T>> String toYql(@NonNull EntitySchema<T> schema) {
+            return format("(%s) %s ?",
+                    fieldPaths.stream()
+                            .map(path -> schema.getField(path).toFlatField())
+                            .map(f -> "`" + f.getName() + "`")
+                            .collect(joining(", ")),
+                    rel.yql
+            );
+        }
+
+        @Override
+        public String toString() {
+            return format("(%s) %s %s", String.join(", ", fieldPaths), rel, param.getValue());
         }
     }
 
@@ -684,14 +825,7 @@ public abstract class YqlPredicate implements YqlStatementPart<YqlPredicate> {
 
         @Override
         public YqlPredicate negate() {
-            switch (inType) {
-                case IN:
-                    return new InLegacyPredicate<>(param, fieldPath, InType.NOT_IN);
-                case NOT_IN:
-                    return new InLegacyPredicate<>(param, fieldPath, InType.IN);
-                default:
-                    throw new UnsupportedOperationException("This should never happen");
-            }
+            return new InLegacyPredicate<>(param, fieldPath, inType.negate());
         }
 
         private boolean isEmpty() {
@@ -750,14 +884,7 @@ public abstract class YqlPredicate implements YqlStatementPart<YqlPredicate> {
 
         @Override
         public YqlPredicate negate() {
-            switch (inType) {
-                case IN:
-                    return new InPredicate<>(param, fieldPath, InType.NOT_IN);
-                case NOT_IN:
-                    return new InPredicate<>(param, fieldPath, InType.IN);
-                default:
-                    throw new UnsupportedOperationException("This should never happen");
-            }
+            return new InPredicate<>(param, fieldPath, inType.negate());
         }
 
         private boolean isEmpty() {
@@ -791,14 +918,7 @@ public abstract class YqlPredicate implements YqlStatementPart<YqlPredicate> {
 
         @Override
         public YqlPredicate negate() {
-            switch (type) {
-                case IS_NULL:
-                    return new IsNullPredicate(fieldPath, IS_NOT_NULL);
-                case IS_NOT_NULL:
-                    return new IsNullPredicate(fieldPath, IS_NULL);
-                default:
-                    throw new UnsupportedOperationException("This should never happen");
-            }
+            return new IsNullPredicate(fieldPath, type.negate());
         }
 
         @Override
@@ -807,8 +927,18 @@ public abstract class YqlPredicate implements YqlStatementPart<YqlPredicate> {
         }
 
         /*package*/ enum IsNullType {
-            IS_NULL("IS NULL", (e1, e2) -> e1 + " AND " + e2),
-            IS_NOT_NULL("IS NOT NULL", (e1, e2) -> e1 + " OR " + e2);
+            IS_NULL("IS NULL", (e1, e2) -> e1 + " AND " + e2) {
+                @Override
+                public IsNullType negate() {
+                    return IS_NOT_NULL;
+                }
+            },
+            IS_NOT_NULL("IS NOT NULL", (e1, e2) -> e1 + " OR " + e2) {
+                @Override
+                public IsNullType negate() {
+                    return IS_NULL;
+                }
+            };
 
             private final String yql;
             private final BiFunction<String, String, String> exprCombiner;
@@ -821,6 +951,8 @@ public abstract class YqlPredicate implements YqlStatementPart<YqlPredicate> {
             public final String combine(String result, String element) {
                 return result == null ? element : exprCombiner.apply(result, element);
             }
+
+            public abstract IsNullType negate();
         }
     }
 
@@ -1032,6 +1164,61 @@ public abstract class YqlPredicate implements YqlStatementPart<YqlPredicate> {
 
         public YqlPredicate isNotNull() {
             return finisher.apply(YqlPredicate.isNotNull(fieldPath));
+        }
+    }
+
+    @RequiredArgsConstructor(access = PRIVATE)
+    @ExperimentalApi(issue = "https://github.com/ydb-platform/yoj-project/issues/234")
+    public static final class MultifieldPredicateBuilder {
+        private final List<String> fieldPaths;
+        private final UnaryOperator<YqlPredicate> finisher;
+
+        public YqlPredicate eq(@NonNull Object value1, @NonNull Object value2, @NonNull Object... remainingValues) {
+            return eq(listOf(value1, value2, remainingValues));
+        }
+
+        public YqlPredicate eq(@NonNull List<?> fieldValues) {
+            return finisher.apply(YqlPredicate.eq(fieldPaths, fieldValues));
+        }
+
+        public YqlPredicate neq(@NonNull Object value1, @NonNull Object value2, @NonNull Object... remainingValues) {
+            return eq(listOf(value1, value2, remainingValues));
+        }
+
+        public YqlPredicate neq(@NonNull List<?> fieldValues) {
+            return finisher.apply(YqlPredicate.neq(fieldPaths, fieldValues));
+        }
+
+        public YqlPredicate lt(@NonNull Object value1, @NonNull Object value2, @NonNull Object... remainingValues) {
+            return lt(listOf(value1, value2, remainingValues));
+        }
+
+        public YqlPredicate lt(@NonNull List<?> fieldValues) {
+            return finisher.apply(YqlPredicate.lt(fieldPaths, fieldValues));
+        }
+
+        public YqlPredicate lte(@NonNull Object value1, @NonNull Object value2, @NonNull Object... remainingValues) {
+            return lte(listOf(value1, value2, remainingValues));
+        }
+
+        public YqlPredicate lte(@NonNull List<?> fieldValues) {
+            return finisher.apply(YqlPredicate.lte(fieldPaths, fieldValues));
+        }
+
+        public YqlPredicate gt(@NonNull Object value1, @NonNull Object value2, @NonNull Object... remainingValues) {
+            return gt(listOf(value1, value2, remainingValues));
+        }
+
+        public YqlPredicate gt(@NonNull List<?> fieldValues) {
+            return finisher.apply(YqlPredicate.gt(fieldPaths, fieldValues));
+        }
+
+        public YqlPredicate gte(@NonNull Object value1, @NonNull Object value2, @NonNull Object... remainingValues) {
+            return gte(listOf(value1, value2, remainingValues));
+        }
+
+        public YqlPredicate gte(@NonNull List<?> fieldValues) {
+            return finisher.apply(YqlPredicate.gte(fieldPaths, fieldValues));
         }
     }
 }
