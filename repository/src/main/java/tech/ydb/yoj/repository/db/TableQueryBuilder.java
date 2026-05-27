@@ -172,6 +172,18 @@ public final class TableQueryBuilder<T extends Entity<T>> {
     }
 
     @NonNull
+    @ExperimentalApi(issue = "https://github.com/ydb-platform/yoj-project/issues/234")
+    public TableQueryMultifieldFilterBuilder where(@NonNull String fieldPath1, @NonNull String fieldPath2, @NonNull String... remainingFieldPaths) {
+        return new TableQueryMultifieldFilterBuilder(filterBuilder().where(fieldPath1, fieldPath2, remainingFieldPaths));
+    }
+
+    @NonNull
+    @ExperimentalApi(issue = "https://github.com/ydb-platform/yoj-project/issues/234")
+    public TableQueryMultifieldFilterBuilder where(@NonNull List<String> fieldPaths) {
+        return new TableQueryMultifieldFilterBuilder(filterBuilder().where(fieldPaths));
+    }
+
+    @NonNull
     public TableQueryBuilder<T> where(@NonNull UnaryOperator<FilterBuilder<T>> filterBuilderOp) {
         return where(buildFilterExpression(filterBuilderOp));
     }
@@ -197,6 +209,18 @@ public final class TableQueryBuilder<T extends Entity<T>> {
     }
 
     @NonNull
+    @ExperimentalApi(issue = "https://github.com/ydb-platform/yoj-project/issues/234")
+    public TableQueryMultifieldFilterBuilder and(@NonNull String fieldPath1, @NonNull String fieldPath2, @NonNull String... remainingFieldPaths) {
+        return new TableQueryMultifieldFilterBuilder(filterBuilder().and(fieldPath1, fieldPath2, remainingFieldPaths));
+    }
+
+    @NonNull
+    @ExperimentalApi(issue = "https://github.com/ydb-platform/yoj-project/issues/234")
+    public TableQueryMultifieldFilterBuilder and(@NonNull List<String> fieldPaths) {
+        return new TableQueryMultifieldFilterBuilder(filterBuilder().and(fieldPaths));
+    }
+
+    @NonNull
     public TableQueryBuilder<T> and(@Nullable FilterExpression<T> filter) {
         filterBuilder = filterBuilder().and(filter);
         return this;
@@ -210,6 +234,18 @@ public final class TableQueryBuilder<T extends Entity<T>> {
     @NonNull
     public TableQueryFieldFilterBuilder or(@NonNull String fieldPath) {
         return new TableQueryFieldFilterBuilder(filterBuilder().or(fieldPath));
+    }
+
+    @NonNull
+    @ExperimentalApi(issue = "https://github.com/ydb-platform/yoj-project/issues/234")
+    public TableQueryMultifieldFilterBuilder or(@NonNull String fieldPath1, @NonNull String fieldPath2, @NonNull String... remainingFieldPaths) {
+        return new TableQueryMultifieldFilterBuilder(filterBuilder().or(fieldPath1, fieldPath2, remainingFieldPaths));
+    }
+
+    @NonNull
+    @ExperimentalApi(issue = "https://github.com/ydb-platform/yoj-project/issues/234")
+    public TableQueryMultifieldFilterBuilder or(@NonNull List<String> fieldPaths) {
+        return new TableQueryMultifieldFilterBuilder(filterBuilder().or(fieldPaths));
     }
 
     @NonNull
@@ -463,6 +499,85 @@ public final class TableQueryBuilder<T extends Entity<T>> {
         @NonNull
         public TableQueryBuilder<T> isNotNull() {
             filterBuilder = fieldBuilder.isNotNull();
+            return TableQueryBuilder.this;
+        }
+    }
+
+    @RequiredArgsConstructor(access = PRIVATE)
+    @ExperimentalApi(issue = "https://github.com/ydb-platform/yoj-project/issues/234")
+    public final class TableQueryMultifieldFilterBuilder {
+        @NonNull
+        private final FilterBuilder<T>.MultifieldBuilder multifieldBuilder;
+
+        @NonNull
+        public TableQueryBuilder<T> eq(@NonNull Object value1, @NonNull Object value2, @NonNull Object... remainingValues) {
+            filterBuilder = multifieldBuilder.eq(value1, value2, remainingValues);
+            return TableQueryBuilder.this;
+        }
+
+        @NonNull
+        public TableQueryBuilder<T> eq(@NonNull List<?> values) {
+            filterBuilder = multifieldBuilder.eq(values);
+            return TableQueryBuilder.this;
+        }
+
+        @NonNull
+        public TableQueryBuilder<T> neq(@NonNull Object value1, @NonNull Object value2, @NonNull Object... remainingValues) {
+            filterBuilder = multifieldBuilder.neq(value1, value2, remainingValues);
+            return TableQueryBuilder.this;
+        }
+
+        @NonNull
+        public TableQueryBuilder<T> neq(@NonNull List<?> values) {
+            filterBuilder = multifieldBuilder.neq(values);
+            return TableQueryBuilder.this;
+        }
+
+        @NonNull
+        public TableQueryBuilder<T> lt(@NonNull Object value1, @NonNull Object value2, @NonNull Object... remainingValues) {
+            filterBuilder = multifieldBuilder.lt(value1, value2, remainingValues);
+            return TableQueryBuilder.this;
+        }
+
+        @NonNull
+        public TableQueryBuilder<T> lt(@NonNull List<?> values) {
+            filterBuilder = multifieldBuilder.lt(values);
+            return TableQueryBuilder.this;
+        }
+
+        @NonNull
+        public TableQueryBuilder<T> lte(@NonNull Object value1, @NonNull Object value2, @NonNull Object... remainingValues) {
+            filterBuilder = multifieldBuilder.lte(value1, value2, remainingValues);
+            return TableQueryBuilder.this;
+        }
+
+        @NonNull
+        public TableQueryBuilder<T> lte(@NonNull List<?> values) {
+            filterBuilder = multifieldBuilder.lte(values);
+            return TableQueryBuilder.this;
+        }
+
+        @NonNull
+        public TableQueryBuilder<T> gt(@NonNull Object value1, @NonNull Object value2, @NonNull Object... remainingValues) {
+            filterBuilder = multifieldBuilder.gt(value1, value2, remainingValues);
+            return TableQueryBuilder.this;
+        }
+
+        @NonNull
+        public TableQueryBuilder<T> gt(@NonNull List<?> values) {
+            filterBuilder = multifieldBuilder.gt(values);
+            return TableQueryBuilder.this;
+        }
+
+        @NonNull
+        public TableQueryBuilder<T> gte(@NonNull Object value1, @NonNull Object value2, @NonNull Object... remainingValues) {
+            filterBuilder = multifieldBuilder.gte(value1, value2, remainingValues);
+            return TableQueryBuilder.this;
+        }
+
+        @NonNull
+        public TableQueryBuilder<T> gte(@NonNull List<?> values) {
+            filterBuilder = multifieldBuilder.gte(values);
             return TableQueryBuilder.this;
         }
     }

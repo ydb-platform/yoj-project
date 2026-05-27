@@ -1,5 +1,6 @@
 package tech.ydb.yoj.repository.test.sample.model;
 
+import lombok.RequiredArgsConstructor;
 import lombok.Value;
 import tech.ydb.yoj.databind.schema.Column;
 import tech.ydb.yoj.databind.schema.GlobalIndex;
@@ -7,9 +8,10 @@ import tech.ydb.yoj.databind.schema.Table;
 import tech.ydb.yoj.repository.db.Entity;
 
 @Value
+@RequiredArgsConstructor
+@Table(name = "table_with_indexes")
 @GlobalIndex(name = IndexedEntity.KEY_INDEX, fields = {"keyId"})
 @GlobalIndex(name = IndexedEntity.VALUE_INDEX, fields = {"valueId", "valueId2"})
-@Table(name = "table_with_indexes")
 public class IndexedEntity implements Entity<IndexedEntity> {
     public static final String KEY_INDEX = "key_index";
     public static final String VALUE_INDEX = "value_index";
@@ -22,6 +24,12 @@ public class IndexedEntity implements Entity<IndexedEntity> {
     String valueId;
     @Column
     String valueId2;
+
+    OptionalComposite optionalComposite;
+
+    public IndexedEntity(Id id, String keyId, String valueId, String valueId2) {
+        this(id, keyId, valueId, valueId2, null);
+    }
 
     @Value
     public static class Id implements Entity.Id<IndexedEntity> {
@@ -47,5 +55,11 @@ public class IndexedEntity implements Entity<IndexedEntity> {
     public static class ValueIdView implements tech.ydb.yoj.repository.db.Table.View {
         @Column(name = "value_id")
         String valueId;
+    }
+
+    @Value
+    public static class OptionalComposite {
+        int intValue;
+        String stringValue;
     }
 }

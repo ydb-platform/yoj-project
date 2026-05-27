@@ -122,6 +122,7 @@ import static java.util.stream.Collectors.toSet;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException;
+import static org.assertj.core.api.Assertions.assertThatIllegalStateException;
 import static org.assertj.core.api.Assertions.assertThatNullPointerException;
 import static org.assertj.core.api.Assertions.fail;
 import static tech.ydb.yoj.repository.db.EntityExpressions.newFilterBuilder;
@@ -1874,7 +1875,7 @@ public abstract class RepositoryTest extends RepositoryTestSupport {
     }
 
     @Test
-    public void severalWriteOperationsInTX() {
+    public void severalWriteOperationsInTx() {
         Complex.Id complexId = new Complex.Id(1, 1L, "c", Complex.Status.OK);
 
         db.tx(() -> {
@@ -2430,6 +2431,143 @@ public abstract class RepositoryTest extends RepositoryTestSupport {
     }
 
     @Test
+    public void multifieldEquals() {
+        IndexedEntity c1 = new IndexedEntity(new IndexedEntity.Id("100500"), "key0000", "val1-0000", "val2-0000");
+        IndexedEntity c2 = new IndexedEntity(new IndexedEntity.Id("100501"), "key0000", "val1-0000", "val2-0001");
+        IndexedEntity c3 = new IndexedEntity(new IndexedEntity.Id("100502"), "key0000", "val1-0001", "val2-0000");
+
+        db.tx(() -> db.indexedTable().insert(c1, c2, c3));
+
+        assertThat(
+                db.tx(() -> db.indexedTable().query()
+                        .where("valueId", "valueId2").eq(c1.getValueId(), c1.getValueId2())
+                        .index(IndexedEntity.VALUE_INDEX, IndexOrder.ASCENDING)
+                        .find()
+                )
+        ).containsExactly(c1);
+    }
+
+    @Test
+    public void multifieldNotEquals() {
+        IndexedEntity c1 = new IndexedEntity(new IndexedEntity.Id("100500"), "key0000", "val1-0000", "val2-0000");
+        IndexedEntity c2 = new IndexedEntity(new IndexedEntity.Id("100501"), "key0000", "val1-0000", "val2-0001");
+        IndexedEntity c3 = new IndexedEntity(new IndexedEntity.Id("100502"), "key0000", "val1-0001", "val2-0000");
+
+        db.tx(() -> db.indexedTable().insert(c1, c2, c3));
+
+        assertThat(
+                db.tx(() -> db.indexedTable().query()
+                        .where("valueId", "valueId2").neq(c1.getValueId(), c1.getValueId2())
+                        .index(IndexedEntity.VALUE_INDEX, IndexOrder.ASCENDING)
+                        .find()
+                )
+        ).containsExactly(c2, c3);
+    }
+
+    @Test
+    public void multifieldGreaterThan() {
+        IndexedEntity c1 = new IndexedEntity(new IndexedEntity.Id("100500"), "key0000", "val1-0000", "val2-0000");
+        IndexedEntity c2 = new IndexedEntity(new IndexedEntity.Id("100501"), "key0000", "val1-0000", "val2-0001");
+        IndexedEntity c3 = new IndexedEntity(new IndexedEntity.Id("100502"), "key0000", "val1-0001", "val2-0000");
+
+        db.tx(() -> db.indexedTable().insert(c1, c2, c3));
+
+        assertThat(
+                db.tx(() -> db.indexedTable().query()
+                        .where("valueId", "valueId2").gt(c1.getValueId(), c1.getValueId2())
+                        .index(IndexedEntity.VALUE_INDEX, IndexOrder.ASCENDING)
+                        .find()
+                )
+        ).containsExactly(c2, c3);
+    }
+
+    @Test
+    public void multifieldLessThan() {
+        IndexedEntity c1 = new IndexedEntity(new IndexedEntity.Id("100500"), "key0000", "val1-0000", "val2-0000");
+        IndexedEntity c2 = new IndexedEntity(new IndexedEntity.Id("100501"), "key0000", "val1-0000", "val2-0001");
+        IndexedEntity c3 = new IndexedEntity(new IndexedEntity.Id("100502"), "key0000", "val1-0001", "val2-0000");
+
+        db.tx(() -> db.indexedTable().insert(c1, c2, c3));
+
+        assertThat(
+                db.tx(() -> db.indexedTable().query()
+                        .where("valueId", "valueId2").lt(c3.getValueId(), c3.getValueId2())
+                        .index(IndexedEntity.VALUE_INDEX, IndexOrder.ASCENDING)
+                        .find()
+                )
+        ).containsExactly(c1, c2);
+    }
+
+    @Test
+    public void multifieldGreaterThanOrEqual() {
+        IndexedEntity c1 = new IndexedEntity(new IndexedEntity.Id("100500"), "key0000", "val1-0000", "val2-0000");
+        IndexedEntity c2 = new IndexedEntity(new IndexedEntity.Id("100501"), "key0000", "val1-0000", "val2-0001");
+        IndexedEntity c3 = new IndexedEntity(new IndexedEntity.Id("100502"), "key0000", "val1-0001", "val2-0000");
+
+        db.tx(() -> db.indexedTable().insert(c1, c2, c3));
+
+        assertThat(
+                db.tx(() -> db.indexedTable().query()
+                        .where("valueId", "valueId2").gte(c1.getValueId(), c1.getValueId2())
+                        .index(IndexedEntity.VALUE_INDEX, IndexOrder.ASCENDING)
+                        .find()
+                )
+        ).containsExactly(c1, c2, c3);
+    }
+
+    @Test
+    public void multifieldLessThanOrEqual() {
+        IndexedEntity c1 = new IndexedEntity(new IndexedEntity.Id("100500"), "key0000", "val1-0000", "val2-0000");
+        IndexedEntity c2 = new IndexedEntity(new IndexedEntity.Id("100501"), "key0000", "val1-0000", "val2-0001");
+        IndexedEntity c3 = new IndexedEntity(new IndexedEntity.Id("100502"), "key0000", "val1-0001", "val2-0000");
+
+        db.tx(() -> db.indexedTable().insert(c1, c2, c3));
+
+        assertThat(
+                db.tx(() -> db.indexedTable().query()
+                        .where("valueId", "valueId2").lte(c3.getValueId(), c3.getValueId2())
+                        .index(IndexedEntity.VALUE_INDEX, IndexOrder.ASCENDING)
+                        .find()
+                )
+        ).containsExactly(c1, c2, c3);
+    }
+
+    @Test
+    public void multifieldQueryBuilderValidation() {
+        assertThat(db.tx(() -> db.indexedTable().query()
+                .where("valueId", "valueId2").lte("xxx", "yyy")
+                .index(IndexedEntity.VALUE_INDEX, IndexOrder.ASCENDING)
+                .find()
+        )).isEmpty();
+
+        assertThatIllegalArgumentException()
+                .isThrownBy(() ->
+                        db.tx(() -> db.indexedTable().query()
+                                .where("keyId", "valueId", "valueId2").lte("xxx", "yyy")
+                                .index(IndexedEntity.VALUE_INDEX, IndexOrder.ASCENDING)
+                                .find()
+                        ))
+                .withMessageContaining("Got more fields in a tuple than values");
+
+        assertThatIllegalArgumentException()
+                .isThrownBy(() ->
+                        db.tx(() -> db.indexedTable().query()
+                                .where("valueId", "valueId2").lte(42L, "yyy")
+                                .index(IndexedEntity.VALUE_INDEX, IndexOrder.ASCENDING)
+                                .find()
+                        ))
+                .withMessageContaining("Specified an integer value for non-integer field");
+
+        assertThatIllegalStateException()
+                .isThrownBy(() -> db.tx(() -> db.indexedTable().query()
+                        .where("valueId", "optionalComposite").lte("xx", new IndexedEntity.OptionalComposite(42, "yy"))
+                        .index(IndexedEntity.VALUE_INDEX, IndexOrder.ASCENDING)
+                        .find()
+                ))
+                .withMessageContaining("Not a flat field");
+    }
+
+    @Test
     public void checkCanMergeWorkProperly() {
         db.tx(() -> {
             Project p1 = new Project(new Project.Id("1"), "first");
@@ -2440,7 +2578,6 @@ public abstract class RepositoryTest extends RepositoryTestSupport {
             db.projects().insert(p2);
         });
     }
-
 
     @Test
     public void doMultipleSaveInOneTx() {

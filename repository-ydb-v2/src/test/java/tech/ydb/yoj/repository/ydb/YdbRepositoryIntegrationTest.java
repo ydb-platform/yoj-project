@@ -45,6 +45,7 @@ import tech.ydb.topic.settings.SendSettings;
 import tech.ydb.topic.settings.TopicReadSettings;
 import tech.ydb.topic.settings.WriterSettings;
 import tech.ydb.yoj.databind.ByteArray;
+import tech.ydb.yoj.databind.FieldValueType;
 import tech.ydb.yoj.databind.schema.Column;
 import tech.ydb.yoj.databind.schema.GlobalIndex;
 import tech.ydb.yoj.databind.schema.ObjectSchema;
@@ -105,6 +106,7 @@ import tech.ydb.yoj.repository.ydb.statement.FindStatement;
 import tech.ydb.yoj.repository.ydb.statement.YqlStatement;
 import tech.ydb.yoj.repository.ydb.table.YdbTable;
 import tech.ydb.yoj.repository.ydb.yql.YqlPredicate;
+import tech.ydb.yoj.repository.ydb.yql.YqlPrimitiveType;
 import tech.ydb.yoj.repository.ydb.yql.YqlStatementPart;
 import tech.ydb.yoj.repository.ydb.yql.YqlView;
 
@@ -156,6 +158,7 @@ public class YdbRepositoryIntegrationTest extends RepositoryTest {
 
     @Override
     protected Repository createTestRepository() {
+        YqlPrimitiveType.useLegacyMappingFor(FieldValueType.values());
         return TestYdbRepository.create(ydbEnvAndTransport);
     }
 
@@ -638,7 +641,7 @@ public class YdbRepositoryIntegrationTest extends RepositoryTest {
     public void testSelectDefault() {
         db.tx(() -> db.indexedTable().insert(e1, e2));
         executeQuery("DECLARE $pred_0_version_id AS String;\n" +
-                        "SELECT `version_id`, `key_id`, `value_id`, `valueId2` " +
+                        "SELECT `version_id`, `key_id`, `value_id`, `valueId2`, `optionalComposite_intValue`, `optionalComposite_stringValue` " +
                         "FROM `ts/table_with_indexes` " +
                         "WHERE `version_id` = $pred_0_version_id " +
                         "ORDER BY `version_id` ASC",
@@ -650,7 +653,7 @@ public class YdbRepositoryIntegrationTest extends RepositoryTest {
     public void testSelectIndex1Default() {
         db.tx(() -> db.indexedTable().insert(e1, e2));
         executeQuery("DECLARE $pred_0_key_id AS String;\n" +
-                        "SELECT `version_id`, `key_id`, `value_id`, `valueId2` " +
+                        "SELECT `version_id`, `key_id`, `value_id`, `valueId2`, `optionalComposite_intValue`, `optionalComposite_stringValue` " +
                         "FROM `ts/table_with_indexes` " +
                         "WHERE `key_id` = $pred_0_key_id " +
                         "ORDER BY `version_id` ASC",
@@ -664,7 +667,7 @@ public class YdbRepositoryIntegrationTest extends RepositoryTest {
 
         db.tx(() -> db.indexedTable().insert(e1, e2));
         executeQuery("DECLARE $pred_0_version_id AS String;\n" +
-                        "SELECT `version_id`, `key_id`, `value_id`, `valueId2` " +
+                        "SELECT `version_id`, `key_id`, `value_id`, `valueId2`, `optionalComposite_intValue`, `optionalComposite_stringValue` " +
                         "FROM `ts/table_with_indexes` VIEW `key_index` " +
                         "WHERE `version_id` = $pred_0_version_id " +
                         "ORDER BY `version_id` ASC",
@@ -677,7 +680,7 @@ public class YdbRepositoryIntegrationTest extends RepositoryTest {
     public void testSelectIndex1WithEmptyIndex() {
         db.tx(() -> db.indexedTable().insert(e1, e2));
         executeQuery("DECLARE $pred_0_key_id AS String;\n" +
-                        "SELECT `version_id`, `key_id`, `value_id`, `valueId2` " +
+                        "SELECT `version_id`, `key_id`, `value_id`, `valueId2`, `optionalComposite_intValue`, `optionalComposite_stringValue` " +
                         "FROM `ts/table_with_indexes`  " +
                         "WHERE `key_id` = $pred_0_key_id ORDER BY `version_id` ASC",
                 List.of(e2),
@@ -689,7 +692,7 @@ public class YdbRepositoryIntegrationTest extends RepositoryTest {
     public void testSelectIndex1WithIndex() {
         db.tx(() -> db.indexedTable().insert(e1, e2));
         executeQuery("DECLARE $pred_0_key_id AS String;\n" +
-                        "SELECT `version_id`, `key_id`, `value_id`, `valueId2` " +
+                        "SELECT `version_id`, `key_id`, `value_id`, `valueId2`, `optionalComposite_intValue`, `optionalComposite_stringValue` " +
                         "FROM `ts/table_with_indexes` VIEW `key_index` " +
                         "WHERE `key_id` = $pred_0_key_id " +
                         "ORDER BY `version_id` ASC",
@@ -703,7 +706,7 @@ public class YdbRepositoryIntegrationTest extends RepositoryTest {
         db.tx(() -> db.indexedTable().insert(e1, e2));
         executeQuery("DECLARE $pred_0_value_id AS String;\n" +
                         "DECLARE $pred_1_valueId2 AS String;\n" +
-                        "SELECT `version_id`, `key_id`, `value_id`, `valueId2` " +
+                        "SELECT `version_id`, `key_id`, `value_id`, `valueId2`, `optionalComposite_intValue`, `optionalComposite_stringValue` " +
                         "FROM `ts/table_with_indexes` " +
                         "WHERE (`value_id` = $pred_0_value_id) AND (`valueId2` = $pred_1_valueId2) " +
                         "ORDER BY `version_id` ASC",
@@ -716,7 +719,7 @@ public class YdbRepositoryIntegrationTest extends RepositoryTest {
         db.tx(() -> db.indexedTable().insert(e1, e2));
         executeQuery("DECLARE $pred_0_value_id AS String;\n" +
                         "DECLARE $pred_1_valueId2 AS String;\n" +
-                        "SELECT `version_id`, `key_id`, `value_id`, `valueId2` " +
+                        "SELECT `version_id`, `key_id`, `value_id`, `valueId2`, `optionalComposite_intValue`, `optionalComposite_stringValue` " +
                         "FROM `ts/table_with_indexes` VIEW `value_index` " +
                         "WHERE (`value_id` = $pred_0_value_id) AND (`valueId2` = $pred_1_valueId2) " +
                         "ORDER BY `version_id` ASC",
@@ -731,7 +734,7 @@ public class YdbRepositoryIntegrationTest extends RepositoryTest {
 
         db.tx(() -> db.indexedTable().insert(e1, e2));
         executeQuery("DECLARE $pred_0_value_id AS String;\n" +
-                        "SELECT `version_id`, `key_id`, `value_id`, `valueId2` " +
+                        "SELECT `version_id`, `key_id`, `value_id`, `valueId2`, `optionalComposite_intValue`, `optionalComposite_stringValue` " +
                         "FROM `ts/table_with_indexes` VIEW `value_index` " +
                         "WHERE `value_id` = $pred_0_value_id " +
                         "ORDER BY `version_id` ASC",
@@ -746,7 +749,7 @@ public class YdbRepositoryIntegrationTest extends RepositoryTest {
 
         db.tx(() -> db.indexedTable().insert(e1, e2));
         executeQuery("DECLARE $pred_0_valueId2 AS String;\n" +
-                        "SELECT `version_id`, `key_id`, `value_id`, `valueId2` " +
+                        "SELECT `version_id`, `key_id`, `value_id`, `valueId2`, `optionalComposite_intValue`, `optionalComposite_stringValue` " +
                         "FROM `ts/table_with_indexes` VIEW `value_index` " +
                         "WHERE `valueId2` = $pred_0_valueId2 " +
                         "ORDER BY `version_id` ASC",
@@ -771,7 +774,7 @@ public class YdbRepositoryIntegrationTest extends RepositoryTest {
         var statements = YdbTable.buildStatementParts("value_index", filter, orderBy, null, null);
 
         executeQuery("DECLARE $pred_0_valueId2 AS String;\n" +
-                        "SELECT `version_id`, `key_id`, `value_id`, `valueId2` " +
+                        "SELECT `version_id`, `key_id`, `value_id`, `valueId2`, `optionalComposite_intValue`, `optionalComposite_stringValue` " +
                         "FROM `ts/table_with_indexes` VIEW `value_index` " +
                         "WHERE `valueId2` = $pred_0_valueId2 " +
                         "ORDER BY `version_id` ASC",

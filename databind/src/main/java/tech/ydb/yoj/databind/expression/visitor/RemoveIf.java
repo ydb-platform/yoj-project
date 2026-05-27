@@ -10,9 +10,9 @@ import java.util.Objects;
 import java.util.function.Predicate;
 
 import static java.util.stream.Collectors.toList;
-import static tech.ydb.yoj.databind.expression.FilterBuilder.and;
-import static tech.ydb.yoj.databind.expression.FilterBuilder.not;
-import static tech.ydb.yoj.databind.expression.FilterBuilder.or;
+import static tech.ydb.yoj.databind.expression.FilterExpression.and;
+import static tech.ydb.yoj.databind.expression.FilterExpression.not;
+import static tech.ydb.yoj.databind.expression.FilterExpression.or;
 
 @RequiredArgsConstructor
 public final class RemoveIf<T> extends FilterExpression.Visitor.Simple<T, FilterExpression<T>> {

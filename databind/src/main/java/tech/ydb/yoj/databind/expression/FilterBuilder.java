@@ -1,9 +1,9 @@
 package tech.ydb.yoj.databind.expression;
 
 import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableList;
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
+import tech.ydb.yoj.ExperimentalApi;
 import tech.ydb.yoj.databind.expression.values.FieldValue;
 import tech.ydb.yoj.databind.schema.Schema;
 
@@ -17,24 +17,6 @@ import java.util.stream.Stream;
 
 import static java.util.stream.Collectors.toList;
 import static lombok.AccessLevel.PRIVATE;
-import static tech.ydb.yoj.databind.expression.ListExpr.Operator.IN;
-import static tech.ydb.yoj.databind.expression.ListExpr.Operator.NOT_IN;
-import static tech.ydb.yoj.databind.expression.NullExpr.Operator.IS_NOT_NULL;
-import static tech.ydb.yoj.databind.expression.NullExpr.Operator.IS_NULL;
-import static tech.ydb.yoj.databind.expression.ScalarExpr.Operator.CONTAINS;
-import static tech.ydb.yoj.databind.expression.ScalarExpr.Operator.ENDS_WITH;
-import static tech.ydb.yoj.databind.expression.ScalarExpr.Operator.EQ;
-import static tech.ydb.yoj.databind.expression.ScalarExpr.Operator.GT;
-import static tech.ydb.yoj.databind.expression.ScalarExpr.Operator.GTE;
-import static tech.ydb.yoj.databind.expression.ScalarExpr.Operator.ICONTAINS;
-import static tech.ydb.yoj.databind.expression.ScalarExpr.Operator.LT;
-import static tech.ydb.yoj.databind.expression.ScalarExpr.Operator.LTE;
-import static tech.ydb.yoj.databind.expression.ScalarExpr.Operator.NEQ;
-import static tech.ydb.yoj.databind.expression.ScalarExpr.Operator.NOT_CONTAINS;
-import static tech.ydb.yoj.databind.expression.ScalarExpr.Operator.NOT_ENDS_WITH;
-import static tech.ydb.yoj.databind.expression.ScalarExpr.Operator.NOT_ICONTAINS;
-import static tech.ydb.yoj.databind.expression.ScalarExpr.Operator.NOT_STARTS_WITH;
-import static tech.ydb.yoj.databind.expression.ScalarExpr.Operator.STARTS_WITH;
 
 @RequiredArgsConstructor(access = PRIVATE)
 public final class FilterBuilder<T> {
@@ -51,48 +33,6 @@ public final class FilterBuilder<T> {
         return forSchema(expr.getSchema());
     }
 
-    public static <T> FilterExpression<T> not(@NonNull FilterExpression<T> expr) {
-        return expr.negate();
-    }
-
-    @SafeVarargs
-    public static <T> FilterExpression<T> and(@NonNull FilterExpression<T> first, @NonNull FilterExpression<T> second,
-                                              @NonNull FilterExpression<T>... rest) {
-        return new AndExpr<>(first.getSchema(), ImmutableList.<FilterExpression<T>>builder()
-                .add(first)
-                .add(second)
-                .add(rest)
-                .build());
-    }
-
-    public static <T> FilterExpression<T> and(@NonNull List<FilterExpression<T>> exprs) {
-        Preconditions.checkArgument(!exprs.isEmpty(), "Tried to and() empty expression list");
-        if (exprs.size() == 1) {
-            return exprs.iterator().next();
-        } else {
-            return new AndExpr<>(exprs.iterator().next().getSchema(), exprs);
-        }
-    }
-
-    @SafeVarargs
-    public static <T> FilterExpression<T> or(@NonNull FilterExpression<T> first, @NonNull FilterExpression<T> second,
-                                             @NonNull FilterExpression<T>... rest) {
-        return new OrExpr<>(first.getSchema(), ImmutableList.<FilterExpression<T>>builder()
-                .add(first)
-                .add(second)
-                .add(rest)
-                .build());
-    }
-
-    public static <T> FilterExpression<T> or(@NonNull List<FilterExpression<T>> exprs) {
-        Preconditions.checkArgument(!exprs.isEmpty(), "Tried to or() empty expression list");
-        if (exprs.size() == 1) {
-            return exprs.iterator().next();
-        } else {
-            return new OrExpr<>(exprs.iterator().next().getSchema(), exprs);
-        }
-    }
-
     public FilterBuilder<T> generated() {
         return generated(true);
     }
@@ -107,11 +47,49 @@ public final class FilterBuilder<T> {
     }
 
     public FieldBuilder and(@NonNull String fieldPath) {
-        return new FieldBuilder(ModelField.of(schema.getField(fieldPath)), generated, this::and0);
+        return new FieldBuilder(modelField(fieldPath), generated, this::and0);
     }
 
     public FieldBuilder or(@NonNull String fieldPath) {
-        return new FieldBuilder(ModelField.of(schema.getField(fieldPath)), generated, this::or0);
+        return new FieldBuilder(modelField(fieldPath), generated, this::or0);
+    }
+
+    @ExperimentalApi(issue = "https://github.com/ydb-platform/yoj-project/issues/234")
+    public MultifieldBuilder where(@NonNull String fieldPath1, @NonNull String fieldPath2, @NonNull String... remainingFieldPaths) {
+        return where(listOf(fieldPath1, fieldPath2, remainingFieldPaths));
+    }
+
+    @ExperimentalApi(issue = "https://github.com/ydb-platform/yoj-project/issues/234")
+    public MultifieldBuilder where(@NonNull List<String> fieldPaths) {
+        return and(fieldPaths);
+    }
+
+    @ExperimentalApi(issue = "https://github.com/ydb-platform/yoj-project/issues/234")
+    public MultifieldBuilder and(@NonNull String fieldPath1, @NonNull String fieldPath2, @NonNull String... remainingFieldPaths) {
+        return and(listOf(fieldPath1, fieldPath2, remainingFieldPaths));
+    }
+
+    @ExperimentalApi(issue = "https://github.com/ydb-platform/yoj-project/issues/234")
+    public MultifieldBuilder and(@NonNull List<String> fieldPaths) {
+        return new MultifieldBuilder(modelFields(fieldPaths), generated, this::and0);
+    }
+
+    @ExperimentalApi(issue = "https://github.com/ydb-platform/yoj-project/issues/234")
+    public MultifieldBuilder or(@NonNull String fieldPath1, @NonNull String fieldPath2, @NonNull String... remainingFieldPaths) {
+        return or(listOf(fieldPath1, fieldPath2, remainingFieldPaths));
+    }
+
+    @ExperimentalApi(issue = "https://github.com/ydb-platform/yoj-project/issues/234")
+    public MultifieldBuilder or(@NonNull List<String> fieldPaths) {
+        return new MultifieldBuilder(modelFields(fieldPaths), generated, this::or0);
+    }
+
+    private List<ModelField> modelFields(@NonNull List<String> fieldPaths) {
+        return fieldPaths.stream().map(this::modelField).toList();
+    }
+
+    private ModelField modelField(@NonNull String fieldPath) {
+        return ModelField.of(schema.getField(fieldPath));
     }
 
     public FilterBuilder<T> where(@NonNull FilterExpression<T> first) {
@@ -151,6 +129,11 @@ public final class FilterBuilder<T> {
         return Stream.concat(Stream.of(head), Stream.of(tail)).collect(toList());
     }
 
+    @SafeVarargs
+    private static <V> List<V> listOf(@NonNull V v1, @NonNull V v2, @NonNull V... tail) {
+        return Stream.concat(Stream.<V>builder().add(v1).add(v2).build(), Stream.of(tail)).collect(toList());
+    }
+
     @RequiredArgsConstructor
     public final class FieldBuilder {
         private final ModelField field;
@@ -165,7 +148,7 @@ public final class FilterBuilder<T> {
 
         @NonNull
         public <V> FilterBuilder<T> in(@NonNull Collection<@NonNull ? extends V> values) {
-            current = finisher.apply(new ListExpr<>(schema, generated, field, IN, fieldValues(field, values)));
+            current = finisher.apply(new ListExpr<>(schema, generated, field, ListExpr.Operator.IN, fieldValues(field, values)));
             return FilterBuilder.this;
         }
 
@@ -177,7 +160,7 @@ public final class FilterBuilder<T> {
 
         @NonNull
         public <V> FilterBuilder<T> notIn(@NonNull Collection<@NonNull ? extends V> values) {
-            current = finisher.apply(new ListExpr<>(schema, generated, field, NOT_IN, fieldValues(field, values)));
+            current = finisher.apply(new ListExpr<>(schema, generated, field, ListExpr.Operator.NOT_IN, fieldValues(field, values)));
             return FilterBuilder.this;
         }
 
@@ -192,7 +175,12 @@ public final class FilterBuilder<T> {
         @NonNull
         private FilterExpression<T> expr(@NonNull ScalarExpr.Operator operator, @NonNull ModelField field, @Nullable Object value) {
             if (value == null) {
-                return new NullExpr<>(schema, generated, field, operator == EQ ? IS_NULL : IS_NOT_NULL);
+                var nullOperator = switch (operator) {
+                    case EQ -> NullExpr.Operator.IS_NULL;
+                    case NEQ -> NullExpr.Operator.IS_NOT_NULL;
+                    default -> throw new IllegalArgumentException("Cannot use " + operator + " with NULL");
+                };
+                return new NullExpr<>(schema, generated, field, nullOperator);
             }
             return new ScalarExpr<>(schema, generated, field, operator, fieldValue(field, value));
         }
@@ -212,105 +200,187 @@ public final class FilterBuilder<T> {
 
         @NonNull
         public FilterBuilder<T> eq(@Nullable Object value) {
-            current = finisher.apply(and(buildMultiFieldExpressions(field, EQ, value)));
+            current = finisher.apply(FilterExpression.and(buildMultiFieldExpressions(field, ScalarExpr.Operator.EQ, value)));
             return FilterBuilder.this;
         }
 
         @NonNull
         public FilterBuilder<T> neq(@Nullable Object value) {
-            current = finisher.apply(or(buildMultiFieldExpressions(field, NEQ, value)));
+            current = finisher.apply(FilterExpression.or(buildMultiFieldExpressions(field, ScalarExpr.Operator.NEQ, value)));
             return FilterBuilder.this;
         }
 
         @NonNull
         public FilterBuilder<T> lt(@NonNull Object value) {
-            current = finisher.apply(new ScalarExpr<>(schema, generated, field, LT, fieldValue(field, value)));
+            current = finisher.apply(new ScalarExpr<>(schema, generated, field, ScalarExpr.Operator.LT, fieldValue(field, value)));
             return FilterBuilder.this;
         }
 
         @NonNull
         public FilterBuilder<T> lte(@NonNull Object value) {
-            current = finisher.apply(new ScalarExpr<>(schema, generated, field, LTE, fieldValue(field, value)));
+            current = finisher.apply(new ScalarExpr<>(schema, generated, field, ScalarExpr.Operator.LTE, fieldValue(field, value)));
             return FilterBuilder.this;
         }
 
         @NonNull
         public FilterBuilder<T> gt(@NonNull Object value) {
-            current = finisher.apply(new ScalarExpr<>(schema, generated, field, GT, fieldValue(field, value)));
+            current = finisher.apply(new ScalarExpr<>(schema, generated, field, ScalarExpr.Operator.GT, fieldValue(field, value)));
             return FilterBuilder.this;
         }
 
         @NonNull
         public FilterBuilder<T> gte(@NonNull Object value) {
-            current = finisher.apply(new ScalarExpr<>(schema, generated, field, GTE, fieldValue(field, value)));
+            current = finisher.apply(new ScalarExpr<>(schema, generated, field, ScalarExpr.Operator.GTE, fieldValue(field, value)));
             return FilterBuilder.this;
         }
 
         public FilterBuilder<T> between(@NonNull Object min, @NonNull Object max) {
-            FilterExpression<T> gteMin = new ScalarExpr<>(schema, generated, field, GTE, fieldValue(field, min));
-            FilterExpression<T> lteMax = new ScalarExpr<>(schema, generated, field, LTE, fieldValue(field, max));
+            FilterExpression<T> gteMin = new ScalarExpr<>(schema, generated, field, ScalarExpr.Operator.GTE, fieldValue(field, min));
+            FilterExpression<T> lteMax = new ScalarExpr<>(schema, generated, field, ScalarExpr.Operator.LTE, fieldValue(field, max));
             current = finisher.apply(gteMin.and(lteMax));
             return FilterBuilder.this;
         }
 
         @NonNull
         public FilterBuilder<T> contains(@NonNull String value) {
-            current = finisher.apply(new ScalarExpr<>(schema, generated, field, CONTAINS, fieldValue(field, value)));
+            current = finisher.apply(new ScalarExpr<>(schema, generated, field, ScalarExpr.Operator.CONTAINS, fieldValue(field, value)));
             return FilterBuilder.this;
         }
 
         @NonNull
         public FilterBuilder<T> doesNotContain(@NonNull String value) {
-            current = finisher.apply(new ScalarExpr<>(schema, generated, field, NOT_CONTAINS, fieldValue(field, value)));
+            current = finisher.apply(new ScalarExpr<>(schema, generated, field, ScalarExpr.Operator.NOT_CONTAINS, fieldValue(field, value)));
             return FilterBuilder.this;
         }
 
         @NonNull
         public FilterBuilder<T> containsIgnoreCase(@NonNull String value) {
-            current = finisher.apply(new ScalarExpr<>(schema, generated, field, ICONTAINS, fieldValue(field, value)));
+            current = finisher.apply(new ScalarExpr<>(schema, generated, field, ScalarExpr.Operator.ICONTAINS, fieldValue(field, value)));
             return FilterBuilder.this;
         }
 
         @NonNull
         public FilterBuilder<T> doesNotContainIgnoreCase(@NonNull String value) {
-            current = finisher.apply(new ScalarExpr<>(schema, generated, field, NOT_ICONTAINS, fieldValue(field, value)));
+            current = finisher.apply(new ScalarExpr<>(schema, generated, field, ScalarExpr.Operator.NOT_ICONTAINS, fieldValue(field, value)));
             return FilterBuilder.this;
         }
 
         @NonNull
         public FilterBuilder<T> startsWith(@NonNull String value) {
-            current = finisher.apply(new ScalarExpr<>(schema, generated, field, STARTS_WITH, fieldValue(field, value)));
+            current = finisher.apply(new ScalarExpr<>(schema, generated, field, ScalarExpr.Operator.STARTS_WITH, fieldValue(field, value)));
             return FilterBuilder.this;
         }
 
         @NonNull
         public FilterBuilder<T> doesNotStartWith(@NonNull String value) {
-            current = finisher.apply(new ScalarExpr<>(schema, generated, field, NOT_STARTS_WITH, fieldValue(field, value)));
+            current = finisher.apply(new ScalarExpr<>(schema, generated, field, ScalarExpr.Operator.NOT_STARTS_WITH, fieldValue(field, value)));
             return FilterBuilder.this;
         }
 
         @NonNull
         public FilterBuilder<T> endsWith(@NonNull String value) {
-            current = finisher.apply(new ScalarExpr<>(schema, generated, field, ENDS_WITH, fieldValue(field, value)));
+            current = finisher.apply(new ScalarExpr<>(schema, generated, field, ScalarExpr.Operator.ENDS_WITH, fieldValue(field, value)));
             return FilterBuilder.this;
         }
 
         @NonNull
         public FilterBuilder<T> doesNotEndWith(@NonNull String value) {
-            current = finisher.apply(new ScalarExpr<>(schema, generated, field, NOT_ENDS_WITH, fieldValue(field, value)));
+            current = finisher.apply(new ScalarExpr<>(schema, generated, field, ScalarExpr.Operator.NOT_ENDS_WITH, fieldValue(field, value)));
             return FilterBuilder.this;
         }
 
         @NonNull
         public FilterBuilder<T> isNull() {
-            current = finisher.apply(new NullExpr<>(schema, generated, field, IS_NULL));
+            current = finisher.apply(new NullExpr<>(schema, generated, field, NullExpr.Operator.IS_NULL));
             return FilterBuilder.this;
         }
 
         @NonNull
         public FilterBuilder<T> isNotNull() {
-            current = finisher.apply(new NullExpr<>(schema, generated, field, IS_NOT_NULL));
+            current = finisher.apply(new NullExpr<>(schema, generated, field, NullExpr.Operator.IS_NOT_NULL));
             return FilterBuilder.this;
+        }
+    }
+
+    @RequiredArgsConstructor
+    @ExperimentalApi(issue = "https://github.com/ydb-platform/yoj-project/issues/234")
+    public final class MultifieldBuilder {
+        private final List<ModelField> fields;
+        private final boolean generated;
+        private final UnaryOperator<FilterExpression<T>> finisher;
+
+        @NonNull
+        public FilterBuilder<T> eq(@NonNull Object value1, @NonNull Object value2, @NonNull Object... remainingValues) {
+            return eq(listOf(value1, value2, remainingValues));
+        }
+
+        @NonNull
+        public FilterBuilder<T> eq(@NonNull List<?> values) {
+            current = finisher.apply(expr(TupleExpr.Operator.EQ, fields, values));
+            return FilterBuilder.this;
+        }
+
+        @NonNull
+        public FilterBuilder<T> neq(@NonNull Object value1, @NonNull Object value2, @NonNull Object... remainingValues) {
+            return neq(listOf(value1, value2, remainingValues));
+        }
+
+        @NonNull
+        public FilterBuilder<T> neq(@NonNull List<?> values) {
+            current = finisher.apply(expr(TupleExpr.Operator.NEQ, fields, values));
+            return FilterBuilder.this;
+        }
+
+        @NonNull
+        public FilterBuilder<T> lt(@NonNull Object value1, @NonNull Object value2, @NonNull Object... remainingValues) {
+            return lt(listOf(value1, value2, remainingValues));
+        }
+
+        @NonNull
+        public FilterBuilder<T> lt(@NonNull List<?> values) {
+            current = finisher.apply(expr(TupleExpr.Operator.LT, fields, values));
+            return FilterBuilder.this;
+        }
+
+        @NonNull
+        public FilterBuilder<T> lte(@NonNull Object value1, @NonNull Object value2, @NonNull Object... remainingValues) {
+            return lte(listOf(value1, value2, remainingValues));
+        }
+
+        @NonNull
+        public FilterBuilder<T> lte(@NonNull List<?> values) {
+            current = finisher.apply(expr(TupleExpr.Operator.LTE, fields, values));
+            return FilterBuilder.this;
+        }
+
+        @NonNull
+        public FilterBuilder<T> gt(@NonNull Object value1, @NonNull Object value2, @NonNull Object... remainingValues) {
+            return gt(listOf(value1, value2, remainingValues));
+        }
+
+        @NonNull
+        public FilterBuilder<T> gt(@NonNull List<?> values) {
+            current = finisher.apply(expr(TupleExpr.Operator.GT, fields, values));
+            return FilterBuilder.this;
+        }
+
+        @NonNull
+        public FilterBuilder<T> gte(@NonNull Object value1, @NonNull Object value2, @NonNull Object... remainingValues) {
+            return gte(listOf(value1, value2, remainingValues));
+        }
+
+        @NonNull
+        public FilterBuilder<T> gte(@NonNull List<?> values) {
+            current = finisher.apply(expr(TupleExpr.Operator.GTE, fields, values));
+            return FilterBuilder.this;
+        }
+
+        @NonNull
+        private FilterExpression<T> expr(
+                @NonNull TupleExpr.Operator operator,
+                @NonNull List<ModelField> fields, @NonNull List<?> values
+        ) {
+            return new TupleExpr<>(schema, generated, operator, fields, values);
         }
     }
 }

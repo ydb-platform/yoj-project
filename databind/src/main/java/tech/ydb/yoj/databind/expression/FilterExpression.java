@@ -1,13 +1,16 @@
 package tech.ydb.yoj.databind.expression;
 
+import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
 import lombok.NonNull;
+import tech.ydb.yoj.ExperimentalApi;
 import tech.ydb.yoj.databind.schema.Schema;
 
 import java.util.List;
 import java.util.function.UnaryOperator;
 import java.util.stream.Stream;
 
-public interface FilterExpression<T> {
+public sealed interface FilterExpression<T> permits LeafExpression, AndExpr, OrExpr, NotExpr {
     <V> V visit(@NonNull Visitor<T, V> visitor);
 
     Schema<T> getSchema();
@@ -35,8 +38,51 @@ public interface FilterExpression<T> {
         return new NotExpr<>(getSchema(), this);
     }
 
+    static <T> FilterExpression<T> not(@NonNull FilterExpression<T> expr) {
+        return expr.negate();
+    }
+
+    @SafeVarargs
+    static <T> FilterExpression<T> and(@NonNull FilterExpression<T> first, @NonNull FilterExpression<T> second,
+                                       @NonNull FilterExpression<T>... rest) {
+        return new AndExpr<>(first.getSchema(), ImmutableList.<FilterExpression<T>>builder()
+                .add(first)
+                .add(second)
+                .add(rest)
+                .build());
+    }
+
+    static <T> FilterExpression<T> and(@NonNull List<FilterExpression<T>> exprs) {
+        Preconditions.checkArgument(!exprs.isEmpty(), "Tried to and() empty expression list");
+        if (exprs.size() == 1) {
+            return exprs.iterator().next();
+        } else {
+            return new AndExpr<>(exprs.iterator().next().getSchema(), exprs);
+        }
+    }
+
+    @SafeVarargs
+    static <T> FilterExpression<T> or(@NonNull FilterExpression<T> first, @NonNull FilterExpression<T> second,
+                                      @NonNull FilterExpression<T>... rest) {
+        return new OrExpr<>(first.getSchema(), ImmutableList.<FilterExpression<T>>builder()
+                .add(first)
+                .add(second)
+                .add(rest)
+                .build());
+    }
+
+    static <T> FilterExpression<T> or(@NonNull List<FilterExpression<T>> exprs) {
+        Preconditions.checkArgument(!exprs.isEmpty(), "Tried to or() empty expression list");
+        if (exprs.size() == 1) {
+            return exprs.iterator().next();
+        } else {
+            return new OrExpr<>(exprs.iterator().next().getSchema(), exprs);
+        }
+    }
+
     enum Type {
         SCALAR,
+        TUPLE,
         NULL,
         LIST,
         AND,
@@ -46,6 +92,9 @@ public interface FilterExpression<T> {
 
     interface Visitor<T, V> {
         V visitScalarExpr(@NonNull ScalarExpr<T> scalarExpr);
+
+        @ExperimentalApi(issue = "https://github.com/ydb-platform/yoj-project/issues/234")
+        V visitTupleExpr(@NonNull TupleExpr<T> tupleExpr);
 
         V visitNullExpr(@NonNull NullExpr<T> nullExpr);
 
@@ -60,6 +109,11 @@ public interface FilterExpression<T> {
         interface Throwing<T, V> extends Visitor<T, V> {
             @Override
             default V visitScalarExpr(@NonNull ScalarExpr<T> scalarExpr) {
+                throw new UnsupportedOperationException();
+            }
+
+            @Override
+            default V visitTupleExpr(@NonNull TupleExpr<T> tupleExpr) {
                 throw new UnsupportedOperationException();
             }
 
@@ -100,6 +154,11 @@ public interface FilterExpression<T> {
             }
 
             @Override
+            public final V visitTupleExpr(@NonNull TupleExpr<T> tupleExpr) {
+                return visitLeaf(tupleExpr);
+            }
+
+            @Override
             public final V visitListExpr(@NonNull ListExpr<T> listExpr) {
                 return visitLeaf(listExpr);
             }
@@ -136,6 +195,11 @@ public interface FilterExpression<T> {
             }
 
             @Override
+            public final FilterExpression<T> visitTupleExpr(@NonNull TupleExpr<T> tupleExpr) {
+                return transformLeaf(tupleExpr);
+            }
+
+            @Override
             public final FilterExpression<T> visitListExpr(@NonNull ListExpr<T> listExpr) {
                 return transformLeaf(listExpr);
             }
@@ -147,17 +211,17 @@ public interface FilterExpression<T> {
 
             @Override
             public final FilterExpression<T> visitNotExpr(@NonNull NotExpr<T> notExpr) {
-                return FilterBuilder.not(notExpr.getDelegate().visit(this));
+                return FilterExpression.not(notExpr.getDelegate().visit(this));
             }
 
             @Override
             public final FilterExpression<T> visitAndExpr(@NonNull AndExpr<T> andExpr) {
-                return FilterBuilder.and(transformComposite(andExpr));
+                return FilterExpression.and(transformComposite(andExpr));
             }
 
             @Override
             public final FilterExpression<T> visitOrExpr(@NonNull OrExpr<T> orExpr) {
-                return FilterBuilder.or(transformComposite(orExpr));
+                return FilterExpression.or(transformComposite(orExpr));
             }
         }
     }
