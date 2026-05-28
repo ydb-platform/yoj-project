@@ -40,8 +40,6 @@ import static tech.ydb.yoj.repository.ydb.client.YdbValidator.validate;
 public class YdbSpliterator<V> implements Spliterator<V> {
     private static final Logger log = LoggerFactory.getLogger(YdbSpliterator.class);
 
-    private static final Duration DEFAULT_STREAM_WORK_TIMEOUT = Duration.ofMinutes(5);
-
     // Deadline for stream work
     private final long streamWorkDeadlineNanos;
     private final int flags;
@@ -57,12 +55,7 @@ public class YdbSpliterator<V> implements Spliterator<V> {
 
     private boolean endData = false;
 
-    public YdbSpliterator(String request, boolean isOrdered) {
-        this(request, isOrdered, DEFAULT_STREAM_WORK_TIMEOUT);
-    }
-
-    @VisibleForTesting
-    protected YdbSpliterator(String request, boolean isOrdered, Duration streamWorkTimeout) {
+    public YdbSpliterator(String request, boolean isOrdered, Duration streamWorkTimeout) {
         this.flags = (isOrdered ? ORDERED : 0) | NONNULL;
         this.streamWorkDeadlineNanos = System.nanoTime() + TimeUnit.NANOSECONDS.toNanos(saturatedToNanos(streamWorkTimeout));
         this.validateResponse = (status, error) -> {

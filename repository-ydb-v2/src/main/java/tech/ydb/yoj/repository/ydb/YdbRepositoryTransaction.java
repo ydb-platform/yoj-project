@@ -127,8 +127,8 @@ public class YdbRepositoryTransaction<REPO extends YdbRepository>
         this.tablespace = repo.getSchemaOperations().getTablespace();
     }
 
-    private <V> YdbSpliterator<V> createSpliterator(String request, boolean isOrdered) {
-        YdbSpliterator<V> spliterator = new YdbSpliterator<>(request, isOrdered);
+    private <V> YdbSpliterator<V> createSpliterator(String request, boolean isOrdered, Duration timeout) {
+        YdbSpliterator<V> spliterator = new YdbSpliterator<>(request, isOrdered, timeout);
         spliterators.add(spliterator);
         return spliterator;
     }
@@ -447,7 +447,11 @@ public class YdbRepositoryTransaction<REPO extends YdbRepository>
         String yql = getYql(statement);
         Params sdkParams = getSdkParams(statement, params);
 
-        YdbSpliterator<RESULT> spliterator = createSpliterator("scanQuery: " + yql, false);
+        YdbSpliterator<RESULT> spliterator = createSpliterator(
+                "scanQuery: " + yql,
+                false,
+                options.getScanOptions().getTimeout().plusMinutes(5)
+        );
 
         initSession();
         session.executeScanQuery(
@@ -556,7 +560,11 @@ public class YdbRepositoryTransaction<REPO extends YdbRepository>
         }
 
         if (params.isUseNewSpliterator()) {
-            YdbSpliterator<RESULT> spliterator = createSpliterator("readTable: " + tableName, params.isOrdered());
+            YdbSpliterator<RESULT> spliterator = createSpliterator(
+                    "readTable: " + tableName,
+                    params.isOrdered(),
+                    params.getTimeout().plusMinutes(5)
+            );
 
             initSession();
             session.readTable(
