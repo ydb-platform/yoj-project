@@ -101,7 +101,7 @@ public class YdbRepositoryTransaction<REPO extends YdbRepository>
     private static final String CLOSE_ACTION_COMMIT = "commit";
 
     private static final Duration DEFAULT_SPLITERATOR_TIMEOUT = Duration.ofMinutes(5);
-    private static final Duration SPLITERATOR_ADDED_TIMEOUT = Duration.ofMinutes(1);
+    private static final Duration ADDED_SPLITERATOR_TIMEOUT = Duration.ofMinutes(1);
 
     private final List<YdbRepository.Query<?>> pendingWrites = new ArrayList<>();
     private final List<YdbSpliterator<?>> spliterators = new ArrayList<>();
@@ -452,7 +452,7 @@ public class YdbRepositoryTransaction<REPO extends YdbRepository>
 
         Duration spliteratorTimeout = options.getScanOptions().getTimeout() == null
                 ? DEFAULT_SPLITERATOR_TIMEOUT
-                : options.getScanOptions().getTimeout().plus(SPLITERATOR_ADDED_TIMEOUT);
+                : options.getScanOptions().getTimeout().plus(ADDED_SPLITERATOR_TIMEOUT);
         YdbSpliterator<RESULT> spliterator = createSpliterator("scanQuery: " + yql, false, spliteratorTimeout);
 
         initSession();
@@ -564,7 +564,7 @@ public class YdbRepositoryTransaction<REPO extends YdbRepository>
         if (params.isUseNewSpliterator()) {
             Duration spliteratorTimeout = params.getTimeout() == null
                     ? DEFAULT_SPLITERATOR_TIMEOUT
-                    : params.getTimeout().plus(SPLITERATOR_ADDED_TIMEOUT);
+                    : params.getTimeout().plus(ADDED_SPLITERATOR_TIMEOUT);
             YdbSpliterator<RESULT> spliterator = createSpliterator("readTable: " + tableName, params.isOrdered(), spliteratorTimeout);
 
             initSession();
