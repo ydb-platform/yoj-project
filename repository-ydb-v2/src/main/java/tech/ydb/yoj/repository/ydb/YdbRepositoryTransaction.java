@@ -100,6 +100,9 @@ public class YdbRepositoryTransaction<REPO extends YdbRepository>
     private static final String CLOSE_ACTION_ROLLBACK = "rollback";
     private static final String CLOSE_ACTION_COMMIT = "commit";
 
+    private static final Duration DEFAULT_SPLITERATOR_TIMEOUT = Duration.ofMinutes(5);
+    private static final Duration ADDED_SPLITERATOR_TIMEOUT = Duration.ofMinutes(1);
+
     private final List<YdbRepository.Query<?>> pendingWrites = new ArrayList<>();
     private final List<YdbSpliterator<?>> spliterators = new ArrayList<>();
 
@@ -127,8 +130,11 @@ public class YdbRepositoryTransaction<REPO extends YdbRepository>
         this.tablespace = repo.getSchemaOperations().getTablespace();
     }
 
-    private <V> YdbSpliterator<V> createSpliterator(String request, boolean isOrdered) {
-        YdbSpliterator<V> spliterator = new YdbSpliterator<>(request, isOrdered);
+    private <V> YdbSpliterator<V> createSpliterator(String request, boolean isOrdered, @Nullable Duration readTimeout) {
+        Duration spliteratorTimeout = readTimeout == null
+                ? DEFAULT_SPLITERATOR_TIMEOUT
+                : readTimeout.plus(ADDED_SPLITERATOR_TIMEOUT);
+        YdbSpliterator<V> spliterator = new YdbSpliterator<>(request, isOrdered, spliteratorTimeout);
         spliterators.add(spliterator);
         return spliterator;
     }
@@ -447,7 +453,11 @@ public class YdbRepositoryTransaction<REPO extends YdbRepository>
         String yql = getYql(statement);
         Params sdkParams = getSdkParams(statement, params);
 
-        YdbSpliterator<RESULT> spliterator = createSpliterator("scanQuery: " + yql, false);
+        YdbSpliterator<RESULT> spliterator = createSpliterator(
+                "scanQuery: " + yql,
+                false,
+                options.getScanOptions().getTimeout()
+        );
 
         initSession();
         session.executeScanQuery(
@@ -556,7 +566,11 @@ public class YdbRepositoryTransaction<REPO extends YdbRepository>
         }
 
         if (params.isUseNewSpliterator()) {
-            YdbSpliterator<RESULT> spliterator = createSpliterator("readTable: " + tableName, params.isOrdered());
+            YdbSpliterator<RESULT> spliterator = createSpliterator(
+                    "readTable: " + tableName,
+                    params.isOrdered(),
+                    params.getTimeout()
+            );
 
             initSession();
             session.readTable(
