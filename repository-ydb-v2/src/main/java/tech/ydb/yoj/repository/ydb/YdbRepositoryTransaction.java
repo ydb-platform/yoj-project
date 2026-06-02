@@ -100,6 +100,9 @@ public class YdbRepositoryTransaction<REPO extends YdbRepository>
     private static final String CLOSE_ACTION_ROLLBACK = "rollback";
     private static final String CLOSE_ACTION_COMMIT = "commit";
 
+    private static final Duration DEFAULT_SPLITERATOR_TIMEOUT = Duration.ofMinutes(5);
+    private static final Duration SPLITERATOR_ADDED_TIMEOUT = Duration.ofMinutes(1);
+
     private final List<YdbRepository.Query<?>> pendingWrites = new ArrayList<>();
     private final List<YdbSpliterator<?>> spliterators = new ArrayList<>();
 
@@ -447,11 +450,10 @@ public class YdbRepositoryTransaction<REPO extends YdbRepository>
         String yql = getYql(statement);
         Params sdkParams = getSdkParams(statement, params);
 
-        YdbSpliterator<RESULT> spliterator = createSpliterator(
-                "scanQuery: " + yql,
-                false,
-                options.getScanOptions().getTimeout().plusMinutes(5)
-        );
+        Duration spliteratorTimeout = options.getScanOptions().getTimeout() == null
+                ? DEFAULT_SPLITERATOR_TIMEOUT
+                : options.getScanOptions().getTimeout().plus(SPLITERATOR_ADDED_TIMEOUT);
+        YdbSpliterator<RESULT> spliterator = createSpliterator("scanQuery: " + yql, false, spliteratorTimeout);
 
         initSession();
         session.executeScanQuery(
@@ -560,11 +562,10 @@ public class YdbRepositoryTransaction<REPO extends YdbRepository>
         }
 
         if (params.isUseNewSpliterator()) {
-            YdbSpliterator<RESULT> spliterator = createSpliterator(
-                    "readTable: " + tableName,
-                    params.isOrdered(),
-                    params.getTimeout().plusMinutes(5)
-            );
+            Duration spliteratorTimeout = params.getTimeout() == null
+                    ? DEFAULT_SPLITERATOR_TIMEOUT
+                    : params.getTimeout().plus(SPLITERATOR_ADDED_TIMEOUT);
+            YdbSpliterator<RESULT> spliterator = createSpliterator("readTable: " + tableName, params.isOrdered(), spliteratorTimeout);
 
             initSession();
             session.readTable(
