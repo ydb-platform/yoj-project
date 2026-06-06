@@ -13,6 +13,9 @@ import tech.ydb.yoj.repository.db.cache.TransactionLocal;
 import tech.ydb.yoj.repository.db.exception.IllegalTransactionIsolationLevelException;
 import tech.ydb.yoj.repository.db.exception.IllegalTransactionScanException;
 import tech.ydb.yoj.repository.db.exception.OptimisticLockException;
+import tech.ydb.yoj.repository.db.internal.LoggableDbAction;
+import tech.ydb.yoj.repository.db.internal.LoggableDbAction.FinalDbAction;
+import tech.ydb.yoj.repository.db.internal.LoggableDbAction.QueryDbAction;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -38,7 +41,7 @@ public class InMemoryRepositoryTransaction implements BaseDb, RepositoryTransact
 
     private boolean hasWrites = false;
     private Long version = null;
-    private String closeAction = null; // used to detect of usage transaction after commit()/rollback()
+    private LoggableDbAction closeAction = null; // used to detect of usage transaction after commit()/rollback()
     private boolean isBadSession = false;
 
     public InMemoryRepositoryTransaction(TxOptions options, InMemoryRepository repository) {
@@ -78,7 +81,7 @@ public class InMemoryRepositoryTransaction implements BaseDb, RepositoryTransact
         if (isBadSession) {
             throw new IllegalStateException("Transaction was invalidated. Commit isn't possible");
         }
-        endTransaction("commit()", this::commitImpl);
+        endTransaction(FinalDbAction.COMMIT, this::commitImpl);
     }
 
     private void commitImpl() {
@@ -98,14 +101,14 @@ public class InMemoryRepositoryTransaction implements BaseDb, RepositoryTransact
 
     @Override
     public void rollback() {
-        endTransaction("rollback()", this::rollbackImpl);
+        endTransaction(FinalDbAction.ROLLBACK, this::rollbackImpl);
     }
 
     private void rollbackImpl() {
         storage.rollback(txId);
     }
 
-    private void endTransaction(String action, Runnable runnable) {
+    private void endTransaction(FinalDbAction action, Runnable runnable) {
         try {
             if (isFinalActionNeeded(action)) {
                 logTransaction(action, runnable);
@@ -116,7 +119,7 @@ public class InMemoryRepositoryTransaction implements BaseDb, RepositoryTransact
         }
     }
 
-    private boolean isFinalActionNeeded(String action) {
+    private boolean isFinalActionNeeded(FinalDbAction action) {
         if (options.isScan()) {
             transactionLocal.log().info("No-op %s: scan tx", action);
             return false;
@@ -128,8 +131,14 @@ public class InMemoryRepositoryTransaction implements BaseDb, RepositoryTransact
         return true;
     }
 
-    final <T extends Entity<T>> void doInWriteTransaction(
+    final <T extends Entity<T>> void doDataWriteInTransaction(
             String log, TableDescriptor<T> tableDescriptor, Consumer<WriteTxDataShard<T>> consumer
+    ) {
+        doWriteInTransaction(new QueryDbAction.DataQuery(log), tableDescriptor, consumer);
+    }
+
+    final <T extends Entity<T>> void doWriteInTransaction(
+            QueryDbAction action, TableDescriptor<T> tableDescriptor, Consumer<WriteTxDataShard<T>> consumer
     ) {
         if (options.isScan()) {
             throw new IllegalTransactionScanException("Mutable operations");
@@ -138,7 +147,7 @@ public class InMemoryRepositoryTransaction implements BaseDb, RepositoryTransact
             throw new IllegalTransactionIsolationLevelException("Mutable operations", options.getIsolationLevel());
         }
 
-        Runnable query = () -> logTransaction(log, () -> {
+        Runnable query = () -> logTransaction(action, () -> {
             WriteTxDataShard<T> shard = storage.getWriteTxDataShard(tableDescriptor, txId, getVersion());
             consumer.accept(shard);
 
@@ -152,9 +161,12 @@ public class InMemoryRepositoryTransaction implements BaseDb, RepositoryTransact
         }
     }
 
-    final <T extends Entity<T>, R> R doInTransaction(
-            String action, TableDescriptor<T> tableDescriptor, Function<ReadOnlyTxDataShard<T>, R> func
+    final <T extends Entity<T>, R> R doReadInTransaction(
+            String log, TableDescriptor<T> tableDescriptor, Function<ReadOnlyTxDataShard<T>, R> func
     ) {
+        QueryDbAction action = options.isScan()
+                ? new QueryDbAction.ScanQuery(log)
+                : new QueryDbAction.DataQuery(log);
         return logTransaction(action, () -> {
             InMemoryTxLockWatcher findWatcher = hasWrites ? watcher : InMemoryTxLockWatcher.NO_LOCKS;
             ReadOnlyTxDataShard<T> shard = storage.getReadOnlyTxDataShard(
@@ -169,14 +181,14 @@ public class InMemoryRepositoryTransaction implements BaseDb, RepositoryTransact
         });
     }
 
-    private void logTransaction(String action, Runnable runnable) {
+    private void logTransaction(LoggableDbAction action, Runnable runnable) {
         logTransaction(action, () -> {
             runnable.run();
             return null;
         });
     }
 
-    private <R> R logTransaction(String action, Supplier<R> supplier) {
+    private <R> R logTransaction(LoggableDbAction action, Supplier<R> supplier) {
         if (closeAction != null) {
             throw new IllegalStateException("Transaction already closed by " + closeAction);
         }

@@ -55,10 +55,14 @@ import tech.ydb.yoj.repository.db.exception.IllegalTransactionScanException;
 import tech.ydb.yoj.repository.db.exception.OptimisticLockException;
 import tech.ydb.yoj.repository.db.exception.RepositoryException;
 import tech.ydb.yoj.repository.db.exception.UnavailableException;
+import tech.ydb.yoj.repository.db.internal.LoggableDbAction;
+import tech.ydb.yoj.repository.db.internal.LoggableDbAction.FinalDbAction;
+import tech.ydb.yoj.repository.db.internal.LoggableDbAction.QueryDbAction;
 import tech.ydb.yoj.repository.db.readtable.ReadTableParams;
 import tech.ydb.yoj.repository.ydb.bulk.BulkMapper;
 import tech.ydb.yoj.repository.ydb.client.ResultSetConverter;
 import tech.ydb.yoj.repository.ydb.client.YdbConverter;
+import tech.ydb.yoj.repository.ydb.client.YdbOperations;
 import tech.ydb.yoj.repository.ydb.client.YdbValidator;
 import tech.ydb.yoj.repository.ydb.exception.BadSessionException;
 import tech.ydb.yoj.repository.ydb.exception.ResultTruncatedException;
@@ -97,9 +101,6 @@ public class YdbRepositoryTransaction<REPO extends YdbRepository>
     private static final String PROP_TRACE_VERBOSE_OBJ_PARAMS = "tech.ydb.yoj.repository.ydb.trace.verboseObjParams";
     private static final String PROP_TRACE_VERBOSE_OBJ_RESULTS = "tech.ydb.yoj.repository.ydb.trace.verboseObjResults";
 
-    private static final String CLOSE_ACTION_ROLLBACK = "rollback";
-    private static final String CLOSE_ACTION_COMMIT = "commit";
-
     private static final Duration DEFAULT_SPLITERATOR_TIMEOUT = Duration.ofMinutes(5);
     private static final Duration ADDED_SPLITERATOR_TIMEOUT = Duration.ofMinutes(1);
 
@@ -112,6 +113,7 @@ public class YdbRepositoryTransaction<REPO extends YdbRepository>
     private final TransactionLocal transactionLocal;
     private final RepositoryCache cache;
     private final String tablespace;
+    private final YdbValidator ydbValidator;
 
     protected final REPO repo;
 
@@ -119,7 +121,7 @@ public class YdbRepositoryTransaction<REPO extends YdbRepository>
     private Stopwatch sessionSw;
     protected String txId = null;
     private String firstNonNullTxId = null; // used for logs
-    private String closeAction = null; // used to detect of usage transaction after commit()/rollback()
+    private FinalDbAction closeAction = null; // used to detect of usage transaction after commit()/rollback()
     private boolean isBadSession = false;
 
     public YdbRepositoryTransaction(REPO repo, TxOptions options) {
@@ -128,13 +130,14 @@ public class YdbRepositoryTransaction<REPO extends YdbRepository>
         this.transactionLocal = new TransactionLocal(options);
         this.cache = options.isFirstLevelCache() ? RepositoryCache.create() : RepositoryCache.empty();
         this.tablespace = repo.getSchemaOperations().getTablespace();
+        this.ydbValidator = repo.getYdbValidator();
     }
 
-    private <V> YdbSpliterator<V> createSpliterator(String request, boolean isOrdered, @Nullable Duration readTimeout) {
+    private <V> YdbSpliterator<V> createSpliterator(QueryDbAction action, boolean isOrdered, @Nullable Duration readTimeout) {
         Duration spliteratorTimeout = readTimeout == null
                 ? DEFAULT_SPLITERATOR_TIMEOUT
                 : readTimeout.plus(ADDED_SPLITERATOR_TIMEOUT);
-        YdbSpliterator<V> spliterator = new YdbSpliterator<>(request, isOrdered, spliteratorTimeout);
+        YdbSpliterator<V> spliterator = new YdbSpliterator<>(action, ydbValidator, isOrdered, spliteratorTimeout);
         spliterators.add(spliterator);
         return spliterator;
     }
@@ -160,16 +163,16 @@ public class YdbRepositoryTransaction<REPO extends YdbRepository>
             rollback();
             throw t;
         }
-        endTransaction(CLOSE_ACTION_COMMIT, this::doCommit);
+        endTransaction(FinalDbAction.COMMIT, this::doCommit);
     }
 
     @Override
     public void rollback() {
         Interrupts.runInCleanupMode(() -> {
             try {
-                endTransaction(CLOSE_ACTION_ROLLBACK, () -> {
+                endTransaction(FinalDbAction.ROLLBACK, () -> {
                     Status status = YdbOperations.safeJoin(session.rollbackTransaction(txId, new RollbackTxSettings()));
-                    validate(CLOSE_ACTION_ROLLBACK, status, status.toString());
+                    validate(FinalDbAction.ROLLBACK, status, status.toString());
                 });
             } catch (Throwable t) {
                 log.info("Failed to rollback the transaction", t);
@@ -180,7 +183,7 @@ public class YdbRepositoryTransaction<REPO extends YdbRepository>
     private void doCommit() {
         try {
             Status status = YdbOperations.safeJoin(session.commitTransaction(txId, new CommitTxSettings()));
-            validate(CLOSE_ACTION_COMMIT, status, status.toString());
+            validate(FinalDbAction.COMMIT, status, status.toString());
         } catch (YdbComponentUnavailableException | YdbOverloadedException e) {
             throw new UnavailableException("Unknown transaction state: commit was sent, but result is unknown", e);
         }
@@ -205,51 +208,51 @@ public class YdbRepositoryTransaction<REPO extends YdbRepository>
         }
     }
 
-    private void validate(String request, Status status, String response) {
+    private void validate(LoggableDbAction action, Status status, String response) {
         if (!isBadSession) {
-            isBadSession = YdbValidator.isTransactionClosedByServer(status);
+            isBadSession = ydbValidator.isTransactionClosedByServer(status);
         }
         try {
-            YdbValidator.validate(request, status, response);
+            ydbValidator.validate(action, status, response);
         } catch (BadSessionException | OptimisticLockException e) {
             transactionLocal.log().info("Request got %s: DB tx was invalidated", e.getClass().getSimpleName());
             throw e;
         }
     }
 
-    private boolean isFinalActionNeeded(String actionName) {
+    private boolean isFinalActionNeeded(FinalDbAction action) {
         if (session == null || isBadSession) {
-            transactionLocal.log().info("No-op %s: no active DB session", actionName);
+            transactionLocal.log().info("No-op %s: no active DB session", action);
             return false;
         }
         if (options.isScan()) {
-            transactionLocal.log().info("No-op %s: scan tx", actionName);
+            transactionLocal.log().info("No-op %s: scan tx", action);
             return false;
         }
         if (options.isReadOnly() && !options.getIsolationLevel().isSnapshot()) {
-            transactionLocal.log().info("No-op %s: read-only tx @%s", actionName, options.getIsolationLevel());
+            transactionLocal.log().info("No-op %s: read-only tx @%s", action, options.getIsolationLevel());
             return false;
         }
         if (txId == null) {
-            transactionLocal.log().info("No-op %s: no active transaction in session", actionName);
+            transactionLocal.log().info("No-op %s: no active transaction in session", action);
             return false;
         }
         return true;
     }
 
-    private void endTransaction(String actionName, Runnable finalAction) {
+    private void endTransaction(FinalDbAction action, Runnable finalAction) {
         try {
             closeStreams();
 
-            if (isFinalActionNeeded(actionName)) {
-                doCall(actionName, finalAction);
+            if (isFinalActionNeeded(action)) {
+                doCall(action, finalAction);
             }
         } catch (RepositoryException e) {
             throw e;
         } catch (Exception e) {
-            throw new UnexpectedException("Could not " + actionName + " " + txId, e);
+            throw new UnexpectedException("Could not " + action + " " + txId, e);
         } finally {
-            closeAction = actionName;
+            closeAction = action;
             if (session != null) {
                 transactionLocal.log().info("[[%s]] TOTAL (txId=%s,sessionId=%s)", sessionSw, firstNonNullTxId, session.getId());
                 // NB: We use getSessionManager() method to allow mocking YdbRepository
@@ -293,25 +296,27 @@ public class YdbRepositoryTransaction<REPO extends YdbRepository>
 
     @Override
     public <PARAMS, RESULT> List<RESULT> execute(Statement<PARAMS, RESULT> statement, PARAMS params) {
+        String actionStr = statement.toDebugString(params);
+
         List<RESULT> result = statement.readFromCache(params, cache);
         if (result != null) {
-            String actionStr = statement.toDebugString(params);
             String resultStr = debugResult(result);
-            transactionLocal.log().debug("[statement cache] %s -> %s", actionStr, resultStr);
+            transactionLocal.log().debug("[stmt cache] %s -> %s", actionStr, resultStr);
             return result;
         }
 
         Exception thrown = null;
         try {
-            result = doCall(statement.toDebugString(params), () -> {
-                if (options.isScan()) {
-                    return options.getScanOptions().isUseNewSpliterator()
-                            ? doExecuteScanQueryList(statement, params)
-                            : doExecuteScanQueryLegacy(statement, params);
-                } else {
-                    return doExecuteDataQuery(statement, params);
-                }
-            });
+            if (options.isScan()) {
+                QueryDbAction.ScanQuery action = new QueryDbAction.ScanQuery(actionStr);
+                result = doCall(action, () -> options.getScanOptions().isUseNewSpliterator()
+                        ? doExecuteScanQueryList(action, statement, params)
+                        : doExecuteScanQueryLegacy(action, statement, params)
+                );
+            } else {
+                QueryDbAction.DataQuery action = new QueryDbAction.DataQuery(actionStr);
+                result = doCall(action, () -> doExecuteDataQuery(action, statement, params));
+            }
         } catch (Exception e) {
             thrown = e;
             throw e;
@@ -324,7 +329,9 @@ public class YdbRepositoryTransaction<REPO extends YdbRepository>
         return result;
     }
 
-    private <PARAMS, RESULT> List<RESULT> doExecuteDataQuery(Statement<PARAMS, RESULT> statement, PARAMS params) {
+    private <PARAMS, RESULT> List<RESULT> doExecuteDataQuery(
+            QueryDbAction.DataQuery action, Statement<PARAMS, RESULT> statement, PARAMS params
+    ) {
         String yql = getYql(statement);
         TxControl<?> txControl = getTxControl();
         Params sdkParams = getSdkParams(statement, params);
@@ -358,7 +365,7 @@ public class YdbRepositoryTransaction<REPO extends YdbRepository>
             }
         }
 
-        validate(yql, result.getStatus(), result.toString());
+        validate(action, result.getStatus(), result.toString());
 
         DataQueryResult queryResult = result.getValue();
         if (queryResult.getResultSetCount() > 1) {
@@ -393,7 +400,7 @@ public class YdbRepositoryTransaction<REPO extends YdbRepository>
         }
     }
 
-    private <PARAMS, RESULT> List<RESULT> doExecuteScanQueryLegacy(Statement<PARAMS, RESULT> statement, PARAMS params) {
+    private <PARAMS, RESULT> List<RESULT> doExecuteScanQueryLegacy(LoggableDbAction action, Statement<PARAMS, RESULT> statement, PARAMS params) {
         ExecuteScanQuerySettings settings = ExecuteScanQuerySettings.newBuilder()
                 .withRequestTimeout(options.getScanOptions().getTimeout())
                 .setMode(ExecuteScanQuerySettings.Mode.EXEC)
@@ -416,14 +423,16 @@ public class YdbRepositoryTransaction<REPO extends YdbRepository>
             new ResultSetConverter(rs).stream(statement::readResult).forEach(result::add);
         }));
 
-        validate("SCAN_QUERY: " + yql, status, status.toString());
+        validate(action, status, status.toString());
 
         return result;
     }
 
-    private <PARAMS, RESULT> List<RESULT> doExecuteScanQueryList(Statement<PARAMS, RESULT> statement, PARAMS params) {
+    private <PARAMS, RESULT> List<RESULT> doExecuteScanQueryList(
+            QueryDbAction.ScanQuery action, Statement<PARAMS, RESULT> statement, PARAMS params
+    ) {
         List<RESULT> result = new ArrayList<>();
-        try (Stream<RESULT> stream = executeScanQuery(statement, params)) {
+        try (Stream<RESULT> stream = executeScanQuery(action, statement, params)) {
             stream.forEach(r -> {
                 if (result.size() >= options.getScanOptions().getMaxSize()) {
                     throw new ResultTruncatedException(
@@ -441,6 +450,13 @@ public class YdbRepositoryTransaction<REPO extends YdbRepository>
 
     @Override
     public <PARAMS, RESULT> Stream<RESULT> executeScanQuery(Statement<PARAMS, RESULT> statement, PARAMS params) {
+        QueryDbAction.ScanQuery action = new QueryDbAction.ScanQuery(statement.toDebugString(params));
+        return executeScanQuery(action, statement, params);
+    }
+
+    private <PARAMS, RESULT> Stream<RESULT> executeScanQuery(
+            QueryDbAction.ScanQuery action, Statement<PARAMS, RESULT> statement, PARAMS params
+    ) {
         if (!options.isScan()) {
             throw new IllegalStateException("Scan query can be used only from scan tx");
         }
@@ -454,7 +470,7 @@ public class YdbRepositoryTransaction<REPO extends YdbRepository>
         Params sdkParams = getSdkParams(statement, params);
 
         YdbSpliterator<RESULT> spliterator = createSpliterator(
-                "scanQuery: " + yql,
+                action,
                 false,
                 options.getScanOptions().getTimeout()
         );
@@ -504,8 +520,9 @@ public class YdbRepositoryTransaction<REPO extends YdbRepository>
     @Override
     public <IN> void bulkUpsert(BulkMapper<IN> mapper, List<IN> input, BulkParams params) {
         String tableName = mapper.getTableName(tablespace);
+        QueryDbAction.BulkUpsert action = new QueryDbAction.BulkUpsert(mapper.getTableName(""), input.size(), params);
 
-        doCall("bulk upsert to table " + mapper.getTableName(""), () -> {
+        doCall(action, () -> {
             var values = input.stream().map(x -> StructValue.of(
                             mapper.map(x).entrySet().stream()
                                     .collect(
@@ -530,7 +547,7 @@ public class YdbRepositoryTransaction<REPO extends YdbRepository>
                                 settings
                         )
                 );
-                validate("bulkUpsert", status, status.toString());
+                validate(action, status, status.toString());
             } catch (RepositoryException e) {
                 throw e;
             } catch (Exception e) {
@@ -565,12 +582,9 @@ public class YdbRepositoryTransaction<REPO extends YdbRepository>
             settings.toKey(TupleValue.of(values), params.isToInclusive());
         }
 
+        QueryDbAction.ReadTable action = new QueryDbAction.ReadTable(mapper.getTableName(""), params);
         if (params.isUseNewSpliterator()) {
-            YdbSpliterator<RESULT> spliterator = createSpliterator(
-                    "readTable: " + tableName,
-                    params.isOrdered(),
-                    params.getTimeout()
-            );
+            YdbSpliterator<RESULT> spliterator = createSpliterator(action, params.isOrdered(), params.getTimeout());
 
             initSession();
             session.readTable(
@@ -582,17 +596,17 @@ public class YdbRepositoryTransaction<REPO extends YdbRepository>
         }
 
         try {
-            YdbLegacySpliterator<RESULT> spliterator = new YdbLegacySpliterator<>(params.isOrdered(), action ->
-                    doCall("read table " + mapper.getTableName(""), () -> {
+            YdbLegacySpliterator<RESULT> spliterator = new YdbLegacySpliterator<>(params.isOrdered(), consumer ->
+                    doCall(action, () -> {
                         Status status = YdbOperations.safeJoin(
                                 session.readTable(
                                         tableName,
                                         settings.build(),
-                                        rs -> new ResultSetConverter(rs).stream(mapper::mapResult).forEach(action)
+                                        rs -> new ResultSetConverter(rs).stream(mapper::mapResult).forEach(consumer)
                                 ),
                                 params.getTimeout().plusMinutes(5)
                         );
-                        validate("readTable", status, status.toString());
+                        validate(action, status, status.toString());
                     })
             );
             return spliterator.makeStream();
@@ -641,8 +655,8 @@ public class YdbRepositoryTransaction<REPO extends YdbRepository>
         };
     }
 
-    private void doCall(String actionStr, Runnable call) {
-        doCall(actionStr, () -> {
+    private void doCall(LoggableDbAction action, Runnable call) {
+        doCall(action, () -> {
             call.run();
             return null;
         });
@@ -659,7 +673,7 @@ public class YdbRepositoryTransaction<REPO extends YdbRepository>
         }
     }
 
-    private <R> R doCall(String actionStr, Supplier<R> call) {
+    private <R> R doCall(LoggableDbAction action, Supplier<R> call) {
         initSession();
 
         Stopwatch sw = Stopwatch.createStarted();
@@ -672,7 +686,7 @@ public class YdbRepositoryTransaction<REPO extends YdbRepository>
             resultStr = " => " + e.getClass().getName();
             throw e;
         } finally {
-            transactionLocal.log().debug("[ %s ] %s", sw, actionStr + resultStr);
+            transactionLocal.log().debug("[ %s ] %s", sw, action + resultStr);
         }
     }
 
