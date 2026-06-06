@@ -4,6 +4,7 @@ import com.google.common.base.Strings;
 import io.grpc.ClientInterceptor;
 import io.grpc.ManagedChannelBuilder;
 import lombok.Builder;
+import lombok.Getter;
 import lombok.NonNull;
 import lombok.Value;
 import lombok.With;
@@ -26,6 +27,8 @@ import tech.ydb.yoj.repository.db.TxOptions;
 import tech.ydb.yoj.repository.ydb.client.SessionManager;
 import tech.ydb.yoj.repository.ydb.client.YdbSchemaOperations;
 import tech.ydb.yoj.repository.ydb.client.YdbTableHint;
+import tech.ydb.yoj.repository.ydb.client.YdbValidator;
+import tech.ydb.yoj.repository.ydb.client.YdbValidatorClassic;
 import tech.ydb.yoj.repository.ydb.compatibility.YdbDataCompatibilityChecker;
 import tech.ydb.yoj.repository.ydb.compatibility.YdbSchemaCompatibilityChecker;
 import tech.ydb.yoj.repository.ydb.statement.Statement;
@@ -52,6 +55,9 @@ public class YdbRepository implements Repository {
 
     private final GrpcTransport transport;
     private final CloseableMemoizer<SessionClient> sessionClient;
+
+    @Getter
+    private final YdbValidator ydbValidator;
 
     private final ConcurrentMap<String, TableDescriptor<?>> entityClassesByTableName;
 
@@ -100,6 +106,7 @@ public class YdbRepository implements Repository {
     ) {
         this.entityClassesByTableName = new ConcurrentHashMap<>();
         this.transport = transport;
+        this.ydbValidator = repositorySettings.ydbValidator();
         this.sessionClient = MoreSuppliers.memoizeCloseable(
                 () -> new SessionClient(config, repositorySettings, transport)
         );
@@ -349,17 +356,20 @@ public class YdbRepository implements Repository {
      *                            In YOJ 3.x, the {@link QueryImplementation.QueryService YDB QueryService} will become
      *                            the default.
      * @param metrics             Metrics configuration
+     * @param ydbValidator        Mapper from YDB {@code Status}es into {@code RepositoryException}s
      */
     @With
     @Builder(builderMethodName = "")
     public record Settings(
             @NonNull QueryImplementation queryImplementation,
-            @NonNull Metrics metrics
+            @NonNull Metrics metrics,
+            @NonNull YdbValidator ydbValidator
     ) {
         public static SettingsBuilder builder() {
             return new SettingsBuilder()
                     .queryImplementation(new QueryImplementation.TableService())
-                    .metrics(Metrics.builder().build());
+                    .metrics(Metrics.builder().build())
+                    .ydbValidator(YdbValidatorClassic.INSTANCE);
         }
 
         /**
