@@ -2,6 +2,7 @@ package tech.ydb.yoj.repository.db;
 
 import lombok.NonNull;
 import tech.ydb.yoj.ExperimentalApi;
+import tech.ydb.yoj.repository.db.TxOptions.RetryOptions;
 import tech.ydb.yoj.repository.db.cache.TransactionLog;
 import tech.ydb.yoj.repository.db.exception.DeadlineExceededException;
 import tech.ydb.yoj.repository.db.exception.OptimisticLockException;
@@ -193,6 +194,16 @@ public interface TxManager {
      */
     @ExperimentalApi(issue = "https://github.com/ydb-platform/yoj-project/issues/162")
     TxManager withTracingFilter(@NonNull QueryTracingFilter tracingFilter);
+
+    /**
+     * <strong>Experimental API:</strong> Configures advanced retry options for this {@code TxManager}, e.g., retrying the transaction
+     * if it fails with a <em>conditionally-retryable</em> error on commit (and it's not known whether it was committed or not).
+     *
+     * @param retryOptions advanced retry options to use
+     * @return {@code TxManager} instance with retry options set
+     */
+    @ExperimentalApi(issue = "https://github.com/ydb-platform/yoj-project/issues/165")
+    TxManager withRetryOptions(@NonNull RetryOptions retryOptions);
 
     /**
      * Performs the specified action inside a transaction. The action must be idempotent, because it might be executed

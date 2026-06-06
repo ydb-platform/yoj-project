@@ -3,19 +3,15 @@ package tech.ydb.yoj.repository.db.exception;
 import tech.ydb.yoj.util.retry.RetryPolicy;
 
 /**
- * Base class for retryable database access exceptions.
+ * Base class for unconditionally retryable database access exceptions.
  */
-public non-sealed abstract class RetryableException extends RepositoryException {
-    private final RetryPolicy retryPolicy;
-
+public non-sealed abstract class RetryableException extends RetryableExceptionBase {
     protected RetryableException(String message, RetryPolicy retryPolicy, Throwable cause) {
-        super(message, cause);
-        this.retryPolicy = retryPolicy;
+        super(message, retryPolicy, cause);
     }
 
     protected RetryableException(String message, RetryPolicy retryPolicy) {
-        super(message);
-        this.retryPolicy = retryPolicy;
+        super(message, retryPolicy);
     }
 
     protected RetryableException(String message, Throwable cause) {
@@ -26,10 +22,7 @@ public non-sealed abstract class RetryableException extends RepositoryException 
         this(message, RetryPolicy.retryImmediately());
     }
 
-    public final RetryPolicy getRetryPolicy() {
-        return retryPolicy;
-    }
-
+    @Override
     public RepositoryException rethrow() {
         return UnavailableException.afterRetries("Retries failed", this);
     }
