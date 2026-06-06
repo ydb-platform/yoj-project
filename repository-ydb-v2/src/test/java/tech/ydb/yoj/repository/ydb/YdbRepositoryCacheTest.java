@@ -24,6 +24,7 @@ import tech.ydb.yoj.repository.test.sample.model.Complex.Id;
 import tech.ydb.yoj.repository.ydb.client.SessionManager;
 import tech.ydb.yoj.repository.ydb.client.YdbConverter;
 import tech.ydb.yoj.repository.ydb.client.YdbSchemaOperations;
+import tech.ydb.yoj.repository.ydb.client.YdbValidator;
 import tech.ydb.yoj.repository.ydb.statement.FindYqlStatement;
 import tech.ydb.yoj.repository.ydb.statement.MultipleVarsYqlStatement;
 import tech.ydb.yoj.repository.ydb.statement.UpsertYqlStatement;
@@ -59,6 +60,7 @@ public class YdbRepositoryCacheTest {
 
         when(testYdbRepository.getSessionManager()).thenReturn(sessionManager);
         when(testYdbRepository.getSchemaOperations()).thenReturn(schemaOperations);
+        when(testYdbRepository.getYdbValidator()).thenReturn(YdbValidator.DEFAULT);
         when(sessionManager.getSession()).thenReturn(session);
     }
 
