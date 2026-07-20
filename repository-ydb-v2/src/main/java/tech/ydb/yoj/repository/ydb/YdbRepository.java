@@ -244,7 +244,7 @@ public class YdbRepository implements Repository {
     public String makeSnapshot() {
         YdbSchemaOperations schemaOperations = getSchemaOperations();
 
-        String snapshotPath = schemaOperations.getTablespace() + ".snapshot-" + UUID.randomUUID() + "/";
+        String snapshotPath = schemaOperations.getTablespace() + "_.snapshot-" + UUID.randomUUID() + "/";
         schemaOperations.snapshot(snapshotPath);
         return snapshotPath;
     }

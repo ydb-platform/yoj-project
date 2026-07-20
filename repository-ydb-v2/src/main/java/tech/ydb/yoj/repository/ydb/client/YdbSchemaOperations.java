@@ -427,7 +427,7 @@ public final class YdbSchemaOperations {
     }
 
     public boolean isSnapshotDirectory(String name) {
-        return name.startsWith(".snapshot-");
+        return name.startsWith("_.snapshot-");
     }
 
     public void copyTable(String source, String destination) {

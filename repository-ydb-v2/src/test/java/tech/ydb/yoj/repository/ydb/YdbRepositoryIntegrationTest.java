@@ -702,6 +702,18 @@ public class YdbRepositoryIntegrationTest extends RepositoryTest {
     }
 
     @Test
+    public void testSelectIndex1WithPrimaryKey() {
+        db.tx(() -> db.indexedTable().insert(e1, e2));
+        executeQuery("DECLARE $pred_0_key_id AS String;\n" +
+                        "SELECT `version_id`, `key_id`, `value_id`, `valueId2`, `optionalComposite_intValue`, `optionalComposite_stringValue` " +
+                        "FROM `ts/table_with_indexes` VIEW PRIMARY KEY " +
+                        "WHERE `key_id` = $pred_0_key_id ORDER BY `version_id` ASC",
+                List.of(e2),
+                List.of(YqlPredicate.where("keyId").eq("key1.1"),
+                        YqlView.primaryKey()));
+    }
+
+    @Test
     public void testSelectIndex2Default() {
         db.tx(() -> db.indexedTable().insert(e1, e2));
         executeQuery("DECLARE $pred_0_value_id AS String;\n" +
