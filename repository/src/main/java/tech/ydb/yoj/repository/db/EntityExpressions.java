@@ -8,10 +8,11 @@ import tech.ydb.yoj.databind.expression.OrderExpression;
 import tech.ydb.yoj.databind.expression.OrderExpression.SortKey;
 import tech.ydb.yoj.databind.expression.OrderExpression.SortOrder;
 import tech.ydb.yoj.databind.schema.Schema;
+import tech.ydb.yoj.databind.schema.Schema.JavaField;
 
-import java.util.LinkedHashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Set;
+import java.util.Map;
 
 import static tech.ydb.yoj.databind.expression.OrderExpression.SortOrder.ASCENDING;
 
@@ -103,16 +104,21 @@ public final class EntityExpressions {
     ) {
         Schema.Index index = ensureIndexExists(schema, indexName);
 
-        // Using **Linked**HashSet here to de-duplicate SortKeys while preserving the field order
-        Set<SortKey> uniqueSortKeys = new LinkedHashSet<>();
+        // We use **Linked**HashMap here to deduplicate SortKeys by table column name while simultaneously preserving
+        // the order of index columns. This is needed because an index MAY contain primary key columns :-)
+        Map<String, SortKey> uniqueSortKeys = new LinkedHashMap<>();
         for (var jf: index.getFields()) {
-            uniqueSortKeys.add(new SortKey(jf, sortOrder));
+            uniqueSortKeys.putIfAbsent(flattened(jf).getName(), new SortKey(jf, sortOrder));
         }
         for (var idF: schema.flattenId()) {
-            uniqueSortKeys.add(new SortKey(idF, sortOrder));
+            uniqueSortKeys.putIfAbsent(flattened(idF).getName(), new SortKey(idF, sortOrder));
         }
 
-        return new OrderExpression<>(schema, List.copyOf(uniqueSortKeys));
+        return new OrderExpression<>(schema, List.copyOf(uniqueSortKeys.values()));
+    }
+
+    private static JavaField flattened(JavaField field) {
+        return field.isFlat() ? field.toFlatField() : field;
     }
 
     @NonNull
