@@ -59,7 +59,7 @@ public class InMemoryRepository implements Repository {
             public void drop() {
                 if (!storage.dropTable(tableDescriptor)) {
                     throw new DropTableException(String.format("Can't drop table %s: table doesn't exist",
-                            tableDescriptor.toDebugString())
+                            tableDescriptor.toLoggable())
                     );
                 }
             }

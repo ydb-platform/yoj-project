@@ -3,6 +3,7 @@ package tech.ydb.yoj.repository.db;
 import com.google.common.reflect.TypeToken;
 import lombok.NonNull;
 import tech.ydb.yoj.DeprecationWarnings;
+import tech.ydb.yoj.util.lang.DebugLoggable;
 
 import javax.annotation.CheckForNull;
 import java.util.List;
@@ -32,7 +33,7 @@ public interface Entity<E extends Entity<E>> extends Table.ViewId<E> {
         return List.of();
     }
 
-    interface Id<E extends Entity<E>> {
+    interface Id<E extends Entity<E>> extends DebugLoggable {
         /**
          * @deprecated This method will be removed in YOJ 3.0.0. Use {@link Table#find(Entity.Id)} instead.
          */

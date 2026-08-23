@@ -36,6 +36,7 @@ import java.util.stream.Stream;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toUnmodifiableMap;
 import static java.util.stream.Collectors.toUnmodifiableSet;
+import static tech.ydb.yoj.util.lang.DebugLoggable.toLoggable;
 
 public class InMemoryTable<T extends Entity<T>> implements Table<T> {
     private final EntitySchema<T> schema;
@@ -68,14 +69,23 @@ public class InMemoryTable<T extends Entity<T>> implements Table<T> {
     @Override
     public List<T> findAll() {
         transaction.getWatcher().markTableRead(tableDescriptor, schema);
-        return findAll0();
+        return transaction.doInTransaction(
+                "findAll(" + tableDescriptor.toLoggable() + ")",
+                tableDescriptor,
+                shard -> TableQueryImpl.postLoad(this, shard.findAll())
+        );
     }
 
     @Override
     public <V extends View> List<V> findAll(Class<V> viewType) {
-        return findAll().stream()
-                .map(entity -> toView(viewType, schema, entity))
-                .collect(toList());
+        transaction.getWatcher().markTableRead(tableDescriptor, schema);
+        return transaction.doInTransaction(
+                "findAll(" + tableDescriptor.toLoggable() + ")",
+                tableDescriptor,
+                shard -> shard.findAll().stream()
+                        .map(entity -> toView(viewType, schema, entity))
+                        .collect(toList())
+        );
     }
 
     @Override
@@ -95,7 +105,7 @@ public class InMemoryTable<T extends Entity<T>> implements Table<T> {
         changeset.toMap().forEach((k, v) -> patch.putAll(schema.flattenOneField(k, v)));
 
         transaction.getWatcher().markRowRead(tableDescriptor, id);
-        transaction.doInWriteTransaction("update(" + id + ", " + changeset + ")", tableDescriptor, shard -> shard.update(id, patch));
+        transaction.doInWriteTransaction("update(" + id.toLoggable() + ", " + changeset + ")", tableDescriptor, shard -> shard.update(id, patch));
         transaction.getTransactionLocal().firstLevelCache(tableDescriptor).remove(id);
     }
 
@@ -103,7 +113,7 @@ public class InMemoryTable<T extends Entity<T>> implements Table<T> {
     public void bulkUpsert(List<T> input, BulkParams params) {
         input.forEach(this::save);
     }
-    
+
     @Override
     public List<T> find(
             @Nullable String indexName,
@@ -152,6 +162,7 @@ public class InMemoryTable<T extends Entity<T>> implements Table<T> {
 
     @Override
     public <ID extends Entity.Id<T>> Stream<T> readTable(ReadTableParams<ID> params) {
+        // NB: We use T::postLoad and not this::postLoad because readTable results are not put into first-level cache
         return readTableStream(params).map(T::postLoad);
     }
 
@@ -188,7 +199,7 @@ public class InMemoryTable<T extends Entity<T>> implements Table<T> {
         }
         return transaction.getTransactionLocal().firstLevelCache(tableDescriptor).get(id, __ -> {
             markKeyRead(id);
-            T entity = transaction.doInTransaction("find(" + id + ")", tableDescriptor, shard -> shard.find(id));
+            T entity = transaction.doInTransaction("find(" + id.toLoggable() + ")", tableDescriptor, shard -> shard.find(id));
             return entity == null ? null : postLoad(entity);
         });
     }
@@ -212,17 +223,22 @@ public class InMemoryTable<T extends Entity<T>> implements Table<T> {
         }
 
         markKeyRead(id);
-        return transaction.doInTransaction("find(" + id + ")", tableDescriptor, shard -> shard.find(id, viewType));
+        return transaction.doInTransaction("find(" + id.toLoggable() + ")", tableDescriptor, shard -> shard.find(id, viewType));
     }
 
     @Override
     @SuppressWarnings("unchecked")
     public <ID extends Entity.Id<T>> List<T> find(Range<ID> range) {
         transaction.getWatcher().markRangeRead(tableDescriptor, range);
-        return findAll0().stream()
-                .filter(e -> range.contains((ID) e.getId()))
-                .sorted(schema.defaultOrder())
-                .collect(toList());
+        return transaction.doInTransaction(
+                "find(" + range + ")",
+                tableDescriptor,
+                shard -> shard.findAll().stream()
+                        .filter(e -> range.contains((ID) e.getId()))
+                        .sorted(schema.defaultOrder())
+                        .map(this::postLoad)
+                        .collect(toList())
+        );
     }
 
     @Override
@@ -295,23 +311,29 @@ public class InMemoryTable<T extends Entity<T>> implements Table<T> {
 
         ids.forEach(this::markKeyRead);
 
-        Stream<T> result = getAllEntries().stream()
-                .filter(e -> idsSet.contains(
-                        idSchema.flatten(e.getId()).entrySet().stream()
-                                .filter(entry -> idFields.contains(entry.getKey()))
-                                .collect(toUnmodifiableMap(Map.Entry::getKey, Map.Entry::getValue))
-                ));
-        if (filter != null) {
-            result = result.filter(InMemoryQueries.toPredicate(filter));
-        }
-        if (orderBy != null) {
-            result = result.sorted(InMemoryQueries.toComparator(orderBy));
-        }
-        if (limit != null) {
-            result = result.limit(limit);
-        }
-
-        return result.toList();
+        String log = "findIn(" + toLoggable(ids) +
+                (filter != null ? ", filter [" + filter + "]" : "") +
+                (orderBy != null ? ", orderBy [" + orderBy + "]" : "") +
+                (limit != null ? ", limit [" + limit + "]" : "") +
+                ")";
+        return transaction.doInTransaction(log, tableDescriptor, shard -> {
+            Stream<T> result = shard.findAll().stream()
+                    .filter(e -> idsSet.contains(
+                            idSchema.flatten(e.getId()).entrySet().stream()
+                                    .filter(entry -> idFields.contains(entry.getKey()))
+                                    .collect(toUnmodifiableMap(Map.Entry::getKey, Map.Entry::getValue))
+                    ));
+            if (filter != null) {
+                result = result.filter(InMemoryQueries.toPredicate(filter));
+            }
+            if (orderBy != null) {
+                result = result.sorted(InMemoryQueries.toComparator(orderBy));
+            }
+            if (limit != null) {
+                result = result.limit(limit);
+            }
+            return result.toList();
+        });
     }
 
     @Override
@@ -352,30 +374,24 @@ public class InMemoryTable<T extends Entity<T>> implements Table<T> {
         Set<Map<String, Object>> keysSet = keys.stream().map(keySchema::flatten).collect(toUnmodifiableSet());
         Set<Set<String>> keyFieldsSet = keysSet.stream().map(Map::keySet).collect(toUnmodifiableSet());
 
-        Preconditions.checkArgument(!keyFieldsSet.isEmpty(), "keys should have at least one non-null field");
-        Preconditions.checkArgument(keyFieldsSet.size() == 1, "keys should have nulls in the same fields");
+        Preconditions.checkArgument(!keyFieldsSet.isEmpty(), "keys must have at least one non-null field");
+        Preconditions.checkArgument(keyFieldsSet.size() == 1, "keys must have nulls in the same fields");
 
         Set<String> keyFields = Iterables.getOnlyElement(keyFieldsSet);
 
-        Schema.Index globalIndex = schema.getGlobalIndexes().stream()
-                .filter(i -> i.getIndexName().equals(indexName))
-                .findAny()
-                .orElseThrow(() -> new IllegalArgumentException(
-                        "Table `%s` doesn't have index `%s`".formatted(tableDescriptor.toDebugString(), indexName)
-                ));
-
+        Schema.Index globalIndex = schema.getGlobalIndex(indexName);
         Set<String> indexKeys = Set.copyOf(globalIndex.getFieldNames());
         Set<String> missingInIndexKeys = Sets.difference(keyFields, indexKeys);
 
         Preconditions.checkArgument(
                 missingInIndexKeys.isEmpty(),
-                "Index `%s` of table `%s` doesn't contain key(s): [%s]".formatted(
-                        indexName, tableDescriptor.toDebugString(), String.join(", ", missingInIndexKeys)
+                "Index '%s' of %s doesn't contain key(s): [%s]".formatted(
+                        indexName, tableDescriptor.toLoggable(), String.join(", ", missingInIndexKeys)
                 )
         );
         Preconditions.checkArgument(
                 isPrefixedFields(globalIndex.getFieldNames(), keyFields),
-                "FindIn(keys) is allowed only by the prefix of the index key fields, index key: %s, query uses the fields: %s"
+                "findIn(keys) is allowed only by the prefix of the index key fields, index key: %s, query uses the fields: %s"
                         .formatted(globalIndex.getFieldNames(), keyFields)
         );
 
@@ -383,23 +399,30 @@ public class InMemoryTable<T extends Entity<T>> implements Table<T> {
             transaction.getWatcher().markRangeRead(tableDescriptor, schema, id);
         }
 
-        Stream<T> result = getAllEntries().stream()
-                .filter(e -> keysSet.contains(
-                        schema.flatten(e).entrySet().stream()
-                                .filter(field -> keyFields.contains(field.getKey()))
-                                .collect(toUnmodifiableMap(Map.Entry::getKey, Map.Entry::getValue))
-                ));
-        if (filter != null) {
-            result = result.filter(InMemoryQueries.toPredicate(filter));
-        }
-        if (orderBy != null) {
-            result = result.sorted(InMemoryQueries.toComparator(orderBy));
-        }
-        if (limit != null) {
-            result = result.limit(limit);
-        }
-
-        return TableQueryImpl.postLoad(this, result.toList());
+        String log = "findIn(" + toLoggable(keys) +
+                ", by index [" + indexName + "]" +
+                (filter != null ? ", filter [" + filter + "]" : "") +
+                (orderBy != null ? ", orderBy [" + orderBy + "]" : "") +
+                (limit != null ? ", limit [" + limit + "]" : "") +
+                ")";
+        return transaction.doInTransaction(log, tableDescriptor, shard -> {
+            Stream<T> result = shard.findAll().stream()
+                    .filter(e -> keysSet.contains(
+                            schema.flatten(e).entrySet().stream()
+                                    .filter(field -> keyFields.contains(field.getKey()))
+                                    .collect(toUnmodifiableMap(Map.Entry::getKey, Map.Entry::getValue))
+                    ));
+            if (filter != null) {
+                result = result.filter(InMemoryQueries.toPredicate(filter));
+            }
+            if (orderBy != null) {
+                result = result.sorted(InMemoryQueries.toComparator(orderBy));
+            }
+            if (limit != null) {
+                result = result.limit(limit);
+            }
+            return TableQueryImpl.postLoad(this, result.toList());
+        });
     }
 
     private boolean isPrefixedFields(List<String> keyFields, Set<String> fields) {
@@ -435,7 +458,7 @@ public class InMemoryTable<T extends Entity<T>> implements Table<T> {
     public T insert(T tt) {
         T t = tt.preSave();
         transaction.getWatcher().markRowRead(tableDescriptor, t.getId());
-        transaction.doInWriteTransaction("insert(" + t + ")", tableDescriptor, shard -> shard.insert(t));
+        transaction.doInWriteTransaction("insert(" + t.toLoggable() + ")", tableDescriptor, shard -> shard.insert(t));
         transaction.getTransactionLocal().firstLevelCache(tableDescriptor).put(t);
         transaction.getTransactionLocal().projectionCache().save(t);
         return t;
@@ -444,7 +467,7 @@ public class InMemoryTable<T extends Entity<T>> implements Table<T> {
     @Override
     public T save(T tt) {
         T t = tt.preSave();
-        transaction.doInWriteTransaction("save(" + t + ")", tableDescriptor, shard -> shard.save(t));
+        transaction.doInWriteTransaction("save(" + t.toLoggable() + ")", tableDescriptor, shard -> shard.save(t));
         transaction.getTransactionLocal().firstLevelCache(tableDescriptor).put(t);
         transaction.getTransactionLocal().projectionCache().save(t);
         return t;
@@ -452,7 +475,7 @@ public class InMemoryTable<T extends Entity<T>> implements Table<T> {
 
     @Override
     public void delete(Entity.Id<T> id) {
-        transaction.doInWriteTransaction("delete(" + id + ")", tableDescriptor, shard -> shard.delete(id));
+        transaction.doInWriteTransaction("delete(" + id.toLoggable() + ")", tableDescriptor, shard -> shard.delete(id));
         transaction.getTransactionLocal().firstLevelCache(tableDescriptor).putEmpty(id);
         transaction.getTransactionLocal().projectionCache().delete(id);
     }
@@ -460,19 +483,8 @@ public class InMemoryTable<T extends Entity<T>> implements Table<T> {
     @Override
     public void deleteAll() {
         transaction.doInWriteTransaction(
-                "deleteAll(" + tableDescriptor.toDebugString() + ")", tableDescriptor, WriteTxDataShard::deleteAll
+                "deleteAll(" + tableDescriptor.toLoggable() + ")", tableDescriptor, WriteTxDataShard::deleteAll
         );
-    }
-
-    private List<T> getAllEntries() {
-        return transaction.doInTransaction(
-                "findAll(" + tableDescriptor.toDebugString() + ")", tableDescriptor, ReadOnlyTxDataShard::findAll
-        );
-    }
-
-    private List<T> findAll0() {
-        List<T> all = getAllEntries();
-        return TableQueryImpl.postLoad(this, all);
     }
 
     @Override
@@ -541,7 +553,12 @@ public class InMemoryTable<T extends Entity<T>> implements Table<T> {
         if (!params.isOrdered() && (params.getFromKey() != null || params.getToKey() != null)) {
             throw new IllegalArgumentException("using fromKey or toKey with unordered readTable does not make sense");
         }
-        Stream<T> stream = findAll0()
+
+        Stream<T> stream = transaction.doInTransaction(
+                        "readTable(" + tableDescriptor.toLoggable() + ")",
+                        tableDescriptor,
+                        ReadOnlyTxDataShard::findAll
+                )
                 .stream()
                 .filter(e -> readTableFilter(e, params));
         if (params.isOrdered()) {

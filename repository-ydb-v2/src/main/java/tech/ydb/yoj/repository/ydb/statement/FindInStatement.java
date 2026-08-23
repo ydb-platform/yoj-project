@@ -33,6 +33,7 @@ import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toCollection;
 import static java.util.stream.Collectors.toUnmodifiableMap;
 import static java.util.stream.Collectors.toUnmodifiableSet;
+import static tech.ydb.yoj.util.lang.DebugLoggable.toLoggable;
 
 /**
  * <p>Creates statement for {@code SELECT ... WHERE PK IN (PK1, PK2, ...)}. {@code PK} can be both
@@ -230,18 +231,13 @@ public final class FindInStatement<IN, T extends Entity<T>, RESULT> extends Mult
                 .map(key -> nonNullKeyFieldNames(keySchema, key))
                 .collect(toUnmodifiableSet());
 
-        Preconditions.checkArgument(nonNullFieldsSet.size() != 0, "keys should have at least one non-null field");
-        Preconditions.checkArgument(nonNullFieldsSet.size() == 1, "keys should have nulls in the same fields");
+        Preconditions.checkArgument(nonNullFieldsSet.size() != 0, "keys must have at least one non-null field");
+        Preconditions.checkArgument(nonNullFieldsSet.size() == 1, "keys must have nulls in the same fields");
 
         Set<String> keyFields = Iterables.getOnlyElement(nonNullFieldsSet);
 
         // 1. there is a specified index
-        Schema.Index globalIndex = entitySchema.getGlobalIndexes().stream()
-                .filter(index -> indexName.equals(index.getIndexName()))
-                .findAny()
-                .orElseThrow(() -> new IllegalArgumentException(
-                        "Table `%s` doesn't have index `%s`".formatted(tableDescriptor.toDebugString(), indexName)
-                ));
+        Schema.Index globalIndex = entitySchema.getGlobalIndex(indexName);
 
         // 2. all key fields are index key fields
         Set<String> indexKeys = Set.copyOf(globalIndex.getFieldNames());
@@ -249,15 +245,15 @@ public final class FindInStatement<IN, T extends Entity<T>, RESULT> extends Mult
 
         Preconditions.checkArgument(
                 missingInIndexKeys.isEmpty(),
-                "Index `%s` of table `%s` doesn't contain key(s): [%s]".formatted(
-                        indexName, tableDescriptor.toDebugString(), String.join(", ", missingInIndexKeys)
+                "Index '%s' of %s doesn't contain key(s): [%s]".formatted(
+                        indexName, tableDescriptor.toLoggable(), String.join(", ", missingInIndexKeys)
                 )
         );
 
         // 3. key fields are exactly the same as index key fields or are its prefix
         Preconditions.checkArgument(
                 isPrefixedFields(globalIndex.getFieldNames(), keyFields),
-                "FindIn(keys) is allowed only by the prefix of the index key fields, index key: %s, query uses the fields: %s"
+                "findIn(keys) is allowed only by the prefix of the index key fields, index key: %s, query uses the fields: %s"
                         .formatted(globalIndex.getFieldNames(), keyFields)
         );
 
@@ -270,8 +266,8 @@ public final class FindInStatement<IN, T extends Entity<T>, RESULT> extends Mult
 
             Preconditions.checkArgument(
                     entityFieldType.equals(keyFieldType.getValue()),
-                    "Table `%s` has column `%s` of type `%s`, but corresponding key field is `%s`".formatted(
-                            tableDescriptor.toDebugString(), keyFieldType.getKey(), entityFieldType, keyFieldType.getValue()
+                    "%s has field '%s' of type <%s> but corresponding key field is of type <%s>".formatted(
+                            tableDescriptor.toLoggable(), keyFieldType.getKey(), entityFieldType, keyFieldType.getValue()
                     )
             );
         }
@@ -424,9 +420,9 @@ public final class FindInStatement<IN, T extends Entity<T>, RESULT> extends Mult
 
     @Override
     public String toDebugString(IN in) {
-        return "findIn(" + toDebugParams(in) +
+        return "findIn(" + toLoggable(in) +
                 (isFindByIndex() ? " by index " + escape(indexName) : "") +
-                (hasPredicate() ? ", filter [" + predicate.toDebugString() + "]" : "") +
+                (hasPredicate() ? ", filter [" + predicate.toDebugString(Void.TYPE) + "]" : "") +
                 (hasOrderBy() ? ", orderBy [" + orderBy + "]" : "") +
                 (hasLimit() ? ", limit [" + limit + "]" : "") +
                 ")";
@@ -469,10 +465,6 @@ public final class FindInStatement<IN, T extends Entity<T>, RESULT> extends Mult
         @Override
         public String getQuery(String tablespace) {
             return "SELECT 1";
-        }
-
-        public String toDebugString() {
-            return toDebugString(Void.TYPE);
         }
 
         public Map<String, ValueProtos.TypedValue> toQueryParameters() {
