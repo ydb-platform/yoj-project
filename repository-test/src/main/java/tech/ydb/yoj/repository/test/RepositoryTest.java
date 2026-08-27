@@ -2568,6 +2568,21 @@ public abstract class RepositoryTest extends RepositoryTestSupport {
     }
 
     @Test
+    public void multifieldQueryBuilderSingleElement() {
+        IndexedEntity c1 = new IndexedEntity(new IndexedEntity.Id("100500"), "key0000", "val1-0000", "val2-0000");
+        IndexedEntity c2 = new IndexedEntity(new IndexedEntity.Id("100501"), "key0000", "val1-0000", "val2-0001");
+        IndexedEntity c3 = new IndexedEntity(new IndexedEntity.Id("100502"), "key0000", "val1-0001", "val2-0000");
+
+        db.tx(() -> db.indexedTable().insert(c1, c2, c3));
+
+        assertThat(db.tx(() -> db.indexedTable().query()
+                .where(List.of("valueId")).eq(List.of("val1-0000"))
+                .index(IndexedEntity.VALUE_INDEX, IndexOrder.ASCENDING)
+                .find()
+        )).containsExactlyInAnyOrder(c1, c2);
+    }
+
+    @Test
     public void checkCanMergeWorkProperly() {
         db.tx(() -> {
             Project p1 = new Project(new Project.Id("1"), "first");

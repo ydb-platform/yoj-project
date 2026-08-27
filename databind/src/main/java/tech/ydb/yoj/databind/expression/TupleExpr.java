@@ -117,6 +117,10 @@ public class TupleExpr<T> extends LeafExpression<T> {
         return new Tuple(null, values, null);
     }
 
+    public int getTupleSize() {
+        return values.size();
+    }
+
     @Override
     public <U> FilterExpression<U> forSchema(@NonNull Schema<U> dstSchema, @NonNull UnaryOperator<String> pathTransformer) {
         return new TupleExpr<>(dstSchema, this.generated, this.operator, this.values.stream()

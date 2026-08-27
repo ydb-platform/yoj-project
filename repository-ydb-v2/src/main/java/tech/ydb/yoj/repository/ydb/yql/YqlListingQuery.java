@@ -17,6 +17,7 @@ import tech.ydb.yoj.databind.expression.OrderExpression.SortKey;
 import tech.ydb.yoj.databind.expression.ScalarExpr;
 import tech.ydb.yoj.databind.expression.TupleExpr;
 import tech.ydb.yoj.databind.expression.values.StringFieldValue;
+import tech.ydb.yoj.databind.expression.values.Tuple;
 import tech.ydb.yoj.databind.schema.Schema.JavaField;
 import tech.ydb.yoj.repository.db.Entity;
 import tech.ydb.yoj.repository.db.EntityIdSchema;
@@ -82,8 +83,15 @@ public final class YqlListingQuery {
 
             @Override
             public YqlPredicate visitTupleExpr(@NonNull TupleExpr<T> tupleExpr) {
-                List<String> fieldPaths = tupleExpr.getFieldPaths();
+                if (tupleExpr.getTupleSize() > 1) {
+                    return visitTupleMulti(tupleExpr);
+                } else {
+                    return visitTupleSingle(tupleExpr);
+                }
+            }
 
+            private static YqlPredicate visitTupleMulti(@NonNull TupleExpr<?> tupleExpr) {
+                List<String> fieldPaths = tupleExpr.getFieldPaths();
                 YqlPredicate.MultifieldPredicateBuilder pred = YqlPredicate.where(fieldPaths);
                 return switch (tupleExpr.getOperator()) {
                     case EQ -> pred.eq(rawValuesOf(tupleExpr));
@@ -92,6 +100,28 @@ public final class YqlListingQuery {
                     case LTE -> pred.lte(rawValuesOf(tupleExpr));
                     case GT -> pred.gt(rawValuesOf(tupleExpr));
                     case GTE -> pred.gte(rawValuesOf(tupleExpr));
+                };
+            }
+
+            private static YqlPredicate visitTupleSingle(@NonNull TupleExpr<?> tupleExpr) {
+                // YqlCompositeType.YqlTuple needs at least 2 tuple components, so we use an ordinary, single-field
+                // RelPredicate in case of a single-element tuple
+
+                String fieldPath = tupleExpr.getFieldPaths().get(0);
+
+                Tuple.FieldAndValue fieldAndValue = tupleExpr.getValues().get(0);
+                Object rawValue = fieldAndValue.rawValue();
+                Preconditions.checkArgument(rawValue != null,
+                        "Expected a non-null value for '%s' in tuple expression", fieldAndValue.field());
+
+                YqlPredicate.FieldPredicateBuilder pred = YqlPredicate.where(fieldPath);
+                return switch (tupleExpr.getOperator()) {
+                    case EQ -> pred.eq(rawValue);
+                    case NEQ -> pred.neq(rawValue);
+                    case LT -> pred.lt(rawValue);
+                    case LTE -> pred.lte(rawValue);
+                    case GT -> pred.gt(rawValue);
+                    case GTE -> pred.gte(rawValue);
                 };
             }
 

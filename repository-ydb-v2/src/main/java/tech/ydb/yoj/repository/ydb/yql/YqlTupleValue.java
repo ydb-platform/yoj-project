@@ -17,8 +17,8 @@ public final class YqlTupleValue {
     private final Map<String, Object> values;
 
     /*package*/ YqlTupleValue(@NonNull List<String> fieldPaths, @NonNull List</*@NonNull*/ ?> fieldValues) {
-        Preconditions.checkArgument(!fieldPaths.isEmpty(), "Tuple field path list must not be empty");
-        Preconditions.checkArgument(!fieldValues.isEmpty(), "Tuple field value list must not be empty");
+        Preconditions.checkArgument(fieldPaths.size() >= 2, "Tuple field path list must have at least 2 paths");
+        Preconditions.checkArgument(fieldValues.size() >= 2, "Tuple field value list must have at least 2 values");
 
         this.fieldPaths = new ArrayList<>();
         this.values = new LinkedHashMap<>();

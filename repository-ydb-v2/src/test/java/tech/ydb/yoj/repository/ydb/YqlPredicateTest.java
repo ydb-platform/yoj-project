@@ -12,6 +12,7 @@ import java.util.List;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException;
 import static tech.ydb.yoj.repository.ydb.yql.YqlPredicate.eq;
 import static tech.ydb.yoj.repository.ydb.yql.YqlPredicate.gt;
 import static tech.ydb.yoj.repository.ydb.yql.YqlPredicate.gte;
@@ -578,6 +579,11 @@ public class YqlPredicateTest {
     public void multirel_gte_chained() {
         assertThat(gte(List.of("workers", "status"), List.of(42L, "RUNNING")).toYql(schema))
                 .isEqualToIgnoringCase("(`workers`, `status`) >= ?");
+    }
+
+    @Test
+    public void multirel_must_have_at_least_2_fields() {
+        assertThatIllegalArgumentException().isThrownBy(() -> gte(List.of("workers"), List.of(42L)));
     }
 
     @Value
