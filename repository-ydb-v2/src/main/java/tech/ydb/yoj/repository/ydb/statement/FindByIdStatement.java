@@ -11,9 +11,10 @@ import java.util.Collections;
 import java.util.List;
 
 import static java.util.stream.Collectors.toList;
+import static tech.ydb.yoj.util.lang.DebugLoggable.toLoggable;
 
-public class FindYqlStatement<PARAMS, ENTITY extends Entity<ENTITY>, RESULT> extends YqlStatement<PARAMS, ENTITY, RESULT> {
-    public FindYqlStatement(
+public class FindByIdStatement<PARAMS, ENTITY extends Entity<ENTITY>, RESULT> extends YqlStatement<PARAMS, ENTITY, RESULT> {
+    public FindByIdStatement(
             TableDescriptor<ENTITY> tableDescriptor, EntitySchema<ENTITY> schema, Schema<RESULT> resultSchema
     ) {
         super(tableDescriptor, schema, resultSchema);
@@ -59,7 +60,7 @@ public class FindYqlStatement<PARAMS, ENTITY extends Entity<ENTITY>, RESULT> ext
     }
 
     @Override
-    public String toDebugString(PARAMS params) {
-        return "find(" + params + ")";
+    public String toDebugString(PARAMS id) {
+        return "find(" + toLoggable(id) + ")";
     }
 }

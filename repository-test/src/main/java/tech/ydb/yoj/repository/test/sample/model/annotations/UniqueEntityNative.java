@@ -1,5 +1,6 @@
 package tech.ydb.yoj.repository.test.sample.model.annotations;
 
+import lombok.NonNull;
 import tech.ydb.yoj.databind.DbType;
 import tech.ydb.yoj.databind.schema.Column;
 import tech.ydb.yoj.repository.db.Entity;
@@ -12,5 +13,10 @@ public record UniqueEntityNative(Id id, String value) implements RecordEntity<Un
             @Column(dbType = DbType.UUID)
             UUID id
     ) implements Entity.Id<UniqueEntityNative> {
+        @NonNull
+        @Override
+        public Object toLoggable() {
+            return id.toString();
+        }
     }
 }

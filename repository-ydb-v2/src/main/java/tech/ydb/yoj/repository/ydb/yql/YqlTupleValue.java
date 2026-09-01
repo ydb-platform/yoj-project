@@ -6,6 +6,7 @@ import tech.ydb.yoj.ExperimentalApi;
 import tech.ydb.yoj.databind.schema.Schema;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -58,6 +59,16 @@ public final class YqlTupleValue {
         Object value = values.get(field.getPath());
         Preconditions.checkArgument(value != null, "No value for field '%s' in tuple", field, fieldPaths);
         return value;
+    }
+
+    /**
+     * This will become a {@code SequencedCollection} in Java 21 version of YOJ.
+     *
+     * @return values, appearing in the same order as the fields
+     */
+    @NonNull
+    public Collection<?> getValues() {
+        return values.values();
     }
 
     @Override

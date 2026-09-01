@@ -24,7 +24,7 @@ import tech.ydb.yoj.repository.test.sample.model.Complex.Id;
 import tech.ydb.yoj.repository.ydb.client.SessionManager;
 import tech.ydb.yoj.repository.ydb.client.YdbConverter;
 import tech.ydb.yoj.repository.ydb.client.YdbSchemaOperations;
-import tech.ydb.yoj.repository.ydb.statement.FindYqlStatement;
+import tech.ydb.yoj.repository.ydb.statement.FindByIdStatement;
 import tech.ydb.yoj.repository.ydb.statement.MultipleVarsYqlStatement;
 import tech.ydb.yoj.repository.ydb.statement.UpsertYqlStatement;
 
@@ -370,7 +370,7 @@ public class YdbRepositoryCacheTest {
     private Params convertId(Id id) {
         EntitySchema<Complex> schema = EntitySchema.of(Complex.class);
         TableDescriptor<Complex> tableDescriptor = TableDescriptor.from(schema);
-        var statement = new FindYqlStatement<>(tableDescriptor, schema, schema);
+        var statement = new FindByIdStatement<>(tableDescriptor, schema, schema);
         return YdbConverter.convertToParams(statement.toQueryParameters(id));
     }
 }

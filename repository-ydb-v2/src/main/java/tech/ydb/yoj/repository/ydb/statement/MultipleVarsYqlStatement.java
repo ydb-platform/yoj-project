@@ -90,17 +90,6 @@ public abstract class MultipleVarsYqlStatement<PARAMS, ENTITY extends Entity<ENT
 
     protected abstract Function<PARAMS, Map<String, Object>> flattenInputVariables();
 
-    protected String toDebugParams(PARAMS params) {
-        if (params instanceof Collection<?> c) {
-            return switch (c.size()) {
-                case 0 -> "[]";
-                case 1 -> "[" + c.iterator().next() + "]";
-                default -> "[" + c.iterator().next() + ",...](" + c.size() + ")";
-            };
-        }
-        return String.valueOf(params);
-    }
-
     public abstract static class Simple<PARAMS, ENTITY extends Entity<ENTITY>>
             extends MultipleVarsYqlStatement<PARAMS, ENTITY, ENTITY> {
         public Simple(TableDescriptor<ENTITY> tableDescriptor, EntitySchema<ENTITY> schema) {

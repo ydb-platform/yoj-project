@@ -11,6 +11,7 @@ import tech.ydb.yoj.repository.db.list.ListResult;
 import tech.ydb.yoj.repository.db.list.ViewListResult;
 import tech.ydb.yoj.repository.db.readtable.ReadTableParams;
 import tech.ydb.yoj.repository.db.statement.Changeset;
+import tech.ydb.yoj.util.lang.DebugLoggable;
 
 import javax.annotation.CheckForNull;
 import javax.annotation.Nullable;
@@ -294,7 +295,7 @@ public interface Table<T extends Entity<T>> {
      *
      * @see ViewId
      */
-    interface View {
+    interface View extends DebugLoggable {
     }
 
     /**
