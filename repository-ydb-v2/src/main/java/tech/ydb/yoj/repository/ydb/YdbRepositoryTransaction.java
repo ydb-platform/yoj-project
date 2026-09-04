@@ -91,20 +91,22 @@ import static lombok.AccessLevel.PRIVATE;
 
 public class YdbRepositoryTransaction<REPO extends YdbRepository>
         implements BaseDb, RepositoryTransaction, YdbTable.QueryExecutor {
+    public static final String REQUEST_COMMIT = "commit";
+    public static final String REQUEST_ROLLBACK = "rollback";
+
     private static final Logger log = LoggerFactory.getLogger(YdbRepositoryTransaction.class);
 
     private static final String PROP_TRACE_DUMP_YDB_PARAMS = "tech.ydb.yoj.repository.ydb.trace.dumpYdbParams";
     private static final String PROP_TRACE_VERBOSE_OBJ_PARAMS = "tech.ydb.yoj.repository.ydb.trace.verboseObjParams";
     private static final String PROP_TRACE_VERBOSE_OBJ_RESULTS = "tech.ydb.yoj.repository.ydb.trace.verboseObjResults";
 
-    private static final String CLOSE_ACTION_ROLLBACK = "rollback";
-    private static final String CLOSE_ACTION_COMMIT = "commit";
-
     private static final Duration DEFAULT_SPLITERATOR_TIMEOUT = Duration.ofMinutes(5);
     private static final Duration ADDED_SPLITERATOR_TIMEOUT = Duration.ofMinutes(1);
 
     private final List<YdbRepository.Query<?>> pendingWrites = new ArrayList<>();
     private final List<YdbSpliterator<?>> spliterators = new ArrayList<>();
+
+    private final YdbValidator ydbValidator;
 
     @Getter
     private final TxOptions options;
@@ -128,13 +130,14 @@ public class YdbRepositoryTransaction<REPO extends YdbRepository>
         this.transactionLocal = new TransactionLocal(options);
         this.cache = options.isFirstLevelCache() ? RepositoryCache.create() : RepositoryCache.empty();
         this.tablespace = repo.getSchemaOperations().getTablespace();
+        this.ydbValidator = repo.getYdbValidator();
     }
 
     private <V> YdbSpliterator<V> createSpliterator(String request, boolean isOrdered, @Nullable Duration readTimeout) {
         Duration spliteratorTimeout = readTimeout == null
                 ? DEFAULT_SPLITERATOR_TIMEOUT
                 : readTimeout.plus(ADDED_SPLITERATOR_TIMEOUT);
-        YdbSpliterator<V> spliterator = new YdbSpliterator<>(request, isOrdered, spliteratorTimeout);
+        YdbSpliterator<V> spliterator = new YdbSpliterator<>(request, ydbValidator, isOrdered, spliteratorTimeout);
         spliterators.add(spliterator);
         return spliterator;
     }
@@ -160,16 +163,16 @@ public class YdbRepositoryTransaction<REPO extends YdbRepository>
             rollback();
             throw t;
         }
-        endTransaction(CLOSE_ACTION_COMMIT, this::doCommit);
+        endTransaction(REQUEST_COMMIT, this::doCommit);
     }
 
     @Override
     public void rollback() {
         Interrupts.runInCleanupMode(() -> {
             try {
-                endTransaction(CLOSE_ACTION_ROLLBACK, () -> {
+                endTransaction(REQUEST_ROLLBACK, () -> {
                     Status status = YdbOperations.safeJoin(session.rollbackTransaction(txId, new RollbackTxSettings()));
-                    validate(CLOSE_ACTION_ROLLBACK, status, status.toString());
+                    validate(REQUEST_ROLLBACK, status, status.toString());
                 });
             } catch (Throwable t) {
                 log.info("Failed to rollback the transaction", t);
@@ -180,7 +183,7 @@ public class YdbRepositoryTransaction<REPO extends YdbRepository>
     private void doCommit() {
         try {
             Status status = YdbOperations.safeJoin(session.commitTransaction(txId, new CommitTxSettings()));
-            validate(CLOSE_ACTION_COMMIT, status, status.toString());
+            validate(REQUEST_COMMIT, status, status.toString());
         } catch (YdbComponentUnavailableException | YdbOverloadedException e) {
             throw new UnavailableException("Unknown transaction state: commit was sent, but result is unknown", e);
         }
@@ -207,10 +210,10 @@ public class YdbRepositoryTransaction<REPO extends YdbRepository>
 
     private void validate(String request, Status status, String response) {
         if (!isBadSession) {
-            isBadSession = YdbValidator.isTransactionClosedByServer(status);
+            isBadSession = ydbValidator.isTransactionClosedByServer(status);
         }
         try {
-            YdbValidator.validate(request, status, response);
+            ydbValidator.validate(request, status, response);
         } catch (BadSessionException | OptimisticLockException e) {
             transactionLocal.log().info("Request got %s: DB tx was invalidated", e.getClass().getSimpleName());
             throw e;
