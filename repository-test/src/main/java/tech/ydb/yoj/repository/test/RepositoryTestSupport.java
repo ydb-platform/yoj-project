@@ -33,9 +33,9 @@ public abstract class RepositoryTestSupport {
 
     public static void clearDb(Repository repo) {
         Set<TableDescriptor<?>> tableDescriptors = repo.tables();
-        new StdTxManager(repo).tx(() -> {
+        new StdTxManager(repo).tx(tx -> {
             for (TableDescriptor<?> tableDescriptor : tableDescriptors) {
-                Tx.Current.get().getRepositoryTransaction().table(tableDescriptor).deleteAll();
+                tx.getRepositoryTransaction().table(tableDescriptor).deleteAll();
             }
         });
     }
