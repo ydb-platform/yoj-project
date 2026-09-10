@@ -14,8 +14,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import tech.ydb.yoj.ExperimentalApi;
 import tech.ydb.yoj.repository.db.cache.TransactionLog;
+import tech.ydb.yoj.repository.db.exception.ConditionallyRetryableException;
 import tech.ydb.yoj.repository.db.exception.QueryInterruptedException;
 import tech.ydb.yoj.repository.db.exception.RetryableException;
+import tech.ydb.yoj.repository.db.exception.RetryableExceptionBase;
 import tech.ydb.yoj.util.lang.Strings;
 import tech.ydb.yoj.util.log.MdcSetup;
 import tech.ydb.yoj.util.retry.RetryPolicy;
@@ -73,6 +75,9 @@ public final class StdTxManager implements TxManager, TxManagerState {
             .labelNames("tx_name", "result")
             .register();
     private static final Counter retries = Counter.build("tx_retries", "Tx retry reasons")
+            .labelNames("tx_name", "reason")
+            .register();
+    private static final Counter conditionalRetries = Counter.build("tx_conditional_retries", "Tx conditional retry reasons")
             .labelNames("tx_name", "reason")
             .register();
     private static final AtomicLong txLogIdSeq = new AtomicLong();
@@ -188,6 +193,12 @@ public final class StdTxManager implements TxManager, TxManagerState {
     }
 
     @Override
+    @ExperimentalApi(issue = "https://github.com/ydb-platform/yoj-project/issues/165")
+    public TxManager withRetryOptions(@NonNull TxOptions.RetryOptions retryOptions) {
+        return withOptions(this.options.withRetryOptions(retryOptions));
+    }
+
+    @Override
     public ReadonlyBuilder readOnly() {
         return new ReadonlyBuilderImpl(this.options.withIsolationLevel(ONLINE_CONSISTENT_READ_ONLY));
     }
@@ -250,6 +261,21 @@ public final class StdTxManager implements TxManager, TxManagerState {
                         results.labels(txName, "fail").inc();
                         throw e.rethrow();
                     }
+                } catch (ConditionallyRetryableException e) {
+                    // FIXME(nvamelichev): Unify handling ConditionallyRetryableException with ordinary RetryableException!
+                    boolean commitAttempted = lastTx != null && lastTx.getRepositoryTransaction().wasCommitAttempted();
+                    if (options.canConditionallyRetry(commitAttempted)) {
+                        conditionalRetries.labels(txName, getExceptionNameForMetric(e)).inc();
+                        if (attempt < maxAttemptCount) {
+                            sleepBeforeNextAttempt(e, attempt);
+                        } else {
+                            results.labels(txName, "fail").inc();
+                            throw e.rethrow();
+                        }
+                    } else {
+                        results.labels(txName, "rollback").inc();
+                        throw e.failImmediately();
+                    }
                 } catch (Exception e) {
                     results.labels(txName, "rollback").inc();
                     throw e;
@@ -288,7 +314,7 @@ public final class StdTxManager implements TxManager, TxManagerState {
         }
     }
 
-    private String getExceptionNameForMetric(RetryableException e) {
+    private static String getExceptionNameForMetric(Exception e) {
         return Strings.removeSuffix(e.getClass().getSimpleName(), "Exception");
     }
 
@@ -311,7 +337,7 @@ public final class StdTxManager implements TxManager, TxManagerState {
         return Strings.leftPad(Long.toUnsignedString(txLogId, 36), 6, '0') + options.getIsolationLevel().getTxIdSuffix();
     }
 
-    private void sleepBeforeNextAttempt(RetryableException e, int attempt) {
+    private void sleepBeforeNextAttempt(RetryableExceptionBase e, int attempt) {
         var customRetryPolicy = customRetryPolicyProvider != null ? customRetryPolicyProvider.getRetryPolicy(e) : null;
         var retryPolicy = customRetryPolicy != null ? customRetryPolicy : e.getRetryPolicy();
 
@@ -369,8 +395,9 @@ public final class StdTxManager implements TxManager, TxManagerState {
     }
 
     /**
-     * Provides custom {@link RetryPolicy retry policies} for some, or all, of {@link RetryableException}s
-     * encountered by {@code StdTxManager} while trying to perform the transaction.
+     * Provides custom {@link RetryPolicy retry policies} for some, or all,
+     * of {@link RetryableExceptionBase retryable exceptions} encountered by {@code StdTxManager}
+     * while trying to perform the transaction.
      *
      * <p><strong>This is an experimental API, subject to change (and removal!) without notification.</strong>
      */
@@ -379,10 +406,10 @@ public final class StdTxManager implements TxManager, TxManagerState {
     public interface RetryPolicyProvider {
         /**
          * @param e retryable exception
-         * @return custom retry policy, or {@code null} to use the {@link RetryableException#getRetryPolicy() default}
+         * @return custom retry policy, or {@code null} to use the {@link RetryableExceptionBase#getRetryPolicy() default}
          */
         @Nullable
-        RetryPolicy getRetryPolicy(RetryableException e);
+        RetryPolicy getRetryPolicy(RetryableExceptionBase e);
     }
 
     @AllArgsConstructor

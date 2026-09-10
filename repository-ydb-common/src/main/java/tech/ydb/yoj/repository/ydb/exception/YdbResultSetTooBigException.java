@@ -8,7 +8,7 @@ package tech.ydb.yoj.repository.ydb.exception;
  * <p>Typically the result set size limit is around 50M.
  */
 public final class YdbResultSetTooBigException extends YdbPreconditionFailedException {
-    public YdbResultSetTooBigException(Object request, Object response) {
-        super("Query result set size limit exceeded", request, response);
+    public YdbResultSetTooBigException(Enum<?> statusCode, Object request, Object response) {
+        super("Query result set size limit exceeded", statusCode, request, response);
     }
 }

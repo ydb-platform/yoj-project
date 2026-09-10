@@ -1,5 +1,6 @@
 package tech.ydb.yoj.repository.ydb.merge;
 
+import com.google.common.base.Preconditions;
 import lombok.Value;
 import lombok.With;
 import org.slf4j.Logger;
@@ -11,7 +12,6 @@ import tech.ydb.yoj.repository.db.TableDescriptor;
 import tech.ydb.yoj.repository.db.cache.RepositoryCache;
 import tech.ydb.yoj.repository.db.exception.EntityAlreadyExistsException;
 import tech.ydb.yoj.repository.ydb.YdbRepository;
-import tech.ydb.yoj.repository.ydb.exception.YdbRepositoryException;
 import tech.ydb.yoj.repository.ydb.statement.DeleteByIdStatement;
 import tech.ydb.yoj.repository.ydb.statement.Statement;
 import tech.ydb.yoj.repository.ydb.statement.UpsertYqlStatement;
@@ -47,7 +47,7 @@ public class ByEntityYqlQueriesMerger implements YqlQueriesMerger {
     @Override
     public void onNext(YdbRepository.Query<?> query) {
         Statement.QueryType queryType = query.getStatement().getQueryType();
-        check(SUPPORTED_QUERY_TYPES.contains(queryType), "Unsupported query type: " + queryType);
+        expect(SUPPORTED_QUERY_TYPES.contains(queryType), "Unsupported query type: " + queryType);
 
         TableDescriptor<?> tableDescriptor = convertQueryToYqlStatement(query).getTableDescriptor();
         TableState tableState = states.computeIfAbsent(tableDescriptor, __ -> new TableState());
@@ -56,13 +56,17 @@ public class ByEntityYqlQueriesMerger implements YqlQueriesMerger {
             tableState.deleteAll = query;
             return;
         } else if (queryType == Statement.QueryType.UPDATE) {
-            check(tableState.isEmpty(), "Update operation couldn't be after other modifications");
+            // user error
+            Preconditions.checkState(tableState.isEmpty(), "update() query cannot be done after other modifications");
+
             tableState.update = query;
             return;
         }
 
-        check(tableState.deleteAll == null && tableState.update == null,
-                "Modifications after delete_all or update aren't allowed");
+        // user error
+        Preconditions.checkState(tableState.deleteAll == null && tableState.update == null,
+                "No modifications are allowed after a deleteAll() or update() query");
+
         EntityState state;
         Entity.Id<?> id = getEntityId(query);
         if (tableState.entityStates.containsKey(id)) {
@@ -160,7 +164,7 @@ public class ByEntityYqlQueriesMerger implements YqlQueriesMerger {
             throw new EntityAlreadyExistsException("Entity " + getEntityId(query) + " already exists");
         }
         MergingState nextState = transitionMap.get(new TransitionKey(state, nextQueryType));
-        check(nextState != null, "Incorrect transition, from " + state + " by " + nextQueryType);
+        expect(nextState != null, "Incorrect transition, from " + state + " by " + nextQueryType);
         return nextState;
     }
 
@@ -187,7 +191,7 @@ public class ByEntityYqlQueriesMerger implements YqlQueriesMerger {
     }
 
     private static Entity.Id<?> getEntityId(YdbRepository.Query<?> query) {
-        check(query.getValues().size() == 1, "Unsupported query");
+        expect(query.getValues().size() == 1, "Unsupported query");
 
         Object value = query.getValues().get(0);
         if (query.getStatement().getQueryType() == Statement.QueryType.DELETE) {
@@ -201,9 +205,9 @@ public class ByEntityYqlQueriesMerger implements YqlQueriesMerger {
         return (YqlStatement<?, E, ?>) query.getStatement();
     }
 
-    private static void check(boolean condition, String message) {
+    private static void expect(boolean condition, String message) {
         if (!condition) {
-            throw new YdbRepositoryException(message);
+            throw new UnsupportedOperationException(message);
         }
     }
 
