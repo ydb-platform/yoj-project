@@ -45,10 +45,13 @@ import tech.ydb.topic.settings.SendSettings;
 import tech.ydb.topic.settings.TopicReadSettings;
 import tech.ydb.topic.settings.WriterSettings;
 import tech.ydb.yoj.databind.ByteArray;
+import tech.ydb.yoj.databind.DbType;
 import tech.ydb.yoj.databind.FieldValueType;
 import tech.ydb.yoj.databind.schema.Column;
 import tech.ydb.yoj.databind.schema.GlobalIndex;
 import tech.ydb.yoj.databind.schema.ObjectSchema;
+import tech.ydb.yoj.databind.schema.TTL;
+import tech.ydb.yoj.databind.schema.Table;
 import tech.ydb.yoj.repository.db.Entity;
 import tech.ydb.yoj.repository.db.EntitySchema;
 import tech.ydb.yoj.repository.db.IndexOrder;
@@ -112,6 +115,7 @@ import tech.ydb.yoj.repository.ydb.yql.YqlView;
 
 import java.lang.reflect.Field;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -857,7 +861,7 @@ public class YdbRepositoryIntegrationTest extends RepositoryTest {
     }
 
     @Test
-    public void testCompatibilityChangeTtl() {
+    public void testCompatibilityAlterExistingTtl() {
         var checker = new YdbSchemaCompatibilityChecker(List.of(EntityChangeTtl.class), (YdbRepository) repository);
         checker.run();
         var ts = getRealYdbConfig().getTablespace();
@@ -867,12 +871,64 @@ public class YdbRepositoryIntegrationTest extends RepositoryTest {
     }
 
     @Test
-    public void testCompatibilityCreateTtl() {
+    public void testCompatibilityAddTtl() {
         var checker = new YdbSchemaCompatibilityChecker(List.of(EntityCreateTtl.class), (YdbRepository) repository);
         assertThatThrownBy(checker::run);
         var ts = getRealYdbConfig().getTablespace();
         assertThat(checker.getShouldExecuteMessages()).containsExactly(
                 String.format("ALTER TABLE `%sNoTtlEntity` SET (TTL = Interval(\"PT3H\") ON createdAt);", ts)
+        );
+    }
+
+    @Test
+    public void testCompatibilityAddTtlWithZeroInterval() {
+        @TTL(field = "createdAt")
+        @Table(name = "NoTtlEntity")
+        record EntityZeroIntervalTtl(
+                Id id,
+
+                @Column(dbType = DbType.TIMESTAMP)
+                Instant createdAt
+        ) implements RecordEntity<EntityZeroIntervalTtl> {
+            record Id(String value) implements Entity.Id<EntityZeroIntervalTtl> {
+            }
+        }
+
+        var checker = new YdbSchemaCompatibilityChecker(List.of(EntityZeroIntervalTtl.class), (YdbRepository) repository);
+        assertThatThrownBy(checker::run);
+        var ts = getRealYdbConfig().getTablespace();
+        assertThat(checker.getShouldExecuteMessages()).containsExactly(
+                String.format("ALTER TABLE `%sNoTtlEntity` SET (TTL = Interval(\"PT0S\") ON createdAt);", ts)
+        );
+    }
+
+    @Test
+    public void testTtlZeroInterval() {
+        @TTL(field = "createdAt")
+        @Table(name = "ZeroIntervalTtlEntity")
+        record ZeroIntervalTtlEntity(
+                Id id,
+
+                @Column(dbType = DbType.TIMESTAMP)
+                Instant createdAt
+        ) implements RecordEntity<ZeroIntervalTtlEntity> {
+            record Id(String value) implements Entity.Id<ZeroIntervalTtlEntity> {
+            }
+        }
+
+        var checker = new YdbSchemaCompatibilityChecker(List.of(ZeroIntervalTtlEntity.class), (YdbRepository) repository);
+        assertThatThrownBy(checker::run);
+        var ts = getRealYdbConfig().getTablespace();
+        assertThat(checker.getShouldExecuteMessages()).containsExactly(
+                """
+                CREATE TABLE `%sZeroIntervalTtlEntity` (
+                \t`id` STRING,
+                \t`createdAt` TIMESTAMP,
+                \tPRIMARY KEY(`id`)
+                )
+                WITH (
+                \tTTL = Interval("PT0S") ON createdAt
+                );""".formatted(ts)
         );
     }
 

@@ -25,6 +25,7 @@ import java.lang.reflect.Constructor;
 import java.lang.reflect.Type;
 import java.time.Duration;
 import java.time.Instant;
+import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -212,13 +213,19 @@ public abstract class Schema<T> {
         }
         var fieldPath = ttlAnnotation.field();
         var field = getField(fieldPath);
-        Preconditions.checkArgument(field.isFlat(),
-                "ttl defined for %s tries to access non-flat field \"%s\"", getType(), fieldPath);
+        Preconditions.checkArgument(field.isFlat(), "@TTL.field for <%s> must be flat: \"%s\"", getType(), fieldPath);
 
-        var parsedInterval = Duration.parse(ttlAnnotation.interval());
-        Preconditions.checkArgument(!(parsedInterval.isNegative() || parsedInterval.isZero()),
-                "ttl value defined for %s must be positive", getType());
-        return new TtlModifier(field, parsedInterval);
+        try {
+            var parsedInterval = Duration.parse(ttlAnnotation.interval());
+            Preconditions.checkArgument(!parsedInterval.isNegative(), "@TTL.interval for <%s> must be non-negative",
+                    getType());
+            return new TtlModifier(field, parsedInterval);
+        } catch (DateTimeParseException e) {
+            throw new IllegalArgumentException(
+                    format("@TTL.interval for <%s> must be a valid ISO 8601 interval string", getType()),
+                    e
+            );
+        }
     }
 
     private List<Changefeed> prepareChangefeeds(List<tech.ydb.yoj.databind.schema.Changefeed> changefeeds) {
@@ -226,12 +233,11 @@ public abstract class Schema<T> {
         for (var changefeed : changefeeds) {
             String name = changefeed.name();
             if (name.isBlank()) {
-                throw new IllegalArgumentException(
-                        format("changefeed defined for %s has no name", getType()));
+                throw new IllegalArgumentException(format("@Changefeed.name for <%s> must not be empty", getType()));
             }
             if (!changefeedNames.add(name)) {
                 throw new IllegalArgumentException(
-                        format("changefeed with name \"%s\" already defined for %s", name, getType())
+                        format("@Changefeed.name=\"%s\" is already defined for <%s>", name, getType())
                 );
             }
         }

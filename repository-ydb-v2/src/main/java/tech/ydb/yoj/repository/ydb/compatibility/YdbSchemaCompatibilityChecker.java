@@ -255,7 +255,9 @@ public final class YdbSchemaCompatibilityChecker {
                     columns(table) + ",\n" +
                     "\tPRIMARY KEY(" + primaryKey(table) + ")" +
                     indexes(table) +
-                    ");";
+                    ")" +
+                    with(table) +
+                    ";";
         }
     }
 
@@ -360,6 +362,15 @@ public final class YdbSchemaCompatibilityChecker {
         return columns.stream().map(c -> "`" + c + "`").collect(Collectors.joining(","));
     }
 
+    /// @see <a href="https://ydb.tech/docs/en/yql/reference/syntax/create_table/with?version=v26.2">WITH(...)</a>
+    private static String with(YdbSchemaOperations.Table table) {
+        var ttlModifier = table.getTtlModifier();
+        // TODO(nvamelichev): Add support for more WITH() attributes (partitioning, column families, etc.)
+        return ttlModifier == null
+                ? ""
+                : "\nWITH (\n\t%s\n)".formatted(ttlModifier(ttlModifier));
+    }
+
     private void makeMigrationTableInstruction(YdbSchemaOperations.Table from, YdbSchemaOperations.Table to) {
         Map<String, YdbSchemaOperations.Column> toColumns = to.getColumns().stream()
                 .collect(toMap(YdbSchemaOperations.Column::getName, Function.identity()));
@@ -445,10 +456,7 @@ public final class YdbSchemaCompatibilityChecker {
             return;
         }
 
-        String alterAddTtlTemplate = "ALTER TABLE `%s` SET (TTL = Interval(\"%s\") ON %s);";
-        String ttlColumn = toTtlModifier.getDateTimeColumnName();
-        Duration ttlDuration = Duration.ofSeconds(toTtlModifier.getExpireAfterSeconds());
-        String template = alterAddTtlTemplate.formatted(to.getName(), ttlDuration, ttlColumn);
+        String template = "ALTER TABLE `%s` SET (%s);".formatted(to.getName(), ttlModifier(toTtlModifier));
 
         YdbSchemaOperations.TtlModifier fromTtlModifier = from.getTtlModifier();
         if (fromTtlModifier == null) {
@@ -456,6 +464,12 @@ public final class YdbSchemaCompatibilityChecker {
         } else {
             canExecuteMessages.add(template);
         }
+    }
+
+    private static String ttlModifier(YdbSchemaOperations.TtlModifier ttlModifier) {
+        String ttlColumn = ttlModifier.getDateTimeColumnName();
+        Duration ttlDuration = Duration.ofSeconds(ttlModifier.getExpireAfterSeconds());
+        return "TTL = Interval(\"%s\") ON %s".formatted(ttlDuration, ttlColumn);
     }
 
     private String columnDiff(YdbSchemaOperations.Column column, YdbSchemaOperations.Column newColumn) {
