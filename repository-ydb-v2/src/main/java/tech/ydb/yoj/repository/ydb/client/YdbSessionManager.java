@@ -1,5 +1,6 @@
 package tech.ydb.yoj.repository.ydb.client;
 
+import lombok.NonNull;
 import tech.ydb.core.Result;
 import tech.ydb.table.Session;
 import tech.ydb.table.TableClient;
@@ -14,17 +15,24 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutionException;
 
+import static tech.ydb.yoj.repository.ydb.YdbOperations.checkGrpcDeadlineAndCancellation;
 import static tech.ydb.yoj.util.lang.Interrupts.isThreadInterrupted;
 
 @InternalApi
 public final class YdbSessionManager implements SessionManager {
-    private static final String REQUEST_GET_SESSION = "getSession";
+    public static final String REQUEST_GET_SESSION = "getSession";
 
     private final TableClient tableClient;
     private final Duration sessionTimeout;
+    private final YdbValidator ydbValidator;
 
-    public YdbSessionManager(TableClient tableClient, Duration sessionCreationTimeout) {
+    public YdbSessionManager(
+            @NonNull TableClient tableClient,
+            @NonNull YdbValidator ydbValidator,
+            @NonNull Duration sessionCreationTimeout
+    ) {
         this.tableClient = tableClient;
+        this.ydbValidator = ydbValidator;
         this.sessionTimeout = getSessionTimeout(sessionCreationTimeout);
     }
 
@@ -33,7 +41,7 @@ public final class YdbSessionManager implements SessionManager {
         CompletableFuture<Result<Session>> future = tableClient.createSession(sessionTimeout);
         try {
             Result<Session> result = future.get();
-            YdbValidator.validate(REQUEST_GET_SESSION, result.getStatus(), result.toString());
+            ydbValidator.validate(REQUEST_GET_SESSION, result.getStatus(), result.toString());
             return result.getValue();
         } catch (CancellationException | CompletionException | ExecutionException | InterruptedException e) {
             // We need to cancel the future, otherwise we can get a session leak
@@ -43,7 +51,7 @@ public final class YdbSessionManager implements SessionManager {
                 Thread.currentThread().interrupt();
                 throw new QueryInterruptedException("get session interrupted", e);
             }
-            YdbValidator.checkGrpcDeadlineAndCancellation(e.getMessage(), e);
+            checkGrpcDeadlineAndCancellation(e.getMessage(), e);
 
             throw new UnavailableException("DB is unavailable", e);
         }
