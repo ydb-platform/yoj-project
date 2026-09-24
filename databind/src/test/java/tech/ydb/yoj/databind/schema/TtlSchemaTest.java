@@ -28,6 +28,15 @@ public class TtlSchemaTest {
     }
 
     @Test
+    public void testZeroTtlIntervalEntity() {
+        var entitySchema = schemaOf(ZeroTtlEntity.class);
+
+        assertThat(entitySchema.getTtlModifier()).isNotNull();
+        assertThat(entitySchema.getTtlModifier().getFieldName()).isEqualTo("ttlColumn");
+        assertThat(entitySchema.getTtlModifier().getIntervalSeconds()).isZero();
+    }
+
+    @Test
     public void testTtlWrappedEntity() {
         var entitySchema = schemaOf(WrappedTtlEntity.class);
 
@@ -59,11 +68,6 @@ public class TtlSchemaTest {
     @Test
     public void testNegativeTtlIntervalEntity() {
         assertThatThrownBy(() -> schemaOf(NegativeTtlEntity.class));
-    }
-
-    @Test
-    public void testZeroTtlIntervalEntity() {
-        assertThatThrownBy(() -> schemaOf(ZeroTtlEntity.class));
     }
 
     private static <T> Schema<T> schemaOf(Class<T> entityType) {
