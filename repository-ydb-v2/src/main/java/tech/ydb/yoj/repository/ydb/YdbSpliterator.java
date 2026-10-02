@@ -8,6 +8,7 @@ import tech.ydb.yoj.ExperimentalApi;
 import tech.ydb.yoj.InternalApi;
 import tech.ydb.yoj.repository.db.exception.DeadlineExceededException;
 import tech.ydb.yoj.repository.db.exception.QueryInterruptedException;
+import tech.ydb.yoj.repository.ydb.client.YdbValidator;
 
 import javax.annotation.Nullable;
 import java.time.Duration;
@@ -16,13 +17,12 @@ import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.TimeUnit;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 
-import static tech.ydb.yoj.repository.ydb.client.YdbValidator.validate;
+import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
 /**
  * {@code YdbSpliterator} used to read data from YDB streams.
@@ -55,19 +55,19 @@ public class YdbSpliterator<V> implements Spliterator<V> {
 
     private boolean endData = false;
 
-    public YdbSpliterator(String request, boolean isOrdered, Duration streamWorkTimeout) {
+    public YdbSpliterator(String request, YdbValidator ydbValidator, boolean isOrdered, Duration streamWorkTimeout) {
         this.flags = (isOrdered ? ORDERED : 0) | NONNULL;
-        this.streamWorkDeadlineNanos = System.nanoTime() + TimeUnit.NANOSECONDS.toNanos(saturatedToNanos(streamWorkTimeout));
+        this.streamWorkDeadlineNanos = System.nanoTime() + NANOSECONDS.toNanos(saturatedToNanos(streamWorkTimeout));
         this.validateResponse = (status, error) -> {
             if (error != null) {
                 throw YdbOperations.convertToRepositoryException(error);
             }
-            validate(request, status, status.toString());
+            ydbValidator.validate(request, status, status.toString());
         };
     }
 
     private long calculateTimeout() {
-        return TimeUnit.NANOSECONDS.toNanos(streamWorkDeadlineNanos - System.nanoTime());
+        return NANOSECONDS.toNanos(streamWorkDeadlineNanos - System.nanoTime());
     }
 
     // Correct way to create stream with YdbSpliterator. onClose call is important for avoid supplier thread leak.
@@ -84,7 +84,7 @@ public class YdbSpliterator<V> implements Spliterator<V> {
         }
 
         try {
-            if (!queue.offer(QueueValue.of(value), calculateTimeout(), TimeUnit.NANOSECONDS)) {
+            if (!queue.offer(QueueValue.of(value), calculateTimeout(), NANOSECONDS)) {
                 log.warn("Supplier thread was closed because consumer didn't poll an element of stream on timeout");
                 throw OfferDeadlineExceededException.INSTANCE;
             }
@@ -116,7 +116,7 @@ public class YdbSpliterator<V> implements Spliterator<V> {
     @Nullable
     private QueueValue<V> poll() {
         try {
-            return queue.poll(calculateTimeout(), TimeUnit.NANOSECONDS);
+            return queue.poll(calculateTimeout(), NANOSECONDS);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             throw new QueryInterruptedException("Consumer thread interrupted", e);
@@ -229,8 +229,8 @@ public class YdbSpliterator<V> implements Spliterator<V> {
         try {
             while (true) {
                 try {
-                    long timeout = TimeUnit.NANOSECONDS.toNanos(deadlineNanos - System.nanoTime());
-                    return queue.offer(element, timeout, TimeUnit.NANOSECONDS);
+                    long timeout = NANOSECONDS.toNanos(deadlineNanos - System.nanoTime());
+                    return queue.offer(element, timeout, NANOSECONDS);
                 } catch (InterruptedException ignore) {
                     interrupted = true;
                 }
