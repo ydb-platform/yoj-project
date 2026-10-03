@@ -16,6 +16,7 @@ java_library(
         "@java_contribs_stable//:io_grpc_grpc_api",
         "@java_contribs_stable//:io_grpc_grpc_netty",
         "@java_contribs_stable//:io_grpc_grpc_netty_shaded",
+        "@java_contribs_stable//:io_prometheus_prometheus_metrics_core",
         "@java_contribs_stable//:javax_annotation_javax_annotation_api",
         "@java_contribs_stable//:org_apache_commons_commons_text",
         "@java_contribs_stable//:tech_ydb_ydb_auth_api",

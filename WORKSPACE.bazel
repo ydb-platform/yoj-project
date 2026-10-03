@@ -29,7 +29,7 @@ LOMBOK_VERSION = "1.18.42"
 
 MOCKITO_VERSION = "5.20.0"
 
-PROMETHEUS_SIMPLECLIENT_VERSION = "0.16.0"
+PROMETHEUS_METRICS_VERSION = "1.9.0"
 
 SLF4J_VERSION = "2.0.17"
 
@@ -51,7 +51,7 @@ maven_install(
         "io.grpc:grpc-bom:" + GRPC_VERSION,
         "io.grpc:grpc-netty-shaded:" + GRPC_VERSION,
         "io.grpc:grpc-netty:" + GRPC_VERSION,
-        "io.prometheus:simpleclient:" + PROMETHEUS_SIMPLECLIENT_VERSION,
+        "io.prometheus:prometheus-metrics-core:" + PROMETHEUS_METRICS_VERSION,
         "javax.annotation:javax.annotation-api:" + ANNOTATION_API_VERSION,
         "junit:junit:" + JUNIT_VERSION,
         "org.apache.commons:commons-text:" + COMMONS_TEXT_VERSION,
