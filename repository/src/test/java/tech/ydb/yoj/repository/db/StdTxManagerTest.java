@@ -175,6 +175,38 @@ public class StdTxManagerTest {
     }
 
     @Test
+    public void transactionLogIsNotFormattedIfDebugLoggingIsDisabled() {
+        LoggerContext loggerContext = (LoggerContext) LogManager.getContext(false);
+        LoggerConfig loggerConfig = loggerContext.getConfiguration().getLoggerConfig(TxImpl.class.getCanonicalName());
+        Level oldLevel = loggerConfig.getLevel();
+        loggerConfig.setLevel(Level.INFO);
+        loggerContext.updateLoggers();
+        try {
+            when(repository.startTransaction(any(TxOptions.class))).thenReturn(repositoryTransaction);
+            when(repositoryTransaction.getTransactionLocal()).thenReturn(transactionLocal);
+            when(transactionLocal.log()).thenReturn(transactionLog);
+            var testObj = new Object();
+
+            // Successful commit (with logStatementOnSuccess=true, which is the default)
+            assertThat(new StdTxManager(repository).tx(() -> testObj)).isEqualTo(testObj);
+            // Dry run
+            assertThat(new StdTxManager(repository).withDryRun(true).tx(() -> testObj)).isEqualTo(testObj);
+            // Rollback due to an exception in the transaction body
+            assertThatThrownBy(() -> new StdTxManager(repository).tx(() -> {
+                throw new IllegalArgumentException("business exception");
+            })).isInstanceOf(IllegalArgumentException.class);
+            // Commit failure
+            Mockito.doThrow(new IllegalStateException("commit failed")).when(repositoryTransaction).commit();
+            assertThatThrownBy(() -> new StdTxManager(repository).tx(() -> testObj)).isInstanceOf(IllegalStateException.class);
+
+            verify(transactionLocal, Mockito.never()).log();
+        } finally {
+            loggerConfig.setLevel(oldLevel);
+            loggerContext.updateLoggers();
+        }
+    }
+
+    @Test
     public void testDryRun_True_RetryRollback() {
         when(repository.startTransaction(any(TxOptions.class))).thenReturn(repositoryTransaction);
         when(repositoryTransaction.getTransactionLocal()).thenReturn(transactionLocal);

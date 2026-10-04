@@ -79,31 +79,38 @@ final class TxImpl implements Tx {
             res = supplier.get();
             deferredBeforeCommit.forEach(Runnable::run);
         } catch (Throwable t) {
-            doRollback(isBusinessException(t),
-                    String.format("[%s] runInTx(): Rollback as inconsistent with business exception %s%s", sw, t, formatExecutionLogMultiline("! ")));
-            log.debug("[{}] runInTx(): Rollback due to {}{}", sw, t, formatExecutionLogMultiline("! "), t);
+            doRollback(isBusinessException(t), () -> String.format(
+                    "[%s] runInTx(): Rollback as inconsistent with business exception %s%s", sw, t, formatExecutionLogMultiline("! ")
+            ));
+            if (log.isDebugEnabled()) {
+                log.debug("[{}] runInTx(): Rollback due to {}{}", sw, t, formatExecutionLogMultiline("! "), t);
+            }
             throw t;
         }
 
         if (dryRun) {
-            doRollback(true, String.format("[%s] runInTx(): Rollback due to DRY-RUN mode", sw));
-            log.debug("[{}] runInTx(): Rollback due to DRY-RUN mode {}", sw, formatExecutionLogMultiline("# "));
+            doRollback(true, () -> String.format("[%s] runInTx(): Rollback due to DRY-RUN mode", sw));
+            if (log.isDebugEnabled()) {
+                log.debug("[{}] runInTx(): Rollback due to DRY-RUN mode {}", sw, formatExecutionLogMultiline("# "));
+            }
             return res;
         }
 
         try {
             repositoryTransaction.commit();
         } catch (Throwable t) {
-            log.debug("[{}] runInTx(): Commit failed due to {}{}", sw, t, formatExecutionLogMultiline("?! "), t);
+            if (log.isDebugEnabled()) {
+                log.debug("[{}] runInTx(): Commit failed due to {}{}", sw, t, formatExecutionLogMultiline("?! "), t);
+            }
             throw t;
         }
-        if (logStatementOnSuccess) {
+        if (logStatementOnSuccess && log.isDebugEnabled()) {
             log.debug("[{}] runInTx(): Commit {}", sw, formatExecutionLogMultiline(""));
         }
         return res;
     }
 
-    private void doRollback(boolean isBusinessException, String businessExceptionLogMessage) {
+    private void doRollback(boolean isBusinessException, Supplier<String> businessExceptionLogMessage) {
         try {
             // Note that should we catch an InterruptedException from any place other than the transaction methods,
             // the transaction will remain in 'executed normally' state so the rollback call will go
@@ -111,7 +118,9 @@ final class TxImpl implements Tx {
             repositoryTransaction.rollback();
         } catch (OptimisticLockException optimisticRollbackException) {
             if (isBusinessException) {
-                log.debug(businessExceptionLogMessage);
+                if (log.isDebugEnabled()) {
+                    log.debug(businessExceptionLogMessage.get());
+                }
                 throw optimisticRollbackException;
             }
         }
