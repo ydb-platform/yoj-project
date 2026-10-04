@@ -18,19 +18,9 @@ import tech.ydb.proto.ValueProtos;
 import tech.ydb.table.Session;
 import tech.ydb.table.query.DataQueryResult;
 import tech.ydb.table.query.Params;
-import tech.ydb.table.query.stats.CompilationStats;
-import tech.ydb.table.query.stats.OperationStats;
-import tech.ydb.table.query.stats.QueryPhaseStats;
-import tech.ydb.table.query.stats.QueryStats;
-import tech.ydb.table.query.stats.QueryStatsCollectionMode;
-import tech.ydb.table.query.stats.TableAccessStats;
+import tech.ydb.table.query.stats.*;
 import tech.ydb.table.result.ResultSetReader;
-import tech.ydb.table.settings.BulkUpsertSettings;
-import tech.ydb.table.settings.CommitTxSettings;
-import tech.ydb.table.settings.ExecuteDataQuerySettings;
-import tech.ydb.table.settings.ExecuteScanQuerySettings;
-import tech.ydb.table.settings.ReadTableSettings;
-import tech.ydb.table.settings.RollbackTxSettings;
+import tech.ydb.table.settings.*;
 import tech.ydb.table.transaction.TxControl;
 import tech.ydb.table.values.ListValue;
 import tech.ydb.table.values.StructValue;
@@ -38,34 +28,17 @@ import tech.ydb.table.values.TupleValue;
 import tech.ydb.table.values.Value;
 import tech.ydb.yoj.ExperimentalApi;
 import tech.ydb.yoj.repository.BaseDb;
-import tech.ydb.yoj.repository.db.Entity;
-import tech.ydb.yoj.repository.db.QueryStatsMode;
-import tech.ydb.yoj.repository.db.QueryTracingFilter;
-import tech.ydb.yoj.repository.db.QueryType;
-import tech.ydb.yoj.repository.db.RepositoryTransaction;
-import tech.ydb.yoj.repository.db.Table;
-import tech.ydb.yoj.repository.db.TableDescriptor;
-import tech.ydb.yoj.repository.db.Tx;
-import tech.ydb.yoj.repository.db.TxOptions;
+import tech.ydb.yoj.repository.db.*;
 import tech.ydb.yoj.repository.db.bulk.BulkParams;
 import tech.ydb.yoj.repository.db.cache.RepositoryCache;
 import tech.ydb.yoj.repository.db.cache.TransactionLocal;
-import tech.ydb.yoj.repository.db.exception.IllegalTransactionIsolationLevelException;
-import tech.ydb.yoj.repository.db.exception.IllegalTransactionScanException;
-import tech.ydb.yoj.repository.db.exception.OptimisticLockException;
-import tech.ydb.yoj.repository.db.exception.RepositoryException;
-import tech.ydb.yoj.repository.db.exception.UnavailableException;
+import tech.ydb.yoj.repository.db.exception.*;
 import tech.ydb.yoj.repository.db.readtable.ReadTableParams;
 import tech.ydb.yoj.repository.ydb.bulk.BulkMapper;
 import tech.ydb.yoj.repository.ydb.client.ResultSetConverter;
 import tech.ydb.yoj.repository.ydb.client.YdbConverter;
 import tech.ydb.yoj.repository.ydb.client.YdbValidator;
-import tech.ydb.yoj.repository.ydb.exception.BadSessionException;
-import tech.ydb.yoj.repository.ydb.exception.ResultTruncatedException;
-import tech.ydb.yoj.repository.ydb.exception.UnexpectedException;
-import tech.ydb.yoj.repository.ydb.exception.YdbComponentUnavailableException;
-import tech.ydb.yoj.repository.ydb.exception.YdbOverloadedException;
-import tech.ydb.yoj.repository.ydb.exception.YdbRepositoryException;
+import tech.ydb.yoj.repository.ydb.exception.*;
 import tech.ydb.yoj.repository.ydb.merge.QueriesMerger;
 import tech.ydb.yoj.repository.ydb.readtable.ReadTableMapper;
 import tech.ydb.yoj.repository.ydb.statement.Statement;
@@ -293,17 +266,18 @@ public class YdbRepositoryTransaction<REPO extends YdbRepository>
 
     @Override
     public <PARAMS, RESULT> List<RESULT> execute(Statement<PARAMS, RESULT> statement, PARAMS params) {
-        List<RESULT> result = statement.readFromCache(params, cache);
-        if (result != null) {
-            String actionStr = statement.toDebugString(params);
-            String resultStr = debugResult(result);
-            transactionLocal.log().debug("[statement cache] %s -> %s", actionStr, resultStr);
-            return result;
+        List<RESULT> cachedResult = statement.readFromCache(params, cache);
+        if (cachedResult != null) {
+            transactionLocal.log().debug(() -> List.of(String.format(
+                    "[statement cache] %s -> %s", statement.toDebugString(params), debugResult(cachedResult)
+            )));
+            return cachedResult;
         }
 
+        List<RESULT> result = null;
         Exception thrown = null;
         try {
-            result = doCall(statement.toDebugString(params), () -> {
+            result = doCall(() -> statement.toDebugString(params), () -> {
                 if (options.isScan()) {
                     return options.getScanOptions().isUseNewSpliterator()
                             ? doExecuteScanQueryList(statement, params)
@@ -642,7 +616,7 @@ public class YdbRepositoryTransaction<REPO extends YdbRepository>
     }
 
     private void doCall(String actionStr, Runnable call) {
-        doCall(actionStr, () -> {
+        doCall(() -> actionStr, () -> {
             call.run();
             return null;
         });
@@ -659,21 +633,32 @@ public class YdbRepositoryTransaction<REPO extends YdbRepository>
         }
     }
 
-    private <R> R doCall(String actionStr, Supplier<R> call) {
+    private <R> R doCall(Supplier<String> actionStr, Supplier<R> call) {
         initSession();
 
         Stopwatch sw = Stopwatch.createStarted();
-        String resultStr = "";
+        R result = null;
+        Exception thrown = null;
         try {
-            R result = call.get();
-            resultStr = (result == null ? "" : " -> " + debugResult(result));
+            result = call.get();
             return result;
         } catch (Exception e) {
-            resultStr = " => " + e.getClass().getName();
+            thrown = e;
             throw e;
         } finally {
-            transactionLocal.log().debug("[ %s ] %s", sw, actionStr + resultStr);
+            R finalResult = result;
+            Exception finalThrown = thrown;
+            transactionLocal.log().debug(() -> List.of(String.format(
+                    "[ %s ] %s%s", sw, actionStr.get(), debugCallResult(finalResult, finalThrown)
+            )));
         }
+    }
+
+    private static String debugCallResult(@Nullable Object result, @Nullable Exception thrown) {
+        if (thrown != null) {
+            return " => " + thrown.getClass().getName();
+        }
+        return result == null ? "" : " -> " + debugResult(result);
     }
 
     private static String debugResult(Object result) {
