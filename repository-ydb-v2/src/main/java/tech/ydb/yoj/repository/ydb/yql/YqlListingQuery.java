@@ -44,13 +44,16 @@ public final class YqlListingQuery {
         }
     };
 
-    private static final CharMatcher LIKE_PATTERN_CHARS = CharMatcher.anyOf("%_").precomputed();
-
     /**
      * Default escape character for {@code LIKE} operator. Unfortunately, YDB does not currently support using {@code \}
      * as an escape, so we choose a reasonable rare character instead.
      */
     private static final char LIKE_ESCAPE_CHAR = '^';
+
+    /**
+     * Characters that must be escaped in {@code LIKE} patterns: {@code %} and {@code _} wildcards, and the escape character itself.
+     */
+    private static final CharMatcher LIKE_SPECIAL_CHARS = CharMatcher.anyOf("%_" + LIKE_ESCAPE_CHAR).precomputed();
 
     private YqlListingQuery() {
     }
@@ -198,7 +201,7 @@ public final class YqlListingQuery {
     private static String likePatternForContains(@NonNull String str) {
         StringBuilder sb = new StringBuilder(str.length() + 2);
         sb.append('%');
-        if (LIKE_PATTERN_CHARS.matchesNoneOf(str)) {
+        if (LIKE_SPECIAL_CHARS.matchesNoneOf(str)) {
             sb.append(str);
         } else {
             escapeLikePatternToSb(str, sb);
@@ -211,7 +214,7 @@ public final class YqlListingQuery {
     @NonNull
     private static String likePatternForStartsWith(@NonNull String str) {
         StringBuilder sb = new StringBuilder(str.length() + 1);
-        if (LIKE_PATTERN_CHARS.matchesNoneOf(str)) {
+        if (LIKE_SPECIAL_CHARS.matchesNoneOf(str)) {
             sb.append(str);
         } else {
             escapeLikePatternToSb(str, sb);
@@ -225,7 +228,7 @@ public final class YqlListingQuery {
     private static String likePatternForEndsWith(@NonNull String str) {
         StringBuilder sb = new StringBuilder(str.length() + 1);
         sb.append('%');
-        if (LIKE_PATTERN_CHARS.matchesNoneOf(str)) {
+        if (LIKE_SPECIAL_CHARS.matchesNoneOf(str)) {
             sb.append(str);
         } else {
             escapeLikePatternToSb(str, sb);
@@ -236,7 +239,7 @@ public final class YqlListingQuery {
     private static void escapeLikePatternToSb(@NonNull String str, StringBuilder sb) {
         for (int i = 0; i < str.length(); i++) {
             char ch = str.charAt(i);
-            if (ch == LIKE_ESCAPE_CHAR || LIKE_PATTERN_CHARS.matches(ch)) {
+            if (LIKE_SPECIAL_CHARS.matches(ch)) {
                 sb.append(LIKE_ESCAPE_CHAR);
             }
             sb.append(ch);
