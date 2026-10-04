@@ -60,7 +60,7 @@ final class YojMeteredTableClient implements TableClient {
             try {
                 observeAcquireDuration(timer);
             } catch (Exception suppressed) {
-                e.addSuppressed(e);
+                e.addSuppressed(suppressed);
             }
             throw e;
         }
