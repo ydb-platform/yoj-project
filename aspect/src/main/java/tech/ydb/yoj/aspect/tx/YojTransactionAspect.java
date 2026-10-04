@@ -81,7 +81,7 @@ public class YojTransactionAspect {
                 return localTx.tx(() -> safeCall(pjp, transactional.noRollbackFor()))
                     .reThrowSkipped();
             }
-        } catch (CallRetryableException | CallException e) {
+        } catch (CallException e) {
             throw e.getCause();
         }
     }
@@ -102,7 +102,8 @@ public class YojTransactionAspect {
         try {
             return CallResult.ofSuccess(pjp.proceed());
         } catch (RetryableException e) {
-            throw new CallRetryableException(e);
+            // Rethrow as-is, so that TxManager sees the original exception and uses its retry policy
+            throw e;
         } catch (Throwable e) {
             for (Class<? extends Throwable> t : noRollbackExceptions) {
                 if (t.isAssignableFrom(e.getClass())) {
@@ -110,15 +111,6 @@ public class YojTransactionAspect {
                 }
             }
             throw new CallException(e);
-        }
-    }
-
-    /**
-     * It's a hint for tx manager to retry was requested
-     */
-    static class CallRetryableException extends RetryableException {
-        CallRetryableException(RetryableException e) {
-            super(e.getMessage(), e);
         }
     }
 
