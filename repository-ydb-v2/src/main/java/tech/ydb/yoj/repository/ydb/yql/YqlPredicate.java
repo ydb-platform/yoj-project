@@ -1182,7 +1182,7 @@ public abstract class YqlPredicate implements YqlStatementPart<YqlPredicate> {
         }
 
         public YqlPredicate neq(@NonNull Object value1, @NonNull Object value2, @NonNull Object... remainingValues) {
-            return eq(listOf(value1, value2, remainingValues));
+            return neq(listOf(value1, value2, remainingValues));
         }
 
         public YqlPredicate neq(@NonNull List<?> fieldValues) {

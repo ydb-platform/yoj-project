@@ -524,7 +524,7 @@ public class YqlPredicateTest {
     @Test
     public void multirel_neq_fluent() {
         assertThat(where("workers", "status").neq(42L, "RUNNING").toYql(schema))
-                .isEqualToIgnoringCase("(`workers`, `status`) = ?");
+                .isEqualToIgnoringCase("(`workers`, `status`) <> ?");
     }
 
     @Test
