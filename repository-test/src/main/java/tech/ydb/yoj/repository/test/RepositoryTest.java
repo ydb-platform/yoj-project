@@ -574,13 +574,11 @@ public abstract class RepositoryTest extends RepositoryTestSupport {
         assertThatExceptionOfType(OptimisticLockException.class)
                 .isThrownBy(() -> tx.table(Project.class).find(id2));
 
-        try {
-            tx.commit();
-        } catch (IllegalStateException ignore) {
-            // Some implementations throw, some don't
-        }
+        assertThatIllegalStateException().isThrownBy(tx::commit);
 
         tx.rollback(); // YOJ-tx rollback is possible. session.rollbackCommit() won't execute
+
+        db.tx(() -> assertThat(db.projects().find(id1)).isNull());
     }
 
     @Test
