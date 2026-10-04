@@ -152,7 +152,12 @@ public class YdbRepositoryTransaction<REPO extends YdbRepository>
     @Override
     public void commit() {
         if (isBadSession) {
-            log.error("Transaction was invalidated, but exception was omitted. Commit must not be called after error");
+            // The DB transaction has already been rolled back by the server, so its changes cannot be committed.
+            // We must fail instead of pretending that the commit was successful.
+            rollback();
+            throw new IllegalStateException(
+                    "Transaction was invalidated, but the exception was omitted. Commit must not be called after an error"
+            );
         }
         try {
             flushPendingWrites();
