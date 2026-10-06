@@ -10,7 +10,7 @@ java_library(
         "//util",
         "@java_contribs_stable//:com_google_code_findbugs_jsr305",
         "@java_contribs_stable//:com_google_guava_guava",
-        "@java_contribs_stable//:io_prometheus_simpleclient",
+        "@java_contribs_stable//:io_prometheus_prometheus_metrics_core",
         "@java_contribs_stable//:javax_annotation_javax_annotation_api",
     ],
 )
