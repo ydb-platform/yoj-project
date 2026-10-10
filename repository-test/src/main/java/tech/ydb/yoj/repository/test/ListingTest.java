@@ -702,6 +702,31 @@ public abstract class ListingTest extends RepositoryTestSupport {
         });
     }
 
+    @Test
+    public void likeEscapeCharIsEscaped() {
+        LogEntry entry1 = new LogEntry(new LogEntry.Id("log1", 1L), LogEntry.Level.ERROR, "a^b");
+        LogEntry notInOutput = new LogEntry(new LogEntry.Id("log1", 2L), LogEntry.Level.DEBUG, "ab");
+        LogEntry entry2 = new LogEntry(new LogEntry.Id("log1", 3L), LogEntry.Level.WARN, "^a^b^");
+        db.tx(() -> db.logEntries().insert(entry1, notInOutput, entry2));
+
+        db.tx(() -> {
+            assertThat(listLogEntries(ListRequest.builder(LogEntry.class)
+                    .pageSize(100)
+                    .filter(fb -> fb.where("message").contains("a^b"))
+                    .build())
+            ).containsExactly(entry1, entry2);
+            assertThat(listLogEntries(ListRequest.builder(LogEntry.class)
+                    .pageSize(100)
+                    .filter(fb -> fb.where("message").startsWith("^"))
+                    .build())
+            ).containsExactly(entry2);
+            assertThat(listLogEntries(ListRequest.builder(LogEntry.class)
+                    .pageSize(100)
+                    .filter(fb -> fb.where("message").endsWith("^"))
+                    .build())
+            ).containsExactly(entry2);
+        });
+    }
 
     @Test
     public void view() {

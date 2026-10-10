@@ -8,6 +8,8 @@ import tech.ydb.yoj.databind.schema.Schema;
 import tech.ydb.yoj.repository.db.Entity;
 import tech.ydb.yoj.repository.db.EntitySchema;
 
+import java.util.function.UnaryOperator;
+
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class YqlListingQueryTest {
@@ -22,8 +24,34 @@ public class YqlListingQueryTest {
                 .and("val2").neq("yozhos")
                 .build();
 
-        assertThat(filter.toString()).isEqualTo("(val1 > 5) AND (id.timestamp >= 100500) AND (id.key == \"uzhos\") AND (val2 != \"yozhos\")");
-        assertThat(YqlListingQuery.normalize(filter).toString()).isEqualTo("(id.key == \"uzhos\") AND (id.timestamp >= 100500) AND (val1 > 5) AND (val2 != \"yozhos\")");
+        assertThat(filter).hasToString("(val1 > 5) AND (id.timestamp >= 100500) AND (id.key == \"uzhos\") AND (val2 != \"yozhos\")");
+        assertThat(YqlListingQuery.normalize(filter)).hasToString("(id.key == \"uzhos\") AND (id.timestamp >= 100500) AND (val1 > 5) AND (val2 != \"yozhos\")");
+    }
+
+    @Test
+    public void likePatternEscapesEscapeChar() {
+        assertThat(toYqlPredicate(filterBuilder -> filterBuilder.where("val2").contains("a^b")))
+                .hasToString("val2 LIKE %a^^b% ESCAPE ^");
+        assertThat(toYqlPredicate(filterBuilder -> filterBuilder.where("val2").startsWith("a^")))
+                .hasToString("val2 LIKE a^^% ESCAPE ^");
+        assertThat(toYqlPredicate(filterBuilder -> filterBuilder.where("val2").endsWith("^b")))
+                .hasToString("val2 LIKE %^^b ESCAPE ^");
+    }
+
+    @Test
+    public void likePatternEscapesWildcardsAndEscapeChar() {
+        assertThat(toYqlPredicate(filterBuilder -> filterBuilder.where("val2").contains("%a^_")))
+                .hasToString("val2 LIKE %^%a^^^_% ESCAPE ^");
+    }
+
+    @Test
+    public void likePatternWithoutSpecialChars() {
+        assertThat(toYqlPredicate(filterBuilder -> filterBuilder.where("val2").contains("abc")))
+                .hasToString("val2 LIKE %abc% ESCAPE ^");
+    }
+
+    private static YqlPredicate toYqlPredicate(UnaryOperator<FilterBuilder<ComplexObj>> filterCtor) {
+        return YqlListingQuery.toYqlPredicate(filterCtor.apply(FilterBuilder.forSchema(complexSchema)).build());
     }
 
     @Value
