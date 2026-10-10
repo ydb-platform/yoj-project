@@ -1955,6 +1955,25 @@ public abstract class RepositoryTest extends RepositoryTestSupport {
     }
 
     @Test
+    public void insertThenSaveOfExistingEntityFailsOnCommit() {
+        Project existing = new Project(new Project.Id("1"), "existing");
+        db.tx(() -> db.projects().insert(existing));
+
+        Project other = new Project(new Project.Id("2"), "other");
+        assertThatExceptionOfType(EntityAlreadyExistsException.class)
+                .isThrownBy(() -> db.tx(() -> {
+                    db.projects().insert(other);
+                    db.projects().insert(existing.withName("inserted"));
+                    db.projects().save(existing.withName("saved"));
+                }));
+
+        db.tx(() -> {
+            assertThat(db.projects().find(existing.getId())).isEqualTo(existing);
+            assertThat(db.projects().find(other.getId())).isNull();
+        });
+    }
+
+    @Test
     public void updateSimpleFieldById() {
         db.tx(() -> db.projects().insert(new Project(new Project.Id("1"), "p1")));
 
