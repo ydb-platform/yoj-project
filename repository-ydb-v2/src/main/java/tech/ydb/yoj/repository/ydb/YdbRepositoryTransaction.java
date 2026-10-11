@@ -152,8 +152,12 @@ public class YdbRepositoryTransaction<REPO extends YdbRepository>
     @Override
     public void commit() {
         if (isBadSession) {
-            // The DB transaction has already been rolled back by the server, so its changes cannot be committed.
-            // We must fail instead of pretending that the commit was successful.
+            // YDB has already rolled back this transaction (e.g., its locks were invalidated), but user code has swallowed
+            // the resulting exception. The transaction's changes are lost, so we must fail instead of reporting success.
+            //
+            // rollback() sends no request to YDB here (isFinalActionNeeded() is false for a transaction invalidated by YDB),
+            // it only closes open streams, returns the session to the pool and marks this transaction as closed.
+            // TxImpl does not call rollback() when commit() fails, so without this call the session would leak.
             rollback();
             throw new IllegalStateException(
                     "Transaction was invalidated, but the exception was omitted. Commit must not be called after an error"

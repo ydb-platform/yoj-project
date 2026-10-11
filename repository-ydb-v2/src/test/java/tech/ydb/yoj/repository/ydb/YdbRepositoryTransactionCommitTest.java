@@ -13,6 +13,7 @@ import tech.ydb.proto.table.YdbTable;
 import tech.ydb.table.Session;
 import tech.ydb.table.query.DataQueryResult;
 import tech.ydb.table.settings.CommitTxSettings;
+import tech.ydb.table.settings.RollbackTxSettings;
 import tech.ydb.yoj.repository.db.IsolationLevel;
 import tech.ydb.yoj.repository.db.TxOptions;
 import tech.ydb.yoj.repository.db.exception.OptimisticLockException;
@@ -82,6 +83,9 @@ public class YdbRepositoryTransactionCommitTest {
         assertThatIllegalStateException().isThrownBy(tx::commit);
 
         verify(session, never()).commitTransaction(any(), any(CommitTxSettings.class));
+        // YDB has already rolled back the transaction, so no rollback request must be sent (it would fail with NOT_FOUND)...
+        verify(session, never()).rollbackTransaction(any(), any(RollbackTxSettings.class));
+        // ...but the session must still be returned to the pool
         verify(session).close();
     }
 }
