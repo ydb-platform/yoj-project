@@ -7,6 +7,8 @@ import tech.ydb.yoj.repository.db.TableDescriptor;
 import java.util.Map;
 import java.util.function.Function;
 
+import static tech.ydb.yoj.util.lang.DebugLoggable.toLoggable;
+
 public class UpsertYqlStatement<IN, T extends Entity<T>> extends MultipleVarsYqlStatement.Simple<IN, T> {
     public UpsertYqlStatement(TableDescriptor<T> tableDescriptor, EntitySchema<T> schema) {
         super(tableDescriptor, schema);
@@ -19,7 +21,7 @@ public class UpsertYqlStatement<IN, T extends Entity<T>> extends MultipleVarsYql
 
     @Override
     public String toDebugString(IN in) {
-        return "upsert(" + toDebugParams(in) + ")";
+        return "upsert(" + toLoggable(in) + ")";
     }
 
     @Override

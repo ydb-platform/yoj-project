@@ -143,7 +143,7 @@ public final class YqlOrderBy implements YqlStatementPart<YqlOrderBy> {
 
     @Override
     public String toString() {
-        return keys.isEmpty() ? "unordered" : format("order by %s", keys.stream().map(Object::toString).collect(joining(", ")));
+        return keys.isEmpty() ? "unordered" : "orderBy " + keys;
     }
 
     /**

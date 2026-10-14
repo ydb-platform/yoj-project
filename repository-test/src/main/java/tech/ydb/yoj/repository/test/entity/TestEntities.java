@@ -29,6 +29,7 @@ import tech.ydb.yoj.repository.test.sample.model.SVTEntity;
 import tech.ydb.yoj.repository.test.sample.model.Supabubble;
 import tech.ydb.yoj.repository.test.sample.model.Supabubble2;
 import tech.ydb.yoj.repository.test.sample.model.Team;
+import tech.ydb.yoj.repository.test.sample.model.Ticket;
 import tech.ydb.yoj.repository.test.sample.model.TypeFreak;
 import tech.ydb.yoj.repository.test.sample.model.UniqueProject;
 import tech.ydb.yoj.repository.test.sample.model.UpdateFeedEntry;
@@ -76,7 +77,8 @@ public final class TestEntities {
             EnumEntity.class,
             MigrationEntity.class,
             Membership.class,
-            BadMembership.class
+            BadMembership.class,
+            Ticket.class
     );
 
     public static final List<TableDescriptor<?>> ALL_TABLE_DESCRIPTORS = List.of(

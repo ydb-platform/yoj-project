@@ -115,6 +115,6 @@ public class YqlLimit implements YqlStatementPart<YqlLimit> {
 
     @Override
     public String toString() {
-        return "limit " + limit + (offset == 0 ? "" : " offset " + offset);
+        return "limit [" + limit + "]" + (offset == 0 ? "" : " offset [" + offset + "]");
     }
 }

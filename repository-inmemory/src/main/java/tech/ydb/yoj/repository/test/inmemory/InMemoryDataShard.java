@@ -94,7 +94,7 @@ import java.util.TreeMap;
 
             for (Range<Entity.Id<T>> lockedRange : lockedRanges) {
                 if (lockedRange.contains(entry.getKey())) {
-                    throw new OptimisticLockException("Table lock failed " + tableDescriptor.toDebugString());
+                    throw new OptimisticLockException("Table lock failed " + tableDescriptor.toLoggable());
                 }
             }
         }
@@ -155,7 +155,7 @@ import java.util.TreeMap;
 
         Columns savedColumns = entityLine.get(txId, version);
         if (savedColumns != null) {
-            throw new EntityAlreadyExistsException("Entity " + entity.getId() + " already exists");
+            throw new EntityAlreadyExistsException("Entity " + entity.getId().toLoggable() + " already exists");
         }
 
         save(txId, version, entity);
@@ -192,7 +192,7 @@ import java.util.TreeMap;
                 Columns columns = line.get(txId, version);
                 if (columns != null && !id.equals(entityId)
                         && entityIndexValues.equals(buildIndexValues(uniqueIndex, columns))) {
-                    throw new EntityAlreadyExistsException("Entity " + entityId + " already exists");
+                    throw new EntityAlreadyExistsException("Entity " + entityId.toLoggable() + " already exists");
                 }
             });
         }

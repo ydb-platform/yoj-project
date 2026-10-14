@@ -89,7 +89,7 @@ public final class UpdateByIdStatement<ENTITY extends Entity<ENTITY>, ID extends
 
     @Override
     public String toDebugString(UpdateModel.ById<ID> idById) {
-        return "updateById(" + idById.getId() + ")";
+        return "updateById(" + idById.getId().toLoggable() + ")";
     }
 
     @Override

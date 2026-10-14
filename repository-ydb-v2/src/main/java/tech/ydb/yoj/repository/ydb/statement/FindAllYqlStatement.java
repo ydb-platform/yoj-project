@@ -6,7 +6,6 @@ import tech.ydb.yoj.repository.db.EntitySchema;
 import tech.ydb.yoj.repository.db.TableDescriptor;
 
 public class FindAllYqlStatement<PARAMS, ENTITY extends Entity<ENTITY>, RESULT> extends YqlStatement<PARAMS, ENTITY, RESULT> {
-
     public FindAllYqlStatement(
             TableDescriptor<ENTITY> tableDescriptor, EntitySchema<ENTITY> schema, Schema<RESULT> resultSchema
     ) {
@@ -28,6 +27,6 @@ public class FindAllYqlStatement<PARAMS, ENTITY extends Entity<ENTITY>, RESULT> 
 
     @Override
     public String toDebugString(PARAMS params) {
-        return "findAll(" + tableDescriptor.toDebugString() + ")";
+        return "findAll(" + tableDescriptor.toLoggable() + ")";
     }
 }

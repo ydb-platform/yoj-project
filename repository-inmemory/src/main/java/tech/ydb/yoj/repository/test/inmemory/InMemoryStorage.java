@@ -88,7 +88,7 @@ import java.util.Set;
         InMemoryDataShard<T> shard = (InMemoryDataShard<T>) shards.get(tableDescriptor);
 
         if (shard == null) {
-            throw new InMemoryRepositoryException("Table is not created: " + tableDescriptor.toDebugString());
+            throw new InMemoryRepositoryException("Table is not created: " + tableDescriptor.toLoggable());
         }
         return shard;
     }

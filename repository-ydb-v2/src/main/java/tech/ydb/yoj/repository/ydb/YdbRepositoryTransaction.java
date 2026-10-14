@@ -2,7 +2,6 @@ package tech.ydb.yoj.repository.ydb;
 
 import com.google.common.base.Preconditions;
 import com.google.common.base.Stopwatch;
-import com.google.common.collect.Iterables;
 import io.grpc.Context;
 import io.grpc.Deadline;
 import lombok.Getter;
@@ -88,6 +87,8 @@ import static com.google.common.base.Strings.emptyToNull;
 import static java.lang.Boolean.getBoolean;
 import static java.util.stream.Collectors.toList;
 import static lombok.AccessLevel.PRIVATE;
+import static tech.ydb.yoj.util.lang.DebugLoggable.toLoggable;
+import static tech.ydb.yoj.util.lang.DebugLoggable.toVerboseLoggable;
 
 public class YdbRepositoryTransaction<REPO extends YdbRepository>
         implements BaseDb, RepositoryTransaction, YdbTable.QueryExecutor {
@@ -296,7 +297,7 @@ public class YdbRepositoryTransaction<REPO extends YdbRepository>
         List<RESULT> result = statement.readFromCache(params, cache);
         if (result != null) {
             String actionStr = statement.toDebugString(params);
-            String resultStr = debugResult(result);
+            Object resultStr = toLoggable(result);
             transactionLocal.log().debug("[statement cache] %s -> %s", actionStr, resultStr);
             return result;
         }
@@ -666,22 +667,13 @@ public class YdbRepositoryTransaction<REPO extends YdbRepository>
         String resultStr = "";
         try {
             R result = call.get();
-            resultStr = (result == null ? "" : " -> " + debugResult(result));
+            resultStr = (result == null ? "" : " -> " + toLoggable(result));
             return result;
         } catch (Exception e) {
             resultStr = " => " + e.getClass().getName();
             throw e;
         } finally {
             transactionLocal.log().debug("[ %s ] %s", sw, actionStr + resultStr);
-        }
-    }
-
-    private static String debugResult(Object result) {
-        if (result instanceof Iterable) {
-            int size = Iterables.size((Iterable<?>) result);
-            return size == 1 ? String.valueOf(((Iterable<?>) result).iterator().next()) : "[" + size + "]";
-        } else {
-            return String.valueOf(result);
         }
     }
 
@@ -840,7 +832,7 @@ public class YdbRepositoryTransaction<REPO extends YdbRepository>
             var sb = new StringBuilder();
             sb.append('\n');
             sb.append("--  IN OBJ <- ");
-            sb.append(getBoolean(PROP_TRACE_VERBOSE_OBJ_PARAMS) ? params : debugResult(params));
+            sb.append(getBoolean(PROP_TRACE_VERBOSE_OBJ_PARAMS) ? toVerboseLoggable(params) : toLoggable(params));
 
             if (getBoolean(PROP_TRACE_DUMP_YDB_PARAMS)) {
                 @SuppressWarnings({"rawtypes", "unchecked"})
@@ -867,7 +859,8 @@ public class YdbRepositoryTransaction<REPO extends YdbRepository>
             if (thrown != null) {
                 return "\n-- OUT EXC => " + thrown.getClass().getName();
             } else if (results != null) {
-                return "\n-- OUT OBJ -> " + (getBoolean(PROP_TRACE_VERBOSE_OBJ_RESULTS) ? results : debugResult(results));
+                return "\n-- OUT OBJ -> " +
+                        (getBoolean(PROP_TRACE_VERBOSE_OBJ_RESULTS) ? toVerboseLoggable(results) : toLoggable(results));
             } else {
                 return "";
             }
