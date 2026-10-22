@@ -280,7 +280,7 @@ public class YdbRepository implements Repository {
 
     @Override
     public <T extends Entity<T>> SchemaOperations<T> schema(TableDescriptor<T> tableDescriptor) {
-        EntitySchema<T> schema = EntitySchema.of(tableDescriptor.entityType());
+        EntitySchema<T> schema = tableDescriptor.entitySchema();
         return new SchemaOperations<>() {
             @Override
             public void create() {

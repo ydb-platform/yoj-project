@@ -48,6 +48,7 @@ import static java.lang.String.format;
 import static java.util.Arrays.asList;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toMap;
+import static tech.ydb.yoj.util.lang.BetterCollectors.toMapNullFriendly;
 
 public abstract class Schema<T> {
     public static final String PATH_DELIMITER = ".";
@@ -69,8 +70,7 @@ public abstract class Schema<T> {
 
     protected final ReflectType<T> reflectType;
 
-    private final Class<T> type;
-    private final NamingStrategy namingStrategy;
+    protected final SchemaKey<T> key;
 
     protected Schema(@NonNull Class<T> type) {
         this(type, StdReflector.instance);
@@ -89,12 +89,17 @@ public abstract class Schema<T> {
     }
 
     protected Schema(@NonNull SchemaKey<T> key, @NonNull Reflector reflector) {
-        this.type = key.clazz();
-        this.namingStrategy = key.namingStrategy();
+        this.key = key;
 
+        Class<T> type = key.clazz();
         this.reflectType = reflector.reflectRootType(type);
 
-        this.fields = reflectType.getFields().stream().map(this::newRootJavaField).toList();
+        NamingStrategy namingStrategy = key.namingStrategy();
+        Predicate<JavaField> fieldFilter = key.fieldFilter();
+        this.fields = reflectType.getFields().stream()
+                .map(field -> newRootJavaField(field, fieldFilter))
+                .filter(fieldFilter)
+                .toList();
         recurseFields(this.fields)
                 .filter(f -> f.getName() == null)
                 .forEachOrdered(namingStrategy::assignFieldName);
@@ -107,31 +112,51 @@ public abstract class Schema<T> {
         this.changefeeds = prepareChangefeeds(collectChangefeeds(type));
     }
 
-    protected Schema(Schema<?> schema, String subSchemaFieldPath) {
-        this(schema.getField(subSchemaFieldPath), schema.getNamingStrategy());
+    protected Schema(@NonNull Schema<?> schema, @NonNull String subSchemaFieldPath) {
+        this(schema.getField(subSchemaFieldPath), schema.getNamingStrategy(), schema.getKey().fieldFilter());
     }
 
-    protected Schema(JavaField subSchemaField, @Nullable NamingStrategy parentNamingStrategy) {
+    protected Schema(@NonNull JavaField subSchemaField, @Nullable NamingStrategy parentNamingStrategy) {
+        this(subSchemaField, parentNamingStrategy, __ -> true);
+    }
+
+    @ExperimentalApi(issue = "https://github.com/ydb-platform/yoj-project/issues/256")
+    protected Schema(
+            @NonNull JavaField subSchemaField,
+            @Nullable NamingStrategy parentNamingStrategy,
+            @NonNull Predicate<JavaField> fieldFilter
+    ) {
         @SuppressWarnings("unchecked") ReflectType<T> rt = (ReflectType<T>) subSchemaField.field.getReflectType();
 
         this.reflectType = rt;
-        this.type = rt.getRawType();
-        this.namingStrategy = parentNamingStrategy == null ? SUBFIELD_SCHEMA_NAMING_STRATEGY : parentNamingStrategy;
+        this.key = new SchemaKey<>(
+                rt.getRawType(),
+                parentNamingStrategy == null ? SUBFIELD_SCHEMA_NAMING_STRATEGY : parentNamingStrategy,
+                fieldFilter
+        );
 
         // This is a subfield, *NOT* an Entity, so it has no table name, no TTL, no indexes and no changefeeds
-        // (And also, no useful naming strategy, because all field names have already been assigned by the moment you construct a subfield Schema!)
+        // (also, no useful naming strategy because all field names have already been assigned when you construct a subfield Schema!)
         this.ttlModifier = null;
         this.globalIndexes = List.of();
         this.globalIndexesByName = Map.of();
         this.changefeeds = List.of();
 
         if (subSchemaField.fields != null) {
-            this.fields = subSchemaField.fields.stream().map(this::newRootJavaField).toList();
+            this.fields = subSchemaField.fields.stream()
+                    .map(jf -> newRootJavaField(jf, fieldFilter))
+                    .filter(fieldFilter)
+                    .toList();
         } else {
             if (subSchemaField.getCustomValueTypeInfo() != null) {
-                var dummyField = new JavaField(new DummyCustomValueSubField(subSchemaField), subSchemaField, __ -> true);
+                var dummyField = new JavaField(
+                        new DummyCustomValueSubField(subSchemaField),
+                        subSchemaField,
+                        __ -> true,
+                        fieldFilter
+                );
                 dummyField.setName(subSchemaField.getName());
-                this.fields = List.of(dummyField);
+                this.fields = fieldFilter.test(dummyField) ? List.of(dummyField) : List.of();
             } else {
                 this.fields = List.of();
             }
@@ -148,7 +173,7 @@ public abstract class Schema<T> {
      * Java package name is omitted
      */
     public final String getTypeName() {
-        return Types.getShortTypeName(type);
+        return Types.getShortTypeName(getType());
     }
 
     private void validateFieldNames() {
@@ -264,12 +289,12 @@ public abstract class Schema<T> {
         return List.of(type.getAnnotationsByType(tech.ydb.yoj.databind.schema.Changefeed.class));
     }
 
-    private JavaField newRootJavaField(@NonNull ReflectField field) {
-        return new JavaField(field, null, this::isFlattenable);
+    private JavaField newRootJavaField(@NonNull ReflectField field, @NonNull Predicate<JavaField> fieldFilter) {
+        return new JavaField(field, null, this::isFlattenable, fieldFilter);
     }
 
-    private JavaField newRootJavaField(@NonNull JavaField javaField) {
-        return new JavaField(javaField, null);
+    private JavaField newRootJavaField(@NonNull JavaField javaField, @NonNull Predicate<JavaField> childFilter) {
+        return new JavaField(javaField, null, childFilter);
     }
 
     private Changefeed changefeedFromAnnotation(@NonNull tech.ydb.yoj.databind.schema.Changefeed changefeed) {
@@ -305,11 +330,15 @@ public abstract class Schema<T> {
     }
 
     public final Class<T> getType() {
-        return type;
+        return key.clazz();
     }
 
     public final NamingStrategy getNamingStrategy() {
-        return namingStrategy;
+        return key.namingStrategy();
+    }
+
+    public final SchemaKey<T> getKey() {
+        return key;
     }
 
     public final List<JavaField> flattenFields() {
@@ -366,12 +395,21 @@ public abstract class Schema<T> {
      * @see #flatten(Object)
      */
     public final T newInstance(Map<String, Object> cells) throws ConstructionException {
-        Object[] args = fields.stream().map(f -> f.newInstance(cells)).toArray();
-        return safeNewInstance(reflectType.getConstructor(), args);
+        return safeNewInstance(reflectType, fields, cells);
     }
 
     @SneakyThrows
-    private static <T> T safeNewInstance(Constructor<T> ctor, Object[] args) throws ConstructionException {
+    private static <T> T safeNewInstance(ReflectType<T> reflectType, List<JavaField> fields, Map<String, Object> cells)
+            throws ConstructionException {
+        Constructor<T> ctor = reflectType.getConstructor();
+
+        Map<String, Object> collected = fields.stream().collect(toMapNullFriendly(
+                f -> f.getField().getName(), // field name is unique within ReflectType
+                f -> f.newInstance(cells)
+        ));
+        Object[] args = reflectType.getFields().stream()
+                .map(rf -> collected.get(rf.getName()))
+                .toArray(Object[]::new);
         try {
             return ctor.newInstance(args);
         } catch (Exception e) {
@@ -431,7 +469,7 @@ public abstract class Schema<T> {
 
     @Override
     public final String toString() {
-        return Types.getShortTypeName(getClass()) + "<" + getTypeName() + ">";
+        return Types.getShortTypeName(getClass()) + "<" + getTypeName() + ">@" + System.identityHashCode(this);
     }
 
     private static final class DummyCustomValueSubField implements ReflectField {
@@ -516,7 +554,12 @@ public abstract class Schema<T> {
 
         private final List<JavaField> fields;
 
-        private JavaField(ReflectField field, JavaField parent, Predicate<ReflectField> isFlattenable) {
+        private JavaField(
+                ReflectField field,
+                JavaField parent,
+                Predicate<ReflectField> isFlattenable,
+                Predicate<JavaField> fieldFilter
+        ) {
             this.field = field;
             this.parent = parent;
             this.flattenable = isFlattenable.test(field);
@@ -524,7 +567,8 @@ public abstract class Schema<T> {
             this.valueType = field.getValueType();
             if (valueType.isComposite()) {
                 this.fields = field.getChildren().stream()
-                        .map(f -> new JavaField(f, this, isFlattenable))
+                        .map(f -> new JavaField(f, this, isFlattenable, fieldFilter))
+                        .filter(fieldFilter)
                         .toList();
 
                 if (flattenable && isFlat()) {
@@ -535,16 +579,22 @@ public abstract class Schema<T> {
             }
         }
 
-        private JavaField(JavaField javaField, JavaField parent) {
+        private JavaField(JavaField javaField, JavaField parent, Predicate<JavaField> fieldFilter) {
             this.field = javaField.field;
             this.parent = parent;
             this.flattenable = javaField.flattenable;
             this.name = javaField.name;
             this.path = javaField.path;
             this.valueType = javaField.valueType;
-            this.fields = (javaField.fields == null)
-                    ? null
-                    : javaField.fields.stream().map(f -> new JavaField(f, this)).toList();
+
+            if (javaField.fields == null) {
+                this.fields = null;
+            } else {
+                this.fields = javaField.fields.stream()
+                        .map(f -> new JavaField(f, this, fieldFilter))
+                        .filter(fieldFilter)
+                        .toList();
+            }
         }
 
         /**
@@ -765,11 +815,12 @@ public abstract class Schema<T> {
             if (isSimple()) {
                 return cells.get(name);
             } else {
-                Object[] args = fields.stream().map(f -> f.newInstance(cells)).toArray();
-                if (Stream.of(args).allMatch(Objects::isNull)) {
+                // Do not instantiate composite fields that have `null` value for every component:
+                if (flatten().allMatch(f -> cells.get(f.getName()) == null)) {
                     return null;
                 }
-                return safeNewInstance(field.getReflectType().getConstructor(), args);
+
+                return safeNewInstance(field.getReflectType(), fields, cells);
             }
         }
 

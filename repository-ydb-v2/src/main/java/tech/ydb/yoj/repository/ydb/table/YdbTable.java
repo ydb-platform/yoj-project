@@ -88,7 +88,7 @@ public class YdbTable<T extends Entity<T>> implements Table<T> {
     public YdbTable(TableDescriptor<T> tableDescriptor, QueryExecutor executor) {
         this.type = tableDescriptor.entityType();
         this.executor = new CheckingQueryExecutor(executor);
-        this.schema = EntitySchema.of(type);
+        this.schema = tableDescriptor.entitySchema();
         this.tableDescriptor = tableDescriptor;
     }
 

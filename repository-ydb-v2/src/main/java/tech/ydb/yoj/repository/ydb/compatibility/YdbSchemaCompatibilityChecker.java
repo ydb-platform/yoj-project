@@ -151,7 +151,7 @@ public final class YdbSchemaCompatibilityChecker {
     }
 
     private YdbSchemaOperations.Table tableForEntity(TableDescriptor<?> c) {
-        EntitySchema<?> schema = EntitySchema.of(c.entityType());
+        EntitySchema<?> schema = c.entitySchema();
         return repository.getSchemaOperations().describeTable(
                 c.tableName(),
                 schema.flattenFields(),

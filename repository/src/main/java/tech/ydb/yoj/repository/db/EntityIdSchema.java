@@ -7,7 +7,6 @@ import tech.ydb.yoj.databind.CustomValueTypes;
 import tech.ydb.yoj.databind.FieldValueType;
 import tech.ydb.yoj.databind.schema.Schema;
 import tech.ydb.yoj.databind.schema.configuration.SchemaRegistry;
-import tech.ydb.yoj.databind.schema.configuration.SchemaRegistry.SchemaKey;
 import tech.ydb.yoj.databind.schema.naming.NamingStrategy;
 import tech.ydb.yoj.databind.schema.reflect.ReflectField;
 
@@ -130,7 +129,7 @@ public final class EntityIdSchema<ID extends Entity.Id<?>> extends Schema<ID> im
     }
 
     public static <T extends Entity<T>, ID extends Entity.Id<T>> EntityIdSchema<ID> from(EntitySchema<T> entitySchema) {
-        var key = SchemaKey.of(entitySchema.getType(), entitySchema.getNamingStrategy());
+        var key = entitySchema.getKey();
         return entitySchema.getRegistry().getOrCreate(EntityIdSchema.class, (k, r) -> new EntityIdSchema<>(entitySchema), key);
     }
 
