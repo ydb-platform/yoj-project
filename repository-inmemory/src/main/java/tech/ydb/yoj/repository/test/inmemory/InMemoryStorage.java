@@ -110,8 +110,7 @@ import java.util.Set;
             return;
         }
 
-        // TODO(nvamelichev): In the future, InMemoryStorage/SchemaOperations should take SchemaRegistry instead of assuming the default one...
-        EntitySchema<T> schema = EntitySchema.of(tableDescriptor.entityType());
+        EntitySchema<T> schema = tableDescriptor.entitySchema();
         shards.put(tableDescriptor, new InMemoryDataShard<>(tableDescriptor, schema));
     }
 

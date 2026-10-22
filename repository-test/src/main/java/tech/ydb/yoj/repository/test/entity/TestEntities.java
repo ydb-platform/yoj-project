@@ -41,7 +41,7 @@ import tech.ydb.yoj.repository.test.sample.model.annotations.UniqueEntityNative;
 import java.util.List;
 
 public final class TestEntities {
-    public static final TableDescriptor<UniqueProject> SECOND_UNIQUE_PROJECT_TABLE = new TableDescriptor<>(
+    public static final TableDescriptor<UniqueProject> SECOND_UNIQUE_PROJECT_TABLE = TableDescriptor.of(
             UniqueProject.class, "second_uniq_project_table"
     );
 

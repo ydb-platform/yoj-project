@@ -20,6 +20,8 @@ import tech.ydb.yoj.databind.ByteArray;
 import tech.ydb.yoj.databind.expression.FieldValue;
 import tech.ydb.yoj.databind.expression.FilterExpression;
 import tech.ydb.yoj.databind.expression.values.StringFieldValue;
+import tech.ydb.yoj.databind.schema.Column;
+import tech.ydb.yoj.databind.schema.Column.ColumnNaming;
 import tech.ydb.yoj.repository.BaseDb;
 import tech.ydb.yoj.repository.db.Entity;
 import tech.ydb.yoj.repository.db.EntitySchema;
@@ -32,6 +34,7 @@ import tech.ydb.yoj.repository.db.RepositoryTransaction;
 import tech.ydb.yoj.repository.db.SchemaOperations;
 import tech.ydb.yoj.repository.db.StdTxManager;
 import tech.ydb.yoj.repository.db.Table;
+import tech.ydb.yoj.repository.db.TableDescriptor;
 import tech.ydb.yoj.repository.db.Tx;
 import tech.ydb.yoj.repository.db.TxManager;
 import tech.ydb.yoj.repository.db.TxOptions;
@@ -94,6 +97,7 @@ import tech.ydb.yoj.repository.test.sample.model.annotations.Sha256;
 import tech.ydb.yoj.repository.test.sample.model.annotations.UniqueEntity;
 import tech.ydb.yoj.repository.test.sample.model.annotations.UniqueEntityNative;
 
+import javax.annotation.Nullable;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
@@ -1422,6 +1426,82 @@ public abstract class RepositoryTest extends RepositoryTestSupport {
 
         assertThat(firstTableProject).isNull();
         assertThat(secondTableProject.getVersion()).isEqualTo(2);
+    }
+
+    @Test
+    public void sameEntityMultipleTablesAndPrimaryKeys() {
+        record AccessKey(
+                @NonNull Id id,
+                @NonNull String value
+        ) implements RecordEntity<AccessKey> {
+            record Id(
+                    @NonNull
+                    // To have the same DB column name ("id") in both _Outbox and _Inbox tables:
+                    @Column(name = "id", columnNaming = ColumnNaming.ABSOLUTE)
+                    String value,
+
+                    @Nullable
+                    // For naming consistency (without annotation, it would be "id_source")
+                    @Column(name = "source", columnNaming = ColumnNaming.ABSOLUTE)
+                    String source
+            ) implements Entity.Id<AccessKey> {
+            }
+        }
+
+        var outboxDescriptor = TableDescriptor.from(
+                EntitySchema.of(AccessKey.class).withFieldFilter(f -> !"id.source".equals(f.getPath())),
+                "AccessKey_Outbox"
+        );
+        var inboxDescriptor = TableDescriptor.of(AccessKey.class, "AccessKey_Inbox");
+        repository.schema(outboxDescriptor).create();
+        repository.schema(inboxDescriptor).create();
+
+        var accessKey = new AccessKey(
+                new AccessKey.Id("key100500", "source"),
+                "**SECRET**"
+        );
+        db.tx(() -> {
+            db.table(outboxDescriptor).save(accessKey);
+            db.table(inboxDescriptor).save(accessKey);
+        });
+
+        db.tx(() -> {
+            assertThat(db.table(outboxDescriptor).find(accessKey.id()))
+                    .isNotNull()
+                    .extracting(ak -> ak.id.source).isNull();
+            assertThat(db.table(inboxDescriptor).find(accessKey.id()))
+                    .isNotNull()
+                    .extracting(ak -> ak.id.source).isNotNull();
+        });
+
+        db.tx(() -> {
+            assertThat(db.table(outboxDescriptor).query()
+                    .where("id").eq(accessKey.id)
+                    .find())
+                    .singleElement()
+                    .isNotNull()
+                    .extracting(ak -> ak.id.source).isNull();
+            assertThat(db.table(outboxDescriptor).query()
+                    .where("id").eq(accessKey.id.value)
+                    .find())
+                    .singleElement()
+                    .isNotNull()
+                    .extracting(ak -> ak.id.source).isNull();
+
+            assertThat(db.table(inboxDescriptor).query()
+                    .where("id").eq(accessKey.id)
+                    .find())
+                    .singleElement()
+                    .isNotNull()
+                    .extracting(ak -> ak.id.source).isNotNull();
+            assertThat(db.table(inboxDescriptor).query()
+                    .where("id.value").eq(accessKey.id.value)
+                    .and("id.source").eq(accessKey.id.source)
+                    .find())
+                    .singleElement()
+                    .isNotNull()
+                    .extracting(ak -> ak.id.source).isNotNull();
+        });
     }
 
     @Test

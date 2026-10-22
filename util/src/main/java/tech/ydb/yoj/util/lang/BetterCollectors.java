@@ -18,8 +18,13 @@ public final class BetterCollectors {
     }
 
     /**
-     * A variant of {@link Collectors#toMap(Function, Function) Collectors.toMap()} that allows
-     * {@code valueMapper} to produce {@code null} values for map entries.
+     * A better variant of {@link Collectors#toMap(Function, Function) Collectors.toMap()}:
+     * <ul>
+     * <li>allows {@code valueMapper} to produce {@code null} values for map entries,</li>
+     * <li>collects to a {@code SequencedMap} in the encounter order of the stream that the collector is called on.</li>
+     * </ul>
+     * Just like with {@code Collectors.toMap()}, the returned {@code Collector}
+     * is not {@link Collector.Characteristics#CONCURRENT concurrent}.
      *
      * @param keyMapper   a mapping function to produce keys
      * @param valueMapper a mapping function to produce values
@@ -30,8 +35,10 @@ public final class BetterCollectors {
      * @see <a href="https://bugs.openjdk.java.net/browse/JDK-8148463">JDK-8148463 Bug</a>
      * @see <a href="https://stackoverflow.com/a/43299462">The Workaround</a>
      */
-    public static <T, K, U> Collector<T, ?, Map<K, U>> toMapNullFriendly(Function<? super T, ? extends K> keyMapper,
-                                                                         Function<? super T, ? extends U> valueMapper) {
+    public static <T, K, U> Collector<T, ?, Map<K, U>> toMapNullFriendly(
+            Function<? super T, ? extends K> keyMapper,
+            Function<? super T, ? extends U> valueMapper
+    ) {
         return Collector.of(
                 LinkedHashMap::new,
                 (map, elem) -> {

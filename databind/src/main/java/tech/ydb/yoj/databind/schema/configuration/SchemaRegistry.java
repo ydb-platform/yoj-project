@@ -1,10 +1,12 @@
 package tech.ydb.yoj.databind.schema.configuration;
 
 import com.google.common.annotations.VisibleForTesting;
+import lombok.Getter;
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
 import lombok.With;
 import tech.ydb.yoj.databind.schema.Schema;
+import tech.ydb.yoj.databind.schema.Schema.JavaField;
 import tech.ydb.yoj.databind.schema.naming.AnnotationFirstNamingStrategy;
 import tech.ydb.yoj.databind.schema.naming.NamingStrategy;
 import tech.ydb.yoj.databind.schema.reflect.Reflector;
@@ -13,6 +15,7 @@ import tech.ydb.yoj.databind.schema.reflect.StdReflector;
 import javax.annotation.Nullable;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.function.Predicate;
 
 import static lombok.AccessLevel.PRIVATE;
 
@@ -24,6 +27,8 @@ public final class SchemaRegistry {
 
     private final ConcurrentMap<SchemaKey<?>, Schemas> schemasByType = new ConcurrentHashMap<>();
     private final NamingOverrides namingOverrides = new NamingOverrides();
+
+    @Getter
     private final Reflector reflector;
 
     @NonNull
@@ -59,17 +64,17 @@ public final class SchemaRegistry {
         namingOverrides.clear();
     }
 
-    public record SchemaKey<T>(@NonNull Class<T> clazz, @NonNull @With NamingStrategy namingStrategy) {
+    public record SchemaKey<T>(
+            @NonNull Class<T> clazz,
+            @NonNull @With NamingStrategy namingStrategy,
+            @NonNull @With Predicate<JavaField> fieldFilter
+    ) {
         public static <T> SchemaKey<T> of(@NonNull Class<T> clazz) {
             return of(clazz, null);
         }
 
         public static <T> SchemaKey<T> of(@NonNull Class<T> clazz, @Nullable NamingStrategy namingStrategy) {
-            return new SchemaKey<>(clazz, namingStrategy == null ? DEFAULT_NAMING_STRATEGY : namingStrategy);
-        }
-
-        public <U> SchemaKey<U> withClazz(@NonNull Class<U> clazz) {
-            return new SchemaKey<>(clazz, this.namingStrategy);
+            return new SchemaKey<>(clazz, namingStrategy == null ? DEFAULT_NAMING_STRATEGY : namingStrategy, __ -> true);
         }
     }
 

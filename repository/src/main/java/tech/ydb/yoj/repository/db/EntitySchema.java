@@ -3,6 +3,8 @@ package tech.ydb.yoj.repository.db;
 import com.google.common.base.Preconditions;
 import com.google.common.reflect.TypeToken;
 import lombok.Getter;
+import lombok.NonNull;
+import tech.ydb.yoj.ExperimentalApi;
 import tech.ydb.yoj.databind.schema.Schema;
 import tech.ydb.yoj.databind.schema.configuration.SchemaRegistry;
 import tech.ydb.yoj.databind.schema.configuration.SchemaRegistry.SchemaKey;
@@ -16,6 +18,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.function.Predicate;
 
 import static lombok.AccessLevel.PACKAGE;
 
@@ -148,6 +151,12 @@ public final class EntitySchema<T extends Entity<T>> extends Schema<T> {
      */
     public Comparator<T> defaultOrder() {
         return Comparator.comparing(Entity::getId, getIdSchema());
+    }
+
+    @ExperimentalApi(issue = "https://github.com/ydb-platform/yoj-project/issues/256")
+    public EntitySchema<T> withFieldFilter(@NonNull Predicate<JavaField> fieldFilter) {
+        var key = this.key.withFieldFilter(fieldFilter);
+        return registry.getOrCreate(EntitySchema.class, (k, r) -> new EntitySchema<>(k, r, registry), key);
     }
 
     @Override

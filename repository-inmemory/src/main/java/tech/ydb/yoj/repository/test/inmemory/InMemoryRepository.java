@@ -48,6 +48,7 @@ public class InMemoryRepository implements Repository {
         return new InMemoryRepositoryTransaction(options, this);
     }
 
+    @Override
     public <T extends Entity<T>> SchemaOperations<T> schema(TableDescriptor<T> tableDescriptor) {
         return new SchemaOperations<T>() {
             @Override
