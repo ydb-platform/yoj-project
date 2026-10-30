@@ -1,9 +1,9 @@
 package tech.ydb.yoj.repository.db;
 
 import com.google.common.base.Preconditions;
-import io.prometheus.client.Counter;
-import io.prometheus.client.Histogram;
-import io.prometheus.client.Histogram.Timer;
+import io.prometheus.metrics.core.datapoints.Timer;
+import io.prometheus.metrics.core.metrics.Counter;
+import io.prometheus.metrics.core.metrics.Histogram;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -57,22 +57,35 @@ public final class StdTxManager implements TxManager, TxManagerState {
             10, 25, 50, 75,
             100
     };
-    private static final Histogram totalDuration = Histogram.build("tx_total_duration_seconds", "Tx total duration (seconds)")
+    private static final Histogram totalDuration = Histogram.builder()
+            .name("tx_total_duration_seconds")
+            .help("Tx total duration (seconds)")
             .labelNames("tx_name")
-            .buckets(DURATION_BUCKETS)
+            .classicOnly()
+            .classicUpperBounds(DURATION_BUCKETS)
             .register();
-    private static final Histogram attemptDuration = Histogram.build("tx_attempt_duration_seconds", "Tx attempt duration (seconds)")
+    private static final Histogram attemptDuration = Histogram.builder()
+            .name("tx_attempt_duration_seconds")
+            .help("Tx attempt duration (seconds)")
             .labelNames("tx_name")
-            .buckets(DURATION_BUCKETS)
+            .classicOnly()
+            .classicUpperBounds(DURATION_BUCKETS)
             .register();
-    private static final Histogram attempts = Histogram.build("tx_attempts", "Tx attempts spent")
+    private static final Histogram attempts = Histogram.builder()
+            .name("tx_attempts")
+            .help("Tx attempts spent")
             .labelNames("tx_name")
-            .buckets(TX_ATTEMPTS_BUCKETS)
+            .classicOnly()
+            .classicUpperBounds(TX_ATTEMPTS_BUCKETS)
             .register();
-    private static final Counter results = Counter.build("tx_result", "Tx commits/rollbacks/fails")
+    private static final Counter results = Counter.builder()
+            .name("tx_result")
+            .help("Tx commits/rollbacks/fails")
             .labelNames("tx_name", "result")
             .register();
-    private static final Counter retries = Counter.build("tx_retries", "Tx retry reasons")
+    private static final Counter retries = Counter.builder()
+            .name("tx_retries")
+            .help("Tx retry reasons")
             .labelNames("tx_name", "reason")
             .register();
     private static final AtomicLong txLogIdSeq = new AtomicLong();
@@ -214,14 +227,14 @@ public final class StdTxManager implements TxManager, TxManagerState {
         long txLogId = txLogIdSeq.incrementAndGet();
 
         MdcSetup mdcs = txMdcs(txName, txLogId);
-        try (Timer ignored = totalDuration.labels(txName.name()).startTimer()) {
+        try (Timer ignored = totalDuration.labelValues(txName.name()).startTimer()) {
             T result = runTxWithRetry(txName.name(), mdcs, supplier);
 
             if (options.isDryRun()) {
-                results.labels(txName.name(), "rollback").inc();
-                results.labels(txName.name(), "dry_run").inc();
+                results.labelValues(txName.name(), "rollback").inc();
+                results.labelValues(txName.name(), "dry_run").inc();
             } else {
-                results.labels(txName.name(), "commit").inc();
+                results.labelValues(txName.name(), "commit").inc();
             }
             
             return result;
@@ -238,20 +251,20 @@ public final class StdTxManager implements TxManager, TxManagerState {
                 mdcs.put("tx-attempt", attempt);
 
                 lastTx = null;
-                try (Timer ignored = attemptDuration.labels(txName).startTimer()) {
+                try (Timer ignored = attemptDuration.labelValues(txName).startTimer()) {
                     RepositoryTransaction transaction = repository.startTransaction(options);
                     lastTx = new TxImpl(txName, transaction, options);
                     return lastTx.run(supplier);
                 } catch (RetryableException e) {
-                    retries.labels(txName, getExceptionNameForMetric(e)).inc();
+                    retries.labelValues(txName, getExceptionNameForMetric(e)).inc();
                     if (attempt < maxAttemptCount) {
                         sleepBeforeNextAttempt(e, attempt);
                     } else {
-                        results.labels(txName, "fail").inc();
+                        results.labelValues(txName, "fail").inc();
                         throw e.rethrow();
                     }
                 } catch (Exception e) {
-                    results.labels(txName, "rollback").inc();
+                    results.labelValues(txName, "rollback").inc();
                     throw e;
                 }
 
@@ -266,7 +279,7 @@ public final class StdTxManager implements TxManager, TxManagerState {
                 // @see https://github.com/ydb-platform/yoj-project/issues/209
                 lastTx.runDeferredFinally();
             }
-            attempts.labels(txName).observe(attempt);
+            attempts.labelValues(txName).observe(attempt);
         }
     }
 

@@ -1,7 +1,7 @@
 package tech.ydb.yoj.repository.ydb;
 
 import com.google.common.base.Preconditions;
-import io.prometheus.client.Histogram;
+import io.prometheus.metrics.core.datapoints.Timer;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import tech.ydb.core.Result;
@@ -66,7 +66,7 @@ final class YojMeteredTableClient implements TableClient {
         }
     }
 
-    private void observeAcquireDuration(Histogram.Timer timer) {
+    private void observeAcquireDuration(Timer timer) {
         if (!closed.get()) {
             timer.observeDuration();
         }
