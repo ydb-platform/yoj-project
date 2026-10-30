@@ -1183,6 +1183,18 @@ public abstract class RepositoryTest extends RepositoryTestSupport {
     }
 
     @Test
+    public void findByIdAfterFilteredFindInIdsReturnsFilteredOutEntity() {
+        Project project = new Project(new Project.Id("1"), "p1");
+        db.tx(() -> db.projects().insert(project));
+
+        db.tx(() -> {
+            assertThat(db.projects().query().ids(Set.of(project.getId())).where("name").eq("other name").find())
+                    .isEmpty();
+            assertThat(db.projects().find(project.getId())).isEqualTo(project);
+        });
+    }
+
+    @Test
     public void findInIdsViewFilteredAndOrdered() {
         var ids = IntStream.range(0, 6).mapToObj(this::getComplexId).collect(toSet());
 

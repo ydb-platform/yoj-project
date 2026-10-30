@@ -375,7 +375,8 @@ public class YdbTable<T extends Entity<T>> implements Table<T> {
         }
         var isPartialIdMode = ids.iterator().next().isPartial();
         List<T> found = TableQueryImpl.postLoad(this, findUncached(ids, filter, orderBy, limit));
-        if (!isPartialIdMode && ids.size() > found.size()) {
+        // IDs that were not found are known to be nonexistent only if they could not have been excluded by filter or limit
+        if (!isPartialIdMode && filter == null && limit == null && ids.size() > found.size()) {
             Set<Id<T>> foundIds = found.stream().map(Entity::getId).collect(toSet());
             FirstLevelCache<T> cache = executor.getTransactionLocal().firstLevelCache(tableDescriptor);
             Sets.difference(ids, foundIds).forEach(cache::putEmpty);
