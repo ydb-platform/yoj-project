@@ -100,6 +100,54 @@ public class QueriesMergerTest {
     }
 
     @Test
+    public void mergeInsertUpsertQueries() {
+        QueriesMerger merger = createMerger();
+
+        Project project = new Project(new Project.Id("1"), "new project");
+        Project updatedProject = project.withName("updated project");
+        List<YdbRepository.Query<?>> result = merger.merge(insert(project), upsert(updatedProject));
+
+        assertThat(result).hasSize(1);
+        Assertions.assertThat(result.get(0).getStatement().getQueryType()).isEqualTo(Statement.QueryType.INSERT);
+        assertThat(result.get(0).getValues()).singleElement().isEqualTo(updatedProject);
+    }
+
+    @Test
+    public void mergeInsertDeleteUpsertQueries() {
+        QueriesMerger merger = createMerger();
+
+        Project project = new Project(new Project.Id("1"), "new project");
+        Project updatedProject = project.withName("updated project");
+        List<YdbRepository.Query<?>> result = merger.merge(
+                insert(project),
+                delete(project),
+                upsert(updatedProject)
+        );
+
+        assertThat(result).hasSize(1);
+        Assertions.assertThat(result.get(0).getStatement().getQueryType()).isEqualTo(Statement.QueryType.INSERT);
+        assertThat(result.get(0).getValues()).singleElement().isEqualTo(updatedProject);
+    }
+
+    @Test
+    public void mergeInsertUpsertQueriesDoesNotTurnOtherInsertsIntoUpserts() {
+        QueriesMerger merger = createMerger();
+
+        for (int i = 0; i < 10; i++) {
+            Project inserted = new Project(new Project.Id("inserted-" + i), "inserted project");
+            Project insertedThenSaved = new Project(new Project.Id("saved-" + i), "new project");
+            List<YdbRepository.Query<?>> result = merger.merge(
+                    insert(inserted),
+                    insert(insertedThenSaved),
+                    upsert(insertedThenSaved.withName("updated project")));
+
+            assertThat(result).hasSize(1);
+            Assertions.assertThat(result.get(0).getStatement().getQueryType()).isEqualTo(Statement.QueryType.INSERT);
+            assertThat(result.get(0).getValues()).hasSize(2);
+        }
+    }
+
+    @Test
     public void mergeInsertAndManyDeletesQueries() {
         QueriesMerger merger = createMerger();
 
