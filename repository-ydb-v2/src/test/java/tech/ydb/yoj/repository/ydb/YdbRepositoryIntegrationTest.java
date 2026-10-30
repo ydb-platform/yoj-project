@@ -21,8 +21,10 @@ import org.apache.logging.log4j.core.config.Configurator;
 import org.assertj.core.api.Assertions;
 import org.junit.ClassRule;
 import org.junit.Test;
+import tech.ydb.auth.NopAuthProvider;
 import tech.ydb.common.transaction.TxMode;
 import tech.ydb.common.transaction.YdbTransaction;
+import tech.ydb.core.Status;
 import tech.ydb.core.grpc.YdbHeaders;
 import tech.ydb.core.utils.Version;
 import tech.ydb.proto.OperationProtos;
@@ -65,6 +67,7 @@ import tech.ydb.yoj.repository.db.TableDescriptor;
 import tech.ydb.yoj.repository.db.Tx;
 import tech.ydb.yoj.repository.db.common.CommonConverters;
 import tech.ydb.yoj.repository.db.exception.ConversionException;
+import tech.ydb.yoj.repository.db.exception.RepositoryException;
 import tech.ydb.yoj.repository.db.exception.RetryableException;
 import tech.ydb.yoj.repository.db.exception.UnavailableException;
 import tech.ydb.yoj.repository.db.list.ListRequest;
@@ -87,8 +90,10 @@ import tech.ydb.yoj.repository.test.sample.model.TypeFreak;
 import tech.ydb.yoj.repository.test.sample.model.UniqueProject;
 import tech.ydb.yoj.repository.test.sample.model.WithUnflattenableField;
 import tech.ydb.yoj.repository.ydb.client.SessionManager;
+import tech.ydb.yoj.repository.ydb.client.YdbValidator;
 import tech.ydb.yoj.repository.ydb.compatibility.YdbSchemaCompatibilityChecker;
 import tech.ydb.yoj.repository.ydb.exception.ResultTruncatedException;
+import tech.ydb.yoj.repository.ydb.exception.YdbComponentUnavailableException;
 import tech.ydb.yoj.repository.ydb.exception.YdbOverloadedException;
 import tech.ydb.yoj.repository.ydb.exception.YdbRepositoryException;
 import tech.ydb.yoj.repository.ydb.exception.YdbResultSetTooBigException;
@@ -112,6 +117,7 @@ import tech.ydb.yoj.repository.ydb.yql.YqlPredicate;
 import tech.ydb.yoj.repository.ydb.yql.YqlPrimitiveType;
 import tech.ydb.yoj.repository.ydb.yql.YqlStatementPart;
 import tech.ydb.yoj.repository.ydb.yql.YqlView;
+import tech.ydb.yoj.util.retry.RetryPolicy;
 
 import java.lang.reflect.Field;
 import java.time.Duration;
@@ -134,8 +140,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatIllegalStateException;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.AssertionsForClassTypes.assertThatExceptionOfType;
+import static tech.ydb.proto.StatusCodesProtos.StatusIds.StatusCode.UNDETERMINED;
 import static tech.ydb.yoj.repository.db.EntityExpressions.newFilterBuilder;
 import static tech.ydb.yoj.repository.db.EntityExpressions.newOrderBuilder;
+import static tech.ydb.yoj.repository.ydb.YdbRepositoryTransaction.REQUEST_COMMIT;
 
 public class YdbRepositoryIntegrationTest extends RepositoryTest {
     private final IndexedEntity e1 =
@@ -175,7 +183,7 @@ public class YdbRepositoryIntegrationTest extends RepositoryTest {
 
         var hostAndPort = config.getHostAndPort();
         NettyChannelBuilder channelBuilder = NettyChannelBuilder.forAddress(hostAndPort.getHost(), hostAndPort.getPort())
-                .maxInboundMessageSize(50000000)
+                .maxInboundMessageSize(50_000_000)
                 .intercept(MetadataUtils.newAttachHeadersInterceptor(proxyHeaders));
         ManagedChannel channel;
         if (config.isUseTLS()) {
@@ -1522,6 +1530,52 @@ public class YdbRepositoryIntegrationTest extends RepositoryTest {
             } catch (Exception e) {
                 throw new RuntimeException(e);
             }
+        }
+    }
+
+    @Test
+    public void customYdbValidator() {
+        class MyCustomRetryableException extends RetryableException {
+            MyCustomRetryableException(String message, RetryPolicy retryPolicy, Throwable cause) {
+                super(message, retryPolicy, cause);
+            }
+        }
+
+        var validator = new YdbValidator() {
+            @Override
+            public void validate(String request, Status status, String response) throws RepositoryException {
+                if (REQUEST_COMMIT.equals(request)) {
+                    try {
+                        DEFAULT.validate(request, status, response);
+                    } catch (YdbComponentUnavailableException | YdbOverloadedException e) {
+                        // You can also check Tx.Current.get().getName() here, to enable the functionality
+                        // only in select transactions
+                        throw new MyCustomRetryableException(e.getMessage(), e.getRetryPolicy(), e.getCause());
+                    }
+                }
+            }
+
+            @Override
+            public boolean isTransactionClosedByServer(Status status) {
+                return DEFAULT.isTransactionClosedByServer(status);
+            }
+        };
+
+        var proxiedRepository = new YdbRepository(
+                getProxyServerConfig(),
+                TestYdbRepository.createRepositorySettings().withYdbValidator(validator),
+                NopAuthProvider.INSTANCE,
+                List.of()
+        );
+        try {
+            var tx = proxiedRepository.startTransaction();
+            tx.table(Project.class).findAll();
+            runWithModifiedStatusCode(
+                    UNDETERMINED,
+                    () -> assertThatThrownBy(tx::commit).isInstanceOf(MyCustomRetryableException.class)
+            );
+        } finally {
+            proxiedRepository.shutdown();
         }
     }
 

@@ -26,6 +26,7 @@ import tech.ydb.yoj.repository.db.TxOptions;
 import tech.ydb.yoj.repository.ydb.client.SessionManager;
 import tech.ydb.yoj.repository.ydb.client.YdbSchemaOperations;
 import tech.ydb.yoj.repository.ydb.client.YdbTableHint;
+import tech.ydb.yoj.repository.ydb.client.YdbValidator;
 import tech.ydb.yoj.repository.ydb.compatibility.YdbDataCompatibilityChecker;
 import tech.ydb.yoj.repository.ydb.compatibility.YdbSchemaCompatibilityChecker;
 import tech.ydb.yoj.repository.ydb.statement.Statement;
@@ -50,6 +51,7 @@ import static tech.ydb.yoj.repository.ydb.client.YdbPaths.canonicalDatabase;
 public class YdbRepository implements Repository {
     private static final Logger log = LoggerFactory.getLogger(YdbRepository.class);
 
+    private final Settings settings;
     private final GrpcTransport transport;
     private final CloseableMemoizer<SessionClient> sessionClient;
 
@@ -100,6 +102,7 @@ public class YdbRepository implements Repository {
     ) {
         this.entityClassesByTableName = new ConcurrentHashMap<>();
         this.transport = transport;
+        this.settings = repositorySettings;
         this.sessionClient = MoreSuppliers.memoizeCloseable(
                 () -> new SessionClient(config, repositorySettings, transport)
         );
@@ -328,6 +331,11 @@ public class YdbRepository implements Repository {
         };
     }
 
+    @NonNull
+    public YdbValidator getYdbValidator() {
+        return settings.ydbValidator();
+    }
+
     @Value
     public static class Query<PARAMS> {
         Statement<PARAMS, ?> statement;
@@ -353,17 +361,20 @@ public class YdbRepository implements Repository {
      *                            In YOJ 3.x, the {@link QueryImplementation.QueryService YDB QueryService} will become
      *                            the default.
      * @param metrics             Metrics configuration
+     * @param ydbValidator        Mapper from YDB {@code Status}es into {@code RepositoryException}s
      */
     @With
     @Builder(builderMethodName = "")
     public record Settings(
             @NonNull QueryImplementation queryImplementation,
-            @NonNull Metrics metrics
+            @NonNull Metrics metrics,
+            @NonNull YdbValidator ydbValidator
     ) {
         public static SettingsBuilder builder() {
             return new SettingsBuilder()
                     .queryImplementation(new QueryImplementation.TableService())
-                    .metrics(Metrics.builder().build());
+                    .metrics(Metrics.builder().build())
+                    .ydbValidator(YdbValidator.DEFAULT);
         }
 
         /**

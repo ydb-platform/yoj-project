@@ -35,16 +35,6 @@ public final class YdbOperations {
         }
     }
 
-    private static RepositoryException convertToUnavailable(Throwable ex) {
-        if (isThreadInterrupted(ex)) {
-            Thread.currentThread().interrupt();
-            return new QueryInterruptedException("DB query interrupted", ex);
-        }
-        checkGrpcDeadlineAndCancellation(ex.getMessage(), ex);
-
-        return new UnavailableException("DB is unavailable", ex);
-    }
-
     public static RepositoryException convertToRepositoryException(Throwable ex) {
         if (ex instanceof CancellationException) {
             return convertToUnavailable(ex);
@@ -61,5 +51,15 @@ public final class YdbOperations {
         } else {
             return new InternalRepositoryException(ex);
         }
+    }
+
+    private static RepositoryException convertToUnavailable(Throwable ex) {
+        if (isThreadInterrupted(ex)) {
+            Thread.currentThread().interrupt();
+            return new QueryInterruptedException("DB query interrupted", ex);
+        }
+        checkGrpcDeadlineAndCancellation(ex.getMessage(), ex);
+
+        return new UnavailableException("DB is unavailable", ex);
     }
 }
