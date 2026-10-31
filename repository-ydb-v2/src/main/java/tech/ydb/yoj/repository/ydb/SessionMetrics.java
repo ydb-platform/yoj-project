@@ -5,26 +5,29 @@ import io.prometheus.metrics.core.metrics.CounterWithCallback;
 import io.prometheus.metrics.core.metrics.Gauge;
 import io.prometheus.metrics.core.metrics.GaugeWithCallback;
 import io.prometheus.metrics.core.metrics.Histogram;
-import lombok.AccessLevel;
-import lombok.NoArgsConstructor;
+import io.prometheus.metrics.model.registry.PrometheusRegistry;
+import lombok.NonNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import tech.ydb.table.SessionPoolStats;
 
 import javax.annotation.Nullable;
 import java.util.Map;
+import java.util.WeakHashMap;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Supplier;
 
-@NoArgsConstructor(access = AccessLevel.PRIVATE)
 public final class SessionMetrics {
     private static final Logger log = LoggerFactory.getLogger(SessionMetrics.class);
 
-    private static final Map<String, Supplier<SessionPoolStats>> statsSuppliersByPool = new ConcurrentHashMap<>();
-    // Legacy gauges have no "repository" label, so they report the most recently initialized session pool
-    private static volatile String lastInitializedLabel;
+    // Values do not retain their registry, so unused custom registries can be collected.
+    private static final Map<PrometheusRegistry, SessionMetrics> sessionMetricsByRegistry = new WeakHashMap<>();
 
-    private static final GaugeWithCallback legacyCollector = GaugeWithCallback.builder()
+    private final Map<String, Supplier<SessionPoolStats>> statsSuppliersByPool = new ConcurrentHashMap<>();
+    // Legacy gauges have no "repository" label, so they report the most recently initialized session pool
+    private volatile String lastInitializedLabel;
+
+    private final GaugeWithCallback legacyCollector = GaugeWithCallback.builder()
             .name("ydb_session_manager_pool_stats")
             .help("YDB SDK Session pool statistics (as gauges with instant values)")
             .labelNames("type")
@@ -37,14 +40,14 @@ public final class SessionMetrics {
                     callback.call(stats.getIdleCount(), "idle_count");
                 }
             })
-            .register();
+            .build();
 
-    private static final Gauge sessionPoolSettings = Gauge.builder()
+    private final Gauge sessionPoolSettings = Gauge.builder()
             .name("ydb_session_manager_pool_settings")
             .help("YDB SDK Session pool settings")
             .labelNames("repository", "type")
-            .register();
-    private static final CounterWithCallback sessionPoolCounters = CounterWithCallback.builder()
+            .build();
+    private final CounterWithCallback sessionPoolCounters = CounterWithCallback.builder()
             .name("ydb_session_manager_pool_counters")
             .help("YDB SDK Session pool statistics (as total counters)")
             .labelNames("repository", "type")
@@ -60,7 +63,7 @@ public final class SessionMetrics {
                     callback.call(stats.getFailedTotal(), label, "failed_total");
                 }
             }))
-            .register();
+            .build();
 
     // TODO(nvamelichev): Move common metrics logic into yoj-util
     private static final double[] DURATION_BUCKETS = {
@@ -71,28 +74,51 @@ public final class SessionMetrics {
             10, 25, 50, 75,
             100
     };
-    private static final Histogram acquireDurationSeconds = Histogram.builder()
+    private final Histogram acquireDurationSeconds = Histogram.builder()
             .name("ydb_session_manager_pool_acquire_duration_seconds")
             .help("Duration of 'acquire session from pool' (as a histogram)")
             .labelNames("repository")
             .classicOnly()
             .classicUpperBounds(DURATION_BUCKETS)
-            .register();
+            .build();
+
+    private SessionMetrics(PrometheusRegistry registry) {
+        registry.register(legacyCollector);
+        registry.register(sessionPoolSettings);
+        registry.register(sessionPoolCounters);
+        registry.register(acquireDurationSeconds);
+    }
+
+    static synchronized SessionMetrics forRegistry(@NonNull PrometheusRegistry registry) {
+        return sessionMetricsByRegistry.computeIfAbsent(registry, SessionMetrics::new);
+    }
 
     public static void init(String label, Supplier<SessionPoolStats> statsSupplier) {
-        statsSuppliersByPool.put(label, statsSupplier);
-        lastInitializedLabel = label;
-
-        sessionPoolSettings.labelValues(label, "min_size").set(statsSupplier.get().getMinSize());
-        sessionPoolSettings.labelValues(label, "max_size").set(statsSupplier.get().getMaxSize());
+        forRegistry(PrometheusRegistry.defaultRegistry).initPool(label, statsSupplier);
     }
 
     public static Timer acquireDurationSeconds(String label) {
+        return forRegistry(PrometheusRegistry.defaultRegistry).startAcquireTimer(label);
+    }
+
+    void initPool(String label, Supplier<SessionPoolStats> statsSupplier) {
+        statsSuppliersByPool.put(label, statsSupplier);
+        lastInitializedLabel = label;
+
+        SessionPoolStats stats = statsSupplier.get();
+        sessionPoolSettings.labelValues(label, "min_size").set(stats.getMinSize());
+        sessionPoolSettings.labelValues(label, "max_size").set(stats.getMaxSize());
+    }
+
+    Timer startAcquireTimer(String label) {
         return acquireDurationSeconds.labelValues(label).startTimer();
     }
 
     @Nullable
-    private static SessionPoolStats readStats(@Nullable String label) {
+    private SessionPoolStats readStats(@Nullable String label) {
+        if (label == null) {
+            return null;
+        }
         try {
             return statsSuppliersByPool.get(label).get();
         } catch (Exception e) {

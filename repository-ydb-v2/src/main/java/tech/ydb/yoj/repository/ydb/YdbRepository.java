@@ -3,7 +3,9 @@ package tech.ydb.yoj.repository.ydb;
 import com.google.common.base.Strings;
 import io.grpc.ClientInterceptor;
 import io.grpc.netty.shaded.io.grpc.netty.NettyChannelBuilder;
+import io.prometheus.metrics.model.registry.PrometheusRegistry;
 import lombok.Builder;
+import lombok.Getter;
 import lombok.NonNull;
 import lombok.Value;
 import lombok.With;
@@ -50,6 +52,8 @@ import static tech.ydb.yoj.repository.ydb.client.YdbPaths.canonicalDatabase;
 public class YdbRepository implements Repository {
     private static final Logger log = LoggerFactory.getLogger(YdbRepository.class);
 
+    @Getter
+    private final Settings settings;
     private final GrpcTransport transport;
     private final CloseableMemoizer<SessionClient> sessionClient;
 
@@ -98,6 +102,7 @@ public class YdbRepository implements Repository {
             @NonNull Settings repositorySettings,
             @NonNull GrpcTransport transport
     ) {
+        this.settings = repositorySettings;
         this.entityClassesByTableName = new ConcurrentHashMap<>();
         this.transport = transport;
         this.sessionClient = MoreSuppliers.memoizeCloseable(
@@ -370,15 +375,22 @@ public class YdbRepository implements Repository {
          * Metric settings for YDB repository.
          *
          * @param repositoryLabel Value of {@code repository} label for metrics of this {@code YdbRepository}
+         * @param registry Registry for session pool metrics; defaults to {@link PrometheusRegistry#defaultRegistry}
          */
         @With
         @Builder(builderMethodName = "")
         public record Metrics(
-                @NonNull String repositoryLabel
+                @NonNull String repositoryLabel,
+                @NonNull PrometheusRegistry registry
         ) {
+            public Metrics(String repositoryLabel) {
+                this(repositoryLabel, PrometheusRegistry.defaultRegistry);
+            }
+
             public static MetricsBuilder builder() {
                 return new MetricsBuilder()
-                        .repositoryLabel("YdbRepository");
+                        .repositoryLabel("YdbRepository")
+                        .registry(PrometheusRegistry.defaultRegistry);
             }
         }
     }

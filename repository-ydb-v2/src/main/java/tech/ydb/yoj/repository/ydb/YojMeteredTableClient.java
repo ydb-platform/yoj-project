@@ -25,6 +25,7 @@ final class YojMeteredTableClient implements TableClient {
     private final TableClient delegate;
     private final SessionPoolStats emptyPoolStats;
     private final String label;
+    private final SessionMetrics metrics;
 
     public static TableClient newClient(YdbConfig config, Settings repositorySettings, GrpcTransport transport) {
         var delegate = buildTableClient(repositorySettings, transport).keepQueryText(false)
@@ -35,9 +36,10 @@ final class YojMeteredTableClient implements TableClient {
         var emptyPoolStats = new EmptyPoolStats(config.getSessionPoolMin(), config.getSessionPoolMax());
         var label = repositorySettings.metrics().repositoryLabel();
 
-        SessionMetrics.init(label, delegate::sessionPoolStats);
+        var metrics = SessionMetrics.forRegistry(repositorySettings.metrics().registry());
+        metrics.initPool(label, delegate::sessionPoolStats);
 
-        return new YojMeteredTableClient(delegate, emptyPoolStats, label);
+        return new YojMeteredTableClient(delegate, emptyPoolStats, label, metrics);
     }
 
     @Override
@@ -51,7 +53,7 @@ final class YojMeteredTableClient implements TableClient {
     public CompletableFuture<Result<Session>> createSession(Duration duration) {
         Preconditions.checkState(!closed.get(), "Cannot call createSession() on a closed TableClient");
 
-        var timer = SessionMetrics.acquireDurationSeconds(label);
+        var timer = metrics.startAcquireTimer(label);
         try {
             return delegate.createSession(duration)
                     .whenComplete((_1, _2) -> observeAcquireDuration(timer));
