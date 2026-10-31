@@ -41,3 +41,21 @@ spinning containers or accessing a real YDB installation. **Highly recommended.*
 - `aspect`: AspectJ aspect and `@YojTransactional` annotation for usage with AspectJ and Spring AOP. Allows a Spring `@Transactional`-like experience for your methods that need to initiate or continue a YDB transaction.
 - `ext-meta-generator`: Annotation processor that generates field paths for each of your `Entity` fields, to be used with `TableQueryBuilder` (`Table.query()` DSL) and `YqlPredicate`.
 - `util`: Utility classes used in YOJ implementation.
+
+### Prometheus metrics
+
+YOJ uses Prometheus Java client 1.x. By default, transaction and session pool metrics are registered in
+`PrometheusRegistry.defaultRegistry`. To use an application-managed registry, pass it to both the repository's
+metric settings and the transaction manager:
+
+```java
+var registry = new PrometheusRegistry();
+var settings = YdbRepository.Settings.builder()
+        .metrics(YdbRepository.Settings.Metrics.builder()
+                .registry(registry)
+                .repositoryLabel("orders")
+                .build())
+        .build();
+var repository = new YdbRepository(config, settings, transport);
+var txManager = new StdTxManager(repository, registry);
+```

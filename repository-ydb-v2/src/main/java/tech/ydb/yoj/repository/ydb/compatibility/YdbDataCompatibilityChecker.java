@@ -42,7 +42,7 @@ public final class YdbDataCompatibilityChecker {
     }
 
     public void run() {
-        TxManager txManager = new StdTxManager(repository);
+        TxManager txManager = new StdTxManager(repository, repository.getSettings().metrics().registry());
         Stopwatch totalTime = Stopwatch.createStarted();
         Stream<TableDescriptor<?>> stream = tableDescriptors.stream();
         if (config.parallel) {

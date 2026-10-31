@@ -36,7 +36,7 @@
 
         <dependency>
             <groupId>io.prometheus</groupId>
-            <artifactId>simpleclient</artifactId>
+            <artifactId>prometheus-metrics-core</artifactId>
         </dependency>
 
         <!-- Optional (Kotlin support) -->

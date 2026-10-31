@@ -138,7 +138,7 @@
         <commons-text.version>1.14.0</commons-text.version>
         <compile-testing.version>0.21.0</compile-testing.version>
         <kotlin-compile-testing-fork.version>0.11.0</kotlin-compile-testing-fork.version>
-        <prometheus-simpleclient.version>0.16.0</prometheus-simpleclient.version>
+        <prometheus-metrics.version>1.9.0</prometheus-metrics.version>
         <error-prone-annotations.version>2.36.0</error-prone-annotations.version>
         <gson-version>2.12.1</gson-version>
         <auto-service.version>1.1.1</auto-service.version>
@@ -650,8 +650,8 @@
             </dependency>
             <dependency>
                 <groupId>io.prometheus</groupId>
-                <artifactId>simpleclient</artifactId>
-                <version>${prometheus-simpleclient.version}</version>
+                <artifactId>prometheus-metrics-core</artifactId>
+                <version>${prometheus-metrics.version}</version>
             </dependency>
             <dependency>
                 <groupId>com.google.code.findbugs</groupId>
