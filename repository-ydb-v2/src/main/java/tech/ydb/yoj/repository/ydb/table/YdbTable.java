@@ -31,10 +31,10 @@ import tech.ydb.yoj.repository.ydb.statement.CountAllStatement;
 import tech.ydb.yoj.repository.ydb.statement.DeleteAllStatement;
 import tech.ydb.yoj.repository.ydb.statement.DeleteByIdStatement;
 import tech.ydb.yoj.repository.ydb.statement.FindAllYqlStatement;
+import tech.ydb.yoj.repository.ydb.statement.FindByIdStatement;
 import tech.ydb.yoj.repository.ydb.statement.FindInStatement;
 import tech.ydb.yoj.repository.ydb.statement.FindRangeStatement;
 import tech.ydb.yoj.repository.ydb.statement.FindStatement;
-import tech.ydb.yoj.repository.ydb.statement.FindYqlStatement;
 import tech.ydb.yoj.repository.ydb.statement.InsertYqlStatement;
 import tech.ydb.yoj.repository.ydb.statement.Statement;
 import tech.ydb.yoj.repository.ydb.statement.UpdateByIdStatement;
@@ -234,6 +234,7 @@ public class YdbTable<T extends Entity<T>> implements Table<T> {
     @Override
     public <ID extends Entity.Id<T>> Stream<T> readTable(ReadTableParams<ID> params) {
         ReadTableMapper<ID, T> mapper = new EntityIdKeyMapper<>(tableDescriptor, schema, schema);
+        // NB: We use T::postLoad and not this::postLoad because readTable results are not put into first-level cache
         return readTableStream(mapper, params)
                 .map(T::postLoad);
     }
@@ -266,7 +267,7 @@ public class YdbTable<T extends Entity<T>> implements Table<T> {
             throw new IllegalArgumentException("Cannot use partial id in find method");
         }
         return executor.getTransactionLocal().firstLevelCache(tableDescriptor).get(id, __ -> {
-            var statement = new FindYqlStatement<>(tableDescriptor, schema, schema);
+            var statement = new FindByIdStatement<>(tableDescriptor, schema, schema);
             List<T> res = TableQueryImpl.postLoad(this, executor.execute(statement, id));
             return res.isEmpty() ? null : res.get(0);
         });
@@ -280,7 +281,7 @@ public class YdbTable<T extends Entity<T>> implements Table<T> {
     @Override
     public <V extends View> V find(Class<V> viewType, Entity.Id<T> id) {
         ViewSchema<V> viewSchema = schema.getViewSchema(viewType);
-        var statement = new FindYqlStatement<>(tableDescriptor, schema, viewSchema);
+        var statement = new FindByIdStatement<>(tableDescriptor, schema, viewSchema);
         List<V> res = executor.execute(statement, id);
         return res.isEmpty() ? null : res.get(0);
     }
@@ -571,7 +572,7 @@ public class YdbTable<T extends Entity<T>> implements Table<T> {
      */
     @Deprecated(forRemoval = true)
     public <ID extends Id<T>> void migrate(ID id) {
-        var statement = new FindYqlStatement<>(tableDescriptor, schema, schema);
+        var statement = new FindByIdStatement<>(tableDescriptor, schema, schema);
         List<T> foundRaw = executor.execute(statement, id);
         if (foundRaw.isEmpty()) {
             return;

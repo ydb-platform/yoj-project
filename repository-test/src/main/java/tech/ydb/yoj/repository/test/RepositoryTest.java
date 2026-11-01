@@ -80,6 +80,7 @@ import tech.ydb.yoj.repository.test.sample.model.Referring;
 import tech.ydb.yoj.repository.test.sample.model.SVTEntity;
 import tech.ydb.yoj.repository.test.sample.model.Simple;
 import tech.ydb.yoj.repository.test.sample.model.Supabubble;
+import tech.ydb.yoj.repository.test.sample.model.Ticket;
 import tech.ydb.yoj.repository.test.sample.model.TypeFreak;
 import tech.ydb.yoj.repository.test.sample.model.TypeFreak.A;
 import tech.ydb.yoj.repository.test.sample.model.TypeFreak.B;
@@ -634,7 +635,7 @@ public abstract class RepositoryTest extends RepositoryTestSupport {
             Stream<Project> stream = db.projects().readTable(defaultReadTableParamsNonLegacy());
 
             Stream<List<Project>> stream2 = StreamSupport.stream(
-                    // With this line steam calls tryAdvance() on spliterator one time after tryAdvance() says false
+                    // With this line, stream calls tryAdvance() on spliterator one time after tryAdvance() says false
                     () -> Iterables.partition(stream::iterator, 5).spliterator(),
                     ORDERED,
                     false
@@ -3552,6 +3553,53 @@ public abstract class RepositoryTest extends RepositoryTestSupport {
     }
 
     @Test
+    public void customLogging() {
+        Logger log = LoggerFactory.getLogger("tech.ydb.yoj.repository.db");
+
+        LoggerContext loggerContext = (LoggerContext) LogManager.getContext(false);
+        Configuration configuration = loggerContext.getConfiguration();
+        LoggerConfig loggerConfig = configuration.getLoggerConfig(log.getName());
+
+        TestAppender testAppender = new TestAppender("TransactionLog.TestAppender");
+        loggerConfig.addAppender(testAppender, Level.DEBUG, null);
+        testAppender.start();
+
+        try {
+            var ticket1 = new Ticket(new Ticket.Id("YOJ", 241), "Custom debug logging for entities, IDs and views");
+            var ticket2 = new Ticket(new Ticket.Id("YOJ", 143), "Slow or throwing Entity[.Id].toString()...")
+                    .startDevelopment();
+
+            testAppender.runExpectingMessage(
+                    "insert(YOJ-241: [NEW] Custom debug logging for entities, IDs and views | Updated: " + ticket1.updatedAt() + ")",
+                    () -> db.tx(() -> db.tickets().insert(ticket1))
+            );
+            testAppender.runExpectingMessage(
+                    "insert(YOJ-143: [IN_DEVELOPMENT] Slow or throwing Entity[.Id].toString()... | Updated: " + ticket2.updatedAt() + ")",
+                    () -> db.tx(() -> db.tickets().insert(ticket2))
+            );
+            testAppender.runExpectingMessage(
+                    "find(YOJ-241) -> YOJ-241 [NEW] Custom debug logging for entities, IDs and views",
+                    () -> db.tx(() -> assertThat(db.tickets().find(Ticket.IdAndStatus.class, ticket1.id()))
+                            .isEqualTo(new Ticket.IdAndStatus(ticket1.id(), ticket1.status(), ticket1.title()))
+                    )
+            );
+            testAppender.runExpectingMessage(
+                    "find(YOJ-143) -> YOJ-143: [IN_DEVELOPMENT] Slow or throwing Entity[.Id].toString()... | Updated: " + ticket2.updatedAt(),
+                    () -> db.tx(() -> assertThat(db.tickets().find(ticket2.id())).isEqualTo(ticket2))
+            );
+            testAppender.runExpectingMessage(
+                    "findIn([YOJ-241, ...](2), orderBy [id ASCENDING]) -> [YOJ-143, ...](2)",
+                    () -> db.tx(() -> assertThat(db.tickets().findIds(Set.of(ticket1.id(), ticket2.id()))))
+                            .containsExactly(ticket2.id(), ticket1.id())
+            );
+        } finally {
+            testAppender.clear();
+            testAppender.stop();
+            loggerConfig.removeAppender(testAppender.getName());
+        }
+    }
+
+    @Test
     public void loggingMdcContextEvenOnException() {
         Logger log = LoggerFactory.getLogger("RepositoryTest");
 
@@ -3679,6 +3727,16 @@ public abstract class RepositoryTest extends RepositoryTestSupport {
         public void append(LogEvent logEvent) {
             String formattedMessage = new String(layout.toByteArray(logEvent), UTF_8);
             messages.add(formattedMessage);
+        }
+
+        public void runExpectingMessage(String message, Runnable runnable) {
+            clear();
+            try {
+                runnable.run();
+                assertThat(messages).anySatisfy(m -> m.contains(message));
+            } finally {
+                clear();
+            }
         }
     }
 

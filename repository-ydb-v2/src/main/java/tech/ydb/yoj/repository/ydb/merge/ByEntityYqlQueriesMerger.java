@@ -138,7 +138,7 @@ public class ByEntityYqlQueriesMerger implements YqlQueriesMerger {
                 }
                 return newValueEqualsCached;
             } else if (cache.contains(key) && cache.get(key).isPresent()) { // INSERT case
-                throw new EntityAlreadyExistsException("Entity " + entityId + " already exists");
+                throw new EntityAlreadyExistsException("Entity " + entityId.toLoggable() + " already exists");
             }
         }
         return false;
@@ -157,7 +157,7 @@ public class ByEntityYqlQueriesMerger implements YqlQueriesMerger {
 
     private MergingState doTransition(MergingState state, Statement.QueryType nextQueryType, YdbRepository.Query<?> query) {
         if (state == MergingState.INSERT && nextQueryType == Statement.QueryType.INSERT) {
-            throw new EntityAlreadyExistsException("Entity " + getEntityId(query) + " already exists");
+            throw new EntityAlreadyExistsException("Entity " + getEntityId(query).toLoggable() + " already exists");
         }
         MergingState nextState = transitionMap.get(new TransitionKey(state, nextQueryType));
         check(nextState != null, "Incorrect transition, from " + state + " by " + nextQueryType);

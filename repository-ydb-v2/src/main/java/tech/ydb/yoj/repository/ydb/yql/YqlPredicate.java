@@ -14,6 +14,7 @@ import tech.ydb.yoj.repository.ydb.statement.PredicateStatement;
 import javax.annotation.Nullable;
 import java.util.Collection;
 import java.util.List;
+import java.util.Locale;
 import java.util.Objects;
 import java.util.Spliterator;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -39,6 +40,8 @@ import static tech.ydb.yoj.repository.ydb.yql.YqlPredicate.Rel.GTE;
 import static tech.ydb.yoj.repository.ydb.yql.YqlPredicate.Rel.LT;
 import static tech.ydb.yoj.repository.ydb.yql.YqlPredicate.Rel.LTE;
 import static tech.ydb.yoj.repository.ydb.yql.YqlPredicate.Rel.NEQ;
+import static tech.ydb.yoj.util.lang.DebugLoggable.toLoggable;
+import static tech.ydb.yoj.util.lang.DebugLoggable.toVerboseLoggable;
 
 /**
  * Represents a <em>predicate</em>: a boolean expression that can appear in the {@code WHERE} YQL clause.
@@ -324,7 +327,7 @@ public abstract class YqlPredicate implements YqlStatementPart<YqlPredicate> {
     }
 
     /**
-     * @return a fresh stream of statement parameter specifications, if this YQL predicate uses parameters; an fresh empty stream otherwise
+     * @return a fresh stream of statement parameter specifications, if this YQL predicate uses parameters; a fresh empty stream otherwise
      */
     public Stream<YqlPredicateParam<?>> paramStream() {
         return Stream.empty();
@@ -513,7 +516,7 @@ public abstract class YqlPredicate implements YqlStatementPart<YqlPredicate> {
 
         @Override
         public String toString() {
-            return format("%s %s %s", fieldPath, rel, param.getValue());
+            return format("%s %s %s", fieldPath, rel.name().toLowerCase(Locale.ROOT), toLoggable(param.getValue()));
         }
     }
 
@@ -572,7 +575,7 @@ public abstract class YqlPredicate implements YqlStatementPart<YqlPredicate> {
 
         @Override
         public String toString() {
-            return format("%s %s %s", fieldPath, rel, param.getValue());
+            return format("%s %s %s", fieldPath, rel.name().toLowerCase(Locale.ROOT), toLoggable(param.getValue()));
         }
     }
 
@@ -629,7 +632,11 @@ public abstract class YqlPredicate implements YqlStatementPart<YqlPredicate> {
 
         @Override
         public String toString() {
-            return format("(%s) %s %s", String.join(", ", fieldPaths), rel, param.getValue());
+            return format("(%s) %s %s",
+                    String.join(", ", fieldPaths),
+                    rel.name().toLowerCase(Locale.ROOT),
+                    toVerboseLoggable(param.getValue().getValues())
+            );
         }
     }
 
@@ -736,7 +743,8 @@ public abstract class YqlPredicate implements YqlStatementPart<YqlPredicate> {
 
         @Override
         public String toString() {
-            return format("%s %s %s%s", fieldPath, type, param.getValue(), escape == null ? "" : " ESCAPE " + escape);
+            return format("%s %s %s%s", fieldPath, type.name().toLowerCase(Locale.ROOT), toLoggable(param.getValue()),
+                    escape == null ? "" : " escape " + escape);
         }
 
         public enum Type {
@@ -834,9 +842,9 @@ public abstract class YqlPredicate implements YqlStatementPart<YqlPredicate> {
 
         @Override
         public String toString() {
-            return format("%s %s (%s)", fieldPath, inType, param.getValue());
+            return format("%s %s %s", fieldPath, inType.name().toLowerCase(Locale.ROOT),
+                    toVerboseLoggable(param.getValue()));
         }
-
     }
 
     @AllArgsConstructor(access = PRIVATE)
@@ -893,7 +901,8 @@ public abstract class YqlPredicate implements YqlStatementPart<YqlPredicate> {
 
         @Override
         public String toString() {
-            return format("%s %s (%s)", fieldPath, inType, param.getValue());
+            return format("%s %s %s", fieldPath, inType.name().toLowerCase(Locale.ROOT),
+                    toVerboseLoggable(param.getValue()));
         }
     }
 
@@ -923,7 +932,7 @@ public abstract class YqlPredicate implements YqlStatementPart<YqlPredicate> {
 
         @Override
         public String toString() {
-            return format("%s %s", fieldPath, type);
+            return format("%s %s", fieldPath, type.name().toLowerCase(Locale.ROOT));
         }
 
         /*package*/ enum IsNullType {

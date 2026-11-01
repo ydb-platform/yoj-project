@@ -1,7 +1,6 @@
 package tech.ydb.yoj.repository.test.inmemory;
 
 import com.google.common.base.Stopwatch;
-import com.google.common.collect.Iterables;
 import lombok.Getter;
 import tech.ydb.yoj.repository.BaseDb;
 import tech.ydb.yoj.repository.db.Entity;
@@ -20,6 +19,8 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
+
+import static tech.ydb.yoj.util.lang.DebugLoggable.toLoggable;
 
 public class InMemoryRepositoryTransaction implements BaseDb, RepositoryTransaction {
     private final static AtomicLong txIdGenerator = new AtomicLong();
@@ -184,22 +185,11 @@ public class InMemoryRepositoryTransaction implements BaseDb, RepositoryTransact
         Stopwatch sw = Stopwatch.createStarted();
         try {
             R result = supplier.get();
-            transactionLocal.log().debug("[ %s ] %s -> %s", sw, action, printResult(result));
+            transactionLocal.log().debug("[ %s ] %s -> %s", sw, action, toLoggable(result));
             return result;
         } catch (Throwable t) {
             transactionLocal.log().debug("[ %s ] %s => %s", sw, action, t);
             throw t;
-        }
-    }
-
-    private String printResult(Object result) {
-        if (result instanceof Iterable<?>) {
-            long size = Iterables.size((Iterable<?>) result);
-            return size == 1
-                    ? String.valueOf(Iterables.getOnlyElement((Iterable<?>) result))
-                    : "[" + size + "]";
-        } else {
-            return String.valueOf(result);
         }
     }
 }
