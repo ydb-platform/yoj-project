@@ -40,6 +40,27 @@ public final class TableQueryImpl {
 
     @NonNull
     public static <E extends Entity<E>, ID extends Entity.Id<E>> List<E> find(
+            @NonNull Table<E> table, @NonNull FirstLevelCache<E> cache, @NonNull Set<ID> ids,
+            @Nullable FilterExpression<E> filter, @Nullable OrderExpression<E> orderBy, @Nullable Integer limit
+    ) {
+        if (ids.isEmpty()) {
+            return List.of();
+        }
+
+        var isPartialIdMode = ids.iterator().next().isPartial();
+        List<E> found = postLoad(table, table.findUncached(ids, filter, orderBy, limit));
+
+        // IDs that were not found are known to be nonexistent only if they could not have been excluded by filter or limit
+        if (!isPartialIdMode && filter == null && limit == null && ids.size() > found.size()) {
+            Set<Entity.Id<E>> foundIds = found.stream().map(Entity::getId).collect(toSet());
+            Sets.difference(ids, foundIds).forEach(cache::putEmpty);
+        }
+
+        return found;
+    }
+
+    @NonNull
+    public static <E extends Entity<E>, ID extends Entity.Id<E>> List<E> find(
             @NonNull Table<E> table, @NonNull EntitySchema<E> schema, @NonNull FirstLevelCache<E> cache,
             @NonNull Set<ID> ids
     ) {

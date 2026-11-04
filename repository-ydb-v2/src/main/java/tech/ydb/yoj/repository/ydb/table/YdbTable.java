@@ -1,7 +1,6 @@
 package tech.ydb.yoj.repository.ydb.table;
 
 import com.google.common.base.Preconditions;
-import com.google.common.collect.Sets;
 import com.google.common.reflect.TypeToken;
 import lombok.NonNull;
 import tech.ydb.yoj.InternalApi;
@@ -61,7 +60,6 @@ import java.util.stream.StreamSupport;
 
 import static java.util.Arrays.asList;
 import static java.util.Arrays.stream;
-import static java.util.stream.Collectors.toSet;
 import static java.util.stream.Stream.concat;
 import static tech.ydb.yoj.repository.db.EntityExpressions.defaultOrder;
 
@@ -370,18 +368,7 @@ public class YdbTable<T extends Entity<T>> implements Table<T> {
             @Nullable FilterExpression<T> filter, @Nullable OrderExpression<T> orderBy,
             @Nullable Integer limit
     ) {
-        if (ids.isEmpty()) {
-            return List.of();
-        }
-        var isPartialIdMode = ids.iterator().next().isPartial();
-        List<T> found = TableQueryImpl.postLoad(this, findUncached(ids, filter, orderBy, limit));
-        // IDs that were not found are known to be nonexistent only if they could not have been excluded by filter or limit
-        if (!isPartialIdMode && filter == null && limit == null && ids.size() > found.size()) {
-            Set<Id<T>> foundIds = found.stream().map(Entity::getId).collect(toSet());
-            FirstLevelCache<T> cache = executor.getTransactionLocal().firstLevelCache(tableDescriptor);
-            Sets.difference(ids, foundIds).forEach(cache::putEmpty);
-        }
-        return found;
+        return TableQueryImpl.find(this, getFirstLevelCache(), ids, filter, orderBy, limit);
     }
 
     @Override
