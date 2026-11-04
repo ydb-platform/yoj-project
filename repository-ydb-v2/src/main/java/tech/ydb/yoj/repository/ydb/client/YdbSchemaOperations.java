@@ -11,6 +11,7 @@ import org.slf4j.LoggerFactory;
 import tech.ydb.core.Result;
 import tech.ydb.core.Status;
 import tech.ydb.proto.ValueProtos;
+import tech.ydb.proto.topic.YdbTopic;
 import tech.ydb.scheme.SchemeClient;
 import tech.ydb.scheme.description.DescribePathResult;
 import tech.ydb.scheme.description.EntryType;
@@ -202,7 +203,13 @@ public final class YdbSchemaOperations {
                                 .setReadFrom(consumer.getReadFrom());
 
                         for (Codec consumerCodec : consumer.getCodecs()) {
-                            var sdkCodec = tech.ydb.topic.description.Codec.valueOf(consumerCodec.name());
+                            int sdkCodec = switch (consumerCodec) {
+                                case RAW -> YdbTopic.Codec.CODEC_RAW_VALUE;
+                                case GZIP -> YdbTopic.Codec.CODEC_GZIP_VALUE;
+                                case LZOP -> YdbTopic.Codec.CODEC_LZOP_VALUE;
+                                case ZSTD -> YdbTopic.Codec.CODEC_ZSTD_VALUE;
+                                case CUSTOM -> YdbTopic.Codec.CODEC_CUSTOM_VALUE;
+                            };
                             consumerConfiguration.addSupportedCodec(sdkCodec);
                         }
 

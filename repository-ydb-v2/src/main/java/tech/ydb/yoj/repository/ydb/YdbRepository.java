@@ -2,7 +2,7 @@ package tech.ydb.yoj.repository.ydb;
 
 import com.google.common.base.Strings;
 import io.grpc.ClientInterceptor;
-import io.grpc.netty.shaded.io.grpc.netty.NettyChannelBuilder;
+import io.grpc.ManagedChannelBuilder;
 import lombok.Builder;
 import lombok.NonNull;
 import lombok.Value;
@@ -124,22 +124,18 @@ public class YdbRepository implements Repository {
     ) {
         GrpcTransportBuilder transportBuilder;
         if (!Strings.isNullOrEmpty(config.getDiscoveryEndpoint())) {
-            transportBuilder = GrpcTransport.forEndpoint(config.getDiscoveryEndpoint(), canonicalDatabase(config.getDatabase()))
-                    .withChannelInitializer(channelBuilder -> {
-                        initializeTcpKeepAlive(config, channelBuilder);
-                        initializeYdbMaxInboundMessageSize(channelBuilder);
-                        initializeChannelInterceptors(channelBuilder, interceptors);
-                    });
+            transportBuilder = GrpcTransport.forEndpoint(config.getDiscoveryEndpoint(), canonicalDatabase(config.getDatabase()));
         } else if (config.getHostAndPort() != null) {
-            transportBuilder = GrpcTransport.forHost(config.getHostAndPort(), config.getDatabase())
-                    .withChannelInitializer(channelBuilder -> {
-                        initializeTcpKeepAlive(config, channelBuilder);
-                        initializeYdbMaxInboundMessageSize(channelBuilder);
-                        initializeChannelInterceptors(channelBuilder, interceptors);
-                    });
+            transportBuilder = GrpcTransport.forHost(config.getHostAndPort(), config.getDatabase());
         } else {
             throw new IllegalArgumentException("one of [discoveryEndpoint, hostAndPort] must be set");
         }
+
+        transportBuilder.addChannelInitializer(channelBuilder -> {
+            initializeTcpKeepAlive(config, channelBuilder);
+            initializeYdbMaxInboundMessageSize(channelBuilder);
+            initializeChannelInterceptors(channelBuilder, interceptors);
+        });
 
         if (config.getBalancingConfig() != null) {
             transportBuilder.withBalancingSettings(
@@ -164,18 +160,18 @@ public class YdbRepository implements Repository {
         return transportBuilder.withAuthProvider(authProvider);
     }
 
-    private static void initializeChannelInterceptors(NettyChannelBuilder channelBuilder, List<ClientInterceptor> interceptors) {
+    private static void initializeChannelInterceptors(ManagedChannelBuilder<?> channelBuilder, List<ClientInterceptor> interceptors) {
         channelBuilder.intercept(interceptors);
     }
 
-    private static void initializeTcpKeepAlive(YdbConfig config, NettyChannelBuilder channelBuilder) {
+    private static void initializeTcpKeepAlive(YdbConfig config, ManagedChannelBuilder<?> channelBuilder) {
         channelBuilder
                 .keepAliveTime(config.getTcpKeepaliveTime().toMillis(), TimeUnit.MILLISECONDS)
                 .keepAliveTimeout(config.getTcpKeepaliveTimeout().toMillis(), TimeUnit.MILLISECONDS)
                 .keepAliveWithoutCalls(true);
     }
 
-    private static void initializeYdbMaxInboundMessageSize(NettyChannelBuilder channelBuilder) {
+    private static void initializeYdbMaxInboundMessageSize(ManagedChannelBuilder<?> channelBuilder) {
         // See tech.ydb.core.grpc.GrpcTransport#createChannel
         // This fixes incompatibility with old gRPC without recompiling ydb-sdk-core
         // https://github.com/grpc/grpc-java/issues/8313
