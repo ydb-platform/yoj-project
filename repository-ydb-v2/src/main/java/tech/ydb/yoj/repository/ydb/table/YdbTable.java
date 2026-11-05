@@ -626,7 +626,9 @@ public class YdbTable<T extends Entity<T>> implements Table<T> {
         }
 
         private void check() {
-            Tx.checkSameTx(originTx);
+            if (originTx != null && Tx.Current.exists()) {
+                Preconditions.checkState(originTx == Tx.Current.get(), "Can't call table from another transaction");
+            }
         }
 
         @Override
