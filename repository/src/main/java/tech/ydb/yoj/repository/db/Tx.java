@@ -1,8 +1,5 @@
 package tech.ydb.yoj.repository.db;
 
-import com.google.common.base.Preconditions;
-
-import javax.annotation.Nullable;
 import java.util.function.Supplier;
 
 public interface Tx {
@@ -15,6 +12,8 @@ public interface Tx {
     String getName();
 
     RepositoryTransaction getRepositoryTransaction();
+
+    <T extends Entity<T>> Table<T> table(TableDescriptor<T> tableDescriptor);
 
     class Current {
         private static final ThreadLocal<Tx> current = new ThreadLocal<>();
@@ -39,12 +38,6 @@ public interface Tx {
             } finally {
                 current.set(existing);
             }
-        }
-    }
-
-    static void checkSameTx(@Nullable Tx originTx) {
-        if (originTx != null && Current.exists()) {
-            Preconditions.checkState(originTx == Current.get(), "Can't call table from another transaction");
         }
     }
 }

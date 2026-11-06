@@ -4,7 +4,6 @@ import lombok.NonNull;
 import tech.ydb.yoj.InternalApi;
 import tech.ydb.yoj.repository.db.Entity;
 import tech.ydb.yoj.repository.db.TableDescriptor;
-import tech.ydb.yoj.repository.db.Tx;
 import tech.ydb.yoj.repository.db.TxOptions;
 import tech.ydb.yoj.repository.db.projection.ProjectionCache;
 import tech.ydb.yoj.repository.db.projection.RoProjectionCache;
@@ -27,10 +26,6 @@ public final class TransactionLocal {
         );
         this.projectionCacheSupplier = options.isMutable() ? RwProjectionCache::new : RoProjectionCache::new;
         this.logSupplier = () -> new TransactionLog(options.getLogLevel());
-    }
-
-    public static TransactionLocal get() {
-        return Tx.Current.get().getRepositoryTransaction().getTransactionLocal();
     }
 
     /**

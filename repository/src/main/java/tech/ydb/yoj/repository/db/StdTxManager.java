@@ -23,6 +23,8 @@ import tech.ydb.yoj.util.retry.RetryPolicy;
 import javax.annotation.Nullable;
 import java.time.Duration;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.Consumer;
+import java.util.function.Function;
 import java.util.function.Supplier;
 
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -37,7 +39,7 @@ import static tech.ydb.yoj.repository.db.IsolationLevel.SERIALIZABLE_READ_WRITE;
  * and use it.
  * <p>If you need to decorate transaction execution logic with e.g. additional logging, tracing, rate limiting etc.,
  * extend {@link DelegatingTxManager}, and override one or both of {@link DelegatingTxManager#doRunTx(Supplier)}
- * and {@link DelegatingTxManager#wrapTxBody(Supplier) wrapTxBody()} methods.
+ * and {@link DelegatingTxManager#wrapTxBody(Function) wrapTxBody()} methods.
  *
  * @see TxManager
  * @see DelegatingTxManager
@@ -199,14 +201,37 @@ public final class StdTxManager implements TxManager, TxManagerState {
 
     @Override
     public void tx(Runnable runnable) {
-        tx(() -> {
-            runnable.run();
-            return null;
-        });
+        internalTx(
+                tx -> {
+                    runnable.run();
+                    return null;
+                },
+                Tx.Current::runInTx
+        );
     }
 
     @Override
     public <T> T tx(Supplier<T> supplier) {
+        return internalTx(tx -> supplier.get(), Tx.Current::runInTx);
+    }
+
+    @Override
+    public void tx(Consumer<Tx> consumer) {
+        internalTx(
+                tx -> {
+                    consumer.accept(tx);
+                    return null;
+                },
+                Tx.Current::runInTx
+        );
+    }
+
+    @Override
+    public <T> T tx(Function<Tx, T> function) {
+        return internalTx(function, Tx.Current::runInTx);
+    }
+
+    private <T> T internalTx(Function<Tx, T> function, TxImpl.ContextFactory<T> contextFactory) {
         NonTx.Context.checkTransactionAllowed();
 
         TxName txName = txNameGenerator.generate();
@@ -217,7 +242,7 @@ public final class StdTxManager implements TxManager, TxManagerState {
 
         MdcSetup mdcs = txMdcs(txName, txLogId);
         try (Timer ignored = totalDuration.labels(txName.name()).startTimer()) {
-            T result = runTxWithRetry(txName.name(), mdcs, supplier);
+            T result = runTxWithRetry(txName.name(), mdcs, function, contextFactory);
 
             if (options.isDryRun()) {
                 results.labels(txName.name(), "rollback").inc();
@@ -232,7 +257,9 @@ public final class StdTxManager implements TxManager, TxManagerState {
         }
     }
 
-    private <T> T runTxWithRetry(String txName, MdcSetup mdcs, Supplier<T> supplier) {
+    private <T> T runTxWithRetry(
+            String txName, MdcSetup mdcs, Function<Tx, T> function, TxImpl.ContextFactory<T> contextFactory
+    ) {
         TxImpl lastTx = null;
         int attempt = 1;
         try {
@@ -243,7 +270,7 @@ public final class StdTxManager implements TxManager, TxManagerState {
                 try (Timer ignored = attemptDuration.labels(txName).startTimer()) {
                     RepositoryTransaction transaction = repository.startTransaction(options);
                     lastTx = new TxImpl(txName, transaction, options);
-                    return lastTx.run(supplier);
+                    return lastTx.run(function, contextFactory);
                 } catch (RetryableException e) {
                     retries.labels(txName, getExceptionNameForMetric(e)).inc();
                     if (attempt < maxAttemptCount) {
