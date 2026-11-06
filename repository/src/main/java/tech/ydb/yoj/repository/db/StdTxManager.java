@@ -207,6 +207,8 @@ public final class StdTxManager implements TxManager, TxManagerState {
 
     @Override
     public <T> T tx(Supplier<T> supplier) {
+        NonTx.Context.checkTransactionAllowed();
+
         TxName txName = txNameGenerator.generate();
 
         checkSeparatePolicy(separatePolicy, txName.logName());

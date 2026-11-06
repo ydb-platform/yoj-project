@@ -5,6 +5,7 @@ import org.junit.Before;
 import org.junit.Test;
 
 import tech.ydb.yoj.repository.db.IsolationLevel;
+import tech.ydb.yoj.repository.db.NonTx;
 import tech.ydb.yoj.repository.db.Repository;
 import tech.ydb.yoj.repository.db.RepositoryTransaction;
 import tech.ydb.yoj.repository.db.StdTxManager;
@@ -84,6 +85,55 @@ public class YojTransactionAspectTest {
 
     @YojTransactional(name = "retryable", maxRetries = 2)
     public void retryableHolder() {
+    }
+
+    @Test
+    public void testNonTxRejectsTransactionsBeforeProceeding() throws Throwable {
+        ProceedingJoinPoint pjp = mock(ProceedingJoinPoint.class);
+        YojTransactional readWrite = getClass().getDeclaredMethod("noRollbackExceptionHolder")
+                .getDeclaredAnnotation(YojTransactional.class);
+        YojTransactional readOnly = getClass().getDeclaredMethod("readOnlyHolder")
+                .getDeclaredAnnotation(YojTransactional.class);
+
+        NonTx.nonTx(() -> assertThatThrownBy(() -> aspect.doInMethodTransaction(pjp, readWrite))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("nonTx"));
+        NonTx.nonTx(() -> assertThatThrownBy(() -> aspect.doInMethodTransaction(pjp, readOnly))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("nonTx"));
+
+        verifyNoInteractions(mockRepository);
+        verify(pjp, never()).proceed();
+    }
+
+    @Test
+    public void testTransactionsRejectNonTxBeforeRunningBody() throws Throwable {
+        Runnable body = mock(Runnable.class);
+        ProceedingJoinPoint pjp = mock(ProceedingJoinPoint.class);
+        when(pjp.proceed()).thenAnswer(invocation -> {
+            NonTx.nonTx(body);
+            return null;
+        });
+        YojTransactional readWrite = getClass().getDeclaredMethod("noRollbackExceptionHolder")
+                .getDeclaredAnnotation(YojTransactional.class);
+        YojTransactional readOnly = getClass().getDeclaredMethod("readOnlyHolder")
+                .getDeclaredAnnotation(YojTransactional.class);
+
+        assertThatThrownBy(() -> aspect.doInMethodTransaction(pjp, readWrite))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("nonTx cannot be entered inside a transaction");
+        assertThatThrownBy(() -> aspect.doInMethodTransaction(pjp, readOnly))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("nonTx cannot be entered inside a transaction");
+
+        verifyNoInteractions(body);
+        verify(pjp, times(2)).proceed();
+        verify(mockRepositoryTransactions, times(2)).rollback();
+        verify(mockRepositoryTransactions, never()).commit();
+    }
+
+    @YojTransactional(name = "readOnly", readOnly = true, isolation = IsolationLevel.SNAPSHOT_READ_ONLY)
+    public void readOnlyHolder() {
     }
 
     @YojTransactional(name = "noRollbackFor", noRollbackFor = ArithmeticException.class)

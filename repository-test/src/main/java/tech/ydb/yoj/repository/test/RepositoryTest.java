@@ -25,6 +25,7 @@ import tech.ydb.yoj.repository.db.Entity;
 import tech.ydb.yoj.repository.db.EntitySchema;
 import tech.ydb.yoj.repository.db.IndexOrder;
 import tech.ydb.yoj.repository.db.IsolationLevel;
+import tech.ydb.yoj.repository.db.NonTx;
 import tech.ydb.yoj.repository.db.Range;
 import tech.ydb.yoj.repository.db.RecordEntity;
 import tech.ydb.yoj.repository.db.Repository;
@@ -271,6 +272,26 @@ public abstract class RepositoryTest extends RepositoryTestSupport {
         db.tx(() -> db.projects().delete(new Project.Id("1")));
         Project p5 = db.tx(() -> db.projects().find(new Project.Id("1")));
         assertThat(p5).isNull();
+    }
+
+    @Test
+    public void nonTx() {
+        Runnable body = () -> {};
+
+        NonTx.nonTx(() -> {
+            assertThatIllegalStateException().isThrownBy(() -> db.tx(body));
+            assertThatIllegalStateException().isThrownBy(() -> db.readOnly().run(body));
+            assertThatIllegalStateException().isThrownBy(() -> db.scan().run(body));
+            assertThatIllegalStateException().isThrownBy(() -> db.separate().tx(body));
+        });
+
+        Runnable nonTx = () -> NonTx.nonTx(body);
+        assertThatIllegalStateException().isThrownBy(() -> db.tx(nonTx));
+        assertThatIllegalStateException().isThrownBy(() -> db.readOnly().run(nonTx));
+        assertThatIllegalStateException().isThrownBy(() -> db.scan().run(nonTx));
+        assertThatIllegalStateException().isThrownBy(() -> db.separate().tx(nonTx));
+
+        NonTx.nonTx(() -> NonTx.nonTx(body));
     }
 
     @Test
