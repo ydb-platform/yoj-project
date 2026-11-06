@@ -2,10 +2,8 @@ package tech.ydb.yoj.repository.db;
 
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
-import tech.ydb.yoj.repository.db.cache.TransactionLog;
 import tech.ydb.yoj.repository.db.exception.RetryableException;
 
-import java.time.Duration;
 import java.util.function.Supplier;
 
 import static lombok.AccessLevel.PRIVATE;
@@ -64,6 +62,16 @@ public abstract class DelegatingTxManager implements TxManager {
     protected abstract TxManager createTxManager(TxManager delegate);
 
     @Override
+    public final TxOptions getOptions() {
+        return delegate.getOptions();
+    }
+
+    @Override
+    public final TxManager withOptions(TxOptions options) {
+        return createTxManager(delegate.withOptions(options));
+    }
+
+    @Override
     public final void tx(Runnable runnable) {
         tx(() -> {
             runnable.run();
@@ -74,11 +82,6 @@ public abstract class DelegatingTxManager implements TxManager {
     @Override
     public final <T> T tx(Supplier<T> supplier) {
         return doRunTx(() -> delegate.tx(wrapTxBody(supplier)));
-    }
-
-    @Override
-    public final TxManager withName(String name, String logContext) {
-        return createTxManager(this.delegate.withName(name, logContext));
     }
 
     @Override
@@ -97,21 +100,6 @@ public abstract class DelegatingTxManager implements TxManager {
     }
 
     @Override
-    public TxManager delayedWrites() {
-        return createTxManager(this.delegate.delayedWrites());
-    }
-
-    @Override
-    public final TxManager immediateWrites() {
-        return createTxManager(this.delegate.immediateWrites());
-    }
-
-    @Override
-    public final TxManager noFirstLevelCache() {
-        return createTxManager(this.delegate.noFirstLevelCache());
-    }
-
-    @Override
     public final TxManager failOnUnknownSeparateTx() {
         return createTxManager(this.delegate.failOnUnknownSeparateTx());
     }
@@ -122,68 +110,13 @@ public abstract class DelegatingTxManager implements TxManager {
     }
 
     @Override
-    public final TxManager withDryRun(boolean dryRun) {
-        return createTxManager(this.delegate.withDryRun(dryRun));
-    }
-
-    @Override
-    public final TxManager withLogLevel(TransactionLog.Level level) {
-        return createTxManager(this.delegate.withLogLevel(level));
-    }
-
-    @Override
-    public final TxManager withLogStatementOnSuccess(boolean logStatementOnSuccess) {
-        return createTxManager(this.delegate.withLogStatementOnSuccess(logStatementOnSuccess));
-    }
-
-    @Override
-    public final TxManager withTimeout(@NonNull Duration timeout) {
-        return createTxManager(this.delegate.withTimeout(timeout));
-    }
-
-    @Override
-    public final TxManager withQueryStats(@NonNull QueryStatsMode queryStats) {
-        return createTxManager(this.delegate.withQueryStats(queryStats));
-    }
-
-    @Override
-    public TxManager withFullQueryTracing() {
-        return createTxManager(this.delegate.withFullQueryTracing());
-    }
-
-    @Override
-    public TxManager noQueryTracing() {
-        return createTxManager(this.delegate.noQueryTracing());
-    }
-
-    @Override
-    public TxManager withTracingFilter(@NonNull QueryTracingFilter tracingFilter) {
-        return createTxManager(this.delegate.withTracingFilter(tracingFilter));
-    }
-
-    @Override
-    public final TxManager withVerboseLogging() {
-        return createTxManager(this.delegate.withVerboseLogging());
-    }
-
-    @Override
-    public final TxManager withBriefLogging() {
-        return createTxManager(this.delegate.withBriefLogging());
-    }
-
-    @Override
-    public final TxManager noLogging() {
-        return createTxManager(this.delegate.noLogging());
-    }
-
-    @Override
     public final ReadonlyBuilder readOnly() {
         return new ReadonlyBuilderImpl(this.delegate.readOnly());
     }
 
     @Override
-    public final ScanBuilder scan() {
-        return new ScanBuilderImpl(this.delegate.scan());
+    public final ScanTxManager scan() {
+        return new ScanTxManager(this, TxOptions.ScanTxOptions.createDefault(getOptions()));
     }
 
     @Override
@@ -209,26 +142,6 @@ public abstract class DelegatingTxManager implements TxManager {
     @Override
     protected final Object clone() throws CloneNotSupportedException {
         return super.clone();
-    }
-
-    @RequiredArgsConstructor(access = PRIVATE)
-    private final class ScanBuilderImpl implements ScanBuilder {
-        private final ScanBuilder delegate;
-
-        @Override
-        public ScanBuilder withMaxSize(long maxSize) {
-            return new ScanBuilderImpl(delegate.withMaxSize(maxSize));
-        }
-
-        @Override
-        public ScanBuilder withTimeout(Duration timeout) {
-            return new ScanBuilderImpl(delegate.withTimeout(timeout));
-        }
-
-        @Override
-        public <T> T run(Supplier<T> supplier) throws RetryableException {
-            return doRunTx(() -> this.delegate.run(wrapTxBody(supplier)));
-        }
     }
 
     @RequiredArgsConstructor(access = PRIVATE)

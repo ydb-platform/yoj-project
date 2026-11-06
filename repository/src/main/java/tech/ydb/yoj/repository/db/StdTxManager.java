@@ -13,7 +13,6 @@ import lombok.With;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import tech.ydb.yoj.ExperimentalApi;
-import tech.ydb.yoj.repository.db.cache.TransactionLog;
 import tech.ydb.yoj.repository.db.exception.QueryInterruptedException;
 import tech.ydb.yoj.repository.db.exception.RetryableException;
 import tech.ydb.yoj.util.lang.Strings;
@@ -21,7 +20,6 @@ import tech.ydb.yoj.util.log.MdcSetup;
 import tech.ydb.yoj.util.retry.RetryPolicy;
 
 import javax.annotation.Nullable;
-import java.time.Duration;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Supplier;
 
@@ -84,7 +82,8 @@ public final class StdTxManager implements TxManager, TxManagerState {
     @With
     @Getter
     private final String logContext;
-    @With(AccessLevel.PRIVATE)
+    @With
+    @Getter
     private final TxOptions options;
     @With(AccessLevel.PRIVATE)
     private final SeparatePolicy separatePolicy;
@@ -132,21 +131,6 @@ public final class StdTxManager implements TxManager, TxManagerState {
     }
 
     @Override
-    public StdTxManager delayedWrites() {
-        return withOptions(this.options.withImmediateWrites(false));
-    }
-
-    @Override
-    public StdTxManager immediateWrites() {
-        return withOptions(this.options.withImmediateWrites(true));
-    }
-
-    @Override
-    public StdTxManager noFirstLevelCache() {
-        return withOptions(this.options.withFirstLevelCache(false));
-    }
-
-    @Override
     public StdTxManager failOnUnknownSeparateTx() {
         return withSeparatePolicy(SeparatePolicy.STRICT);
     }
@@ -158,43 +142,20 @@ public final class StdTxManager implements TxManager, TxManagerState {
     }
 
     @Override
-    public StdTxManager withDryRun(boolean dryRun) {
-        return withOptions(this.options.withDryRun(dryRun));
-    }
-
-    @Override
-    public StdTxManager withTimeout(@NonNull Duration timeout) {
-        return withOptions(this.options.withTimeoutOptions(new TxOptions.TimeoutOptions(timeout)));
-    }
-
-    @Override
-    public StdTxManager withQueryStats(@NonNull QueryStatsMode queryStats) {
-        return withOptions(this.options.withQueryStats(queryStats));
-    }
-
-    @Override
-    public StdTxManager withTracingFilter(@NonNull QueryTracingFilter tracingFilter) {
-        return withOptions(this.options.withTracingFilter(tracingFilter));
-    }
-
-    @Override
-    public StdTxManager withLogLevel(@NonNull TransactionLog.Level level) {
-        return withOptions(this.options.withLogLevel(level));
-    }
-
-    @Override
-    public StdTxManager withLogStatementOnSuccess(boolean logStatementOnSuccess) {
-        return withOptions(this.options.withLogStatementOnSuccess(logStatementOnSuccess));
-    }
-
-    @Override
     public ReadonlyBuilder readOnly() {
-        return new ReadonlyBuilderImpl(this.options.withIsolationLevel(ONLINE_CONSISTENT_READ_ONLY));
+        TxOptions txOptions = options;
+        if (txOptions instanceof TxOptions.ScanTxOptions scanOptions) {
+            txOptions = scanOptions.getDelegate();
+        }
+        return new ReadonlyBuilderImpl(txOptions.withIsolationLevel(ONLINE_CONSISTENT_READ_ONLY));
     }
 
     @Override
-    public ScanBuilder scan() {
-        return new ScanBuilderImpl(TxOptions.ScanOptions.DEFAULT);
+    public ScanTxManager scan() {
+        TxOptions.ScanTxOptions scanOptions = options instanceof TxOptions.ScanTxOptions configured
+                ? configured
+                : TxOptions.ScanTxOptions.createDefault(options);
+        return new ScanTxManager(this, scanOptions);
     }
 
     @Override
@@ -360,15 +321,6 @@ public final class StdTxManager implements TxManager, TxManagerState {
     }
 
     /**
-     * @deprecated Use do not use this method. TxManager will be redesigned in issues/190
-     */
-    @ExperimentalApi(issue = "https://github.com/ydb-platform/yoj-project/issues/190")
-    @Deprecated(forRemoval = true)
-    public StdTxManager withIsolationLevel(IsolationLevel isolationLevel) {
-        return withOptions(options.withIsolationLevel(isolationLevel));
-    }
-
-    /**
      * Provides custom {@link RetryPolicy retry policies} for some, or all, of {@link RetryableException}s
      * encountered by {@code StdTxManager} while trying to perform the transaction.
      *
@@ -383,31 +335,6 @@ public final class StdTxManager implements TxManager, TxManagerState {
          */
         @Nullable
         RetryPolicy getRetryPolicy(RetryableException e);
-    }
-
-    @AllArgsConstructor
-    private class ScanBuilderImpl implements ScanBuilder {
-        @With(AccessLevel.PRIVATE)
-        private final TxOptions.ScanOptions options;
-
-        @Override
-        public ScanBuilder withMaxSize(long maxSize) {
-            return withOptions(options.withMaxSize(maxSize));
-        }
-
-        @Override
-        public ScanBuilder withTimeout(Duration timeout) {
-            return withOptions(options.withTimeout(timeout));
-        }
-
-        @Override
-        public <T> T run(Supplier<T> supplier) throws RetryableException {
-            TxOptions txOptions = StdTxManager.this.options
-                    .withScanOptions(options)
-                    .withFirstLevelCache(false);
-
-            return StdTxManager.this.withOptions(txOptions).tx(supplier);
-        }
     }
 
     @AllArgsConstructor
