@@ -2645,8 +2645,7 @@ public abstract class RepositoryTest extends RepositoryTestSupport {
         tx0.table(Project.class).save(new Project(new Project.Id("2"), "p2"));
         tx0.commit();
 
-        TxOptions txOptions = TxOptions.create(IsolationLevel.STALE_CONSISTENT_READ_ONLY)
-                .withScanOptions(TxOptions.ScanOptions.DEFAULT);
+        TxOptions txOptions = TxOptions.ScanTxOptions.createDefault(TxOptions.create(IsolationLevel.STALE_CONSISTENT_READ_ONLY));
         RepositoryTransaction tx1 = repository.startTransaction(txOptions);
         tx1.table(Project.class).find(new Project.Id("1"));
         {
