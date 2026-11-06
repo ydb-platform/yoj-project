@@ -27,13 +27,15 @@ public final class NonTx {
     }
 
     /**
-     * Wraps the specified object so that it cannot be invoked inside a transaction.
+     * DEPRECATED: use your own implementation of services with nonTx wrapper
+     * Wraps the specified object so that it cannot be invoked inside a transaction
      *
      * @param type object type to wrap; must be an interface
      * @param t    instance to wrap
      * @param <T>  instance type
      * @return wrapped instance that does not permit calls inside a transaction
      */
+    @Deprecated(forRemoval = true)
     public static <T> T nonTx(Class<T> type, T t) {
         Object obj = newProxyInstance(type.getClassLoader(), new Class<?>[]{type}, (__, method, args) -> {
             try {
