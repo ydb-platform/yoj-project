@@ -21,6 +21,7 @@ import tech.ydb.yoj.repository.db.ViewSchema;
 import tech.ydb.yoj.repository.db.bulk.BulkParams;
 import tech.ydb.yoj.repository.db.cache.FirstLevelCache;
 import tech.ydb.yoj.repository.db.exception.IllegalTransactionIsolationLevelException;
+import tech.ydb.yoj.repository.db.internal.DbRequest;
 import tech.ydb.yoj.repository.db.internal.TableQueryImpl;
 import tech.ydb.yoj.repository.db.list.InMemoryQueries;
 import tech.ydb.yoj.repository.db.readtable.ReadTableParams;
@@ -95,13 +96,16 @@ public class InMemoryTable<T extends Entity<T>> implements Table<T> {
         changeset.toMap().forEach((k, v) -> patch.putAll(schema.flattenOneField(k, v)));
 
         transaction.getWatcher().markRowRead(tableDescriptor, id);
-        transaction.doInWriteTransaction("update(" + id + ", " + changeset + ")", tableDescriptor, shard -> shard.update(id, patch));
+        transaction.doDataWriteInTransaction("update(" + id + ", " + changeset + ")", tableDescriptor, shard -> shard.update(id, patch));
         transaction.getTransactionLocal().firstLevelCache(tableDescriptor).remove(id);
     }
 
     @Override
     public void bulkUpsert(List<T> input, BulkParams params) {
-        input.forEach(this::save);
+        DbRequest action = DbRequest.bulkUpsert(tableDescriptor.tableName(), input.size(), params);
+        transaction.doWriteInTransaction(action, tableDescriptor, shard -> {
+            input.forEach(tt -> shard.save(tt.preSave()));
+        });
     }
     
     @Override
@@ -188,7 +192,7 @@ public class InMemoryTable<T extends Entity<T>> implements Table<T> {
         }
         return transaction.getTransactionLocal().firstLevelCache(tableDescriptor).get(id, __ -> {
             markKeyRead(id);
-            T entity = transaction.doInTransaction("find(" + id + ")", tableDescriptor, shard -> shard.find(id));
+            T entity = transaction.doReadInTransaction("find(" + id + ")", tableDescriptor, shard -> shard.find(id));
             return entity == null ? null : postLoad(entity);
         });
     }
@@ -212,7 +216,7 @@ public class InMemoryTable<T extends Entity<T>> implements Table<T> {
         }
 
         markKeyRead(id);
-        return transaction.doInTransaction("find(" + id + ")", tableDescriptor, shard -> shard.find(id, viewType));
+        return transaction.doReadInTransaction("find(" + id + ")", tableDescriptor, shard -> shard.find(id, viewType));
     }
 
     @Override
@@ -435,7 +439,7 @@ public class InMemoryTable<T extends Entity<T>> implements Table<T> {
     public T insert(T tt) {
         T t = tt.preSave();
         transaction.getWatcher().markRowRead(tableDescriptor, t.getId());
-        transaction.doInWriteTransaction("insert(" + t + ")", tableDescriptor, shard -> shard.insert(t));
+        transaction.doDataWriteInTransaction("insert(" + t + ")", tableDescriptor, shard -> shard.insert(t));
         transaction.getTransactionLocal().firstLevelCache(tableDescriptor).put(t);
         transaction.getTransactionLocal().projectionCache().save(t);
         return t;
@@ -444,7 +448,7 @@ public class InMemoryTable<T extends Entity<T>> implements Table<T> {
     @Override
     public T save(T tt) {
         T t = tt.preSave();
-        transaction.doInWriteTransaction("save(" + t + ")", tableDescriptor, shard -> shard.save(t));
+        transaction.doDataWriteInTransaction("save(" + t + ")", tableDescriptor, shard -> shard.save(t));
         transaction.getTransactionLocal().firstLevelCache(tableDescriptor).put(t);
         transaction.getTransactionLocal().projectionCache().save(t);
         return t;
@@ -452,20 +456,20 @@ public class InMemoryTable<T extends Entity<T>> implements Table<T> {
 
     @Override
     public void delete(Entity.Id<T> id) {
-        transaction.doInWriteTransaction("delete(" + id + ")", tableDescriptor, shard -> shard.delete(id));
+        transaction.doDataWriteInTransaction("delete(" + id + ")", tableDescriptor, shard -> shard.delete(id));
         transaction.getTransactionLocal().firstLevelCache(tableDescriptor).putEmpty(id);
         transaction.getTransactionLocal().projectionCache().delete(id);
     }
 
     @Override
     public void deleteAll() {
-        transaction.doInWriteTransaction(
+        transaction.doDataWriteInTransaction(
                 "deleteAll(" + tableDescriptor.toDebugString() + ")", tableDescriptor, WriteTxDataShard::deleteAll
         );
     }
 
     private List<T> getAllEntries() {
-        return transaction.doInTransaction(
+        return transaction.doReadInTransaction(
                 "findAll(" + tableDescriptor.toDebugString() + ")", tableDescriptor, ReadOnlyTxDataShard::findAll
         );
     }

@@ -8,6 +8,9 @@ import tech.ydb.core.Status;
 import tech.ydb.core.StatusCode;
 import tech.ydb.yoj.repository.db.exception.DeadlineExceededException;
 import tech.ydb.yoj.repository.db.exception.QueryInterruptedException;
+import tech.ydb.yoj.repository.db.internal.DbRequest;
+import tech.ydb.yoj.repository.db.readtable.ReadTableParams;
+import tech.ydb.yoj.repository.ydb.client.YdbValidatorClassic;
 
 import java.time.Duration;
 import java.util.ArrayList;
@@ -73,7 +76,10 @@ public class YdbSpliteratorTest {
     @Test
     @SneakyThrows
     public void endStreamWhenSupplerOfferValue() {
-        YdbSpliterator<Integer> spliterator = new YdbSpliterator<>("stream", false, Duration.ofMillis(500));
+        Duration timeout = Duration.ofMillis(500);
+        YdbSpliterator<Integer> spliterator = new YdbSpliterator<>(
+                DbRequest.scanQuery("mockQuery()"), YdbValidatorClassic.INSTANCE, false, timeout
+        );
 
         spliterator.onNext(1);
 
@@ -198,7 +204,9 @@ public class YdbSpliteratorTest {
         }
 
         public static ReadTableMock start(Duration timeout) {
-            YdbSpliterator<Integer> spliterator = new YdbSpliterator<>("stream", false, timeout);
+            YdbSpliterator<Integer> spliterator = new YdbSpliterator<>(
+                    DbRequest.readTable("R", ReadTableParams.getDefault()), YdbValidatorClassic.INSTANCE, false, timeout
+            );
 
             ReadTableMock mock = new ReadTableMock(spliterator);
             mock.run();

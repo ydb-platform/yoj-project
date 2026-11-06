@@ -68,6 +68,6 @@ public class FindStatement<ENTITY extends Entity<ENTITY>, RESULT> extends Predic
 
     @Override
     public String toDebugString(Collection<? extends YqlStatementPart<?>> yqlStatementParts) {
-        return "find(" + yqlStatementParts + ")";
+        return "find(" + schema.getTypeName() + ", " + yqlStatementParts + ")";
     }
 }

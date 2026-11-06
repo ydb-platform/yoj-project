@@ -17,8 +17,14 @@ public class BulkParams {
     Duration cancelAfter = null;
 
     @Builder.Default
-    long deadlineAfter = 0;
-
-    @Builder.Default
     String traceId = null;
+
+    @Override
+    public String toString() {
+        return "BulkParams(" +
+                "timeout=" + timeout +
+                (cancelAfter != null ? ", cancelAfter=" + cancelAfter : "") +
+                (traceId != null ? ", traceId='" + traceId + '\'' : "") +
+                ')';
+    }
 }
