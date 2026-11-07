@@ -269,8 +269,7 @@ public class InMemoryTable<T extends Entity<T>> implements Table<T> {
             @Nullable OrderExpression<T> orderBy,
             @Nullable Integer limit
     ) {
-        var found = findUncached(ids, filter, orderBy, limit);
-        return TableQueryImpl.postLoad(this, found);
+        return TableQueryImpl.find(this, getFirstLevelCache(), ids, filter, orderBy, limit);
     }
 
     @Override
