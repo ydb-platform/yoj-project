@@ -13,6 +13,7 @@ import tech.ydb.yoj.repository.db.exception.EntityAlreadyExistsException;
 import tech.ydb.yoj.repository.ydb.YdbRepository;
 import tech.ydb.yoj.repository.ydb.exception.YdbRepositoryException;
 import tech.ydb.yoj.repository.ydb.statement.DeleteByIdStatement;
+import tech.ydb.yoj.repository.ydb.statement.InsertYqlStatement;
 import tech.ydb.yoj.repository.ydb.statement.Statement;
 import tech.ydb.yoj.repository.ydb.statement.UpsertYqlStatement;
 import tech.ydb.yoj.repository.ydb.statement.YqlStatement;
@@ -74,6 +75,11 @@ public class ByEntityYqlQueriesMerger implements YqlQueriesMerger {
                 if (oldMergingState == MergingState.DELETE && queryType == Statement.QueryType.INSERT) {
                     // DELETE, INSERT -> UPSERT
                     replaceWith = convertInsertToUpsert(query);
+                } else if (state.getState() == MergingState.INSERT && queryType == Statement.QueryType.UPSERT) {
+                    // (INSERT | INSERT, DELETE), UPSERT -> INSERT
+                    // We must keep the INSERT statement, otherwise the "entity must not exist" check of the original INSERT
+                    // would be lost, and all other INSERTs to this table would be merged into an UPSERT, too
+                    replaceWith = convertUpsertToInsert(query);
                 }
                 state = state.withQuery(replaceWith);
             }
@@ -171,6 +177,17 @@ public class ByEntityYqlQueriesMerger implements YqlQueriesMerger {
 
         return new YdbRepository.Query<>(
                 new UpsertYqlStatement<>(tableDescriptor, schema),
+                query.getValues().get(0)
+        );
+    }
+
+    private static <E extends Entity<E>> YdbRepository.Query<?> convertUpsertToInsert(YdbRepository.Query<?> query) {
+        YqlStatement<?, E, ?> srcStatement = convertQueryToYqlStatement(query);
+        EntitySchema<E> schema = srcStatement.getInSchema();
+        TableDescriptor<E> tableDescriptor = srcStatement.getTableDescriptor();
+
+        return new YdbRepository.Query<>(
+                new InsertYqlStatement<>(tableDescriptor, schema),
                 query.getValues().get(0)
         );
     }
