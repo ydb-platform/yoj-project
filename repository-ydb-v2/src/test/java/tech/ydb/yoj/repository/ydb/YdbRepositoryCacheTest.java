@@ -278,6 +278,50 @@ public class YdbRepositoryCacheTest {
     }
 
     @Test
+    public void findInWithFilterDoesNotMarkFilteredOutEntitiesAsNonExistent() {
+        Id existsInDbId = new Id(1, 1L, "c", Complex.Status.OK);
+        Complex existsInDb = new Complex(existsInDbId, "value");
+        TestEntityOperations ops = new TestYdbRepository.TestYdbRepositoryTransaction(testYdbRepository);
+
+        // Entity exists, but it does not match the filter, so the DB returns nothing
+        when(session.executeDataQuery(any(), any(), any(), any())).thenReturn(convertEntity(List.of()));
+        List<Complex> found = ops.complexes().query()
+                .ids(Set.of(existsInDbId))
+                .where("value").eq("other value")
+                .find();
+        assertThat(found).isEmpty();
+
+        when(session.executeDataQuery(any(), any(), any(), any())).thenReturn(convertEntity(List.of(existsInDb)));
+        Complex foundById = ops.complexes().find(existsInDbId);
+        assertThat(foundById).isEqualTo(existsInDb);
+
+        verify(session, times(2)).executeDataQuery(any(), any(), any(), any());
+    }
+
+    @Test
+    public void findInWithLimitDoesNotMarkCutOffEntitiesAsNonExistent() {
+        Id firstId = new Id(1, 1L, "c", Complex.Status.OK);
+        Complex first = new Complex(firstId);
+        Id secondId = new Id(1, 2L, "c", Complex.Status.OK);
+        Complex second = new Complex(secondId);
+        TestEntityOperations ops = new TestYdbRepository.TestYdbRepositoryTransaction(testYdbRepository);
+
+        // Both entities exist, but only the first one fits into the limit
+        when(session.executeDataQuery(any(), any(), any(), any())).thenReturn(convertEntity(List.of(first)));
+        List<Complex> found = ops.complexes().query()
+                .ids(Set.of(firstId, secondId))
+                .limit(1)
+                .find();
+        assertThat(found).containsExactly(first);
+
+        when(session.executeDataQuery(any(), any(), any(), any())).thenReturn(convertEntity(List.of(second)));
+        Complex foundById = ops.complexes().find(secondId);
+        assertThat(foundById).isEqualTo(second);
+
+        verify(session, times(2)).executeDataQuery(any(), any(), any(), any());
+    }
+
+    @Test
     public void findAllAndPutInCache() {
         List<Complex> results = createComplexesList();
 
