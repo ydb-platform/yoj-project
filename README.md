@@ -41,13 +41,18 @@ spinning containers or accessing a real YDB installation. **Highly recommended.*
 - `aspect`: AspectJ aspect and `@YojTransactional` annotation for usage with AspectJ and Spring AOP. Allows a Spring `@Transactional`-like experience for your methods that need to initiate or continue a YDB transaction.
 - `ext-meta-generator`: Annotation processor that generates field paths for each of your `Entity` fields, to be used with `TableQueryBuilder` (`Table.query()` DSL) and `YqlPredicate`.
 - `util`: Utility classes used in YOJ implementation.
-- `tracer-prometheus`: Optional Prometheus metrics for transactions and YDB session pools.
+- `tracer`: Instrumentation API for transactions and session pools, independent of any metrics backend.
+- `tracer-prometheus`: Prometheus metrics implementation, included by default at runtime by `repository`.
 
 ### Prometheus metrics
 
-YOJ uses a no-op `YojTracer` by default and does not require a metrics library. To enable Prometheus metrics,
-add the `tech.ydb.yoj:yoj-tracer-prometheus` dependency and pass its tracer to both the repository's metric
-settings and the transaction manager:
+YOJ reports transaction and session pool metrics to `PrometheusRegistry.defaultRegistry` by default.
+The `yoj-repository` module includes `yoj-tracer-prometheus` as a runtime dependency, and
+`YojTracer.getDefault()` discovers its provider automatically. Existing repository and transaction-manager
+constructors enable metrics without additional configuration.
+
+To use an application-managed registry, add an explicit `tech.ydb.yoj:yoj-tracer-prometheus` compile dependency
+and pass its tracer to both the repository's metric settings and the transaction manager:
 
 ```java
 var registry = new PrometheusRegistry();
@@ -63,6 +68,10 @@ var txManager = new StdTxManager(repository, tracer);
 ```
 
 The Prometheus implementation shares metrics among tracers requested for the same registry.
-Pass `PrometheusRegistry.defaultRegistry` explicitly if you want to use the global registry.
 Use a distinct repository label for each active pool. Closing a repository removes its session pool metrics
-and releases its stats supplier. Applications can implement `YojTracer` to use another metrics or tracing system.
+and releases its stats supplier. Applications can implement `tech.ydb.yoj.tracer.YojTracer` to use another
+metrics or tracing system, or explicitly pass `YojTracer.NONE` to disable metrics.
+
+To remove the Prometheus dependency entirely, exclude `tech.ydb.yoj:yoj-tracer-prometheus` from your YOJ
+dependency. Default discovery falls back to `YojTracer.NONE` when no provider is present. Explicitly supplied
+tracers always take precedence over default discovery.

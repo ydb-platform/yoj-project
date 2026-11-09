@@ -1,5 +1,7 @@
 package tech.ydb.yoj.repository.db;
 
+import io.prometheus.metrics.model.registry.PrometheusRegistry;
+import io.prometheus.metrics.model.snapshots.CounterSnapshot;
 import lombok.NonNull;
 import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.LogManager;
@@ -16,6 +18,7 @@ import tech.ydb.yoj.repository.db.exception.OptimisticLockException;
 import tech.ydb.yoj.repository.db.exception.UnavailableException;
 import tech.ydb.yoj.repository.db.testcaller.TestDbTxCaller;
 import tech.ydb.yoj.repository.testcaller.TestTxCaller;
+import tech.ydb.yoj.tracer.YojTracer;
 import tech.ydb.yoj.util.retry.RetryPolicy;
 
 import java.time.Duration;
@@ -39,6 +42,25 @@ public class StdTxManagerTest {
     private final TransactionLocal transactionLocal = mock(TransactionLocal.class);
     private final TransactionLog transactionLog = new TransactionLog(TransactionLog.Level.DEBUG);
     private final RepositoryTransaction repositoryTransaction = mock(RepositoryTransaction.class);
+
+    @Test
+    public void defaultConstructorReportsPrometheusMetrics() {
+        when(repository.startTransaction(any(TxOptions.class))).thenReturn(repositoryTransaction);
+        when(repositoryTransaction.getTransactionLocal()).thenReturn(transactionLocal);
+        when(transactionLocal.log()).thenReturn(transactionLog);
+
+        String txName = "defaultConstructorReportsPrometheusMetrics";
+        new StdTxManager(repository).withName(txName).tx(() -> "done");
+
+        var results = (CounterSnapshot) PrometheusRegistry.defaultRegistry.scrape().stream()
+                .filter(metric -> metric.getMetadata().getName().equals("tx_result"))
+                .findFirst().orElseThrow();
+        assertThat(results.getDataPoints()).anySatisfy(point -> {
+            assertThat(point.getLabels().get("tx_name")).isEqualTo(txName);
+            assertThat(point.getLabels().get("result")).isEqualTo("commit");
+            assertThat(point.getValue()).isEqualTo(1);
+        });
+    }
 
     @Test
     public void testDbChildPackage_FromStackWalker_Auto() {

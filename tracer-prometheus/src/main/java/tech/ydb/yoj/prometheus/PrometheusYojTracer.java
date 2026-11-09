@@ -4,8 +4,7 @@ import io.prometheus.metrics.core.metrics.Counter;
 import io.prometheus.metrics.core.metrics.Histogram;
 import io.prometheus.metrics.model.registry.PrometheusRegistry;
 import lombok.NonNull;
-import tech.ydb.yoj.repository.db.YojTracer;
-import tech.ydb.yoj.repository.db.exception.RetryableException;
+import tech.ydb.yoj.tracer.YojTracer;
 import tech.ydb.yoj.util.lang.Strings;
 
 import java.util.Map;
@@ -105,7 +104,7 @@ public final class PrometheusYojTracer implements YojTracer {
     }
 
     @Override
-    public void onRetry(String txName, RetryableException exception) {
+    public void onRetry(String txName, Throwable exception) {
         retries.labelValues(txName, Strings.removeSuffix(exception.getClass().getSimpleName(), "Exception")).inc();
     }
 
@@ -122,5 +121,13 @@ public final class PrometheusYojTracer implements YojTracer {
     @Override
     public SessionPool registerSessionPool(String repositoryLabel, Supplier<SessionPoolStats> statsSupplier) {
         return sessions.registerPool(repositoryLabel, statsSupplier);
+    }
+
+    /** Supplies the shared tracer for {@link PrometheusRegistry#defaultRegistry}. */
+    public static final class DefaultProvider implements YojTracer.Provider {
+        @Override
+        public YojTracer getTracer() {
+            return forRegistry(PrometheusRegistry.defaultRegistry);
+        }
     }
 }

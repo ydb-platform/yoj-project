@@ -24,13 +24,13 @@ import tech.ydb.yoj.repository.db.RepositoryTransaction;
 import tech.ydb.yoj.repository.db.SchemaOperations;
 import tech.ydb.yoj.repository.db.TableDescriptor;
 import tech.ydb.yoj.repository.db.TxOptions;
-import tech.ydb.yoj.repository.db.YojTracer;
 import tech.ydb.yoj.repository.ydb.client.SessionManager;
 import tech.ydb.yoj.repository.ydb.client.YdbSchemaOperations;
 import tech.ydb.yoj.repository.ydb.client.YdbTableHint;
 import tech.ydb.yoj.repository.ydb.compatibility.YdbDataCompatibilityChecker;
 import tech.ydb.yoj.repository.ydb.compatibility.YdbSchemaCompatibilityChecker;
 import tech.ydb.yoj.repository.ydb.statement.Statement;
+import tech.ydb.yoj.tracer.YojTracer;
 import tech.ydb.yoj.util.function.MoreSuppliers;
 import tech.ydb.yoj.util.function.MoreSuppliers.CloseableMemoizer;
 import tech.ydb.yoj.util.lang.Exceptions;
@@ -363,15 +363,20 @@ public class YdbRepository implements Repository {
     ) {
         public static SettingsBuilder builder() {
             return new SettingsBuilder()
-                    .queryImplementation(new QueryImplementation.TableService())
-                    .metrics(Metrics.builder().build());
+                    .queryImplementation(new QueryImplementation.TableService());
+        }
+
+        public static class SettingsBuilder {
+            public Settings build() {
+                return new Settings(queryImplementation, metrics != null ? metrics : Metrics.builder().build());
+            }
         }
 
         /**
          * Metric settings for YDB repository.
          *
          * @param repositoryLabel Value of {@code repository} label for metrics of this {@code YdbRepository}
-         * @param tracer Session pool instrumentation; defaults to {@link YojTracer#NONE}
+         * @param tracer Session pool instrumentation; defaults to {@link YojTracer#getDefault()}
          */
         @With
         @Builder(builderMethodName = "")
@@ -380,13 +385,18 @@ public class YdbRepository implements Repository {
                 @NonNull YojTracer tracer
         ) {
             public Metrics(String repositoryLabel) {
-                this(repositoryLabel, YojTracer.NONE);
+                this(repositoryLabel, YojTracer.getDefault());
             }
 
             public static MetricsBuilder builder() {
                 return new MetricsBuilder()
-                        .repositoryLabel("YdbRepository")
-                        .tracer(YojTracer.NONE);
+                        .repositoryLabel("YdbRepository");
+            }
+
+            public static class MetricsBuilder {
+                public Metrics build() {
+                    return new Metrics(repositoryLabel, tracer != null ? tracer : YojTracer.getDefault());
+                }
             }
         }
     }

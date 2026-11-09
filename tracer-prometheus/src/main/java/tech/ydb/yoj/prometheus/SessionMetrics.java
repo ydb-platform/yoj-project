@@ -8,9 +8,9 @@ import io.prometheus.metrics.model.registry.PrometheusRegistry;
 import lombok.NonNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import tech.ydb.yoj.repository.db.YojTracer;
-import tech.ydb.yoj.repository.db.YojTracer.SessionPoolStats;
-import tech.ydb.yoj.repository.db.YojTracer.Timer;
+import tech.ydb.yoj.tracer.YojTracer;
+import tech.ydb.yoj.tracer.YojTracer.SessionPoolStats;
+import tech.ydb.yoj.tracer.YojTracer.Timer;
 
 import javax.annotation.Nullable;
 import java.util.Map;

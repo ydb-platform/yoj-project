@@ -20,7 +20,7 @@
     <dependencies>
         <dependency>
             <groupId>tech.ydb.yoj</groupId>
-            <artifactId>yoj-repository</artifactId>
+            <artifactId>yoj-tracer</artifactId>
         </dependency>
         <dependency>
             <groupId>tech.ydb.yoj</groupId>

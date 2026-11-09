@@ -9,8 +9,8 @@ import io.prometheus.metrics.model.snapshots.Labels;
 import io.prometheus.metrics.model.snapshots.MetricSnapshot;
 import io.prometheus.metrics.model.snapshots.MetricSnapshots;
 import org.junit.Test;
-import tech.ydb.yoj.repository.db.YojTracer.SessionPoolStats;
-import tech.ydb.yoj.repository.db.exception.OptimisticLockException;
+import tech.ydb.yoj.tracer.YojTracer;
+import tech.ydb.yoj.tracer.YojTracer.SessionPoolStats;
 
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -23,6 +23,11 @@ public class PrometheusYojTracerTest {
     private final PrometheusYojTracer tracer = PrometheusYojTracer.forRegistry(registry);
 
     @Test
+    public void defaultProviderUsesSharedPrometheusRegistry() {
+        assertThat(YojTracer.getDefault()).isSameAs(PrometheusYojTracer.forRegistry(PrometheusRegistry.defaultRegistry));
+    }
+
+    @Test
     public void transactionMetricNamesLabelsAndValuesArePreserved() {
         tracer.startTotalDurationTimer("orders").close();
         tracer.startAttemptDurationTimer("orders").close();
@@ -31,7 +36,7 @@ public class PrometheusYojTracerTest {
         tracer.onRollback("orders");
         tracer.onDryRun("orders");
         tracer.onFailure("orders");
-        tracer.onRetry("orders", new OptimisticLockException("retry"));
+        tracer.onRetry("orders", new IllegalStateException("retry"));
 
         MetricSnapshots scrape = registry.scrape();
         var results = (CounterSnapshot) metric(scrape, "tx_result");
@@ -43,7 +48,7 @@ public class PrometheusYojTracerTest {
                 .containsExactlyInAnyOrder("commit", "rollback", "dry_run", "fail");
         var retries = (CounterSnapshot) metric(scrape, "tx_retries");
         assertThat(retries.getDataPoints()).singleElement().satisfies(point -> {
-            assertThatObject(point.getLabels()).isEqualTo(Labels.of("tx_name", "orders", "reason", "OptimisticLock"));
+            assertThatObject(point.getLabels()).isEqualTo(Labels.of("tx_name", "orders", "reason", "IllegalState"));
             assertThat(point.getValue()).isEqualTo(1);
         });
         for (String name : new String[]{"tx_total_duration_seconds", "tx_attempt_duration_seconds"}) {

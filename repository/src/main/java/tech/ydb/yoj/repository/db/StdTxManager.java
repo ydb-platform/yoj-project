@@ -10,10 +10,11 @@ import lombok.With;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import tech.ydb.yoj.ExperimentalApi;
-import tech.ydb.yoj.repository.db.YojTracer.Timer;
 import tech.ydb.yoj.repository.db.cache.TransactionLog;
 import tech.ydb.yoj.repository.db.exception.QueryInterruptedException;
 import tech.ydb.yoj.repository.db.exception.RetryableException;
+import tech.ydb.yoj.tracer.YojTracer;
+import tech.ydb.yoj.tracer.YojTracer.Timer;
 import tech.ydb.yoj.util.lang.Strings;
 import tech.ydb.yoj.util.log.MdcSetup;
 import tech.ydb.yoj.util.retry.RetryPolicy;
@@ -65,7 +66,7 @@ public final class StdTxManager implements TxManager, TxManagerState {
     private final RetryPolicyProvider customRetryPolicyProvider;
 
     public StdTxManager(@NonNull Repository repository) {
-        this(repository, YojTracer.NONE);
+        this(repository, YojTracer.getDefault());
     }
 
     /**

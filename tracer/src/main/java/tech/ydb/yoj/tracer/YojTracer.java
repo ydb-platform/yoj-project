@@ -1,6 +1,4 @@
-package tech.ydb.yoj.repository.db;
-
-import tech.ydb.yoj.repository.db.exception.RetryableException;
+package tech.ydb.yoj.tracer;
 
 import java.util.function.Supplier;
 
@@ -11,6 +9,14 @@ import java.util.function.Supplier;
  */
 public interface YojTracer {
     YojTracer NONE = new YojTracer() { };
+
+    /**
+     * Returns the shared tracer discovered on the classpath, or {@link #NONE} if no provider is available.
+     * YOJ includes a Prometheus provider by default; exclude {@code yoj-tracer-prometheus} to remove it.
+     */
+    static YojTracer getDefault() {
+        return DefaultYojTracer.INSTANCE;
+    }
 
     default Timer startTotalDurationTimer(String txName) {
         return Timer.NONE;
@@ -31,7 +37,7 @@ public interface YojTracer {
     }
 
     /** Called for every retryable exception, including the final failed attempt. */
-    default void onRetry(String txName, RetryableException exception) {
+    default void onRetry(String txName, Throwable exception) {
     }
 
     default void onFailure(String txName) {
@@ -47,6 +53,11 @@ public interface YojTracer {
      */
     default SessionPool registerSessionPool(String repositoryLabel, Supplier<SessionPoolStats> statsSupplier) {
         return SessionPool.NONE;
+    }
+
+    /** Service-provider interface for supplying the default tracer. */
+    interface Provider {
+        YojTracer getTracer();
     }
 
     /** A timer that records elapsed time when closed, without checked exceptions. */

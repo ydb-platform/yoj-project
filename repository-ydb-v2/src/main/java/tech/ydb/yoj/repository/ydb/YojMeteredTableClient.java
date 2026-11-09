@@ -9,8 +9,8 @@ import tech.ydb.table.Session;
 import tech.ydb.table.SessionPoolStats;
 import tech.ydb.table.TableClient;
 import tech.ydb.yoj.InternalApi;
-import tech.ydb.yoj.repository.db.YojTracer;
 import tech.ydb.yoj.repository.ydb.YdbRepository.Settings;
+import tech.ydb.yoj.tracer.YojTracer;
 
 import java.time.Duration;
 import java.util.concurrent.CompletableFuture;
