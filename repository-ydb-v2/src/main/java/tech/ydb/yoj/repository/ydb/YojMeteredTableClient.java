@@ -1,7 +1,6 @@
 package tech.ydb.yoj.repository.ydb;
 
 import com.google.common.base.Preconditions;
-import io.prometheus.metrics.core.datapoints.Timer;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import tech.ydb.core.Result;
@@ -10,6 +9,7 @@ import tech.ydb.table.Session;
 import tech.ydb.table.SessionPoolStats;
 import tech.ydb.table.TableClient;
 import tech.ydb.yoj.InternalApi;
+import tech.ydb.yoj.repository.db.YojTracer;
 import tech.ydb.yoj.repository.ydb.YdbRepository.Settings;
 
 import java.time.Duration;
@@ -24,8 +24,7 @@ final class YojMeteredTableClient implements TableClient {
 
     private final TableClient delegate;
     private final SessionPoolStats emptyPoolStats;
-    private final String label;
-    private final SessionMetrics metrics;
+    private final YojTracer.SessionPool metrics;
 
     public static TableClient newClient(YdbConfig config, Settings repositorySettings, GrpcTransport transport) {
         var delegate = buildTableClient(repositorySettings, transport).keepQueryText(false)
@@ -36,16 +35,20 @@ final class YojMeteredTableClient implements TableClient {
         var emptyPoolStats = new EmptyPoolStats(config.getSessionPoolMin(), config.getSessionPoolMax());
         var label = repositorySettings.metrics().repositoryLabel();
 
-        var metrics = SessionMetrics.forRegistry(repositorySettings.metrics().registry());
-        metrics.initPool(label, delegate::sessionPoolStats);
+        var metrics = repositorySettings.metrics().tracer()
+                .registerSessionPool(label, () -> snapshot(delegate.sessionPoolStats()));
 
-        return new YojMeteredTableClient(delegate, emptyPoolStats, label, metrics);
+        return new YojMeteredTableClient(delegate, emptyPoolStats, metrics);
     }
 
     @Override
     public void close() {
         if (closed.compareAndSet(false, true)) {
-            this.delegate.close();
+            try {
+                metrics.close();
+            } finally {
+                delegate.close();
+            }
         }
     }
 
@@ -53,24 +56,20 @@ final class YojMeteredTableClient implements TableClient {
     public CompletableFuture<Result<Session>> createSession(Duration duration) {
         Preconditions.checkState(!closed.get(), "Cannot call createSession() on a closed TableClient");
 
-        var timer = metrics.startAcquireTimer(label);
+        var timer = metrics.startAcquireTimer();
         try {
-            return delegate.createSession(duration)
-                    .whenComplete((_1, _2) -> observeAcquireDuration(timer));
+            var future = delegate.createSession(duration);
+            future.whenComplete((_1, _2) -> timer.close());
+            // Preserve cancellation of the SDK acquisition when the waiting thread is interrupted.
+            return future;
         } catch (Exception e) {
             // Could not create CompletableFuture for creating the session, or add a whenComplete() handler to the CF
             try {
-                observeAcquireDuration(timer);
+                timer.close();
             } catch (Exception suppressed) {
-                e.addSuppressed(e);
+                e.addSuppressed(suppressed);
             }
             throw e;
-        }
-    }
-
-    private void observeAcquireDuration(Timer timer) {
-        if (!closed.get()) {
-            timer.observeDuration();
         }
     }
 
@@ -83,6 +82,14 @@ final class YojMeteredTableClient implements TableClient {
     @Override
     public SessionPoolStats sessionPoolStats() {
         return closed.get() ? emptyPoolStats : delegate.sessionPoolStats();
+    }
+
+    private static YojTracer.SessionPoolStats snapshot(SessionPoolStats stats) {
+        return new YojTracer.SessionPoolStats(
+                stats.getMinSize(), stats.getMaxSize(), stats.getIdleCount(), stats.getAcquiredCount(),
+                stats.getPendingAcquireCount(), stats.getAcquiredTotal(), stats.getReleasedTotal(),
+                stats.getRequestedTotal(), stats.getCreatedTotal(), stats.getFailedTotal(), stats.getDeletedTotal()
+        );
     }
 
     private static TableClient.Builder buildTableClient(Settings repositorySettings, GrpcTransport transport) {

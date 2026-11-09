@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <artifactId>yoj-prometheus-tracer</artifactId>
+    <packaging>jar</packaging>
+
+    <parent>
+        <groupId>tech.ydb.yoj</groupId>
+        <artifactId>yoj-parent</artifactId>
+        <version>2.10.5-SNAPSHOT</version>
+        <relativePath>../pom.xml</relativePath>
+    </parent>
+
+    <name>YOJ - Prometheus Tracer</name>
+    <description>Optional Prometheus instrumentation for YOJ transactions and session pools.</description>
+
+    <dependencies>
+        <dependency>
+            <groupId>tech.ydb.yoj</groupId>
+            <artifactId>yoj-repository</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>tech.ydb.yoj</groupId>
+            <artifactId>yoj-util</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.prometheus</groupId>
+            <artifactId>prometheus-metrics-core</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-api</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.google.code.findbugs</groupId>
+            <artifactId>jsr305</artifactId>
+        </dependency>
+    </dependencies>
+</project>

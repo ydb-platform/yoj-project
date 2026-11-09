@@ -41,21 +41,28 @@ spinning containers or accessing a real YDB installation. **Highly recommended.*
 - `aspect`: AspectJ aspect and `@YojTransactional` annotation for usage with AspectJ and Spring AOP. Allows a Spring `@Transactional`-like experience for your methods that need to initiate or continue a YDB transaction.
 - `ext-meta-generator`: Annotation processor that generates field paths for each of your `Entity` fields, to be used with `TableQueryBuilder` (`Table.query()` DSL) and `YqlPredicate`.
 - `util`: Utility classes used in YOJ implementation.
+- `prometheus-tracer`: Optional Prometheus metrics for transactions and YDB session pools.
 
 ### Prometheus metrics
 
-YOJ uses Prometheus Java client 1.x. By default, transaction and session pool metrics are registered in
-`PrometheusRegistry.defaultRegistry`. To use an application-managed registry, pass it to both the repository's
-metric settings and the transaction manager:
+YOJ uses a no-op `YojTracer` by default and does not require a metrics library. To enable Prometheus metrics,
+add the `tech.ydb.yoj:yoj-prometheus-tracer` dependency and pass its tracer to both the repository's metric
+settings and the transaction manager:
 
 ```java
 var registry = new PrometheusRegistry();
+var tracer = PrometheusYojTracer.forRegistry(registry);
 var settings = YdbRepository.Settings.builder()
         .metrics(YdbRepository.Settings.Metrics.builder()
-                .registry(registry)
+                .tracer(tracer)
                 .repositoryLabel("orders")
                 .build())
         .build();
 var repository = new YdbRepository(config, settings, transport);
-var txManager = new StdTxManager(repository, registry);
+var txManager = new StdTxManager(repository, tracer);
 ```
+
+The Prometheus implementation shares metrics among tracers requested for the same registry.
+Pass `PrometheusRegistry.defaultRegistry` explicitly if you want to use the global registry.
+Use a distinct repository label for each active pool. Closing a repository removes its session pool metrics
+and releases its stats supplier. Applications can implement `YojTracer` to use another metrics or tracing system.

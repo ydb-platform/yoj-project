@@ -2,8 +2,7 @@ package tech.ydb.yoj.repository.ydb;
 
 import com.google.common.base.Strings;
 import io.grpc.ClientInterceptor;
-import io.grpc.netty.shaded.io.grpc.netty.NettyChannelBuilder;
-import io.prometheus.metrics.model.registry.PrometheusRegistry;
+import io.grpc.ManagedChannelBuilder;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NonNull;
@@ -25,6 +24,7 @@ import tech.ydb.yoj.repository.db.RepositoryTransaction;
 import tech.ydb.yoj.repository.db.SchemaOperations;
 import tech.ydb.yoj.repository.db.TableDescriptor;
 import tech.ydb.yoj.repository.db.TxOptions;
+import tech.ydb.yoj.repository.db.YojTracer;
 import tech.ydb.yoj.repository.ydb.client.SessionManager;
 import tech.ydb.yoj.repository.ydb.client.YdbSchemaOperations;
 import tech.ydb.yoj.repository.ydb.client.YdbTableHint;
@@ -129,22 +129,18 @@ public class YdbRepository implements Repository {
     ) {
         GrpcTransportBuilder transportBuilder;
         if (!Strings.isNullOrEmpty(config.getDiscoveryEndpoint())) {
-            transportBuilder = GrpcTransport.forEndpoint(config.getDiscoveryEndpoint(), canonicalDatabase(config.getDatabase()))
-                    .withChannelInitializer(channelBuilder -> {
-                        initializeTcpKeepAlive(config, channelBuilder);
-                        initializeYdbMaxInboundMessageSize(channelBuilder);
-                        initializeChannelInterceptors(channelBuilder, interceptors);
-                    });
+            transportBuilder = GrpcTransport.forEndpoint(config.getDiscoveryEndpoint(), canonicalDatabase(config.getDatabase()));
         } else if (config.getHostAndPort() != null) {
-            transportBuilder = GrpcTransport.forHost(config.getHostAndPort(), config.getDatabase())
-                    .withChannelInitializer(channelBuilder -> {
-                        initializeTcpKeepAlive(config, channelBuilder);
-                        initializeYdbMaxInboundMessageSize(channelBuilder);
-                        initializeChannelInterceptors(channelBuilder, interceptors);
-                    });
+            transportBuilder = GrpcTransport.forHost(config.getHostAndPort(), config.getDatabase());
         } else {
             throw new IllegalArgumentException("one of [discoveryEndpoint, hostAndPort] must be set");
         }
+
+        transportBuilder.addChannelInitializer(channelBuilder -> {
+            initializeTcpKeepAlive(config, channelBuilder);
+            initializeYdbMaxInboundMessageSize(channelBuilder);
+            initializeChannelInterceptors(channelBuilder, interceptors);
+        });
 
         if (config.getBalancingConfig() != null) {
             transportBuilder.withBalancingSettings(
@@ -169,18 +165,18 @@ public class YdbRepository implements Repository {
         return transportBuilder.withAuthProvider(authProvider);
     }
 
-    private static void initializeChannelInterceptors(NettyChannelBuilder channelBuilder, List<ClientInterceptor> interceptors) {
+    private static void initializeChannelInterceptors(ManagedChannelBuilder<?> channelBuilder, List<ClientInterceptor> interceptors) {
         channelBuilder.intercept(interceptors);
     }
 
-    private static void initializeTcpKeepAlive(YdbConfig config, NettyChannelBuilder channelBuilder) {
+    private static void initializeTcpKeepAlive(YdbConfig config, ManagedChannelBuilder<?> channelBuilder) {
         channelBuilder
                 .keepAliveTime(config.getTcpKeepaliveTime().toMillis(), TimeUnit.MILLISECONDS)
                 .keepAliveTimeout(config.getTcpKeepaliveTimeout().toMillis(), TimeUnit.MILLISECONDS)
                 .keepAliveWithoutCalls(true);
     }
 
-    private static void initializeYdbMaxInboundMessageSize(NettyChannelBuilder channelBuilder) {
+    private static void initializeYdbMaxInboundMessageSize(ManagedChannelBuilder<?> channelBuilder) {
         // See tech.ydb.core.grpc.GrpcTransport#createChannel
         // This fixes incompatibility with old gRPC without recompiling ydb-sdk-core
         // https://github.com/grpc/grpc-java/issues/8313
@@ -375,22 +371,22 @@ public class YdbRepository implements Repository {
          * Metric settings for YDB repository.
          *
          * @param repositoryLabel Value of {@code repository} label for metrics of this {@code YdbRepository}
-         * @param registry Registry for session pool metrics; defaults to {@link PrometheusRegistry#defaultRegistry}
+         * @param tracer Session pool instrumentation; defaults to {@link YojTracer#NONE}
          */
         @With
         @Builder(builderMethodName = "")
         public record Metrics(
                 @NonNull String repositoryLabel,
-                @NonNull PrometheusRegistry registry
+                @NonNull YojTracer tracer
         ) {
             public Metrics(String repositoryLabel) {
-                this(repositoryLabel, PrometheusRegistry.defaultRegistry);
+                this(repositoryLabel, YojTracer.NONE);
             }
 
             public static MetricsBuilder builder() {
                 return new MetricsBuilder()
                         .repositoryLabel("YdbRepository")
-                        .registry(PrometheusRegistry.defaultRegistry);
+                        .tracer(YojTracer.NONE);
             }
         }
     }

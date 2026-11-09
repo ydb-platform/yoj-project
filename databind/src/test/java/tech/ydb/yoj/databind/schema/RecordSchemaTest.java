@@ -3,6 +3,10 @@ package tech.ydb.yoj.databind.schema;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
+import javax.annotation.Nonnull;
+
+import java.util.Map;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static tech.ydb.yoj.databind.schema.Schema.JavaField;
 
@@ -83,6 +87,24 @@ public class RecordSchemaTest {
         assertThat(schema.getField("emptyEmptyEntity").isFlat()).isFalse();
     }
 
+    @Test
+    public void keepInterfaceDontUpdateFieldSchemaTrick() {
+        var trickSchema = new TestSchema<>(SomeResourceEntity.class);
+
+        var src1 = new SomeResourceEntity(new ResourceEntity.Attributes("myname"), 42);
+        var src2 = new SomeResourceEntity(new ResourceEntity.Attributes.NoCustom("myname"), 42);
+        assertThat(trickSchema.flatten(src1)).isEqualTo(Map.of(
+                "attributes_name", "myname",
+                "number", 42
+        ));
+        assertThat(trickSchema.flatten(src1)).isEqualTo(trickSchema.flatten(src2));
+
+        assertThat(trickSchema.newInstance(trickSchema.flatten(src1))).isEqualTo(src1);
+        assertThat(trickSchema.newInstance(trickSchema.flatten(src1))).isEqualTo(src2);
+        assertThat(trickSchema.newInstance(trickSchema.flatten(src2))).isEqualTo(src1);
+        assertThat(trickSchema.newInstance(trickSchema.flatten(src2))).isEqualTo(src2);
+    }
+
     private static class TestSchema<T> extends Schema<T> {
         private TestSchema(Class<T> entityType) {
             super(entityType);
@@ -127,5 +149,26 @@ public class RecordSchemaTest {
     }
 
     private record NotFlatEntity(TwoFieldEntity twoFieldEntity, TwoFieldEntity otherTwoFieldEntity) {
+    }
+
+    private record SomeResourceEntity(
+            Attributes.NoCustom attributes,
+            int number
+    ) implements ResourceEntity<SomeResourceEntity> {
+        public SomeResourceEntity(Attributes attributes, int number) {
+            this(Attributes.NoCustom.from(attributes), number);
+        }
+
+        @Nonnull
+        @Override
+        public Attributes getAttributes() {
+            return attributes.toFull();
+        }
+
+        @Nonnull
+        @Override
+        public SomeResourceEntity withAttributes(@Nonnull Attributes attributes) {
+            return new SomeResourceEntity(Attributes.NoCustom.from(attributes), this.number);
+        }
     }
 }

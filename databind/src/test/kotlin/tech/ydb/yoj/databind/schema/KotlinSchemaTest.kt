@@ -3,6 +3,7 @@ package tech.ydb.yoj.databind.schema
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.BeforeClass
 import org.junit.Test
+import tech.ydb.yoj.databind.schema.ResourceEntity.Attributes
 import java.util.Map.entry
 
 class KotlinSchemaTest {
@@ -77,6 +78,24 @@ class KotlinSchemaTest {
         assertThat(schema!!.newInstance(mapOf("privatePropEntity_privateProp" to 42))).isEqualTo(ue)
     }
 
+    @Test
+    fun keepInterfaceDontUpdateFieldSchemaTrick() {
+        val trickSchema = TestSchema(SomeResourceEntity::class.java)
+
+        val src1 = SomeResourceEntity(attributes = Attributes("myname"), number = 42)
+        val src2 = SomeResourceEntity(attributes = Attributes.NoCustom("myname"), number = 42)
+        assertThat(trickSchema.flatten(src1)).isEqualTo(mapOf(
+            "attributes_name" to "myname",
+            "number" to 42
+        ))
+        assertThat(trickSchema.flatten(src1)).isEqualTo(trickSchema.flatten(src2))
+
+        assertThat(trickSchema.newInstance(trickSchema.flatten(src1))).isEqualTo(src1)
+        assertThat(trickSchema.newInstance(trickSchema.flatten(src1))).isEqualTo(src2)
+        assertThat(trickSchema.newInstance(trickSchema.flatten(src2))).isEqualTo(src1)
+        assertThat(trickSchema.newInstance(trickSchema.flatten(src2))).isEqualTo(src2)
+    }
+
     private class TestSchema<T>(entityType: Class<T>) : Schema<T>(entityType)
 
     private data class UberEntity(
@@ -108,6 +127,18 @@ class KotlinSchemaTest {
     private data class PrivatePropEntity(
         private val privateProp: Int
     )
+
+    private data class SomeResourceEntity(
+        private val attributes: Attributes.NoCustom,
+        val number: Int
+    ): ResourceEntity<SomeResourceEntity> {
+        constructor(attributes: Attributes, number: Int) : this(Attributes.NoCustom.from(attributes), number)
+
+        override fun getAttributes(): Attributes = attributes.toFull()
+        override fun withAttributes(attributes: Attributes): SomeResourceEntity = copy(
+            attributes = Attributes.NoCustom.from(attributes)
+        )
+    }
 
     companion object {
         private var schema: Schema<UberEntity>? = null

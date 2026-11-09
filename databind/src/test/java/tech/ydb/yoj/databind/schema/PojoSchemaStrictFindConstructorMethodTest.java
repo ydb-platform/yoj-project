@@ -6,10 +6,13 @@ import org.junit.BeforeClass;
 import org.junit.Test;
 import tech.ydb.yoj.databind.schema.reflect.StdReflector;
 
+import javax.annotation.Nonnull;
 import java.beans.ConstructorProperties;
+import java.io.Serializable;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -319,6 +322,24 @@ public class PojoSchemaStrictFindConstructorMethodTest {
     public void failIfThereAreDuplicateEntitiesInConstructorPropertiesAnnotation() {
         assertThatThrownBy(() -> new TestSchema<>(EntityWithDuplicatedGettersInConstructorProperties.class))
                 .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    public void keepInterfaceDontUpdateFieldSchemaTrickWorksEvenWithAMutableEntity() {
+        var trickSchema = new TestSchema<>(SomeResourceEntityMutable.class);
+
+        var src1 = new SomeResourceEntityMutable(new ResourceEntity.Attributes("myname"), 42);
+        var src2 = new SomeResourceEntityMutable(new ResourceEntity.Attributes.NoCustom("myname"), 42);
+        assertThat(trickSchema.flatten(src1)).isEqualTo(Map.of(
+                "attributes_name", "myname",
+                "number", 42
+        ));
+        assertThat(trickSchema.flatten(src1)).isEqualTo(trickSchema.flatten(src2));
+
+        assertThat(trickSchema.newInstance(trickSchema.flatten(src1))).isEqualTo(src1);
+        assertThat(trickSchema.newInstance(trickSchema.flatten(src1))).isEqualTo(src2);
+        assertThat(trickSchema.newInstance(trickSchema.flatten(src2))).isEqualTo(src1);
+        assertThat(trickSchema.newInstance(trickSchema.flatten(src2))).isEqualTo(src2);
     }
 
     private static class TestSchema<T> extends Schema<T> {
@@ -639,6 +660,50 @@ public class PojoSchemaStrictFindConstructorMethodTest {
         public EntityWithDuplicatedGettersInConstructorProperties(int first, int second) {
             this.first = first;
             this.second = second;
+        }
+    }
+
+    // DO NOT TRY THIS AT HOME!
+    // It will work *somewhat*, but first-level cache will assume that entity is immutable and happily cache it,
+    // causing chaos and mayhem down the line in a totally different part of the same transaction.
+    private static class SomeResourceEntityMutable implements ResourceEntity<SomeResourceEntityMutable>, Serializable {
+        private Attributes.NoCustom attributes;
+        private int number;
+
+        public SomeResourceEntityMutable() {
+        }
+
+        public SomeResourceEntityMutable(Attributes attributes, int number) {
+            this(Attributes.NoCustom.from(attributes), number);
+        }
+
+        public SomeResourceEntityMutable(Attributes.NoCustom attributes, int number) {
+            this.attributes = attributes;
+            this.number = number;
+        }
+
+        @Nonnull
+        @Override
+        public Attributes getAttributes() {
+            return attributes.toFull();
+        }
+
+        @Nonnull
+        @Override
+        public SomeResourceEntityMutable withAttributes(@Nonnull Attributes attributes) {
+            this.attributes = Attributes.NoCustom.from(attributes);
+            return this;
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (!(o instanceof SomeResourceEntityMutable that)) return false;
+            return number == that.number && Objects.equals(attributes, that.attributes);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(attributes, number);
         }
     }
 }

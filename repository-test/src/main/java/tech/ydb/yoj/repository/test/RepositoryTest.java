@@ -25,6 +25,7 @@ import tech.ydb.yoj.repository.db.Entity;
 import tech.ydb.yoj.repository.db.EntitySchema;
 import tech.ydb.yoj.repository.db.IndexOrder;
 import tech.ydb.yoj.repository.db.IsolationLevel;
+import tech.ydb.yoj.repository.db.NonTx;
 import tech.ydb.yoj.repository.db.Range;
 import tech.ydb.yoj.repository.db.RecordEntity;
 import tech.ydb.yoj.repository.db.Repository;
@@ -36,6 +37,7 @@ import tech.ydb.yoj.repository.db.Tx;
 import tech.ydb.yoj.repository.db.TxManager;
 import tech.ydb.yoj.repository.db.TxOptions;
 import tech.ydb.yoj.repository.db.bulk.BulkParams;
+import tech.ydb.yoj.repository.db.cache.TransactionLocal;
 import tech.ydb.yoj.repository.db.common.CommonConverters;
 import tech.ydb.yoj.repository.db.common.CommonConverters.EnumDeserializer;
 import tech.ydb.yoj.repository.db.exception.ConversionException;
@@ -271,6 +273,26 @@ public abstract class RepositoryTest extends RepositoryTestSupport {
         db.tx(() -> db.projects().delete(new Project.Id("1")));
         Project p5 = db.tx(() -> db.projects().find(new Project.Id("1")));
         assertThat(p5).isNull();
+    }
+
+    @Test
+    public void nonTx() {
+        Runnable body = () -> {};
+
+        NonTx.nonTx(() -> {
+            assertThatIllegalStateException().isThrownBy(() -> db.tx(body));
+            assertThatIllegalStateException().isThrownBy(() -> db.readOnly().run(body));
+            assertThatIllegalStateException().isThrownBy(() -> db.scan().run(body));
+            assertThatIllegalStateException().isThrownBy(() -> db.separate().tx(body));
+        });
+
+        Runnable nonTx = () -> NonTx.nonTx(body);
+        assertThatIllegalStateException().isThrownBy(() -> db.tx(nonTx));
+        assertThatIllegalStateException().isThrownBy(() -> db.readOnly().run(nonTx));
+        assertThatIllegalStateException().isThrownBy(() -> db.scan().run(nonTx));
+        assertThatIllegalStateException().isThrownBy(() -> db.separate().tx(nonTx));
+
+        NonTx.nonTx(() -> NonTx.nonTx(body));
     }
 
     @Test
@@ -1180,6 +1202,65 @@ public abstract class RepositoryTest extends RepositoryTestSupport {
         );
 
         assertThat(actual).containsExactly(getComplex(2), getComplex(0));
+    }
+
+    @Test
+    public void findByIdAfterFilteredFindInIdsReturnsFilteredOutEntity() {
+        Project project = new Project(new Project.Id("1"), "p1");
+        db.tx(() -> db.projects().insert(project));
+
+        db.tx(() -> {
+            assertThat(db.projects().query().ids(Set.of(project.getId())).where("name").eq("other name").find())
+                    .isEmpty();
+            assertThat(db.projects().find(project.getId())).isEqualTo(project);
+        });
+    }
+
+    @Test
+    public void findByIdAfterLimitedFindInIdsReturnsCutOffEntity() {
+        Project first = new Project(new Project.Id("1"), "p1");
+        Project second = new Project(new Project.Id("2"), "p2");
+        db.tx(() -> {
+            db.projects().insert(first);
+            db.projects().insert(second);
+        });
+
+        db.tx(() -> {
+            assertThat(db.projects().query().ids(Set.of(first.getId(), second.getId()))
+                    .orderBy(ob -> ob.orderBy("name").descending()).limit(1).find())
+                    .containsExactly(second);
+            assertThat(db.projects().find(first.getId())).isEqualTo(first);
+        });
+    }
+
+    @Test
+    public void findInIdsCachesMissingEntities() {
+        Project project = new Project(new Project.Id("1"), "p1");
+        Project.Id missingId = new Project.Id("2");
+        db.tx(() -> db.projects().insert(project));
+
+        db.tx(() -> {
+            var table = db.projects();
+            assertThat(table.query().ids(Set.of(project.getId(), missingId)).find()).containsExactly(project);
+
+            var cache = TransactionLocal.get().firstLevelCache(table.getTableDescriptor());
+            assertThat(cache.peek(project.getId())).contains(project);
+            assertThat(cache.containsKey(missingId)).isTrue();
+            assertThat(cache.peek(missingId)).isEmpty();
+        });
+    }
+
+    @Test
+    public void findInPartialIdsDoesNotCacheMissingPrefixes() {
+        var missingId = new Complex.Id(1, null, null, null);
+
+        db.tx(() -> {
+            var table = db.complexes();
+            assertThat(table.query().ids(Set.of(missingId)).find()).isEmpty();
+
+            var cache = TransactionLocal.get().firstLevelCache(table.getTableDescriptor());
+            assertThat(cache.containsKey(missingId)).isFalse();
+        });
     }
 
     @Test

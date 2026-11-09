@@ -1,10 +1,6 @@
 package tech.ydb.yoj.repository.db;
 
 import com.google.common.base.Preconditions;
-import io.prometheus.metrics.core.datapoints.Timer;
-import io.prometheus.metrics.core.metrics.Counter;
-import io.prometheus.metrics.core.metrics.Histogram;
-import io.prometheus.metrics.model.registry.PrometheusRegistry;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -14,6 +10,7 @@ import lombok.With;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import tech.ydb.yoj.ExperimentalApi;
+import tech.ydb.yoj.repository.db.YojTracer.Timer;
 import tech.ydb.yoj.repository.db.cache.TransactionLog;
 import tech.ydb.yoj.repository.db.exception.QueryInterruptedException;
 import tech.ydb.yoj.repository.db.exception.RetryableException;
@@ -23,8 +20,6 @@ import tech.ydb.yoj.util.retry.RetryPolicy;
 
 import javax.annotation.Nullable;
 import java.time.Duration;
-import java.util.Map;
-import java.util.WeakHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Supplier;
 
@@ -50,21 +45,11 @@ public final class StdTxManager implements TxManager, TxManagerState {
     private static final Logger log = LoggerFactory.getLogger(StdTxManager.class);
 
     private static final int DEFAULT_MAX_ATTEMPT_COUNT = 100;
-    private static final double[] TX_ATTEMPTS_BUCKETS = new double[]
-            {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 14, 16, 18, 20, 25, 35, 40, 45, 50, 60, 70, 80, 90, 100};
-    private static final double[] DURATION_BUCKETS = {
-            .001, .0025, .005, .0075,
-            .01, .025, .05, .075,
-            .1, .25, .5, .75,
-            1, 2.5, 5, 7.5,
-            10, 25, 50, 75,
-            100
-    };
     private static final AtomicLong txLogIdSeq = new AtomicLong();
 
     @Getter
     private final Repository repository;
-    private final Metrics metrics;
+    private final YojTracer tracer;
     @With(AccessLevel.PRIVATE)
     private final int maxAttemptCount;
     @With
@@ -80,20 +65,20 @@ public final class StdTxManager implements TxManager, TxManagerState {
     private final RetryPolicyProvider customRetryPolicyProvider;
 
     public StdTxManager(@NonNull Repository repository) {
-        this(repository, PrometheusRegistry.defaultRegistry);
+        this(repository, YojTracer.NONE);
     }
 
     /**
-     * Creates a transaction manager reporting metrics to the supplied registry.
-     * Managers using the same registry share their metrics, including copies made by configuration methods.
+     * Creates a transaction manager using the supplied tracer.
+     * Copies made by configuration methods share the same tracer.
      *
      * @param repository repository to run transactions against
-     * @param registry registry for transaction metrics
+     * @param tracer transaction instrumentation
      */
-    public StdTxManager(@NonNull Repository repository, @NonNull PrometheusRegistry registry) {
+    public StdTxManager(@NonNull Repository repository, @NonNull YojTracer tracer) {
         this(
                 /*         repository */ repository,
-                /*            metrics */ Metrics.forRegistry(registry),
+                /*             tracer */ tracer,
                 /*    maxAttemptCount */ DEFAULT_MAX_ATTEMPT_COUNT,
                 /*         logContext */ null,
                 /*            options */ TxOptions.create(SERIALIZABLE_READ_WRITE),
@@ -205,6 +190,8 @@ public final class StdTxManager implements TxManager, TxManagerState {
 
     @Override
     public <T> T tx(Supplier<T> supplier) {
+        NonTx.Context.checkTransactionAllowed();
+
         TxName txName = txNameGenerator.generate();
 
         checkSeparatePolicy(separatePolicy, txName.logName());
@@ -212,14 +199,14 @@ public final class StdTxManager implements TxManager, TxManagerState {
         long txLogId = txLogIdSeq.incrementAndGet();
 
         MdcSetup mdcs = txMdcs(txName, txLogId);
-        try (Timer ignored = metrics.totalDuration.labelValues(txName.name()).startTimer()) {
+        try (Timer ignored = tracer.startTotalDurationTimer(txName.name())) {
             T result = runTxWithRetry(txName.name(), mdcs, supplier);
 
             if (options.isDryRun()) {
-                metrics.results.labelValues(txName.name(), "rollback").inc();
-                metrics.results.labelValues(txName.name(), "dry_run").inc();
+                tracer.onRollback(txName.name());
+                tracer.onDryRun(txName.name());
             } else {
-                metrics.results.labelValues(txName.name(), "commit").inc();
+                tracer.onCommit(txName.name());
             }
             
             return result;
@@ -236,20 +223,20 @@ public final class StdTxManager implements TxManager, TxManagerState {
                 mdcs.put("tx-attempt", attempt);
 
                 lastTx = null;
-                try (Timer ignored = metrics.attemptDuration.labelValues(txName).startTimer()) {
+                try (Timer ignored = tracer.startAttemptDurationTimer(txName)) {
                     RepositoryTransaction transaction = repository.startTransaction(options);
                     lastTx = new TxImpl(txName, transaction, options);
                     return lastTx.run(supplier);
                 } catch (RetryableException e) {
-                    metrics.retries.labelValues(txName, getExceptionNameForMetric(e)).inc();
+                    tracer.onRetry(txName, e);
                     if (attempt < maxAttemptCount) {
                         sleepBeforeNextAttempt(e, attempt);
                     } else {
-                        metrics.results.labelValues(txName, "fail").inc();
+                        tracer.onFailure(txName);
                         throw e.rethrow();
                     }
                 } catch (Exception e) {
-                    metrics.results.labelValues(txName, "rollback").inc();
+                    tracer.onRollback(txName);
                     throw e;
                 }
 
@@ -264,7 +251,7 @@ public final class StdTxManager implements TxManager, TxManagerState {
                 // @see https://github.com/ydb-platform/yoj-project/issues/209
                 lastTx.runDeferredFinally();
             }
-            metrics.attempts.labelValues(txName).observe(attempt);
+            tracer.observeAttempts(txName, attempt);
         }
     }
 
@@ -284,10 +271,6 @@ public final class StdTxManager implements TxManager, TxManagerState {
                     Transaction '{}' was run when another transaction is active. Perhaps unexpected behavior. \
                     Use TxManager.separate() to avoid this message""", txName);
         }
-    }
-
-    private String getExceptionNameForMetric(RetryableException e) {
-        return Strings.removeSuffix(e.getClass().getSimpleName(), "Exception");
     }
 
     private MdcSetup txMdcs(TxName txName, long txLogId) {
@@ -364,55 +347,6 @@ public final class StdTxManager implements TxManager, TxManagerState {
     @Deprecated(forRemoval = true)
     public StdTxManager withIsolationLevel(IsolationLevel isolationLevel) {
         return withOptions(options.withIsolationLevel(isolationLevel));
-    }
-
-    private static final class Metrics {
-        // Values do not retain their registry, so unused custom registries can be collected.
-        private static final Map<PrometheusRegistry, Metrics> byRegistry = new WeakHashMap<>();
-
-        private final Histogram totalDuration = Histogram.builder()
-                .name("tx_total_duration_seconds")
-                .help("Tx total duration (seconds)")
-                .labelNames("tx_name")
-                .classicOnly()
-                .classicUpperBounds(DURATION_BUCKETS)
-                .build();
-        private final Histogram attemptDuration = Histogram.builder()
-                .name("tx_attempt_duration_seconds")
-                .help("Tx attempt duration (seconds)")
-                .labelNames("tx_name")
-                .classicOnly()
-                .classicUpperBounds(DURATION_BUCKETS)
-                .build();
-        private final Histogram attempts = Histogram.builder()
-                .name("tx_attempts")
-                .help("Tx attempts spent")
-                .labelNames("tx_name")
-                .classicOnly()
-                .classicUpperBounds(TX_ATTEMPTS_BUCKETS)
-                .build();
-        private final Counter results = Counter.builder()
-                .name("tx_result")
-                .help("Tx commits/rollbacks/fails")
-                .labelNames("tx_name", "result")
-                .build();
-        private final Counter retries = Counter.builder()
-                .name("tx_retries")
-                .help("Tx retry reasons")
-                .labelNames("tx_name", "reason")
-                .build();
-
-        private Metrics(PrometheusRegistry registry) {
-            registry.register(totalDuration);
-            registry.register(attemptDuration);
-            registry.register(attempts);
-            registry.register(results);
-            registry.register(retries);
-        }
-
-        private static synchronized Metrics forRegistry(PrometheusRegistry registry) {
-            return byRegistry.computeIfAbsent(registry, Metrics::new);
-        }
     }
 
     /**

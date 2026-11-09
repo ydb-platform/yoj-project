@@ -27,12 +27,14 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.CALLS_REAL_METHODS;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 public class StdTxManagerTest {
+    private final YojTracer tracer = mock(YojTracer.class, CALLS_REAL_METHODS);
     private final Repository repository = mock(Repository.class);
     private final TransactionLocal transactionLocal = mock(TransactionLocal.class);
     private final TransactionLog transactionLog = new TransactionLog(TransactionLog.Level.DEBUG);
@@ -123,7 +125,7 @@ public class StdTxManagerTest {
         when(repositoryTransaction.getTransactionLocal()).thenReturn(transactionLocal);
         when(transactionLocal.log()).thenReturn(transactionLog);
 
-        var txManager = new StdTxManager(repository).withDryRun(true);
+        var txManager = new StdTxManager(repository, tracer).withName("test").withDryRun(true);
         var testObj = new Object();
 
         assertThat(txManager.tx(() -> testObj))
@@ -131,6 +133,10 @@ public class StdTxManagerTest {
 
         verify(repositoryTransaction, times(1)).rollback();
         verify(repositoryTransaction, times(0)).commit();
+
+        verify(tracer).onRollback("test");
+        verify(tracer).onDryRun("test");
+        verify(tracer).observeAttempts("test", 1);
     }
 
     @Test
@@ -139,7 +145,7 @@ public class StdTxManagerTest {
         when(repositoryTransaction.getTransactionLocal()).thenReturn(transactionLocal);
         when(transactionLocal.log()).thenReturn(transactionLog);
 
-        var txManager = new StdTxManager(repository).withDryRun(false);
+        var txManager = new StdTxManager(repository, tracer).withName("test").withDryRun(false);
         var testObj = new Object();
 
         assertThat(txManager.tx(() -> testObj))
@@ -147,6 +153,9 @@ public class StdTxManagerTest {
 
         verify(repositoryTransaction, times(0)).rollback();
         verify(repositoryTransaction, times(1)).commit();
+
+        verify(tracer).onCommit("test");
+        verify(tracer).observeAttempts("test", 1);
     }
 
     @Test
@@ -185,7 +194,7 @@ public class StdTxManagerTest {
                 .doNothing()
                 .when(repositoryTransaction).rollback();
 
-        var txManager = new StdTxManager(repository).withDryRun(true);
+        var txManager = new StdTxManager(repository, tracer).withName("test").withDryRun(true);
         var testObj = new Object();
 
         assertThat(txManager.tx(() -> testObj))
@@ -193,6 +202,9 @@ public class StdTxManagerTest {
 
         verify(repositoryTransaction, times(3)).rollback();
         verify(repositoryTransaction, times(0)).commit();
+
+        verify(tracer, times(2)).onRetry(Mockito.eq("test"), any(OptimisticLockException.class));
+        verify(tracer).observeAttempts("test", 3);
     }
 
     @Test
@@ -222,7 +234,7 @@ public class StdTxManagerTest {
         when(repositoryTransaction.getTransactionLocal()).thenReturn(transactionLocal);
         when(transactionLocal.log()).thenReturn(transactionLog);
 
-        var txManager = new StdTxManager(repository).withDryRun(true);
+        var txManager = new StdTxManager(repository, tracer).withName("test").withDryRun(true);
 
         assertThatThrownBy(() -> txManager.tx(() -> {
             throw new RuntimeException("runtime exception");
@@ -230,6 +242,9 @@ public class StdTxManagerTest {
 
         verify(repositoryTransaction, times(1)).rollback();
         verify(repositoryTransaction, times(0)).commit();
+
+        verify(tracer).onRollback("test");
+        verify(tracer).observeAttempts("test", 1);
     }
 
     @Test
@@ -253,7 +268,7 @@ public class StdTxManagerTest {
             }
         };
 
-        var txManager = new StdTxManager(repository)
+        var txManager = new StdTxManager(repository, tracer).withName("test")
                 .withMaxRetries(1)
                 .withCustomRetries(e -> e instanceof OptimisticLockException ? spyRetryPolicy : null);
         var i = new AtomicInteger();
@@ -267,6 +282,10 @@ public class StdTxManagerTest {
         verify(repositoryTransaction, times(0)).commit();
         assertThat(i).hasValue(2);
         assertThat(spyRetryPolicy.lastRetryAttempt).isEqualTo(1);
+
+        verify(tracer, times(2)).onRetry(Mockito.eq("test"), any(OptimisticLockException.class));
+        verify(tracer).onFailure("test");
+        verify(tracer).observeAttempts("test", 2);
     }
 
     private static final class TestAppender extends AbstractAppender {
