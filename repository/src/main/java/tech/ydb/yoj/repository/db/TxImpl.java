@@ -9,6 +9,7 @@ import tech.ydb.yoj.util.lang.Interrupts;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.Function;
 import java.util.function.Supplier;
 
 final class TxImpl implements Tx {
@@ -32,10 +33,10 @@ final class TxImpl implements Tx {
         this.logStatementOnSuccess = options.isLogStatementOnSuccess();
     }
 
-    <R> R run(Supplier<R> supplier) {
+    <R> R run(Function<Tx, R> function, ContextFactory<R> contextFactory) {
         R value;
         try {
-            value = Current.runInTx(this, () -> runImpl(supplier));
+            value = contextFactory.createContext(this, () -> runImpl(function));
         } catch (Exception e) {
             if (Interrupts.isInterruptException(e)) {
                 Thread.currentThread().interrupt();
@@ -72,11 +73,16 @@ final class TxImpl implements Tx {
         deferredBeforeCommit.add(runnable);
     }
 
-    private <R> R runImpl(Supplier<R> supplier) {
+    @Override
+    public <T extends Entity<T>> Table<T> table(TableDescriptor<T> tableDescriptor) {
+        return getRepositoryTransaction().table(tableDescriptor);
+    }
+
+    private <R> R runImpl(Function<Tx, R> function) {
         Stopwatch sw = Stopwatch.createStarted();
         R res;
         try {
-            res = supplier.get();
+            res = function.apply(this);
             deferredBeforeCommit.forEach(Runnable::run);
         } catch (Throwable t) {
             doRollback(isBusinessException(t),
@@ -123,5 +129,10 @@ final class TxImpl implements Tx {
 
     private String formatExecutionLogMultiline(String prefix) {
         return repositoryTransaction.getTransactionLocal().log().format(prefix);
+    }
+
+    @FunctionalInterface
+    public interface ContextFactory<R> {
+        R createContext(Tx tx, Supplier<R> supplier);
     }
 }

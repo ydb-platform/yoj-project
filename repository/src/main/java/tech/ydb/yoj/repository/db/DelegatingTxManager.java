@@ -6,6 +6,8 @@ import tech.ydb.yoj.repository.db.cache.TransactionLog;
 import tech.ydb.yoj.repository.db.exception.RetryableException;
 
 import java.time.Duration;
+import java.util.function.Consumer;
+import java.util.function.Function;
 import java.util.function.Supplier;
 
 import static lombok.AccessLevel.PRIVATE;
@@ -13,12 +15,12 @@ import static lombok.AccessLevel.PRIVATE;
 /**
  * Abstract base class for decorating {@link TxManager}s:
  * <ul>
- * <li>Enable additional tracing and logging, collect more metrics etc.: {@link #wrapTxBody(Supplier) wrapTxBody()}</li>
+ * <li>Enable additional tracing and logging, collect more metrics etc.: {@link #wrapTxBody(Function) wrapTxBody()}</li>
  * <li>Transform transaction results and accept/reject transactions (e.g. rate limiting): {@link #doRunTx(Supplier)
  * doRunTx()}</li>
  * </ul>
  *
- * @see #wrapTxBody(Supplier)
+ * @see #wrapTxBody(Function)
  * @see #doRunTx(Supplier)
  */
 public abstract class DelegatingTxManager implements TxManager {
@@ -45,14 +47,18 @@ public abstract class DelegatingTxManager implements TxManager {
     /**
      * Wraps the transaction body logic, e.g. establishes a tracing context for the specific transaction, runs the
      * transaction body and closes the tracing context.
-     * <p>Default implementation just returns the original {@code supplier}.
+     * <p>Called before invoking the delegate. The returned function is executed on each transaction attempt.
+     * Its argument is the delegate's {@link Tx} for explicit callbacks, or {@code null} with argument type
+     * {@link Void} for callbacks without arguments. Bodies without a result use result type {@code Void}.
+     * <p>Default implementation just returns the original {@code function}.
      *
-     * @param supplier logic that is run inside the transaction
-     * @param <T>      transaction result type
+     * @param function logic that is run inside the transaction
+     * @param <A>      transaction body argument type
+     * @param <R>      transaction result type
      * @return transaction body logic to execute
      */
-    protected <T> Supplier<T> wrapTxBody(Supplier<T> supplier) {
-        return supplier;
+    protected <A, R> Function<A, R> wrapTxBody(Function<A, R> function) {
+        return function;
     }
 
     /**
@@ -65,15 +71,43 @@ public abstract class DelegatingTxManager implements TxManager {
 
     @Override
     public final void tx(Runnable runnable) {
-        tx(() -> {
-            runnable.run();
+        doRunTx(() -> {
+            Function<Void, Void> wrapped = wrapTxBody(ignored -> {
+                runnable.run();
+                return null;
+            });
+            delegate.tx(() -> {
+                wrapped.apply(null);
+            });
             return null;
         });
     }
 
     @Override
     public final <T> T tx(Supplier<T> supplier) {
-        return doRunTx(() -> delegate.tx(wrapTxBody(supplier)));
+        return doRunTx(() -> {
+            Function<Void, T> wrapped = wrapTxBody(ignored -> supplier.get());
+            return delegate.tx(() -> wrapped.apply(null));
+        });
+    }
+
+    @Override
+    public final void tx(Consumer<Tx> consumer) {
+        doRunTx(() -> {
+            Function<Tx, Void> wrapped = wrapTxBody(tx -> {
+                consumer.accept(tx);
+                return null;
+            });
+            delegate.tx(tx -> {
+                wrapped.apply(tx);
+            });
+            return null;
+        });
+    }
+
+    @Override
+    public final <T> T tx(Function<Tx, T> function) {
+        return doRunTx(() -> delegate.tx(wrapTxBody(function)));
     }
 
     @Override
@@ -227,7 +261,10 @@ public abstract class DelegatingTxManager implements TxManager {
 
         @Override
         public <T> T run(Supplier<T> supplier) throws RetryableException {
-            return doRunTx(() -> this.delegate.run(wrapTxBody(supplier)));
+            return doRunTx(() -> {
+                Function<Void, T> wrapped = wrapTxBody(ignored -> supplier.get());
+                return this.delegate.run(() -> wrapped.apply(null));
+            });
         }
     }
 
@@ -247,7 +284,10 @@ public abstract class DelegatingTxManager implements TxManager {
 
         @Override
         public <T> T run(Supplier<T> supplier) throws RetryableException {
-            return doRunTx(() -> this.delegate.run(wrapTxBody(supplier)));
+            return doRunTx(() -> {
+                Function<Void, T> wrapped = wrapTxBody(ignored -> supplier.get());
+                return this.delegate.run(() -> wrapped.apply(null));
+            });
         }
     }
 }
