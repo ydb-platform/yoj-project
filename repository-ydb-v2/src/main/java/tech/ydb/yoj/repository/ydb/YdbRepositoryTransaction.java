@@ -152,7 +152,17 @@ public class YdbRepositoryTransaction<REPO extends YdbRepository>
     @Override
     public void commit() {
         if (isBadSession) {
-            log.error("Transaction was invalidated, but exception was omitted. Commit must not be called after error");
+            // YDB has already rolled back this transaction (e.g., its locks were invalidated), but user code has swallowed
+            // the resulting exception. The transaction's changes are lost, so we must fail instead of reporting success.
+            //
+            // rollback() skips the RollbackTransaction RPC here because isFinalActionNeeded() is false.
+            // It closes open streams, releases the session and marks this transaction as closed.
+            // Releasing a broken session via session.close() can still send a DeleteSession RPC.
+            // TxImpl does not call rollback() when commit() fails, so without this call the session would leak.
+            rollback();
+            throw new IllegalStateException(
+                    "Transaction was invalidated, but the exception was omitted. Commit must not be called after an error"
+            );
         }
         try {
             flushPendingWrites();
