@@ -156,7 +156,7 @@ public class StdTxManagerTest {
         verify(repositoryTransaction, times(1)).rollback();
         verify(repositoryTransaction, times(0)).commit();
 
-        verify(tracer).onRollback("test");
+        verify(tracer).onRollback("test", null);
         verify(tracer).onDryRun("test");
         verify(tracer).observeAttempts("test", 1);
     }
@@ -257,15 +257,16 @@ public class StdTxManagerTest {
         when(transactionLocal.log()).thenReturn(transactionLog);
 
         var txManager = new StdTxManager(repository, tracer).withName("test").withDryRun(true);
+        var exception = new RuntimeException("runtime exception");
 
         assertThatThrownBy(() -> txManager.tx(() -> {
-            throw new RuntimeException("runtime exception");
-        })).isInstanceOf(RuntimeException.class);
+            throw exception;
+        })).isSameAs(exception);
 
         verify(repositoryTransaction, times(1)).rollback();
         verify(repositoryTransaction, times(0)).commit();
 
-        verify(tracer).onRollback("test");
+        verify(tracer).onRollback("test", exception);
         verify(tracer).observeAttempts("test", 1);
     }
 

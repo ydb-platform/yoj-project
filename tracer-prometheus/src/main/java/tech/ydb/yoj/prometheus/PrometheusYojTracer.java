@@ -94,7 +94,7 @@ public final class PrometheusYojTracer implements YojTracer {
     }
 
     @Override
-    public void onRollback(String txName) {
+    public void onRollback(String txName, Throwable exception) {
         results.labelValues(txName, "rollback").inc();
     }
 

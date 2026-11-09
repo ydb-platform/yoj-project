@@ -204,7 +204,7 @@ public final class StdTxManager implements TxManager, TxManagerState {
             T result = runTxWithRetry(txName.name(), mdcs, supplier);
 
             if (options.isDryRun()) {
-                tracer.onRollback(txName.name());
+                tracer.onRollback(txName.name(), null);
                 tracer.onDryRun(txName.name());
             } else {
                 tracer.onCommit(txName.name());
@@ -237,7 +237,7 @@ public final class StdTxManager implements TxManager, TxManagerState {
                         throw e.rethrow();
                     }
                 } catch (Exception e) {
-                    tracer.onRollback(txName);
+                    tracer.onRollback(txName, e);
                     throw e;
                 }
 

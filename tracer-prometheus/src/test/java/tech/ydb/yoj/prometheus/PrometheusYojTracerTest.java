@@ -33,7 +33,7 @@ public class PrometheusYojTracerTest {
         tracer.startAttemptDurationTimer("orders").close();
         tracer.observeAttempts("orders", 3);
         tracer.onCommit("orders");
-        tracer.onRollback("orders");
+        tracer.onRollback("orders", new IllegalStateException("business logic failed"));
         tracer.onDryRun("orders");
         tracer.onFailure("orders", new IllegalStateException("retries exhausted"));
         tracer.onRetry("orders", new IllegalStateException("retry"));

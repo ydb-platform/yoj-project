@@ -29,10 +29,16 @@ public interface YojTracer {
     default void onCommit(String txName) {
     }
 
-    default void onRollback(String txName) {
+    /**
+     * Called when transaction execution throws a non-retryable exception (including a business logic exception),
+     * or after a successful dry run.
+     *
+     * @param exception the exception that ended execution, or {@code null} for a successful dry run
+     */
+    default void onRollback(String txName, Throwable exception) {
     }
 
-    /** Called in addition to {@link #onRollback(String)} after a successful dry run. */
+    /** Called in addition to {@link #onRollback(String, Throwable)} after a successful dry run. */
     default void onDryRun(String txName) {
     }
 
@@ -44,6 +50,10 @@ public interface YojTracer {
     default void onFailure(String txName, Throwable exception) {
     }
 
+    /**
+     * Called after transaction execution to report the total number of attempts, including the initial attempt,
+     * whether execution succeeded or failed.
+     */
     default void observeAttempts(String txName, int attempts) {
     }
 
