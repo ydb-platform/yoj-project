@@ -1,7 +1,7 @@
 load("@contrib_rules_jvm//java:defs.bzl", "java_library", "java_test_suite")
 
 java_library(
-    name = "prometheus-tracer",
+    name = "tracer-prometheus",
     srcs = glob(["src/main/**/*.java"]),
     visibility = ["//visibility:public"],
     deps = [
@@ -16,12 +16,12 @@ java_library(
 )
 
 java_test_suite(
-    name = "prometheus-tracer-tests",
+    name = "tracer-prometheus-tests",
     srcs = glob(["src/test/java/**/*.java"]),
     package_prefixes = [".tech"],
     runner = "junit4",
     deps = [
-        ":prometheus-tracer",
+        ":tracer-prometheus",
         "//repository",
         "@java_contribs_stable//:io_prometheus_prometheus_metrics_model",
         "@java_contribs_stable//:junit_junit",

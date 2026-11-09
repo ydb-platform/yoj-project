@@ -20,7 +20,7 @@
         <module>databind</module>
         <module>json-jackson-v2</module>
         <module>repository</module>
-        <module>prometheus-tracer</module>
+        <module>tracer-prometheus</module>
         <module>repository-test</module>
         <module>repository-inmemory</module>
         <module>repository-ydb-common</module>

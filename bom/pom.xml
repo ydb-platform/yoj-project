@@ -103,7 +103,7 @@
         <dependencies>
             <dependency>
                 <groupId>tech.ydb.yoj</groupId>
-                <artifactId>yoj-prometheus-tracer</artifactId>
+                <artifactId>yoj-tracer-prometheus</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
