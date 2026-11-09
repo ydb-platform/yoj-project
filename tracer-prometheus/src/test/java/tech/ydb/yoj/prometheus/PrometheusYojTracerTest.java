@@ -35,7 +35,7 @@ public class PrometheusYojTracerTest {
         tracer.onCommit("orders");
         tracer.onRollback("orders");
         tracer.onDryRun("orders");
-        tracer.onFailure("orders");
+        tracer.onFailure("orders", new IllegalStateException("retries exhausted"));
         tracer.onRetry("orders", new IllegalStateException("retry"));
 
         MetricSnapshots scrape = registry.scrape();

@@ -109,7 +109,7 @@ public final class PrometheusYojTracer implements YojTracer {
     }
 
     @Override
-    public void onFailure(String txName) {
+    public void onFailure(String txName, Throwable exception) {
         results.labelValues(txName, "fail").inc();
     }
 

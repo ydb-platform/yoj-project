@@ -40,7 +40,8 @@ public interface YojTracer {
     default void onRetry(String txName, Throwable exception) {
     }
 
-    default void onFailure(String txName) {
+    /** Called when a transaction fails after exhausting retries, with the final retryable exception. */
+    default void onFailure(String txName, Throwable exception) {
     }
 
     default void observeAttempts(String txName, int attempts) {

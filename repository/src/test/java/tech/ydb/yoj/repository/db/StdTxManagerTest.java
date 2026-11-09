@@ -293,11 +293,14 @@ public class StdTxManagerTest {
         var txManager = new StdTxManager(repository, tracer).withName("test")
                 .withMaxRetries(1)
                 .withCustomRetries(e -> e instanceof OptimisticLockException ? spyRetryPolicy : null);
+        var attemptFailures = List.of(
+                new OptimisticLockException("first attempt"),
+                new OptimisticLockException("final attempt")
+        );
         var i = new AtomicInteger();
 
         assertThatExceptionOfType(UnavailableException.class).isThrownBy(() -> txManager.tx(() -> {
-            i.incrementAndGet();
-            throw new OptimisticLockException("lock exception");
+            throw attemptFailures.get(i.getAndIncrement());
         }));
 
         verify(repositoryTransaction, times(2)).rollback();
@@ -306,7 +309,7 @@ public class StdTxManagerTest {
         assertThat(spyRetryPolicy.lastRetryAttempt).isEqualTo(1);
 
         verify(tracer, times(2)).onRetry(Mockito.eq("test"), any(OptimisticLockException.class));
-        verify(tracer).onFailure("test");
+        verify(tracer).onFailure("test", attemptFailures.get(1));
         verify(tracer).observeAttempts("test", 2);
     }
 

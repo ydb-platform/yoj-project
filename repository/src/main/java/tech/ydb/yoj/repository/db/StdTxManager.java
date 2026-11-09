@@ -233,7 +233,7 @@ public final class StdTxManager implements TxManager, TxManagerState {
                     if (attempt < maxAttemptCount) {
                         sleepBeforeNextAttempt(e, attempt);
                     } else {
-                        tracer.onFailure(txName);
+                        tracer.onFailure(txName, e);
                         throw e.rethrow();
                     }
                 } catch (Exception e) {
