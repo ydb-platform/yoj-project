@@ -2819,7 +2819,7 @@ public abstract class RepositoryTest extends RepositoryTestSupport {
         class BusinessException extends RuntimeException {
         }
 
-        assertThatExceptionOfType(BusinessException.class).isThrownBy(() -> db.tx(() -> {
+        assertThatExceptionOfType(BusinessException.class).isThrownBy(() -> db.scan().run(() -> {
             db.primitives().find(new Primitive.Id(25));
             throw new BusinessException();
         }));

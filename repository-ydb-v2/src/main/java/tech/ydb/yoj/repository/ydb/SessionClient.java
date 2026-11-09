@@ -27,7 +27,9 @@ import tech.ydb.yoj.util.lang.Exceptions;
         this.schemeClient = SchemeClient.newClient(transport).build();
         this.topicClient = TopicClient.newClient(transport).build();
 
-        this.sessionManager = new YdbSessionManager(tableClient, config.getSessionCreationTimeout());
+        this.sessionManager = new YdbSessionManager(
+                tableClient, repositorySettings.ydbValidator(), config.getSessionCreationTimeout()
+        );
         this.schemaOperations = new YdbSchemaOperations(
                 config.getTablespace(), sessionManager, schemeClient, topicClient
         );
