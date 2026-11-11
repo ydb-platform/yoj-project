@@ -29,6 +29,7 @@ import tech.ydb.yoj.repository.test.sample.model.Referring;
 import tech.ydb.yoj.repository.test.sample.model.Supabubble;
 import tech.ydb.yoj.repository.test.sample.model.Supabubble2;
 import tech.ydb.yoj.repository.test.sample.model.Team;
+import tech.ydb.yoj.repository.test.sample.model.Ticket;
 import tech.ydb.yoj.repository.test.sample.model.TypeFreak;
 import tech.ydb.yoj.repository.test.sample.model.UpdateFeedEntry;
 import tech.ydb.yoj.repository.test.sample.model.VersionedAliasedEntity;
@@ -213,6 +214,11 @@ public class TestYdbRepository extends YdbRepository {
         @Override
         public Table<EntityWithNullableField> entitiesWithNullableField() {
             return table(EntityWithNullableField.class);
+        }
+
+        @Override
+        public Table<Ticket> tickets() {
+            return table(Ticket.class);
         }
     }
 

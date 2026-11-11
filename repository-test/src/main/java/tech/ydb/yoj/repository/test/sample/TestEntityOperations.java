@@ -20,6 +20,7 @@ import tech.ydb.yoj.repository.test.sample.model.Referring;
 import tech.ydb.yoj.repository.test.sample.model.Supabubble;
 import tech.ydb.yoj.repository.test.sample.model.Supabubble2;
 import tech.ydb.yoj.repository.test.sample.model.Team;
+import tech.ydb.yoj.repository.test.sample.model.Ticket;
 import tech.ydb.yoj.repository.test.sample.model.TypeFreak;
 import tech.ydb.yoj.repository.test.sample.model.UpdateFeedEntry;
 import tech.ydb.yoj.repository.test.sample.model.VersionedAliasedEntity;
@@ -77,6 +78,8 @@ public interface TestEntityOperations extends BaseDb {
     Table<MultiWrappedEntity2> multiWrappedEntities2();
 
     Table<EntityWithNullableField> entitiesWithNullableField();
+
+    Table<Ticket> tickets();
 
     class ProjectTable extends AbstractDelegatingTable<Project> {
         public ProjectTable(Table<Project> target) {

@@ -7,6 +7,8 @@ import tech.ydb.yoj.repository.db.TableDescriptor;
 import java.util.Map;
 import java.util.function.Function;
 
+import static tech.ydb.yoj.util.lang.DebugLoggable.toLoggable;
+
 public class InsertYqlStatement<PARAMS, ENTITY extends Entity<ENTITY>> extends MultipleVarsYqlStatement.Simple<PARAMS, ENTITY> {
     public InsertYqlStatement(TableDescriptor<ENTITY> tableDescriptor, EntitySchema<ENTITY> schema) {
         super(tableDescriptor, schema);
@@ -19,7 +21,7 @@ public class InsertYqlStatement<PARAMS, ENTITY extends Entity<ENTITY>> extends M
 
     @Override
     public String toDebugString(PARAMS params) {
-        return "insert(" + toDebugParams(params) + ")";
+        return "insert(" + toLoggable(params) + ")";
     }
 
     @Override
