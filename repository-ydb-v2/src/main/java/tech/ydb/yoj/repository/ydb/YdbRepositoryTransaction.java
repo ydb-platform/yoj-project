@@ -314,10 +314,10 @@ public class YdbRepositoryTransaction<REPO extends YdbRepository>
         Exception thrown = null;
         try {
             result = doCall(statement.toDebugString(params), () -> {
-                if (options.isScan()) {
-                    return options.getScanOptions().isUseNewSpliterator()
-                            ? doExecuteScanQueryList(statement, params)
-                            : doExecuteScanQueryLegacy(statement, params);
+                if (options instanceof TxOptions.ScanTxOptions scanOptions) {
+                    return scanOptions.isUseNewSpliterator()
+                            ? doExecuteScanQueryList(statement, params, scanOptions)
+                            : doExecuteScanQueryLegacy(statement, params, scanOptions);
                 } else {
                     return doExecuteDataQuery(statement, params);
                 }
@@ -403,9 +403,11 @@ public class YdbRepositoryTransaction<REPO extends YdbRepository>
         }
     }
 
-    private <PARAMS, RESULT> List<RESULT> doExecuteScanQueryLegacy(Statement<PARAMS, RESULT> statement, PARAMS params) {
+    private <PARAMS, RESULT> List<RESULT> doExecuteScanQueryLegacy(
+            Statement<PARAMS, RESULT> statement, PARAMS params, TxOptions.ScanTxOptions scanOptions
+    ) {
         ExecuteScanQuerySettings settings = ExecuteScanQuerySettings.newBuilder()
-                .withRequestTimeout(options.getScanOptions().getTimeout())
+                .withRequestTimeout(scanOptions.getTimeout())
                 .setMode(ExecuteScanQuerySettings.Mode.EXEC)
                 .build();
 
@@ -415,11 +417,11 @@ public class YdbRepositoryTransaction<REPO extends YdbRepository>
         List<RESULT> result = new ArrayList<>();
         Status status = YdbOperations.safeJoin(session.executeScanQuery(yql, sdkParams, settings, rs -> {
             int rowCount = result.size() + rs.getRowCount();
-            if (rowCount > options.getScanOptions().getMaxSize()) {
+            if (rowCount > scanOptions.getMaxSize()) {
                 throw new ResultTruncatedException(
-                        "Scan query result size became greater than " + options.getScanOptions().getMaxSize(),
+                        "Scan query result size became greater than " + scanOptions.getMaxSize(),
                         yql,
-                        options.getScanOptions().getMaxSize(),
+                        scanOptions.getMaxSize(),
                         rowCount
                 );
             }
@@ -431,15 +433,17 @@ public class YdbRepositoryTransaction<REPO extends YdbRepository>
         return result;
     }
 
-    private <PARAMS, RESULT> List<RESULT> doExecuteScanQueryList(Statement<PARAMS, RESULT> statement, PARAMS params) {
+    private <PARAMS, RESULT> List<RESULT> doExecuteScanQueryList(
+            Statement<PARAMS, RESULT> statement, PARAMS params, TxOptions.ScanTxOptions scanOptions
+    ) {
         List<RESULT> result = new ArrayList<>();
         try (Stream<RESULT> stream = executeScanQuery(statement, params)) {
             stream.forEach(r -> {
-                if (result.size() >= options.getScanOptions().getMaxSize()) {
+                if (result.size() >= scanOptions.getMaxSize()) {
                     throw new ResultTruncatedException(
-                            "Scan query result size became greater than " + options.getScanOptions().getMaxSize(),
+                            "Scan query result size became greater than " + scanOptions.getMaxSize(),
                             getYql(statement),
-                            options.getScanOptions().getMaxSize(),
+                            scanOptions.getMaxSize(),
                             result.size()
                     );
                 }
@@ -451,23 +455,19 @@ public class YdbRepositoryTransaction<REPO extends YdbRepository>
 
     @Override
     public <PARAMS, RESULT> Stream<RESULT> executeScanQuery(Statement<PARAMS, RESULT> statement, PARAMS params) {
-        if (!options.isScan()) {
+        if (!(options instanceof TxOptions.ScanTxOptions scanOptions)) {
             throw new IllegalStateException("Scan query can be used only from scan tx");
         }
 
         ExecuteScanQuerySettings settings = ExecuteScanQuerySettings.newBuilder()
-                .withRequestTimeout(options.getScanOptions().getTimeout())
+                .withRequestTimeout(scanOptions.getTimeout())
                 .setMode(ExecuteScanQuerySettings.Mode.EXEC)
                 .build();
 
         String yql = getYql(statement);
         Params sdkParams = getSdkParams(statement, params);
 
-        YdbSpliterator<RESULT> spliterator = createSpliterator(
-                "scanQuery: " + yql,
-                false,
-                options.getScanOptions().getTimeout()
-        );
+        YdbSpliterator<RESULT> spliterator = createSpliterator("scanQuery: " + yql, false, scanOptions.getTimeout());
 
         initSession();
         session.executeScanQuery(

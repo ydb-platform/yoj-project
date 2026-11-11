@@ -13,6 +13,16 @@ import java.util.function.Supplier;
 
 public interface TxManager {
     /**
+     * @return the current transaction options
+     */
+    TxOptions getOptions();
+
+    /**
+     * Replaces the transaction options without changing its name, log context, retry or separate-transaction policy.
+     */
+    TxManager withOptions(TxOptions options);
+
+    /**
      * Set transaction name used for logging and metrics.
      *
      * <p>Since name is used as metric label, there should be limited numbers of names used for transactions.
@@ -43,7 +53,9 @@ public interface TxManager {
      * @see #immediateWrites()
      * @see #noFirstLevelCache()
      */
-    TxManager delayedWrites();
+    default TxManager delayedWrites() {
+        return withOptions(getOptions().withImmediateWrites(false));
+    }
 
     /**
      * Disable pending write queue in transaction and execute write changes immediately.
@@ -55,12 +67,16 @@ public interface TxManager {
      *
      * @see #delayedWrites()
      */
-    TxManager immediateWrites();
+    default TxManager immediateWrites() {
+        return withOptions(getOptions().withImmediateWrites(true));
+    }
 
     /**
      * Turn off first level cache
      */
-    TxManager noFirstLevelCache();
+    default TxManager noFirstLevelCache() {
+        return withOptions(getOptions().withFirstLevelCache(false));
+    }
 
     /**
      * Fails if you try to create a separate transaction inside other transaction. TxManager with this setting is good
@@ -94,7 +110,9 @@ public interface TxManager {
      * Marks the transaction as dry-run.
      * If transaction is marked as dry-run, its changes will be rolled back but no exception will be thrown and transaction result will be returned.
      */
-    TxManager withDryRun(boolean dryRun);
+    default TxManager withDryRun(boolean dryRun) {
+        return withOptions(getOptions().withDryRun(dryRun));
+    }
 
     /**
      * Configures verbose logging for this transactions's execution. Short representations of DB queries performed and
@@ -129,28 +147,37 @@ public interface TxManager {
      *
      * @param level minimum accepted log message level, e.g., {@link TransactionLog.Level#DEBUG DEBUG} for DB queries
      */
-    TxManager withLogLevel(TransactionLog.Level level);
+    default TxManager withLogLevel(@NonNull TransactionLog.Level level) {
+        return withOptions(getOptions().withLogLevel(level));
+    }
 
     /**
      * Flag for managing logging transaction statement on success.
      **/
-    TxManager withLogStatementOnSuccess(boolean logStatementOnSuccess);
+    default TxManager withLogStatementOnSuccess(boolean logStatementOnSuccess) {
+        return withOptions(getOptions().withLogStatementOnSuccess(logStatementOnSuccess));
+    }
 
     /**
-     * Changes transaction timeout. If the timeout elapses before transaction finishes,
+     * Changes transaction timeout, or the timeout of individual queries for scan transactions.
+     * If the timeout elapses before transaction or query finishes,
      * {@link DeadlineExceededException} or
      * {@link QueryCancelledException} might be thrown.
      *
-     * @param timeout transaction timeout
+     * @param timeout transaction or scan-query timeout
      */
-    TxManager withTimeout(@NonNull Duration timeout);
+    default TxManager withTimeout(@NonNull Duration timeout) {
+        return withOptions(getOptions().withTimeout(timeout));
+    }
 
     /**
      * Changes query statistics collection mode for this transaction's queries. (No statistics are collected by default.)
      *
      * @param queryStats statistics collection mode
      */
-    TxManager withQueryStats(@NonNull QueryStatsMode queryStats);
+    default TxManager withQueryStats(@NonNull QueryStatsMode queryStats) {
+        return withOptions(getOptions().withQueryStats(queryStats));
+    }
 
     /**
      * <strong>Experimental API:</strong> Enables logging of queries at {@code TRACE} level (which is already the YOJ default).
@@ -192,7 +219,18 @@ public interface TxManager {
      * @param tracingFilter query tracing filter
      */
     @ExperimentalApi(issue = "https://github.com/ydb-platform/yoj-project/issues/162")
-    TxManager withTracingFilter(@NonNull QueryTracingFilter tracingFilter);
+    default TxManager withTracingFilter(@NonNull QueryTracingFilter tracingFilter) {
+        return withOptions(getOptions().withTracingFilter(tracingFilter));
+    }
+
+    /**
+     * @deprecated Do not use this method. TxManager will be redesigned in issues/190.
+     */
+    @ExperimentalApi(issue = "https://github.com/ydb-platform/yoj-project/issues/190")
+    @Deprecated(forRemoval = true)
+    default TxManager withIsolationLevel(IsolationLevel isolationLevel) {
+        return withOptions(getOptions().withIsolationLevel(isolationLevel));
+    }
 
     /**
      * Performs the specified action inside a transaction. The action must be idempotent, because it might be executed
@@ -210,6 +248,19 @@ public interface TxManager {
      * @param runnable action to perform
      */
     void tx(Runnable runnable);
+
+
+    // @deprecated Use tx() instead.
+    @Deprecated
+    default <T> T run(Supplier<T> supplier) {
+        return tx(supplier);
+    }
+
+    // @deprecated Use tx() instead.
+    @Deprecated
+    default void run(Runnable runnable) {
+        tx(runnable);
+    }
 
     /**
      * Start a transaction-like session of read-only statements. Each statement will be executed <em>separately</em>,
@@ -229,27 +280,12 @@ public interface TxManager {
      * interfering with OLTP transactions. Be ready to handle potential inconsistencies between the reads if you perform
      * more than one scan query.
      */
-    ScanBuilder scan();
+    ScanTxManager scan();
 
     /**
      * @return information about current transaction settings set for this instance of {@code TxManager}
      */
     TxManagerState getState();
-
-    interface ScanBuilder {
-        ScanBuilder withMaxSize(long maxSize);
-
-        ScanBuilder withTimeout(Duration timeout);
-
-        <T> T run(Supplier<T> supplier);
-
-        default void run(Runnable runnable) {
-            run(() -> {
-                runnable.run();
-                return null;
-            });
-        }
-    }
 
     interface ReadonlyBuilder {
         ReadonlyBuilder withStatementIsolationLevel(IsolationLevel isolationLevel);
