@@ -1,9 +1,6 @@
 package tech.ydb.yoj.repository.db;
 
 import com.google.common.base.Preconditions;
-import io.prometheus.client.Counter;
-import io.prometheus.client.Histogram;
-import io.prometheus.client.Histogram.Timer;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -16,6 +13,8 @@ import tech.ydb.yoj.ExperimentalApi;
 import tech.ydb.yoj.repository.db.cache.TransactionLog;
 import tech.ydb.yoj.repository.db.exception.QueryInterruptedException;
 import tech.ydb.yoj.repository.db.exception.RetryableException;
+import tech.ydb.yoj.tracer.YojTracer;
+import tech.ydb.yoj.tracer.YojTracer.Timer;
 import tech.ydb.yoj.util.lang.Strings;
 import tech.ydb.yoj.util.log.MdcSetup;
 import tech.ydb.yoj.util.retry.RetryPolicy;
@@ -47,38 +46,11 @@ public final class StdTxManager implements TxManager, TxManagerState {
     private static final Logger log = LoggerFactory.getLogger(StdTxManager.class);
 
     private static final int DEFAULT_MAX_ATTEMPT_COUNT = 100;
-    private static final double[] TX_ATTEMPTS_BUCKETS = new double[]
-            {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 14, 16, 18, 20, 25, 35, 40, 45, 50, 60, 70, 80, 90, 100};
-    private static final double[] DURATION_BUCKETS = {
-            .001, .0025, .005, .0075,
-            .01, .025, .05, .075,
-            .1, .25, .5, .75,
-            1, 2.5, 5, 7.5,
-            10, 25, 50, 75,
-            100
-    };
-    private static final Histogram totalDuration = Histogram.build("tx_total_duration_seconds", "Tx total duration (seconds)")
-            .labelNames("tx_name")
-            .buckets(DURATION_BUCKETS)
-            .register();
-    private static final Histogram attemptDuration = Histogram.build("tx_attempt_duration_seconds", "Tx attempt duration (seconds)")
-            .labelNames("tx_name")
-            .buckets(DURATION_BUCKETS)
-            .register();
-    private static final Histogram attempts = Histogram.build("tx_attempts", "Tx attempts spent")
-            .labelNames("tx_name")
-            .buckets(TX_ATTEMPTS_BUCKETS)
-            .register();
-    private static final Counter results = Counter.build("tx_result", "Tx commits/rollbacks/fails")
-            .labelNames("tx_name", "result")
-            .register();
-    private static final Counter retries = Counter.build("tx_retries", "Tx retry reasons")
-            .labelNames("tx_name", "reason")
-            .register();
     private static final AtomicLong txLogIdSeq = new AtomicLong();
 
     @Getter
     private final Repository repository;
+    private final YojTracer tracer;
     @With(AccessLevel.PRIVATE)
     private final int maxAttemptCount;
     @With
@@ -94,8 +66,20 @@ public final class StdTxManager implements TxManager, TxManagerState {
     private final RetryPolicyProvider customRetryPolicyProvider;
 
     public StdTxManager(@NonNull Repository repository) {
+        this(repository, YojTracer.getDefault());
+    }
+
+    /**
+     * Creates a transaction manager using the supplied tracer.
+     * Copies made by configuration methods share the same tracer.
+     *
+     * @param repository repository to run transactions against
+     * @param tracer transaction instrumentation
+     */
+    public StdTxManager(@NonNull Repository repository, @NonNull YojTracer tracer) {
         this(
                 /*         repository */ repository,
+                /*             tracer */ tracer,
                 /*    maxAttemptCount */ DEFAULT_MAX_ATTEMPT_COUNT,
                 /*         logContext */ null,
                 /*            options */ TxOptions.create(SERIALIZABLE_READ_WRITE),
@@ -216,14 +200,14 @@ public final class StdTxManager implements TxManager, TxManagerState {
         long txLogId = txLogIdSeq.incrementAndGet();
 
         MdcSetup mdcs = txMdcs(txName, txLogId);
-        try (Timer ignored = totalDuration.labels(txName.name()).startTimer()) {
+        try (Timer ignored = tracer.startTotalDurationTimer(txName.name())) {
             T result = runTxWithRetry(txName.name(), mdcs, supplier);
 
             if (options.isDryRun()) {
-                results.labels(txName.name(), "rollback").inc();
-                results.labels(txName.name(), "dry_run").inc();
+                tracer.onRollback(txName.name(), null);
+                tracer.onDryRun(txName.name());
             } else {
-                results.labels(txName.name(), "commit").inc();
+                tracer.onCommit(txName.name());
             }
             
             return result;
@@ -240,20 +224,20 @@ public final class StdTxManager implements TxManager, TxManagerState {
                 mdcs.put("tx-attempt", attempt);
 
                 lastTx = null;
-                try (Timer ignored = attemptDuration.labels(txName).startTimer()) {
+                try (Timer ignored = tracer.startAttemptDurationTimer(txName)) {
                     RepositoryTransaction transaction = repository.startTransaction(options);
                     lastTx = new TxImpl(txName, transaction, options);
                     return lastTx.run(supplier);
                 } catch (RetryableException e) {
-                    retries.labels(txName, getExceptionNameForMetric(e)).inc();
+                    tracer.onRetry(txName, e);
                     if (attempt < maxAttemptCount) {
                         sleepBeforeNextAttempt(e, attempt);
                     } else {
-                        results.labels(txName, "fail").inc();
+                        tracer.onFailure(txName, e);
                         throw e.rethrow();
                     }
                 } catch (Exception e) {
-                    results.labels(txName, "rollback").inc();
+                    tracer.onRollback(txName, e);
                     throw e;
                 }
 
@@ -268,7 +252,7 @@ public final class StdTxManager implements TxManager, TxManagerState {
                 // @see https://github.com/ydb-platform/yoj-project/issues/209
                 lastTx.runDeferredFinally();
             }
-            attempts.labels(txName).observe(attempt);
+            tracer.observeAttempts(txName, attempt);
         }
     }
 
@@ -288,10 +272,6 @@ public final class StdTxManager implements TxManager, TxManagerState {
                     Transaction '{}' was run when another transaction is active. Perhaps unexpected behavior. \
                     Use TxManager.separate() to avoid this message""", txName);
         }
-    }
-
-    private String getExceptionNameForMetric(RetryableException e) {
-        return Strings.removeSuffix(e.getClass().getSimpleName(), "Exception");
     }
 
     private MdcSetup txMdcs(TxName txName, long txLogId) {

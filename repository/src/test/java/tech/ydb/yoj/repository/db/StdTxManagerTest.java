@@ -1,5 +1,7 @@
 package tech.ydb.yoj.repository.db;
 
+import io.prometheus.metrics.model.registry.PrometheusRegistry;
+import io.prometheus.metrics.model.snapshots.CounterSnapshot;
 import lombok.NonNull;
 import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.LogManager;
@@ -16,6 +18,7 @@ import tech.ydb.yoj.repository.db.exception.OptimisticLockException;
 import tech.ydb.yoj.repository.db.exception.UnavailableException;
 import tech.ydb.yoj.repository.db.testcaller.TestDbTxCaller;
 import tech.ydb.yoj.repository.testcaller.TestTxCaller;
+import tech.ydb.yoj.tracer.YojTracer;
 import tech.ydb.yoj.util.retry.RetryPolicy;
 
 import java.time.Duration;
@@ -27,16 +30,37 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.CALLS_REAL_METHODS;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 public class StdTxManagerTest {
+    private final YojTracer tracer = mock(YojTracer.class, CALLS_REAL_METHODS);
     private final Repository repository = mock(Repository.class);
     private final TransactionLocal transactionLocal = mock(TransactionLocal.class);
     private final TransactionLog transactionLog = new TransactionLog(TransactionLog.Level.DEBUG);
     private final RepositoryTransaction repositoryTransaction = mock(RepositoryTransaction.class);
+
+    @Test
+    public void defaultConstructorReportsPrometheusMetrics() {
+        when(repository.startTransaction(any(TxOptions.class))).thenReturn(repositoryTransaction);
+        when(repositoryTransaction.getTransactionLocal()).thenReturn(transactionLocal);
+        when(transactionLocal.log()).thenReturn(transactionLog);
+
+        String txName = "defaultConstructorReportsPrometheusMetrics";
+        new StdTxManager(repository).withName(txName).tx(() -> "done");
+
+        var results = (CounterSnapshot) PrometheusRegistry.defaultRegistry.scrape().stream()
+                .filter(metric -> metric.getMetadata().getName().equals("tx_result"))
+                .findFirst().orElseThrow();
+        assertThat(results.getDataPoints()).anySatisfy(point -> {
+            assertThat(point.getLabels().get("tx_name")).isEqualTo(txName);
+            assertThat(point.getLabels().get("result")).isEqualTo("commit");
+            assertThat(point.getValue()).isEqualTo(1);
+        });
+    }
 
     @Test
     public void testDbChildPackage_FromStackWalker_Auto() {
@@ -123,7 +147,7 @@ public class StdTxManagerTest {
         when(repositoryTransaction.getTransactionLocal()).thenReturn(transactionLocal);
         when(transactionLocal.log()).thenReturn(transactionLog);
 
-        var txManager = new StdTxManager(repository).withDryRun(true);
+        var txManager = new StdTxManager(repository, tracer).withName("test").withDryRun(true);
         var testObj = new Object();
 
         assertThat(txManager.tx(() -> testObj))
@@ -131,6 +155,10 @@ public class StdTxManagerTest {
 
         verify(repositoryTransaction, times(1)).rollback();
         verify(repositoryTransaction, times(0)).commit();
+
+        verify(tracer).onRollback("test", null);
+        verify(tracer).onDryRun("test");
+        verify(tracer).observeAttempts("test", 1);
     }
 
     @Test
@@ -139,7 +167,7 @@ public class StdTxManagerTest {
         when(repositoryTransaction.getTransactionLocal()).thenReturn(transactionLocal);
         when(transactionLocal.log()).thenReturn(transactionLog);
 
-        var txManager = new StdTxManager(repository).withDryRun(false);
+        var txManager = new StdTxManager(repository, tracer).withName("test").withDryRun(false);
         var testObj = new Object();
 
         assertThat(txManager.tx(() -> testObj))
@@ -147,6 +175,9 @@ public class StdTxManagerTest {
 
         verify(repositoryTransaction, times(0)).rollback();
         verify(repositoryTransaction, times(1)).commit();
+
+        verify(tracer).onCommit("test");
+        verify(tracer).observeAttempts("test", 1);
     }
 
     @Test
@@ -185,7 +216,7 @@ public class StdTxManagerTest {
                 .doNothing()
                 .when(repositoryTransaction).rollback();
 
-        var txManager = new StdTxManager(repository).withDryRun(true);
+        var txManager = new StdTxManager(repository, tracer).withName("test").withDryRun(true);
         var testObj = new Object();
 
         assertThat(txManager.tx(() -> testObj))
@@ -193,6 +224,9 @@ public class StdTxManagerTest {
 
         verify(repositoryTransaction, times(3)).rollback();
         verify(repositoryTransaction, times(0)).commit();
+
+        verify(tracer, times(2)).onRetry(Mockito.eq("test"), any(OptimisticLockException.class));
+        verify(tracer).observeAttempts("test", 3);
     }
 
     @Test
@@ -222,14 +256,18 @@ public class StdTxManagerTest {
         when(repositoryTransaction.getTransactionLocal()).thenReturn(transactionLocal);
         when(transactionLocal.log()).thenReturn(transactionLog);
 
-        var txManager = new StdTxManager(repository).withDryRun(true);
+        var txManager = new StdTxManager(repository, tracer).withName("test").withDryRun(true);
+        var exception = new RuntimeException("runtime exception");
 
         assertThatThrownBy(() -> txManager.tx(() -> {
-            throw new RuntimeException("runtime exception");
-        })).isInstanceOf(RuntimeException.class);
+            throw exception;
+        })).isSameAs(exception);
 
         verify(repositoryTransaction, times(1)).rollback();
         verify(repositoryTransaction, times(0)).commit();
+
+        verify(tracer).onRollback("test", exception);
+        verify(tracer).observeAttempts("test", 1);
     }
 
     @Test
@@ -253,20 +291,27 @@ public class StdTxManagerTest {
             }
         };
 
-        var txManager = new StdTxManager(repository)
+        var txManager = new StdTxManager(repository, tracer).withName("test")
                 .withMaxRetries(1)
                 .withCustomRetries(e -> e instanceof OptimisticLockException ? spyRetryPolicy : null);
+        var attemptFailures = List.of(
+                new OptimisticLockException("first attempt"),
+                new OptimisticLockException("final attempt")
+        );
         var i = new AtomicInteger();
 
         assertThatExceptionOfType(UnavailableException.class).isThrownBy(() -> txManager.tx(() -> {
-            i.incrementAndGet();
-            throw new OptimisticLockException("lock exception");
+            throw attemptFailures.get(i.getAndIncrement());
         }));
 
         verify(repositoryTransaction, times(2)).rollback();
         verify(repositoryTransaction, times(0)).commit();
         assertThat(i).hasValue(2);
         assertThat(spyRetryPolicy.lastRetryAttempt).isEqualTo(1);
+
+        verify(tracer, times(2)).onRetry(Mockito.eq("test"), any(OptimisticLockException.class));
+        verify(tracer).onFailure("test", attemptFailures.get(1));
+        verify(tracer).observeAttempts("test", 2);
     }
 
     private static final class TestAppender extends AbstractAppender {

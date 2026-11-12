@@ -9,6 +9,5 @@ java_library(
         "//databind",
         "//repository",
         "//util",
-        "@java_contribs_stable//:io_prometheus_simpleclient",
     ],
 )

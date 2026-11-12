@@ -4,6 +4,7 @@ import com.google.common.base.Strings;
 import io.grpc.ClientInterceptor;
 import io.grpc.ManagedChannelBuilder;
 import lombok.Builder;
+import lombok.Getter;
 import lombok.NonNull;
 import lombok.Value;
 import lombok.With;
@@ -29,6 +30,7 @@ import tech.ydb.yoj.repository.ydb.client.YdbTableHint;
 import tech.ydb.yoj.repository.ydb.compatibility.YdbDataCompatibilityChecker;
 import tech.ydb.yoj.repository.ydb.compatibility.YdbSchemaCompatibilityChecker;
 import tech.ydb.yoj.repository.ydb.statement.Statement;
+import tech.ydb.yoj.tracer.YojTracer;
 import tech.ydb.yoj.util.function.MoreSuppliers;
 import tech.ydb.yoj.util.function.MoreSuppliers.CloseableMemoizer;
 import tech.ydb.yoj.util.lang.Exceptions;
@@ -50,6 +52,8 @@ import static tech.ydb.yoj.repository.ydb.client.YdbPaths.canonicalDatabase;
 public class YdbRepository implements Repository {
     private static final Logger log = LoggerFactory.getLogger(YdbRepository.class);
 
+    @Getter
+    private final Settings settings;
     private final GrpcTransport transport;
     private final CloseableMemoizer<SessionClient> sessionClient;
 
@@ -98,6 +102,7 @@ public class YdbRepository implements Repository {
             @NonNull Settings repositorySettings,
             @NonNull GrpcTransport transport
     ) {
+        this.settings = repositorySettings;
         this.entityClassesByTableName = new ConcurrentHashMap<>();
         this.transport = transport;
         this.sessionClient = MoreSuppliers.memoizeCloseable(
@@ -358,23 +363,40 @@ public class YdbRepository implements Repository {
     ) {
         public static SettingsBuilder builder() {
             return new SettingsBuilder()
-                    .queryImplementation(new QueryImplementation.TableService())
-                    .metrics(Metrics.builder().build());
+                    .queryImplementation(new QueryImplementation.TableService());
+        }
+
+        public static class SettingsBuilder {
+            public Settings build() {
+                return new Settings(queryImplementation, metrics != null ? metrics : Metrics.builder().build());
+            }
         }
 
         /**
          * Metric settings for YDB repository.
          *
          * @param repositoryLabel Value of {@code repository} label for metrics of this {@code YdbRepository}
+         * @param tracer Session pool instrumentation; defaults to {@link YojTracer#getDefault()}
          */
         @With
         @Builder(builderMethodName = "")
         public record Metrics(
-                @NonNull String repositoryLabel
+                @NonNull String repositoryLabel,
+                @NonNull YojTracer tracer
         ) {
+            public Metrics(String repositoryLabel) {
+                this(repositoryLabel, YojTracer.getDefault());
+            }
+
             public static MetricsBuilder builder() {
                 return new MetricsBuilder()
                         .repositoryLabel("YdbRepository");
+            }
+
+            public static class MetricsBuilder {
+                public Metrics build() {
+                    return new Metrics(repositoryLabel, tracer != null ? tracer : YojTracer.getDefault());
+                }
             }
         }
     }

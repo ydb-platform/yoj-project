@@ -23,6 +23,10 @@
     <dependencies>
         <dependency>
             <groupId>tech.ydb.yoj</groupId>
+            <artifactId>yoj-tracer</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>tech.ydb.yoj</groupId>
             <artifactId>yoj-repository-ydb-common</artifactId>
         </dependency>
         <dependency>
@@ -105,10 +109,6 @@
         <dependency>
             <groupId>org.apache.commons</groupId>
             <artifactId>commons-text</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>io.prometheus</groupId>
-            <artifactId>simpleclient</artifactId>
         </dependency>
         <dependency>
             <groupId>com.google.code.findbugs</groupId>

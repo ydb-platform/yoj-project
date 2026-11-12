@@ -22,6 +22,15 @@
     <dependencies>
         <dependency>
             <groupId>tech.ydb.yoj</groupId>
+            <artifactId>yoj-tracer</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>tech.ydb.yoj</groupId>
+            <artifactId>yoj-tracer-prometheus</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+        <dependency>
+            <groupId>tech.ydb.yoj</groupId>
             <artifactId>yoj-databind</artifactId>
         </dependency>
         <dependency>
@@ -32,11 +41,6 @@
         <dependency>
             <groupId>org.slf4j</groupId>
             <artifactId>slf4j-api</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>io.prometheus</groupId>
-            <artifactId>simpleclient</artifactId>
         </dependency>
 
         <!-- Optional (Kotlin support) -->
